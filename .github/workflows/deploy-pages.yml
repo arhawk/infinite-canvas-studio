@@ -28,7 +28,15 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Pages with enablement
+        if: ${{ secrets.PAGES_PAT != '' }}
+        uses: actions/configure-pages@v5
+        with:
+          token: ${{ secrets.PAGES_PAT }}
+          enablement: true
+
       - name: Setup Pages
+        if: ${{ secrets.PAGES_PAT == '' }}
         uses: actions/configure-pages@v5
 
       - name: Build static site
