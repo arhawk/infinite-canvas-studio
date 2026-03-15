@@ -1,0 +1,13 @@
+{
+  "name": "konva-proto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch server.js",
+    "build": "bun run build.js"
+  },
+  "dependencies": {
+    "konva": "^9.3.22"
+  }
+}
