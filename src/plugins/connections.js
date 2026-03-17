@@ -38,6 +38,22 @@ class ConnectNodesCommand extends BaseCommand {
   }
 }
 
+class DeleteConnectionCommand extends BaseCommand {
+  static commandId = "connection:delete";
+  static label = "Delete Connection";
+  static modes = {
+    edit: {
+      tools: { arrange: {} },
+    },
+  };
+
+  execute(connectionId) {
+    const connectionNode = this.plugin.findNodeById(connectionId);
+    if (!isConnectionNode(connectionNode)) return;
+    this.plugin.removeConnection(connectionNode);
+  }
+}
+
 class ConnectNodesMenuItem extends BaseContextMenuItem {
   static itemId = "connection:connect-menu";
   static label = "Connect to...";
@@ -53,6 +69,24 @@ class ConnectNodesMenuItem extends BaseContextMenuItem {
 
   execute(node) {
     this.app.commands.execute("connection:connect", node.id());
+  }
+}
+
+class DeleteConnectionMenuItem extends BaseContextMenuItem {
+  static itemId = "connection:delete-menu";
+  static label = "Delete Connection";
+  static modes = {
+    edit: {
+      tools: { arrange: {} },
+    },
+  };
+
+  condition(node) {
+    return isConnectionNode(node);
+  }
+
+  execute(node) {
+    this.app.commands.execute("connection:delete", node.id());
   }
 }
 
@@ -73,11 +107,11 @@ export class ConnectionsPlugin extends BasePlugin {
   }
 
   commands() {
-    return [ConnectNodesCommand];
+    return [ConnectNodesCommand, DeleteConnectionCommand];
   }
 
   menuItems() {
-    return [ConnectNodesMenuItem];
+    return [ConnectNodesMenuItem, DeleteConnectionMenuItem];
   }
 
   onSetup() {
