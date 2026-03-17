@@ -1,3 +1,4 @@
+import "./styles.css";
 import { App } from "./core/app.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { SidebarPlugin } from "./plugins/sidebar.js";
@@ -13,8 +14,28 @@ import { ImageComponent } from "./component/image.js";
 import { ArrowComponent } from "./component/arrow.js";
 import { ContainerComponent } from "./component/container.js";
 
+function getRequiredElement(selector) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    throw new Error(`Missing required element: ${selector}`);
+  }
+  return element;
+}
+
+const ui = {
+  canvasContainer: getRequiredElement("#canvas-container"),
+  modeToggle: getRequiredElement("#mode-toggle"),
+  toolButtons: getRequiredElement("#tool-buttons"),
+  strokeColor: getRequiredElement("#stroke-color"),
+  strokeWidth: getRequiredElement("#stroke-width"),
+  strokeWidthValue: getRequiredElement("#stroke-width-value"),
+  zoomReset: getRequiredElement("#zoom-reset"),
+  fitAll: getRequiredElement("#fit-all"),
+  componentPalette: getRequiredElement("#component-palette"),
+};
+
 const app = new App({
-  container: document.querySelector("#canvas-container"),
+  container: ui.canvasContainer,
 });
 
 // Register built-in components
@@ -31,18 +52,17 @@ app.use(SelectionPlugin);
 app.use(DrawingPlugin);
 app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
-  modeToggleEl: document.querySelector("#mode-toggle"),
-  toolButtonsEl: document.querySelector("#tool-buttons"),
-  strokeColorEl: document.querySelector("#stroke-color"),
-  strokeWidthEl: document.querySelector("#stroke-width"),
-  strokeWidthValueEl: document.querySelector("#stroke-width-value"),
-  zoomResetEl: document.querySelector("#zoom-reset"),
-  fitAllEl: document.querySelector("#fit-all"),
+  modeToggleEl: ui.modeToggle,
+  toolButtonsEl: ui.toolButtons,
+  strokeColorEl: ui.strokeColor,
+  strokeWidthEl: ui.strokeWidth,
+  strokeWidthValueEl: ui.strokeWidthValue,
+  zoomResetEl: ui.zoomReset,
+  fitAllEl: ui.fitAll,
 });
 app.use(SidebarPlugin, {
-  paletteEl: document.querySelector("#component-palette"),
-  canvasEl: document.querySelector("#canvas-container"),
-  imageInputEl: document.querySelector("#image-file-input"),
+  paletteEl: ui.componentPalette,
+  canvasEl: ui.canvasContainer,
 });
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);

@@ -99,10 +99,6 @@ export class SelectionPlugin extends BasePlugin {
 
     this.listen("node:added", ({ node }) => {
       this.syncNodeInteractivity(node);
-      // Don't auto-select image placeholders if they were just added via drag/drop
-      // but the user might want to select them. Actually, selecting them is fine.
-      // However, for images, we might want to wait.
-      // Let's keep it simple: auto-select is usually good.
       this.setSelected([node]);
       if (this.app.getMode() !== "edit") {
         this.app.setMode("edit");

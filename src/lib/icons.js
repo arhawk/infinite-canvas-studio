@@ -1,5 +1,15 @@
-import { createIcons, icons } from "lucide";
+import { createIcons, Brush, Image, MousePointer2 } from "lucide";
 
-export function renderIcons(attrs = {}) {
-  createIcons({ icons, attrs });
+const PROJECT_ICONS = {
+  Brush,
+  Image,
+  MousePointer2,
+};
+
+export function renderIcons(root, attrs = {}) {
+  createIcons({
+    icons: PROJECT_ICONS,
+    attrs,
+    root,
+  });
 }

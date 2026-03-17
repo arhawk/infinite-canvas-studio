@@ -1,23 +1,42 @@
-# CS61 – Online Interactive Presentations
+# Mind Map Infinite Canvas
 
-## Project Overview
-This project aims to explore a new way of creating online presentations that are more interactive and engaging for students.
+A vanilla JavaScript mind-map board built on Konva.js with a lightweight Vite setup. The app combines an infinite canvas, draggable components, freehand drawing, selection tools, editable content blocks, and container-to-container connections in a dependency-light architecture designed for extension.
 
-Traditional presentation tools such as PowerPoint are often considered static and less interactive. Although tools like Mentimeter or Kahoot provide some interactive features, they are still limited in flexibility.
+## Stack
 
-The goal of this project is to design and develop a system that allows users to create interactive presentations with richer interaction between the presenter and the audience.
+- pnpm
+- Vite
+- Vanilla JavaScript
+- Konva.js
+- Lucide Icons
 
-This project is developed as part of the University of Sydney Capstone program.
+## Development
 
-## Project Goals
-The main goals of this project include:
+```bash
+pnpm install
+pnpm dev
+```
 
-- Exploring new approaches for interactive presentations
-- Designing a system that supports engaging presentation experiences
-- Allowing presenters and audiences to interact with presentation content
-- Improving student engagement during presentations
+The Vite dev server runs on `http://localhost:3000`.
 
-## Project Status
-The project is currently in the **initial stage**.
+## Build
 
-Requirements, design, and implementation details are still being discussed with the project supervisor and client. The repository will be updated as the project develops.
+```bash
+pnpm build
+pnpm preview
+```
+
+## Project Structure
+
+- `index.html`: application shell
+- `src/main.js`: app bootstrap
+- `src/styles.css`: global styles
+- `src/core/`: app infrastructure and registries
+- `src/plugins/`: feature plugins
+- `src/component/`: component definitions
+
+## Notes
+
+- The app exposes `window.__mindMapApp` for local experimentation and extension.
+- Image uploads currently rely on object URLs and are not persisted.
+- Manual browser testing is still recommended for interaction-heavy changes.

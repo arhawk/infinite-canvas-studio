@@ -109,7 +109,7 @@ export class ToolbarPlugin extends BasePlugin {
       toolButtonsEl.append(button);
     }
 
-    renderIcons({
+    renderIcons(toolButtonsEl, {
       width: 18,
       height: 18,
       "stroke-width": 2,

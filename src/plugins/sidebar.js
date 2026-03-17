@@ -54,8 +54,8 @@ export class SidebarPlugin extends BasePlugin {
   };
 
   onSetup() {
-    const { paletteEl, canvasEl, imageInputEl } = this.options;
-    this.ui = { paletteEl, canvasEl, imageInputEl };
+    const { paletteEl, canvasEl } = this.options;
+    this.ui = { paletteEl, canvasEl };
     this.paletteCards = [];
 
     this.listen("interaction:change", () => this.syncInteractivity());
@@ -85,7 +85,7 @@ export class SidebarPlugin extends BasePlugin {
   }
 
   async renderPalette() {
-    const { paletteEl, imageInputEl } = this.ui;
+    const { paletteEl } = this.ui;
     paletteEl.innerHTML = "";
     this.paletteCards = [];
 
@@ -138,7 +138,7 @@ export class SidebarPlugin extends BasePlugin {
       this.paletteCards.push(card);
     }
 
-    renderIcons({
+    renderIcons(paletteEl, {
       width: 32,
       height: 32,
       "stroke-width": 1.5,

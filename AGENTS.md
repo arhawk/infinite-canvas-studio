@@ -37,12 +37,15 @@ The app includes:
 - Build static output: `pnpm build`
 - Preview production build: `pnpm preview`
 
+The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/vite.config.js) and runs at `http://localhost:3000`.
+
 ## Project Structure
 
 ### Static Files
 
 - [index.html](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/index.html): Main application shell
-- [styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/styles.css): Global layout and visual styling
+- [src/styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/styles.css): Global layout and visual styling
+- [vite.config.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/vite.config.js): Vite dev and preview server configuration
 
 ### Entry Point
 
@@ -59,6 +62,11 @@ The app includes:
 - [src/core/keybindingRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/keybindingRegistry.js): `KeybindingRegistry` for keyboard shortcuts
 - [src/core/contextMenuRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/contextMenuRegistry.js): `ContextMenuRegistry` for class-based right-click items
 - [src/core/componentRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/componentRegistry.js): `ComponentRegistry` for class-based components
+
+### Shared Dependencies (`src/lib/`)
+
+- [src/lib/konva.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/lib/konva.js): Central Konva module entry used across components and plugins
+- [src/lib/icons.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/lib/icons.js): Lucide icon registry and scoped DOM icon rendering helper
 
 ### Plugins (`src/plugins/`)
 
@@ -376,7 +384,7 @@ Responsibilities:
 
 ## Styling Notes
 
-Implemented in [styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/styles.css).
+Implemented in [src/styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/styles.css).
 
 Design direction:
 
@@ -406,7 +414,7 @@ Responsive behavior:
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
 - Right-click anchor naming uses `window.prompt`
 - Alignment guide snapping currently focuses on nearby bounds and viewport center lines, not full smart-layout constraints
-- Konva and Lucide are imported from package dependencies via Vite modules in [index.html](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/index.html)
+- Konva and Lucide are imported from package dependencies through shared module wrappers in `src/lib/`
 
 ## Expected Workflow For Future Changes
 

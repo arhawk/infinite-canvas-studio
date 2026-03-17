@@ -1,9 +1,13 @@
 {
-  "name": "konva-proto",
+  "name": "mind-map-infinite-canvas",
+  "description": "Infinite canvas mind map app built with Vite, vanilla JavaScript, and Konva.js.",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
