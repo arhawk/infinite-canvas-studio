@@ -37,6 +37,5 @@ pnpm preview
 
 ## Notes
 
-- The app exposes `window.__mindMapApp` for local experimentation and extension.
 - Image uploads currently rely on object URLs and are not persisted.
 - Manual browser testing is still recommended for interaction-heavy changes.

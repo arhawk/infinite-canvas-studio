@@ -74,6 +74,3 @@ app.start();
 // Seed starter nodes
 app.addComponent("sticky", { x: 120, y: 120 });
 app.addComponent("text", { x: 380, y: 170 });
-
-// Expose app globally for secondary development
-window.__mindMapApp = app;

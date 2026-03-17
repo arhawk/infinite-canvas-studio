@@ -181,7 +181,7 @@ Cross-module communication uses `app.events` and the shorthand `app.on` / `app.o
 
 ### Public API
 
-The app object (`window.__mindMapApp` in the browser) exposes:
+The app object exposes:
 
 ```js
 // Core objects
@@ -417,7 +417,6 @@ Responsibilities:
 - Mount `ConnectionsPlugin` before `FocusNavigationPlugin` so presentation navigation always reads already-updated connection geometry
 - Call `app.start()` to initialize
 - Seed a few starter nodes on load
-- Expose `window.__mindMapApp` for secondary development
 
 ## Styling Notes
 
