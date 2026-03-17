@@ -1,9 +1,14 @@
 export class EditableTextBehavior {
   static attach(textNode, { fallbackText = "Text" } = {}) {
-    textNode.on("dblclick dbltap", () => {
+    textNode.on("dblclick dbltap", (event) => {
       const stage = textNode.getStage();
       const app = stage?.getAttr("app");
       if (!stage || (app && !app.modeManager.matches({ mode: "edit", editorTool: "arrange" }))) {
+        return;
+      }
+
+      const button = event.evt?.button;
+      if (button != null && button !== 0) {
         return;
       }
 

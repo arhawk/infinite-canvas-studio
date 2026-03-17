@@ -84,6 +84,8 @@ export class ComponentEditorPlugin extends BasePlugin {
 
     this.app.stage.on("dblclick.componentEditor dbltap.componentEditor", (event) => {
       if (!this.isEnabled()) return;
+      const button = event.evt?.button;
+      if (button != null && button !== 0) return;
       this.open(event.target);
     });
 
