@@ -7,6 +7,7 @@ import { DrawingPlugin } from "./plugins/drawing.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
+import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 
 import { TextComponent } from "./component/text.js";
@@ -64,6 +65,7 @@ app.use(SidebarPlugin, {
   canvasEl: ui.canvasContainer,
 });
 app.use(ConnectionsPlugin);
+app.use(FocusNavigationPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 

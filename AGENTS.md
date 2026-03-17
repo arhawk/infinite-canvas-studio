@@ -17,6 +17,7 @@ The app includes:
 - Select, multi-select, marquee select, and transform
     - Freehand brush drawing
     - Container system with parent-child grouping and arbitrary component-to-component connections
+    - Per-component saved focus views for presentation jumps
     - Persistent mode toggle (Edit/View) with animated UI transitions
 - Icon-based tool interface using Lucide Icons
 - Class-based extension points for secondary development
@@ -76,11 +77,12 @@ The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/a
 - [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js): Drawing plugin with brush tool
 - [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
+- [src/plugins/focusNavigation.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, bidirectional edge jump buttons, and `Save Focus` context menu integration
 - [src/plugins/contextMenu.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
 
 ### Stage
 
-- [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js): `StageController` class for pan, zoom, grid rendering, coordinate conversion, and viewport helpers
+- [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js): `StageController` class for pan, zoom, grid rendering, coordinate conversion, viewport helpers, and animated camera restore with optional scale
 
 ### Component Definitions (`src/component/`)
 
@@ -89,7 +91,7 @@ The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/a
 - [src/component/sticky.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/sticky.js): `StickyComponent`
 - [src/component/image.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/image.js): `ImageComponent`
 - [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js): `ConnectionComponent`
-- [src/component/container.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/container.js): `ContainerComponent` for grouping and connecting nodes
+- [src/component/container.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/container.js): `ContainerComponent` for grouping nodes
 
 ## Architecture
 
@@ -161,6 +163,7 @@ Cross-module communication uses `app.events` and the shorthand `app.on` / `app.o
 | `node:added` | `{ node }` | app.addComponent |
 | `node:removed` | `{ node }` | selection plugin (delete) |
 | `zoom:change` | `{ zoom }` | `StageController` via app |
+| `viewport:change` | `{ scale, viewport, size, position }` | `StageController` via app |
 | `stroke:change` | `{ color, width }` | toolbar plugin |
 | `mode:change` | `{ mode }` | `ModeManager` |
 | `editor-tool:change` | `{ toolId }` | `ModeManager` |
@@ -233,6 +236,7 @@ Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD
 - A Konva grid layer redraws with pan and zoom so the grid scales with the canvas
 - `Fit All` centers and scales all visible content into view
 - `Cmd/Ctrl + 0` resets zoom to `100%`
+- `viewport:change` is emitted whenever pan/zoom/animated camera restore updates the visible canvas region
 
 ### 2. Coordinate Conversion
 
@@ -243,6 +247,9 @@ Core methods on `StageController`:
 ```js
 app.stageApi.screenToCanvas(point)
 app.stageApi.canvasToScreen(point)
+app.stageApi.centerOn(point, { duration, scale })
+app.stageApi.getViewportBounds()
+app.stageApi.getScreenSize()
 ```
 
 This is used for:
@@ -250,6 +257,8 @@ This is used for:
 - Dropping sidebar components onto the canvas
 - Freehand drawing under pan and zoom
 - Positioning new content in canvas coordinates
+- Saving and restoring presentation focus views
+- Computing whether navigation buttons should appear on a viewport edge
 
 ### 3. Sidebar Component Palette
 
@@ -260,14 +269,14 @@ Available component types:
 - Text
 - Sticky Note
 - Image
-- Rectangle
-- Circle
+- Container
 
 Behavior:
 
 - Non-image components are draggable from the sidebar onto the canvas
 - Image icon in the sidebar is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
 - Drop coordinates are converted from screen space to canvas space.
+- Internal-only components such as `connection` are hidden from the palette via component metadata and are created programmatically by plugins.
 
 ### 4. Component System
 
@@ -292,6 +301,7 @@ Component rules:
 - `BaseComponent` assigns a unique `id`
 - `BaseComponent` marks component nodes with `name: "selectable"` and `componentType`
 - Components control their own Konva node creation through `createNode(payload)`
+- Components can opt out of appearing in the sidebar by setting `static palette = false`
 - Text-like components reuse `EditableTextBehavior`
 - New components should be added by extending `BaseComponent`
 
@@ -355,20 +365,46 @@ Behavior:
 - Right-click a selectable component to see available actions
 - Menu items are dynamically gathered from `app.contextMenu.getItems(target)`
 - The menu is rendered as a Konva overlay on the UI layer
+- In `edit.arrange`, non-connection components expose both connection actions and the `Save Focus` action supplied by feature plugins
 
-    ### 9. Containers and Connections
-    
-    Implemented in [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js), [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js), and [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js).
-    
-    Behavior:
-    
-    - Dragging a selectable component over a container and releasing it **captures** the component as a child of the container.
-    - Dragging a child component out of the container bounds **releases** it back to the main layer.
-    - Right-click any non-connection component to **Connect to...** another component.
-    - Connections are real selectable nodes, so they can be deleted, edited, and adjusted via visible curve control handles when selected.
-    - Container labels are editable via double-click.
-    
-    ## Application Bootstrap
+### 9. Containers and Connections
+
+Implemented in [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js), [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js), and [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js).
+
+Behavior:
+
+- Dragging a selectable component over a container and releasing it **captures** the component as a child of the container.
+- Dragging a child component out of the container bounds **releases** it back to the main layer.
+- Right-click any non-connection component to **Connect to...** another component.
+- Connections are real selectable nodes, so they can be selected, deleted, edited, and adjusted via visible curve control handles when selected in `edit.arrange`.
+- The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
+- Container labels are editable via double-click.
+
+### 10. Saved Focus Views And Presentation Navigation
+
+Implemented in [src/plugins/focusNavigation.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/focusNavigation.js) with support from [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js).
+
+Saved focus behavior:
+
+- In `edit.arrange`, right-click any non-connection component and choose **Save Focus**.
+- `Save Focus` stores the current camera center and current zoom on the node in a `savedFocus` attribute shaped like `{ center: { x, y }, scale }`.
+- The saved focus is deliberately view-based rather than node-relative. It captures exactly the camera framing the editor wants to revisit later during presentation.
+- Saving focus emits `node:changed`, which keeps dependent presentation affordances in sync without a dedicated persistence subsystem.
+
+Presentation navigation rules:
+
+- Navigation buttons are evaluated only in `presentation` mode.
+- Each connection is checked in both directions:
+  source visible -> target saved focus
+  target visible -> source saved focus
+- A direction is eligible only when the currently visible endpoint is fully inside the viewport bounds.
+- A direction is eligible only when the destination endpoint has a valid `savedFocus`.
+- A direction is eligible only when the saved focus center is farther from the current screen center than one current viewport diagonal.
+- When eligible, the plugin samples the rendered Bezier curve, finds where that directional curve exits the viewport, and places a floating edge button slightly inside the boundary.
+- Clicking the button restores both the saved camera center and the saved zoom through `stageApi.centerOn(..., { scale })`.
+- Because the check is directional, a single connection can surface one button, two buttons, or none depending on the current viewport and which endpoints have saved focus views.
+
+## Application Bootstrap
 
 Implemented in [src/main.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/main.js).
 
@@ -376,7 +412,8 @@ Responsibilities:
 
 - Create the app via `new App()`
 - Register built-in component instances
-- Mount built-in plugin classes
+- Mount built-in plugin classes in dependency-aware order
+- Mount `ConnectionsPlugin` before `FocusNavigationPlugin` so presentation navigation always reads already-updated connection geometry
 - Call `app.start()` to initialize
 - Seed a few starter nodes on load
 - Expose `window.__mindMapApp` for secondary development
@@ -410,6 +447,7 @@ Responsive behavior:
 - Images are created from local object URLs and are not persisted
 - There is no save/load document format yet
 - There is no undo/redo yet
+- Saved focus views currently live only on in-memory node attrs, so they are lost on full reload until a document persistence format exists
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
 - Right-click anchor naming uses `window.prompt`
 - Alignment guide snapping currently focuses on nearby bounds and viewport center lines, not full smart-layout constraints
@@ -673,9 +711,11 @@ Use the stage controller directly:
 ```js
 this.app.stageApi.screenToCanvas(point)
 this.app.stageApi.canvasToScreen(point)
-this.app.stageApi.centerOn(point)
+this.app.stageApi.centerOn(point, { duration, scale })
 this.app.stageApi.fitNodes(nodes)
 this.app.stageApi.resetZoom()
+this.app.stageApi.getViewportBounds()
+this.app.stageApi.getScreenSize()
 ```
 
 ### 8. Recommended Workflow

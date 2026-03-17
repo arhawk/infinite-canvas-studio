@@ -9,9 +9,10 @@ const GRID_MAJOR_COLOR = "rgba(84, 64, 43, 0.14)";
 const GRID_MAJOR_EVERY = 4;
 
 export class StageController {
-  constructor(container, { onZoomChange } = {}) {
+  constructor(container, { onZoomChange, onViewportChange } = {}) {
     this.container = container;
     this.onZoomChange = onZoomChange;
+    this.onViewportChange = onViewportChange;
     this.stage = new Konva.Stage({
       container,
       width: container.clientWidth,
@@ -113,6 +114,15 @@ export class StageController {
     this.redrawGrid();
     this.stage.batchDraw();
     this.onZoomChange?.(Math.round(scale * 100));
+    this.onViewportChange?.({
+      scale,
+      viewport: this.getViewportBounds(),
+      size: this.getScreenSize(),
+      position: {
+        x: this.stage.x(),
+        y: this.stage.y(),
+      },
+    });
   }
 
   setViewport({
@@ -145,15 +155,37 @@ export class StageController {
     return this.stage.scaleX();
   }
 
-  centerOn(canvasPoint, { duration = 0.35 } = {}) {
-    const scale = this.stage.scaleX();
+  getScreenSize() {
+    return {
+      width: this.stage.width(),
+      height: this.stage.height(),
+    };
+  }
+
+  getViewportBounds() {
+    const topLeft = this.screenToCanvas({ x: 0, y: 0 });
+    const bottomRight = this.screenToCanvas({
+      x: this.stage.width(),
+      y: this.stage.height(),
+    });
+
+    return {
+      x: topLeft.x,
+      y: topLeft.y,
+      width: bottomRight.x - topLeft.x,
+      height: bottomRight.y - topLeft.y,
+    };
+  }
+
+  centerOn(canvasPoint, { duration = 0.35, scale = this.stage.scaleX() } = {}) {
+    const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     const position = {
-      x: this.stage.width() / 2 - canvasPoint.x * scale,
-      y: this.stage.height() / 2 - canvasPoint.y * scale,
+      x: this.stage.width() / 2 - canvasPoint.x * nextScale,
+      y: this.stage.height() / 2 - canvasPoint.y * nextScale,
     };
 
     if (duration <= 0) {
-      this.setViewport({ scale, position });
+      this.setViewport({ scale: nextScale, position });
       return null;
     }
 
@@ -161,10 +193,12 @@ export class StageController {
       node: this.stage,
       x: position.x,
       y: position.y,
+      scaleX: nextScale,
+      scaleY: nextScale,
       duration,
       easing: Konva.Easings.EaseInOut,
-      onUpdate: () => this.syncViewport(scale),
-      onFinish: () => this.syncViewport(scale),
+      onUpdate: () => this.syncViewport(this.stage.scaleX()),
+      onFinish: () => this.syncViewport(this.stage.scaleX()),
     });
     tween.play();
     return tween;

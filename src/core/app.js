@@ -24,6 +24,9 @@ export class App {
       onZoomChange: (zoom) => {
         this.events.emit("zoom:change", { zoom });
       },
+      onViewportChange: (payload) => {
+        this.events.emit("viewport:change", payload);
+      },
     });
     this.stage = this.stageApi.stage;
     this.mainLayer = this.stageApi.mainLayer;
