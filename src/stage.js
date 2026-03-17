@@ -34,6 +34,9 @@ export class StageController {
 
     this.isPanning = false;
     this.lastPointer = null;
+    this.panStartPointer = null;
+    this.didPanSincePointerDown = false;
+    this.suppressNextClick = false;
     this.isSpacePressed = false;
 
     this.onKeyDown = this.onKeyDown.bind(this);
@@ -246,6 +249,12 @@ export class StageController {
     });
   }
 
+  consumePanClickSuppression() {
+    const shouldSuppress = this.suppressNextClick;
+    this.suppressNextClick = false;
+    return shouldSuppress;
+  }
+
   onWheel(event) {
     event.evt.preventDefault();
     const pointer = this.stage.getPointerPosition();
@@ -281,17 +290,33 @@ export class StageController {
   }
 
   onPointerDown(event) {
+    this.suppressNextClick = false;
     const isMiddleButton = event.evt.button === 1;
     const app = this.stage.getAttr("app");
     const isPrimaryPointer = event.evt.button == null || event.evt.button === 0;
+    const target = event.target;
+    const hasSelectableTarget = Boolean(
+      target?.hasName?.("selectable") || target?.findAncestor?.(".selectable", true),
+    );
+    const isInteractiveTarget =
+      hasSelectableTarget ||
+      Boolean(target?.draggable?.()) ||
+      (target !== this.stage && target?.getLayer?.() === app?.uiLayer);
+    const canPrimaryPanInArrangeMode =
+      app?.modeManager?.matches?.({ mode: "edit", editorTool: "arrange" }) &&
+      isPrimaryPointer &&
+      !isInteractiveTarget;
     const shouldPan =
       isMiddleButton ||
       this.isSpacePressed ||
-      (app?.isReadOnly?.() && isPrimaryPointer);
+      (app?.isReadOnly?.() && isPrimaryPointer) ||
+      canPrimaryPanInArrangeMode;
     if (!shouldPan) return;
 
     this.isPanning = true;
     this.lastPointer = this.stage.getPointerPosition();
+    this.panStartPointer = this.lastPointer;
+    this.didPanSincePointerDown = false;
     this.container.style.cursor = "grabbing";
   }
 
@@ -299,6 +324,13 @@ export class StageController {
     if (!this.isPanning) return;
     const pointer = this.stage.getPointerPosition();
     if (!pointer || !this.lastPointer) return;
+
+    if (
+      this.panStartPointer &&
+      Math.hypot(pointer.x - this.panStartPointer.x, pointer.y - this.panStartPointer.y) >= 2
+    ) {
+      this.didPanSincePointerDown = true;
+    }
 
     this.stage.position({
       x: this.stage.x() + pointer.x - this.lastPointer.x,
@@ -309,8 +341,11 @@ export class StageController {
   }
 
   onPointerUp() {
+    this.suppressNextClick = this.didPanSincePointerDown;
     this.isPanning = false;
     this.lastPointer = null;
+    this.panStartPointer = null;
+    this.didPanSincePointerDown = false;
     const app = this.stage.getAttr("app");
     if (app) {
       app.syncCursor();

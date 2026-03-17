@@ -1,6 +1,6 @@
 # Mind Map Infinite Canvas
 
-A vanilla JavaScript mind-map board built on Konva.js with a lightweight Vite setup. The app combines an infinite canvas, draggable components, freehand drawing, selection tools, editable content blocks, and container-to-container connections in a dependency-light architecture designed for extension.
+A vanilla JavaScript mind-map board built on Konva.js with a lightweight Vite setup. The app combines an infinite canvas, draggable components, single-node selection and transform, edit-mode canvas panning, freehand drawing, editable content blocks, and container-to-container connections in a dependency-light architecture designed for extension.
 
 ## Stack
 

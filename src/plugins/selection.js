@@ -59,13 +59,6 @@ export class SelectionPlugin extends BasePlugin {
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
     });
 
-    this.selectionRect = new Konva.Rect({
-      fill: "rgba(215, 97, 47, 0.12)",
-      stroke: "#d7612f",
-      strokeWidth: 1,
-      visible: false,
-    });
-
     this.guideLineVertical = new Konva.Line({
       stroke: "#d7612f",
       strokeWidth: 1,
@@ -82,13 +75,10 @@ export class SelectionPlugin extends BasePlugin {
       listening: false,
     });
 
-    this.selectionStart = null;
-    this.didMarqueeSelect = false;
     this.selectedNodes = [];
 
     layer.add(this.transformer);
     overlayLayer.add(
-      this.selectionRect,
       this.guideLineVertical,
       this.guideLineHorizontal,
     );
@@ -117,9 +107,6 @@ export class SelectionPlugin extends BasePlugin {
     this.listen("interaction:change", () => this.syncMode());
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
-    stage.on("mousedown.selection touchstart.selection", (event) => this.handlePointerDown(event));
-    stage.on("mousemove.selection touchmove.selection", () => this.handlePointerMove());
-    stage.on("mouseup.selection touchend.selection", () => this.handlePointerUp());
     stage.on("dragmove.snapGuides transform.snapGuides", (event) => this.handleSnapMove(event));
     stage.on("dragend.snapGuides transformend.snapGuides", () => this.hideGuides());
 
@@ -135,8 +122,6 @@ export class SelectionPlugin extends BasePlugin {
       this.clearSelection();
     }
     if (!enabled) {
-      this.selectionStart = null;
-      this.selectionRect.visible(false);
       this.hideGuides();
       this.overlayLayer.batchDraw();
     }
@@ -159,22 +144,11 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   setSelected(nodes) {
-    const uniqueNodes = [...new Set(nodes.filter(Boolean))];
-    
-    // Filter out nodes whose ancestors are also in the selection to avoid double-transformation
-    const topLevelNodes = uniqueNodes.filter(node => {
-      let p = node.getParent();
-      while (p && p !== this.stage && p !== this.layer) {
-        if (uniqueNodes.includes(p)) return false;
-        p = p.getParent();
-      }
-      return true;
-    });
-
-    this.selectedNodes = topLevelNodes;
-    this.transformer.nodes(this.getTransformableNodes(topLevelNodes));
+    const nextNode = nodes.find(Boolean) ?? null;
+    this.selectedNodes = nextNode ? [nextNode] : [];
+    this.transformer.nodes(this.getTransformableNodes(this.selectedNodes));
     this.layer.batchDraw();
-    this.app.events.emit("selection:change", { nodes: topLevelNodes });
+    this.app.events.emit("selection:change", { nodes: this.selectedNodes });
   }
 
   clearSelection() {
@@ -302,9 +276,8 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   handleClick(event) {
-    if (this.app.tools.getActive() !== "arrange" || this.selectionRect.visible()) return;
-    if (this.didMarqueeSelect) {
-      this.didMarqueeSelect = false;
+    if (this.app.tools.getActive() !== "arrange") return;
+    if (this.app.stageApi.consumePanClickSuppression()) {
       return;
     }
 
@@ -313,60 +286,7 @@ export class SelectionPlugin extends BasePlugin {
       this.clearSelection();
       return;
     }
-
-    const current = this.getSelectedNodes();
-    const alreadySelected = current.includes(target);
-    if (event.evt.shiftKey) {
-      this.setSelected(alreadySelected ? current.filter((node) => node !== target) : [...current, target]);
-      return;
-    }
     this.setSelected([target]);
-  }
-
-  handlePointerDown(event) {
-    if (this.app.tools.getActive() !== "arrange") return;
-    const clickedOnEmpty = event.target === this.stage;
-    if (!clickedOnEmpty || event.evt.button === 1 || event.evt.buttons === 4) return;
-    const pointer = this.stage.getPointerPosition();
-    if (!pointer) return;
-
-    this.selectionStart = this.app.stageApi.screenToCanvas(pointer);
-    this.selectionRect.visible(true);
-    this.selectionRect.width(0);
-    this.selectionRect.height(0);
-    this.selectionRect.position(this.selectionStart);
-    this.overlayLayer.batchDraw();
-  }
-
-  handlePointerMove() {
-    if (!this.selectionStart || !this.selectionRect.visible()) return;
-    const rawPointer = this.stage.getPointerPosition();
-    if (!rawPointer) return;
-    const pointer = this.app.stageApi.screenToCanvas(rawPointer);
-    this.selectionRect.setAttrs({
-      x: Math.min(pointer.x, this.selectionStart.x),
-      y: Math.min(pointer.y, this.selectionStart.y),
-      width: Math.abs(pointer.x - this.selectionStart.x),
-      height: Math.abs(pointer.y - this.selectionStart.y),
-    });
-    this.overlayLayer.batchDraw();
-  }
-
-  handlePointerUp() {
-    if (!this.selectionStart) return;
-    const selectionBox = this.selectionRect.getClientRect();
-    const selected = this.layer.find(".selectable").filter((node) => (
-      Konva.Util.haveIntersection(selectionBox, node.getClientRect())
-    ));
-
-    this.selectionRect.visible(false);
-    this.overlayLayer.batchDraw();
-    this.selectionStart = null;
-
-    if (selected.length) {
-      this.didMarqueeSelect = true;
-      this.setSelected(selected);
-    }
   }
 
   handleSnapMove(event) {

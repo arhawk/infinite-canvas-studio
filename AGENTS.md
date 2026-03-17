@@ -14,11 +14,11 @@ The app includes:
 - Infinite canvas pan and zoom
 - Drag-and-drop component palette
 - Editable text and sticky notes
-- Select, multi-select, marquee select, and transform
-    - Freehand brush drawing
-    - Container system with parent-child grouping and arbitrary component-to-component connections
-    - Per-component saved focus views for presentation jumps
-    - Persistent mode toggle (Edit/View) with animated UI transitions
+- Single-select and transform
+- Freehand brush drawing
+- Container system with parent-child grouping and arbitrary component-to-component connections
+- Per-component saved focus views for presentation jumps
+- Persistent mode toggle (Edit/View) with animated UI transitions
 - Icon-based tool interface using Lucide Icons
 - Class-based extension points for secondary development
 
@@ -73,7 +73,7 @@ The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/a
 
 - [src/plugins/toolbar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, and zoom commands
 - [src/plugins/sidebar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
-- [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js): Selection plugin with arrange tool, transformer, marquee select, snap guides, delete command, and mode-based interactivity management
+- [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js): Drawing plugin with brush tool
 - [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
@@ -232,6 +232,7 @@ Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD
 - Zoom range is clamped between `0.1` and `5`
 - Middle mouse drag pans the stage
 - Space plus drag also pans the stage
+- In `edit.arrange`, primary drag on empty canvas also pans the viewport
 - In presentation mode, primary drag also pans the viewport
 - A Konva grid layer redraws with pan and zoom so the grid scales with the canvas
 - `Fit All` centers and scales all visible content into view
@@ -312,8 +313,8 @@ Implemented in [src/plugins/selection.js](/Users/baitian/Documents/assignment s4
 Supported interactions:
 
 - Click to select a single node
-- Shift-click for multi-select
-- Drag on empty canvas for marquee selection
+- Drag a selected node to move it
+- Drag on empty canvas to pan the viewport in `edit.arrange`
 - Drag and transform show Konva alignment guides and snap to nearby edges or centers
 - `Delete` or `Backspace` removes selected nodes (via `selection:delete` command)
 
@@ -325,7 +326,7 @@ Transformer rules:
 - Side anchors are disabled
 - Flip is disabled
 
-This means all transformed nodes can only be scaled proportionally.
+This means the selected transformable node can only be scaled proportionally.
 
 ### 6. Freehand Drawing
 
