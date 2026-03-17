@@ -248,6 +248,10 @@ export class BaseComponent {
     return this.constructor.description ?? "";
   }
 
+  get palette() {
+    return this.constructor.palette !== false;
+  }
+
   getEditorTitle() {
     return `${this.label} Editor`;
   }

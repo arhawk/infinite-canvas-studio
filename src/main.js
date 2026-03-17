@@ -6,12 +6,12 @@ import { SelectionPlugin } from "./plugins/selection.js";
 import { DrawingPlugin } from "./plugins/drawing.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
+import { ConnectionsPlugin } from "./plugins/connections.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 
 import { TextComponent } from "./component/text.js";
 import { StickyComponent } from "./component/sticky.js";
 import { ImageComponent } from "./component/image.js";
-import { ArrowComponent } from "./component/arrow.js";
 import { ContainerComponent } from "./component/container.js";
 
 function getRequiredElement(selector) {
@@ -44,7 +44,6 @@ const app = new App({
   TextComponent,
   StickyComponent,
   ImageComponent,
-  ArrowComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)
@@ -64,6 +63,7 @@ app.use(SidebarPlugin, {
   paletteEl: ui.componentPalette,
   canvasEl: ui.canvasContainer,
 });
+app.use(ConnectionsPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 

@@ -16,7 +16,7 @@ The app includes:
 - Editable text and sticky notes
 - Select, multi-select, marquee select, and transform
     - Freehand brush drawing
-    - Container system with parent-child grouping and inter-container connections
+    - Container system with parent-child grouping and arbitrary component-to-component connections
     - Persistent mode toggle (Edit/View) with animated UI transitions
 - Icon-based tool interface using Lucide Icons
 - Class-based extension points for secondary development
@@ -74,7 +74,8 @@ The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/a
 - [src/plugins/sidebar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js): Selection plugin with arrange tool, transformer, marquee select, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js): Drawing plugin with brush tool
-- [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js): Container system plugin with inter-container links and capture/release logic
+- [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js): Container system plugin with capture/release logic
+- [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
 - [src/plugins/contextMenu.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
 
 ### Stage
@@ -87,7 +88,7 @@ The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/a
 - [src/component/text.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/text.js): `TextComponent`
 - [src/component/sticky.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/sticky.js): `StickyComponent`
 - [src/component/image.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/image.js): `ImageComponent`
-- [src/component/arrow.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/arrow.js): `ArrowComponent`
+- [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js): `ConnectionComponent`
 - [src/component/container.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/container.js): `ContainerComponent` for grouping and connecting nodes
 
 ## Architecture
@@ -261,7 +262,6 @@ Available component types:
 - Image
 - Rectangle
 - Circle
-- Arrow
 
 Behavior:
 
@@ -284,9 +284,8 @@ Current component classes:
 - `text`
 - `sticky`
 - `image`
-- `rect`
-- `circle`
-- `arrow`
+- `container`
+- `connection`
 
 Component rules:
 
@@ -359,14 +358,14 @@ Behavior:
 
     ### 9. Containers and Connections
     
-    Implemented in [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js).
+    Implemented in [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js), [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js), and [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js).
     
     Behavior:
     
     - Dragging a selectable component over a container and releasing it **captures** the component as a child of the container.
     - Dragging a child component out of the container bounds **releases** it back to the main layer.
-    - Right-click a container to **Link to Container...**, creating a smooth, mind-map style cubic Bezier connection line to another container. Connections automatically clip to container boundaries and intelligently choose the best entry/exit points (top/bottom or left/right).
-    - Right-click options allow removing specific links or clearing all connections.
+    - Right-click any non-connection component to **Connect to...** another component.
+    - Connections are real selectable nodes, so they can be deleted, edited, and adjusted via visible curve control handles when selected.
     - Container labels are editable via double-click.
     
     ## Application Bootstrap

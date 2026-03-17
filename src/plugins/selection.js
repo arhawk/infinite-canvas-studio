@@ -84,6 +84,7 @@ export class SelectionPlugin extends BasePlugin {
 
     this.selectionStart = null;
     this.didMarqueeSelect = false;
+    this.selectedNodes = [];
 
     layer.add(this.transformer);
     overlayLayer.add(
@@ -108,6 +109,11 @@ export class SelectionPlugin extends BasePlugin {
       }
     });
 
+    this.listen("node:removed", ({ node }) => {
+      if (!this.selectedNodes.includes(node)) return;
+      this.setSelected(this.selectedNodes.filter((selectedNode) => selectedNode !== node));
+    });
+
     this.listen("interaction:change", () => this.syncMode());
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
@@ -125,7 +131,7 @@ export class SelectionPlugin extends BasePlugin {
 
   syncMode() {
     const enabled = this.isEnabled();
-    if (!enabled && this.transformer.nodes().length) {
+    if (!enabled && this.selectedNodes.length) {
       this.clearSelection();
     }
     if (!enabled) {
@@ -145,7 +151,11 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   getSelectedNodes() {
-    return this.transformer.nodes();
+    return this.selectedNodes;
+  }
+
+  getTransformableNodes(nodes) {
+    return nodes.filter((node) => node.getAttr("componentType") !== "connection");
   }
 
   setSelected(nodes) {
@@ -161,7 +171,8 @@ export class SelectionPlugin extends BasePlugin {
       return true;
     });
 
-    this.transformer.nodes(topLevelNodes);
+    this.selectedNodes = topLevelNodes;
+    this.transformer.nodes(this.getTransformableNodes(topLevelNodes));
     this.layer.batchDraw();
     this.app.events.emit("selection:change", { nodes: topLevelNodes });
   }
@@ -202,7 +213,11 @@ export class SelectionPlugin extends BasePlugin {
     );
 
     this.layer.find(".selectable")
-      .filter((node) => node !== skipNode && node.isVisible())
+      .filter((node) => (
+        node !== skipNode &&
+        node.isVisible() &&
+        node.getAttr("componentType") !== "connection"
+      ))
       .forEach((node) => {
         const box = node.getClientRect({ skipTransform: false });
         vertical.push(box.x, box.x + box.width / 2, box.x + box.width);

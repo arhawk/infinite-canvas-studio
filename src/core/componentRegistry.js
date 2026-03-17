@@ -55,7 +55,7 @@ export class ComponentRegistry {
   }
 
   paletteItems() {
-    return this.list().map((component) => ({
+    return this.list().filter((component) => component.palette).map((component) => ({
       type: component.type,
       label: component.label,
       description: component.description,
