@@ -1,4 +1,5 @@
 import { BasePlugin, BaseTool } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 class BrushTool extends BaseTool {
   static toolId = "brush";
@@ -58,7 +59,7 @@ export class DrawingPlugin extends BasePlugin {
     if (!point) return;
 
     this.isDrawing = true;
-    this.currentLine = new window.Konva.Line({
+    this.currentLine = new Konva.Line({
       points: [point.x, point.y],
       stroke: this.stroke.color,
       strokeWidth: this.stroke.width,

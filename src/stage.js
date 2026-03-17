@@ -1,3 +1,5 @@
+import { Konva } from "./lib/konva.js";
+
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const ZOOM_RATIO = 1.04;
@@ -10,18 +12,18 @@ export class StageController {
   constructor(container, { onZoomChange } = {}) {
     this.container = container;
     this.onZoomChange = onZoomChange;
-    this.stage = new window.Konva.Stage({
+    this.stage = new Konva.Stage({
       container,
       width: container.clientWidth,
       height: container.clientHeight,
       draggable: false,
     });
 
-    this.gridLayer = new window.Konva.Layer({ listening: false });
-    this.mainLayer = new window.Konva.Layer();
-    this.drawLayer = new window.Konva.Layer();
-    this.overlayLayer = new window.Konva.Layer({ listening: false });
-    this.uiLayer = new window.Konva.Layer();
+    this.gridLayer = new Konva.Layer({ listening: false });
+    this.mainLayer = new Konva.Layer();
+    this.drawLayer = new Konva.Layer();
+    this.overlayLayer = new Konva.Layer({ listening: false });
+    this.uiLayer = new Konva.Layer();
 
     this.stage.add(this.gridLayer);
     this.stage.add(this.mainLayer);
@@ -84,7 +86,7 @@ export class StageController {
 
     for (let x = minX; x <= maxX; x += GRID_SPACING) {
       const isMajor = Math.round(x / GRID_SPACING) % GRID_MAJOR_EVERY === 0;
-      this.gridLayer.add(new window.Konva.Line({
+      this.gridLayer.add(new Konva.Line({
         points: [x, minY, x, maxY],
         stroke: isMajor ? GRID_MAJOR_COLOR : GRID_COLOR,
         strokeWidth: 1,
@@ -95,7 +97,7 @@ export class StageController {
 
     for (let y = minY; y <= maxY; y += GRID_SPACING) {
       const isMajor = Math.round(y / GRID_SPACING) % GRID_MAJOR_EVERY === 0;
-      this.gridLayer.add(new window.Konva.Line({
+      this.gridLayer.add(new Konva.Line({
         points: [minX, y, maxX, y],
         stroke: isMajor ? GRID_MAJOR_COLOR : GRID_COLOR,
         strokeWidth: 1,
@@ -155,12 +157,12 @@ export class StageController {
       return null;
     }
 
-    const tween = new window.Konva.Tween({
+    const tween = new Konva.Tween({
       node: this.stage,
       x: position.x,
       y: position.y,
       duration,
-      easing: window.Konva.Easings.EaseInOut,
+      easing: Konva.Easings.EaseInOut,
       onUpdate: () => this.syncViewport(scale),
       onFinish: () => this.syncViewport(scale),
     });

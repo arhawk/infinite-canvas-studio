@@ -5,7 +5,7 @@ https://www.conventionalcommits.org/en/v1.0.0/
 
 ## Overview
 
-This repository contains a mind map infinite canvas application built with Bun, vanilla JavaScript, and Konva.js.
+This repository contains a mind map infinite canvas application built with pnpm, Vite, vanilla JavaScript, and Konva.js.
 
 The app now uses a class-based architecture centered on an `App` object, a `ModeManager`, a `StageController`, and a small set of base classes for plugins, tools, commands, context menu items, and components.
 
@@ -23,7 +23,8 @@ The app includes:
 
 ## Tech Stack
 
-- Runtime: Bun
+- Package manager: pnpm
+- Dev/build tool: Vite
 - Frontend: Vanilla JavaScript
 - Canvas library: Konva.js
 - Icon library: Lucide Icons
@@ -31,60 +32,55 @@ The app includes:
 
 ## Run Commands
 
-- Install dependencies: `bun install`
-- Start local dev server: `bun run dev`
-- Build static output: `bun run build`
-
-The dev server runs from [server.js](/Users/baitian/Developer/konva-proto/server.js) and serves the project at `http://localhost:3000`.
+- Install dependencies: `pnpm install`
+- Start local dev server: `pnpm dev`
+- Build static output: `pnpm build`
+- Preview production build: `pnpm preview`
 
 ## Project Structure
 
 ### Static Files
 
-- [index.html](/Users/baitian/Developer/konva-proto/index.html): Main application shell
-- [styles.css](/Users/baitian/Developer/konva-proto/styles.css): Global layout and visual styling
-- [server.js](/Users/baitian/Developer/konva-proto/server.js): Bun-based static development server
-- [build.js](/Users/baitian/Developer/konva-proto/build.js): Copies static assets into `dist/`
+- [index.html](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/index.html): Main application shell
+- [styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/styles.css): Global layout and visual styling
 
 ### Entry Point
 
-- [src/main.js](/Users/baitian/Developer/konva-proto/src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app
+- [src/main.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app
 
 ### Core Infrastructure (`src/core/`)
 
-- [src/core/app.js](/Users/baitian/Developer/konva-proto/src/core/app.js): `App` class with lifecycle, stage wiring, registries, plugin mounting, and public API
-- [src/core/baseClasses.js](/Users/baitian/Developer/konva-proto/src/core/baseClasses.js): Core extension base classes: `BasePlugin`, `BaseTool`, `BaseCommand`, `BaseContextMenuItem`, `BaseComponent`
-- [src/core/modeManager.js](/Users/baitian/Developer/konva-proto/src/core/modeManager.js): Central mode state machine for `presentation`, `edit.arrange`, and `edit.brush`
-- [src/core/eventBus.js](/Users/baitian/Developer/konva-proto/src/core/eventBus.js): `EventBus` class for decoupled app events
-- [src/core/commandRegistry.js](/Users/baitian/Developer/konva-proto/src/core/commandRegistry.js): `CommandRegistry` for class-based commands
-- [src/core/toolRegistry.js](/Users/baitian/Developer/konva-proto/src/core/toolRegistry.js): `ToolRegistry` for class-based tools
-- [src/core/keybindingRegistry.js](/Users/baitian/Developer/konva-proto/src/core/keybindingRegistry.js): `KeybindingRegistry` for keyboard shortcuts
-- [src/core/contextMenuRegistry.js](/Users/baitian/Developer/konva-proto/src/core/contextMenuRegistry.js): `ContextMenuRegistry` for class-based right-click items
-- [src/core/componentRegistry.js](/Users/baitian/Developer/konva-proto/src/core/componentRegistry.js): `ComponentRegistry` for class-based components
+- [src/core/app.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/app.js): `App` class with lifecycle, stage wiring, registries, plugin mounting, and public API
+- [src/core/baseClasses.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/baseClasses.js): Core extension base classes: `BasePlugin`, `BaseTool`, `BaseCommand`, `BaseContextMenuItem`, `BaseComponent`
+- [src/core/modeManager.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/modeManager.js): Central mode state machine for `presentation`, `edit.arrange`, and `edit.brush`
+- [src/core/eventBus.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/eventBus.js): `EventBus` class for decoupled app events
+- [src/core/commandRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/commandRegistry.js): `CommandRegistry` for class-based commands
+- [src/core/toolRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/toolRegistry.js): `ToolRegistry` for class-based tools
+- [src/core/keybindingRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/keybindingRegistry.js): `KeybindingRegistry` for keyboard shortcuts
+- [src/core/contextMenuRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/contextMenuRegistry.js): `ContextMenuRegistry` for class-based right-click items
+- [src/core/componentRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/componentRegistry.js): `ComponentRegistry` for class-based components
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](/Users/baitian/Developer/konva-proto/src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, and zoom commands
-- [src/plugins/sidebar.js](/Users/baitian/Developer/konva-proto/src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
-- [src/plugins/selection.js](/Users/baitian/Developer/konva-proto/src/plugins/selection.js): Selection plugin with arrange tool, transformer, marquee select, snap guides, delete command, and mode-based interactivity management
-- [src/plugins/drawing.js](/Users/baitian/Developer/konva-proto/src/plugins/drawing.js): Drawing plugin with brush tool
-- [src/plugins/containers.js](/Users/baitian/Developer/konva-proto/src/plugins/containers.js): Container system plugin with inter-container links and capture/release logic
-- [src/plugins/contextMenu.js](/Users/baitian/Developer/konva-proto/src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
+- [src/plugins/toolbar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, and zoom commands
+- [src/plugins/sidebar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
+- [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js): Selection plugin with arrange tool, transformer, marquee select, snap guides, delete command, and mode-based interactivity management
+- [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js): Drawing plugin with brush tool
+- [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js): Container system plugin with inter-container links and capture/release logic
+- [src/plugins/contextMenu.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
 
 ### Stage
 
-- [src/stage.js](/Users/baitian/Developer/konva-proto/src/stage.js): `StageController` class for pan, zoom, grid rendering, coordinate conversion, and viewport helpers
+- [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js): `StageController` class for pan, zoom, grid rendering, coordinate conversion, and viewport helpers
 
 ### Component Definitions (`src/component/`)
 
-- [src/component/editableText.js](/Users/baitian/Developer/konva-proto/src/component/editableText.js): `EditableTextBehavior` for inline text editing
-- [src/component/text.js](/Users/baitian/Developer/konva-proto/src/component/text.js): `TextComponent`
-- [src/component/sticky.js](/Users/baitian/Developer/konva-proto/src/component/sticky.js): `StickyComponent`
-- [src/component/image.js](/Users/baitian/Developer/konva-proto/src/component/image.js): `ImageComponent`
-- [src/component/rect.js](/Users/baitian/Developer/konva-proto/src/component/rect.js): `RectComponent`
-- [src/component/circle.js](/Users/baitian/Developer/konva-proto/src/component/circle.js): `CircleComponent`
-- [src/component/arrow.js](/Users/baitian/Developer/konva-proto/src/component/arrow.js): `ArrowComponent`
-- [src/component/container.js](/Users/baitian/Developer/konva-proto/src/component/container.js): `ContainerComponent` for grouping and connecting nodes
+- [src/component/editableText.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/editableText.js): `EditableTextBehavior` for inline text editing
+- [src/component/text.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/text.js): `TextComponent`
+- [src/component/sticky.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/sticky.js): `StickyComponent`
+- [src/component/image.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/image.js): `ImageComponent`
+- [src/component/arrow.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/arrow.js): `ArrowComponent`
+- [src/component/container.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/container.js): `ContainerComponent` for grouping and connecting nodes
 
 ## Architecture
 
@@ -217,7 +213,7 @@ The app is split into three main regions:
 
 ### 1. Infinite Canvas
 
-Implemented in [src/stage.js](/Users/baitian/Developer/konva-proto/src/stage.js).
+Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js).
 
 - Mouse wheel zooms the stage
 - Zoom is applied uniformly on both axes
@@ -231,7 +227,7 @@ Implemented in [src/stage.js](/Users/baitian/Developer/konva-proto/src/stage.js)
 
 ### 2. Coordinate Conversion
 
-Implemented in [src/stage.js](/Users/baitian/Developer/konva-proto/src/stage.js).
+Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js).
 
 Core methods on `StageController`:
 
@@ -248,7 +244,7 @@ This is used for:
 
 ### 3. Sidebar Component Palette
 
-Implemented in [src/plugins/sidebar.js](/Users/baitian/Developer/konva-proto/src/plugins/sidebar.js).
+Implemented in [src/plugins/sidebar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/sidebar.js).
 
 Available component types:
 
@@ -267,12 +263,12 @@ Behavior:
 
 ### 4. Component System
 
-Implemented in [src/core/componentRegistry.js](/Users/baitian/Developer/konva-proto/src/core/componentRegistry.js) with definitions in `src/component/`.
+Implemented in [src/core/componentRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/componentRegistry.js) with definitions in `src/component/`.
 
 Structure:
 
 - Each component is a class extending `BaseComponent`
-- Shared inline text editing lives in [src/component/editableText.js](/Users/baitian/Developer/konva-proto/src/component/editableText.js)
+- Shared inline text editing lives in [src/component/editableText.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/editableText.js)
 - Components are registered as instantiated classes via `app.components.register(new MyComponent(app))`
 
 Current component classes:
@@ -294,7 +290,7 @@ Component rules:
 
 ### 5. Selection and Transform
 
-Implemented in [src/plugins/selection.js](/Users/baitian/Developer/konva-proto/src/plugins/selection.js).
+Implemented in [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js).
 
 Supported interactions:
 
@@ -316,7 +312,7 @@ This means all transformed nodes can only be scaled proportionally.
 
 ### 6. Freehand Drawing
 
-Implemented in [src/plugins/drawing.js](/Users/baitian/Developer/konva-proto/src/plugins/drawing.js).
+Implemented in [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js).
 
 Supported tools:
 
@@ -330,7 +326,7 @@ Behavior:
 
 ### 7. Toolbar
 
-Implemented in [src/plugins/toolbar.js](/Users/baitian/Developer/konva-proto/src/plugins/toolbar.js).
+Implemented in [src/plugins/toolbar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/toolbar.js).
 
 Controls:
 
@@ -345,7 +341,7 @@ Registered commands: `zoom:reset`, `fit:all`
 
 ### 8. Context Menu
 
-Implemented in [src/plugins/contextMenu.js](/Users/baitian/Developer/konva-proto/src/plugins/contextMenu.js).
+Implemented in [src/plugins/contextMenu.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/contextMenu.js).
 
 Behavior:
 
@@ -355,7 +351,7 @@ Behavior:
 
     ### 9. Containers and Connections
     
-    Implemented in [src/plugins/containers.js](/Users/baitian/Developer/konva-proto/src/plugins/containers.js).
+    Implemented in [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js).
     
     Behavior:
     
@@ -367,7 +363,7 @@ Behavior:
     
     ## Application Bootstrap
 
-Implemented in [src/main.js](/Users/baitian/Developer/konva-proto/src/main.js).
+Implemented in [src/main.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/main.js).
 
 Responsibilities:
 
@@ -380,7 +376,7 @@ Responsibilities:
 
 ## Styling Notes
 
-Implemented in [styles.css](/Users/baitian/Developer/konva-proto/styles.css).
+Implemented in [styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/styles.css).
 
 Design direction:
 
@@ -410,7 +406,7 @@ Responsive behavior:
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
 - Right-click anchor naming uses `window.prompt`
 - Alignment guide snapping currently focuses on nearby bounds and viewport center lines, not full smart-layout constraints
-- Konva is loaded from a CDN script in [index.html](/Users/baitian/Developer/konva-proto/index.html)
+- Konva and Lucide are imported from package dependencies via Vite modules in [index.html](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/index.html)
 
 ## Expected Workflow For Future Changes
 
@@ -600,7 +596,7 @@ export class DiamondComponent extends BaseComponent {
   static description = "Decision node";
 
   async createNode({ x, y }) {
-    return new window.Konva.Line({
+    return new Konva.Line({
       x,
       y,
       points: [60, 0, 120, 50, 60, 100, 0, 50],
@@ -700,7 +696,7 @@ Start by copying the closest built-in example:
 The project has been verified with:
 
 - `node --check` on source modules
-- `bun run build`
+- `pnpm build`
 - Browser testing at `http://localhost:3000`
 
 Manual browser testing is still recommended after UI behavior changes.

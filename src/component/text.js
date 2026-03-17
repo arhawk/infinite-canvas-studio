@@ -4,6 +4,7 @@ import {
   NumberEditorField,
   TextareaEditorField,
 } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 export class TextComponent extends BaseComponent {
   static type = "text";
@@ -40,7 +41,7 @@ export class TextComponent extends BaseComponent {
   }
 
   async createNode({ x, y }) {
-    return new window.Konva.Text({
+    return new Konva.Text({
       x,
       y,
       text: "New idea",

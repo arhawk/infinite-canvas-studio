@@ -3,11 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.23.0",
   "scripts": {
-    "dev": "bun run --watch server.js",
-    "build": "bun run build.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "konva": "^9.3.22"
+    "konva": "^9.3.22",
+    "lucide": "^0.577.0"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0"
   }
 }

@@ -3,6 +3,7 @@ import {
   ColorEditorField,
   TextEditorField,
 } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 export class ContainerComponent extends BaseComponent {
   static type = "container";
@@ -39,7 +40,7 @@ export class ContainerComponent extends BaseComponent {
   }
 
   async createNode({ x, y, width = 300, height = 200, label = "New Container" }) {
-    const group = new window.Konva.Group({
+    const group = new Konva.Group({
       x,
       y,
       width,
@@ -48,7 +49,7 @@ export class ContainerComponent extends BaseComponent {
       name: "selectable container-root",
     });
 
-    const rect = new window.Konva.Rect({
+    const rect = new Konva.Rect({
       width,
       height,
       fill: "rgba(255, 255, 255, 0.4)",
@@ -59,7 +60,7 @@ export class ContainerComponent extends BaseComponent {
       name: "container-bg",
     });
 
-    const text = new window.Konva.Text({
+    const text = new Konva.Text({
       text: label,
       fontSize: 14,
       fontFamily: "Space Grotesk",

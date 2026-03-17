@@ -1,4 +1,5 @@
 import { BaseCommand, BasePlugin } from "../core/baseClasses.js";
+import { renderIcons } from "../lib/icons.js";
 
 const TOOL_ICONS = {
   arrange: "mouse-pointer-2",
@@ -108,15 +109,11 @@ export class ToolbarPlugin extends BasePlugin {
       toolButtonsEl.append(button);
     }
 
-    if (window.lucide) {
-      window.lucide.createIcons({
-        attrs: {
-          width: 18,
-          height: 18,
-          "stroke-width": 2,
-        },
-      });
-    }
+    renderIcons({
+      width: 18,
+      height: 18,
+      "stroke-width": 2,
+    });
   }
 
   emitStrokeChange() {

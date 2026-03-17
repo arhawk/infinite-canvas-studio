@@ -1,4 +1,6 @@
 import { BasePlugin } from "../core/baseClasses.js";
+import { renderIcons } from "../lib/icons.js";
+import { Konva } from "../lib/konva.js";
 
 const IMAGE_PLACEHOLDER_ICON = "image";
 
@@ -7,11 +9,11 @@ function generatePreviewDataUrl(node, width, height) {
   container.style.cssText = "position:absolute;left:-9999px;top:-9999px;";
   document.body.appendChild(container);
 
-  const stage = new window.Konva.Stage({ container, width, height });
-  const layer = new window.Konva.Layer();
+  const stage = new Konva.Stage({ container, width, height });
+  const layer = new Konva.Layer();
   stage.add(layer);
 
-  const wrapper = new window.Konva.Group();
+  const wrapper = new Konva.Group();
   node.draggable(false);
   wrapper.add(node);
   layer.add(wrapper);
@@ -136,16 +138,12 @@ export class SidebarPlugin extends BasePlugin {
       this.paletteCards.push(card);
     }
 
-    if (window.lucide) {
-      window.lucide.createIcons({
-        attrs: {
-          width: 32,
-          height: 32,
-          "stroke-width": 1.5,
-          stroke: "#b38a5e",
-        },
-      });
-    }
+    renderIcons({
+      width: 32,
+      height: 32,
+      "stroke-width": 1.5,
+      stroke: "#b38a5e",
+    });
 
     this.syncInteractivity();
   }

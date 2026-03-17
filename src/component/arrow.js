@@ -3,6 +3,7 @@ import {
   ColorEditorField,
   NumberEditorField,
 } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 export class ArrowComponent extends BaseComponent {
   static type = "arrow";
@@ -42,7 +43,7 @@ export class ArrowComponent extends BaseComponent {
   }
 
   async createNode({ x, y }) {
-    return new window.Konva.Arrow({
+    return new Konva.Arrow({
       x,
       y,
       points: [0, 0, 180, 0],

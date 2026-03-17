@@ -1,4 +1,5 @@
 import { BasePlugin } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 export class ContextMenuPlugin extends BasePlugin {
   static pluginId = "context-menu";
@@ -21,12 +22,12 @@ export class ContextMenuPlugin extends BasePlugin {
     this.paddingY = 6;
     this.menuWidth = 180;
 
-    this.menuGroup = new window.Konva.Group({
+    this.menuGroup = new Konva.Group({
       visible: false,
       name: "context-menu",
     });
 
-    this.menuBackground = new window.Konva.Rect({
+    this.menuBackground = new Konva.Rect({
       width: this.menuWidth,
       cornerRadius: 16,
       fill: "rgba(255, 253, 249, 0.98)",
@@ -72,14 +73,14 @@ export class ContextMenuPlugin extends BasePlugin {
 
     items.forEach((item, index) => {
       const y = this.paddingY + index * this.itemHeight;
-      const hitRect = new window.Konva.Rect({
+      const hitRect = new Konva.Rect({
         x: 0,
         y,
         width: this.menuWidth,
         height: this.itemHeight,
         fill: "transparent",
       });
-      const label = new window.Konva.Text({
+      const label = new Konva.Text({
         x: 16,
         y: y + 9,
         text: item.label,

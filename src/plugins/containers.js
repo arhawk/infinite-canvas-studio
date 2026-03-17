@@ -3,6 +3,7 @@ import {
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 class RemoveLinkCommand extends BaseCommand {
   static commandId = "container:remove-link";
@@ -116,7 +117,7 @@ export class ContainersPlugin extends BasePlugin {
     this.connectingFromId = null;
 
     // Layer for connections
-    this.connectionLayer = new window.Konva.Layer({
+    this.connectionLayer = new Konva.Layer({
       name: "connection-layer",
       listening: false,
     });
@@ -261,7 +262,7 @@ export class ContainersPlugin extends BasePlugin {
             tBox
           );
 
-          const curve = new window.Konva.Arrow({
+          const curve = new Konva.Arrow({
             points: [start.x, start.y, cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y],
             stroke: "#d7612f",
             fill: "#d7612f",

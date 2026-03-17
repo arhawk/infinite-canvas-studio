@@ -3,6 +3,7 @@ import {
   ColorEditorField,
   TextareaEditorField,
 } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 export class StickyComponent extends BaseComponent {
   static type = "sticky";
@@ -44,13 +45,13 @@ export class StickyComponent extends BaseComponent {
   }
 
   async createNode({ x, y }) {
-    const group = new window.Konva.Group({
+    const group = new Konva.Group({
       x,
       y,
       draggable: true,
     });
 
-    const rect = new window.Konva.Rect({
+    const rect = new Konva.Rect({
       width: 180,
       height: 130,
       fill: "#ffe082",
@@ -62,7 +63,7 @@ export class StickyComponent extends BaseComponent {
       name: "sticky-bg",
     });
 
-    const text = new window.Konva.Text({
+    const text = new Konva.Text({
       x: 14,
       y: 14,
       width: 152,

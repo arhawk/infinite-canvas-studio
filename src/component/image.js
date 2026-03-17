@@ -1,8 +1,8 @@
 import {
   BaseComponent,
-  NumberEditorField,
   FileEditorField,
 } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -43,7 +43,7 @@ export class ImageComponent extends BaseComponent {
   async createNode({ x, y, src }) {
     const width = 220;
     const height = 150; // Placeholder default
-    const group = new window.Konva.Group({
+    const group = new Konva.Group({
       x,
       y,
       width,
@@ -65,7 +65,7 @@ export class ImageComponent extends BaseComponent {
     const width = group.width();
     const height = group.height();
 
-    const rect = new window.Konva.Rect({
+    const rect = new Konva.Rect({
       width,
       height,
       fill: "#fdf8f3",
@@ -76,7 +76,7 @@ export class ImageComponent extends BaseComponent {
       name: "placeholder-rect",
     });
 
-    const text = new window.Konva.Text({
+    const text = new Konva.Text({
       text: "Double-click to\nedit image",
       width,
       height,
@@ -97,7 +97,7 @@ export class ImageComponent extends BaseComponent {
     const width = group.width();
     const height = width / aspect;
 
-    const img = new window.Konva.Image({
+    const img = new Konva.Image({
       image,
       width,
       height,
@@ -114,7 +114,7 @@ export class ImageComponent extends BaseComponent {
   }
 
   async updateNode(node, src) {
-    if (!(node instanceof window.Konva.Group)) return;
+    if (!(node instanceof Konva.Group)) return;
 
     node.destroyChildren();
     await this.#addImageToGroup(node, src);

@@ -1,4 +1,5 @@
 import { BaseCommand, BasePlugin, BaseTool } from "../core/baseClasses.js";
+import { Konva } from "../lib/konva.js";
 
 const GUIDE_TOLERANCE = 6;
 
@@ -47,7 +48,7 @@ export class SelectionPlugin extends BasePlugin {
     this.layer = layer;
     this.overlayLayer = overlayLayer;
 
-    this.transformer = new window.Konva.Transformer({
+    this.transformer = new Konva.Transformer({
       rotateEnabled: true,
       ignoreStroke: true,
       borderDash: [6, 4],
@@ -58,14 +59,14 @@ export class SelectionPlugin extends BasePlugin {
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
     });
 
-    this.selectionRect = new window.Konva.Rect({
+    this.selectionRect = new Konva.Rect({
       fill: "rgba(215, 97, 47, 0.12)",
       stroke: "#d7612f",
       strokeWidth: 1,
       visible: false,
     });
 
-    this.guideLineVertical = new window.Konva.Line({
+    this.guideLineVertical = new Konva.Line({
       stroke: "#d7612f",
       strokeWidth: 1,
       dash: [6, 6],
@@ -73,7 +74,7 @@ export class SelectionPlugin extends BasePlugin {
       listening: false,
     });
 
-    this.guideLineHorizontal = new window.Konva.Line({
+    this.guideLineHorizontal = new Konva.Line({
       stroke: "#d7612f",
       strokeWidth: 1,
       dash: [6, 6],
@@ -344,7 +345,7 @@ export class SelectionPlugin extends BasePlugin {
     if (!this.selectionStart) return;
     const selectionBox = this.selectionRect.getClientRect();
     const selected = this.layer.find(".selectable").filter((node) => (
-      window.Konva.Util.haveIntersection(selectionBox, node.getClientRect())
+      Konva.Util.haveIntersection(selectionBox, node.getClientRect())
     ));
 
     this.selectionRect.visible(false);
