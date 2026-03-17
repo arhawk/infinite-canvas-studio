@@ -38,60 +38,60 @@ The app includes:
 - Build static output: `pnpm build`
 - Preview production build: `pnpm preview`
 
-The Vite dev server is configured in [vite.config.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/vite.config.js) and runs at `http://localhost:3000`.
+The Vite dev server is configured in [vite.config.js](vite.config.js) and runs at `http://localhost:3000`.
 
 ## Project Structure
 
 ### Static Files
 
-- [index.html](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/index.html): Main application shell
-- [src/styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/styles.css): Global layout and visual styling
-- [vite.config.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/vite.config.js): Vite dev and preview server configuration
+- [index.html](index.html): Main application shell
+- [src/styles.css](src/styles.css): Global layout and visual styling
+- [vite.config.js](vite.config.js): Vite dev and preview server configuration
 
 ### Entry Point
 
-- [src/main.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app
+- [src/main.js](src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app
 
 ### Core Infrastructure (`src/core/`)
 
-- [src/core/app.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/app.js): `App` class with lifecycle, stage wiring, registries, plugin mounting, and public API
-- [src/core/baseClasses.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/baseClasses.js): Core extension base classes: `BasePlugin`, `BaseTool`, `BaseCommand`, `BaseContextMenuItem`, `BaseComponent`
-- [src/core/modeManager.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/modeManager.js): Central mode state machine for `presentation`, `edit.arrange`, and `edit.brush`
-- [src/core/eventBus.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/eventBus.js): `EventBus` class for decoupled app events
-- [src/core/commandRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/commandRegistry.js): `CommandRegistry` for class-based commands
-- [src/core/toolRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/toolRegistry.js): `ToolRegistry` for class-based tools
-- [src/core/keybindingRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/keybindingRegistry.js): `KeybindingRegistry` for keyboard shortcuts
-- [src/core/contextMenuRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/contextMenuRegistry.js): `ContextMenuRegistry` for class-based right-click items
-- [src/core/componentRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/componentRegistry.js): `ComponentRegistry` for class-based components
+- [src/core/app.js](src/core/app.js): `App` class with lifecycle, stage wiring, registries, plugin mounting, and public API
+- [src/core/baseClasses.js](src/core/baseClasses.js): Core extension base classes: `BasePlugin`, `BaseTool`, `BaseCommand`, `BaseContextMenuItem`, `BaseComponent`
+- [src/core/modeManager.js](src/core/modeManager.js): Central mode state machine for `presentation`, `edit.arrange`, and `edit.brush`
+- [src/core/eventBus.js](src/core/eventBus.js): `EventBus` class for decoupled app events
+- [src/core/commandRegistry.js](src/core/commandRegistry.js): `CommandRegistry` for class-based commands
+- [src/core/toolRegistry.js](src/core/toolRegistry.js): `ToolRegistry` for class-based tools
+- [src/core/keybindingRegistry.js](src/core/keybindingRegistry.js): `KeybindingRegistry` for keyboard shortcuts
+- [src/core/contextMenuRegistry.js](src/core/contextMenuRegistry.js): `ContextMenuRegistry` for class-based right-click items
+- [src/core/componentRegistry.js](src/core/componentRegistry.js): `ComponentRegistry` for class-based components
 
 ### Shared Dependencies (`src/lib/`)
 
-- [src/lib/konva.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/lib/konva.js): Central Konva module entry used across components and plugins
-- [src/lib/icons.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/lib/icons.js): Lucide icon registry and scoped DOM icon rendering helper
+- [src/lib/konva.js](src/lib/konva.js): Central Konva module entry used across components and plugins
+- [src/lib/icons.js](src/lib/icons.js): Lucide icon registry and scoped DOM icon rendering helper
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, and zoom commands
-- [src/plugins/sidebar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
-- [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
-- [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js): Drawing plugin with brush tool
-- [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js): Container system plugin with capture/release logic
-- [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
-- [src/plugins/focusNavigation.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, bidirectional edge jump buttons, and `Save Focus` context menu integration
-- [src/plugins/contextMenu.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
+- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, and zoom commands
+- [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
+- [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
+- [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
+- [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
+- [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
+- [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, bidirectional edge jump buttons, and `Save Focus` context menu integration
+- [src/plugins/contextMenu.js](src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
 
 ### Stage
 
-- [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js): `StageController` class for pan, zoom, grid rendering, coordinate conversion, viewport helpers, and animated camera restore with optional scale
+- [src/stage.js](src/stage.js): `StageController` class for pan, zoom, grid rendering, coordinate conversion, viewport helpers, and animated camera restore with optional scale
 
 ### Component Definitions (`src/component/`)
 
-- [src/component/editableText.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/editableText.js): `EditableTextBehavior` for inline text editing
-- [src/component/text.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/text.js): `TextComponent`
-- [src/component/sticky.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/sticky.js): `StickyComponent`
-- [src/component/image.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/image.js): `ImageComponent`
-- [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js): `ConnectionComponent`
-- [src/component/container.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/container.js): `ContainerComponent` for grouping nodes
+- [src/component/editableText.js](src/component/editableText.js): `EditableTextBehavior` for inline text editing
+- [src/component/text.js](src/component/text.js): `TextComponent`
+- [src/component/sticky.js](src/component/sticky.js): `StickyComponent`
+- [src/component/image.js](src/component/image.js): `ImageComponent`
+- [src/component/connection.js](src/component/connection.js): `ConnectionComponent`
+- [src/component/container.js](src/component/container.js): `ContainerComponent` for grouping nodes
 
 ## Architecture
 
@@ -225,7 +225,7 @@ The app is split into three main regions:
 
 ### 1. Infinite Canvas
 
-Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js).
+Implemented in [src/stage.js](src/stage.js).
 
 - Mouse wheel zooms the stage
 - Zoom is applied uniformly on both axes
@@ -241,7 +241,7 @@ Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD
 
 ### 2. Coordinate Conversion
 
-Implemented in [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js).
+Implemented in [src/stage.js](src/stage.js).
 
 Core methods on `StageController`:
 
@@ -263,7 +263,7 @@ This is used for:
 
 ### 3. Sidebar Component Palette
 
-Implemented in [src/plugins/sidebar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/sidebar.js).
+Implemented in [src/plugins/sidebar.js](src/plugins/sidebar.js).
 
 Available component types:
 
@@ -281,12 +281,12 @@ Behavior:
 
 ### 4. Component System
 
-Implemented in [src/core/componentRegistry.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/core/componentRegistry.js) with definitions in `src/component/`.
+Implemented in [src/core/componentRegistry.js](src/core/componentRegistry.js) with definitions in `src/component/`.
 
 Structure:
 
 - Each component is a class extending `BaseComponent`
-- Shared inline text editing lives in [src/component/editableText.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/editableText.js)
+- Shared inline text editing lives in [src/component/editableText.js](src/component/editableText.js)
 - Components are registered as instantiated classes via `app.components.register(new MyComponent(app))`
 
 Current component classes:
@@ -308,7 +308,7 @@ Component rules:
 
 ### 5. Selection and Transform
 
-Implemented in [src/plugins/selection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/selection.js).
+Implemented in [src/plugins/selection.js](src/plugins/selection.js).
 
 Supported interactions:
 
@@ -330,7 +330,7 @@ This means the selected transformable node can only be scaled proportionally.
 
 ### 6. Freehand Drawing
 
-Implemented in [src/plugins/drawing.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/drawing.js).
+Implemented in [src/plugins/drawing.js](src/plugins/drawing.js).
 
 Supported tools:
 
@@ -344,7 +344,7 @@ Behavior:
 
 ### 7. Toolbar
 
-Implemented in [src/plugins/toolbar.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/toolbar.js).
+Implemented in [src/plugins/toolbar.js](src/plugins/toolbar.js).
 
 Controls:
 
@@ -359,7 +359,7 @@ Registered commands: `zoom:reset`, `fit:all`
 
 ### 8. Context Menu
 
-Implemented in [src/plugins/contextMenu.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/contextMenu.js).
+Implemented in [src/plugins/contextMenu.js](src/plugins/contextMenu.js).
 
 Behavior:
 
@@ -370,7 +370,7 @@ Behavior:
 
 ### 9. Containers and Connections
 
-Implemented in [src/plugins/containers.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/containers.js), [src/plugins/connections.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/connections.js), and [src/component/connection.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/component/connection.js).
+Implemented in [src/plugins/containers.js](src/plugins/containers.js), [src/plugins/connections.js](src/plugins/connections.js), and [src/component/connection.js](src/component/connection.js).
 
 Behavior:
 
@@ -383,7 +383,7 @@ Behavior:
 
 ### 10. Saved Focus Views And Presentation Navigation
 
-Implemented in [src/plugins/focusNavigation.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/plugins/focusNavigation.js) with support from [src/stage.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/stage.js).
+Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) with support from [src/stage.js](src/stage.js).
 
 Saved focus behavior:
 
@@ -407,7 +407,7 @@ Presentation navigation rules:
 
 ## Application Bootstrap
 
-Implemented in [src/main.js](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/main.js).
+Implemented in [src/main.js](src/main.js).
 
 Responsibilities:
 
@@ -420,7 +420,7 @@ Responsibilities:
 
 ## Styling Notes
 
-Implemented in [src/styles.css](/Users/baitian/Documents/assignment s4/CS61-3-USYD2026/src/styles.css).
+Implemented in [src/styles.css](src/styles.css).
 
 Design direction:
 
@@ -744,6 +744,3 @@ The project has been verified with:
 
 - `node --check` on source modules
 - `pnpm build`
-- Browser testing at `http://localhost:3000`
-
-Manual browser testing is still recommended after UI behavior changes.
