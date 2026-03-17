@@ -77,6 +77,11 @@ export class SelectionPlugin extends BasePlugin {
 
     this.selectedNodes = [];
 
+    this.layer.find(".selectable").forEach((node) => {
+      this.syncNodeInteractivity(node);
+      this.bindNodeChangeSync(node);
+    });
+
     layer.add(this.transformer);
     overlayLayer.add(
       this.guideLineVertical,
@@ -90,6 +95,7 @@ export class SelectionPlugin extends BasePlugin {
 
     this.listen("node:added", ({ node }) => {
       this.syncNodeInteractivity(node);
+      this.bindNodeChangeSync(node);
       this.setSelected([node]);
       if (this.app.getMode() !== "edit") {
         this.app.setMode("edit");
@@ -170,6 +176,16 @@ export class SelectionPlugin extends BasePlugin {
   syncNodeInteractivity(node) {
     if (!node?.hasName?.("selectable")) return;
     node.draggable(Boolean(node.getAttr("baseDraggable")) && this.isEnabled());
+  }
+
+  bindNodeChangeSync(node) {
+    if (!node?.hasName?.("selectable")) return;
+    node.off(".selectionSync");
+    node.on("dragmove.selectionSync transform.selectionSync transformend.selectionSync", () => {
+      if (!node.getStage?.()) return;
+      this.app.events.emit("node:changed", { node });
+    });
+    this.cleanups.push(() => node.off(".selectionSync"));
   }
 
   hideGuides() {

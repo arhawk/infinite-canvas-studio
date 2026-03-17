@@ -155,15 +155,8 @@ export class ConnectionsPlugin extends BasePlugin {
       }
     });
 
-    this.app.stage.on("dragmove.connections transform.connections", (event) => {
-      const target = resolveSelectable(event.target);
-      if (!target || (!this.isConnectable(target) && !isConnectionNode(target))) return;
-      this.updateConnections();
-    });
-
     this.cleanups.push(() => {
       this.cancelConnecting();
-      this.app.stage.off(".connections");
       this.controlHandleGroup.destroy();
     });
   }
