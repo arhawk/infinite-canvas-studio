@@ -16,6 +16,15 @@ function isFocusableNode(node) {
   return !!node?.hasName?.("selectable") && !isConnectionNode(node);
 }
 
+function resolveFocusableNode(target) {
+  if (!target) return null;
+
+  const selectable = target.findAncestor?.(".selectable", true)
+    ?? (target.hasName?.("selectable") ? target : null);
+
+  return isFocusableNode(selectable) ? selectable : null;
+}
+
 function pointInRect(point, rect) {
   return (
     point.x >= rect.x &&
@@ -109,7 +118,12 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.listen("node:removed", () => this.syncNavigationButtons());
     this.listen("node:changed", () => this.syncNavigationButtons());
 
+    this.stage.on("dblclick.focusNavigation dbltap.focusNavigation", (event) => {
+      this.handleStageDoubleClick(event);
+    });
+
     this.cleanups.push(() => {
+      this.stage.off(".focusNavigation");
       this.navButtonGroup.destroy();
     });
   }
@@ -153,6 +167,17 @@ export class FocusNavigationPlugin extends BasePlugin {
     }
 
     return savedFocus;
+  }
+
+  navigateToSavedFocus(node, savedFocus = this.getSavedFocus(node)) {
+    if (!savedFocus || !node?.getStage?.()) return false;
+
+    this.app.stageApi.centerOn(savedFocus.center, {
+      duration: 0.45,
+      scale: savedFocus.scale,
+    });
+
+    return true;
   }
 
   clearNavigationButtons() {
@@ -301,15 +326,23 @@ export class FocusNavigationPlugin extends BasePlugin {
     });
     group.on("click tap", (event) => {
       event.cancelBubble = true;
-      if (!targetNode?.getStage?.()) return;
-      this.app.stageApi.centerOn(savedFocus.center, {
-        duration: 0.45,
-        scale: savedFocus.scale,
-      });
+      this.navigateToSavedFocus(targetNode, savedFocus);
     });
 
     group.add(outer, inner);
     return group;
+  }
+
+  handleStageDoubleClick(event) {
+    if (!this.app.isReadOnly()) return;
+
+    const button = event.evt?.button;
+    if (button != null && button !== 0) return;
+
+    const targetNode = resolveFocusableNode(event.target);
+    if (!targetNode) return;
+
+    this.navigateToSavedFocus(targetNode);
   }
 
   tryAddNavigationButton(connectionNode, fromNode, toNode, {
