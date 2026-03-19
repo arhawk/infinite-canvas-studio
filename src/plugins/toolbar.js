@@ -61,6 +61,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.focusState = {
       positionMode: "absolute",
       canSave: false,
+      canTogglePositionMode: false,
     };
 
     this.app.keybindings.register("Mod+0", "zoom:reset");
@@ -180,7 +181,7 @@ export class ToolbarPlugin extends BasePlugin {
     }
 
     saveFocusEl.disabled = !focusSaveCommand?.isEnabled?.() || !this.focusState.canSave;
-    focusPositionModeEl.disabled = !focusModeCommand?.isEnabled?.();
+    focusPositionModeEl.disabled = !focusModeCommand?.isEnabled?.() || !this.focusState.canTogglePositionMode;
     focusPositionModeEl.setAttribute("aria-pressed", String(isRelativeFocus));
     focusPositionModeEl.textContent = isRelativeFocus ? "Focus: Relative" : "Focus: Absolute";
     focusPositionModeEl.title = isRelativeFocus
