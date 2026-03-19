@@ -364,6 +364,7 @@ export class FocusNavigationPlugin extends BasePlugin {
 
   emitToolbarState() {
     this.app.events.emit("focus:state-change", {
+      selectedNodeId: this.selectedNode?.id?.() ?? null,
       positionMode: this.getFocusPositionModeForNode(this.selectedNode),
       canSave: this.canSaveSelectionFocus(),
       canTogglePositionMode: isFocusableNode(this.selectedNode),

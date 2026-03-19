@@ -6,7 +6,7 @@ A vanilla JavaScript mind-map board built on Konva.js with a lightweight Vite se
 
 - A fixed-size landscape `Page` component appears first in the palette and can contain other components like a container.
 - Presentation focus views can be saved from the toolbar or the context menu.
-- Toolbar helper controls are contextual: `arrange` shows focus actions only when a focusable node is selected, while `brush` shows color and stroke controls only when that tool is active.
+- Toolbar helper controls are contextual: `arrange` shows connection and focus actions when a focusable node is selected, while `brush` shows color and stroke controls only when that tool is active.
 - Each focusable component tracks its own focus mode (`absolute` or `relative`). Regular components default to `absolute`, while `Page` starts with a centered relative focus.
 - Relative focus keeps presentation framing attached to the component when that component moves.
 - In presentation mode, saved focuses can be reached from connection edge buttons or by double-clicking the component itself.

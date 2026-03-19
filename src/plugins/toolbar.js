@@ -15,6 +15,7 @@ export class ToolbarPlugin extends BasePlugin {
       toolButtonsEl,
       arrangeControlsEl,
       brushControlsEl,
+      connectSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -27,6 +28,7 @@ export class ToolbarPlugin extends BasePlugin {
       toolButtonsEl,
       arrangeControlsEl,
       brushControlsEl,
+      connectSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -37,8 +39,13 @@ export class ToolbarPlugin extends BasePlugin {
       positionMode: "absolute",
       canSave: false,
       canTogglePositionMode: false,
+      selectedNodeId: null,
     };
 
+    this.listenDom(connectSelectionEl, "click", () => {
+      if (!this.focusState.selectedNodeId) return;
+      this.app.commands.execute("connection:connect", this.focusState.selectedNodeId);
+    });
     this.listenDom(saveFocusEl, "click", () => {
       this.app.commands.execute("focus:save-selection");
     });
@@ -77,7 +84,7 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   renderToolButtons() {
-    const { toolButtonsEl } = this.ui;
+    const { toolButtonsEl, arrangeControlsEl } = this.ui;
     toolButtonsEl.innerHTML = "";
 
     for (const tool of this.app.tools.list()) {
@@ -104,6 +111,11 @@ export class ToolbarPlugin extends BasePlugin {
       height: 18,
       "stroke-width": 2,
     });
+    renderIcons(arrangeControlsEl, {
+      width: 16,
+      height: 16,
+      "stroke-width": 2,
+    });
   }
 
   emitStrokeChange() {
@@ -120,6 +132,7 @@ export class ToolbarPlugin extends BasePlugin {
       toolButtonsEl,
       arrangeControlsEl,
       brushControlsEl,
+      connectSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -135,6 +148,7 @@ export class ToolbarPlugin extends BasePlugin {
       activeToolId === "arrange"
       && (this.focusState.canSave || this.focusState.canTogglePositionMode);
     const showBrushControls = activeToolId === "brush";
+    const connectCommand = this.app.commands.get("connection:connect");
     const focusSaveCommand = this.app.commands.get("focus:save-selection");
     const focusModeCommand = this.app.commands.get("focus:position-mode:set");
     const isRelativeFocus = this.focusState.positionMode === "relative";
@@ -161,6 +175,11 @@ export class ToolbarPlugin extends BasePlugin {
       brushControlsEl.hidden = !showBrushControls;
     }
 
+    connectSelectionEl.disabled =
+      !connectCommand?.isEnabled?.() || !this.focusState.selectedNodeId;
+    connectSelectionEl.title = this.focusState.selectedNodeId
+      ? "Select another component on the canvas to create a connection"
+      : "Select a component first";
     saveFocusEl.disabled = !focusSaveCommand?.isEnabled?.() || !this.focusState.canSave;
     focusPositionModeEl.disabled =
       !focusModeCommand?.isEnabled?.() || !this.focusState.canTogglePositionMode;

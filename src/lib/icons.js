@@ -1,8 +1,9 @@
-import { createIcons, Brush, Image, MousePointer2 } from "lucide";
+import { createIcons, Brush, Image, Link2, MousePointer2 } from "lucide";
 
 const PROJECT_ICONS = {
   Brush,
   Image,
+  Link2,
   MousePointer2,
 };
 

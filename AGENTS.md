@@ -71,7 +71,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, and contextual per-tool control groups for focus and brush settings
+- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, and contextual per-tool control groups for connection, focus, and brush settings
 - [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
@@ -353,8 +353,8 @@ Controls:
 
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
-- In `edit.arrange`, a focus control group appears only when a focusable node is selected
-- That arrange group contains `Save Focus` plus the `Focus: Absolute / Relative` toggle for the selected component
+- In `edit.arrange`, a helper control group appears only when a focusable node is selected
+- That arrange group contains `Connect to...`, `Save Focus`, and the `Focus: Absolute / Relative` toggle for the selected component
 - In `edit.brush`, a brush control group appears with the color picker and stroke width slider
 
 ### 8. Context Menu
@@ -376,7 +376,7 @@ Behavior:
 
 - Dragging a selectable component over a container and releasing it **captures** the component as a child of the container.
 - Dragging a child component out of the container bounds **releases** it back to the main layer.
-- Right-click any non-connection component to **Connect to...** another component.
+- Right-click any non-connection component, or use the `Connect to...` toolbar button while it is selected in `edit.arrange`, to connect it to another component.
 - Connections are real selectable nodes, so they can be selected, deleted, edited, and adjusted via visible curve control handles when selected in `edit.arrange`.
 - The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
 - Container labels are editable via double-click.

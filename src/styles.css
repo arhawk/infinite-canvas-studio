@@ -247,6 +247,12 @@ body.is-presentation-mode .toolbar {
   white-space: nowrap;
 }
 
+.ghost-button--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .tool-button:disabled,
 .ghost-button:disabled {
   opacity: 0.45;
