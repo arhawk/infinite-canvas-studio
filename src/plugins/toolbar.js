@@ -1,4 +1,4 @@
-import { BaseCommand, BasePlugin } from "../core/baseClasses.js";
+import { BasePlugin } from "../core/baseClasses.js";
 import { renderIcons } from "../lib/icons.js";
 
 const TOOL_ICONS = {
@@ -6,33 +6,8 @@ const TOOL_ICONS = {
   brush: "brush",
 };
 
-class ResetZoomCommand extends BaseCommand {
-  static commandId = "zoom:reset";
-  static label = "Reset Zoom";
-
-  execute() {
-    this.app.stageApi.resetZoom();
-  }
-}
-
-class FitAllCommand extends BaseCommand {
-  static commandId = "fit:all";
-  static label = "Fit All";
-
-  execute() {
-    this.app.stageApi.fitNodes([
-      ...this.app.mainLayer.find(".selectable"),
-      ...this.app.drawLayer.find(".drawable"),
-    ]);
-  }
-}
-
 export class ToolbarPlugin extends BasePlugin {
   static pluginId = "toolbar";
-
-  commands() {
-    return [ResetZoomCommand, FitAllCommand];
-  }
 
   onSetup() {
     const {
@@ -43,8 +18,6 @@ export class ToolbarPlugin extends BasePlugin {
       strokeColorEl,
       strokeWidthEl,
       strokeWidthValueEl,
-      zoomResetEl,
-      fitAllEl,
     } = this.options;
 
     this.ui = {
@@ -55,17 +28,12 @@ export class ToolbarPlugin extends BasePlugin {
       strokeColorEl,
       strokeWidthEl,
       strokeWidthValueEl,
-      zoomResetEl,
-      fitAllEl,
     };
     this.focusState = {
       positionMode: "absolute",
       canSave: false,
       canTogglePositionMode: false,
     };
-
-    this.app.keybindings.register("Mod+0", "zoom:reset");
-    this.cleanups.push(() => this.app.keybindings.unregister("Mod+0"));
 
     this.listenDom(saveFocusEl, "click", () => {
       this.app.commands.execute("focus:save-selection");
@@ -76,13 +44,8 @@ export class ToolbarPlugin extends BasePlugin {
     });
     this.listenDom(strokeColorEl, "input", () => this.emitStrokeChange());
     this.listenDom(strokeWidthEl, "input", () => this.emitStrokeChange());
-    this.listenDom(zoomResetEl, "click", () => this.app.commands.execute("zoom:reset"));
-    this.listenDom(fitAllEl, "click", () => this.app.commands.execute("fit:all"));
 
     this.listen("tool:change", () => this.syncUi());
-    this.listen("zoom:change", ({ zoom }) => {
-      zoomResetEl.textContent = `${zoom}%`;
-    });
     this.listen("interaction:change", () => this.syncUi());
     this.listen("focus:state-change", (payload = {}) => {
       this.focusState = {

@@ -207,48 +207,6 @@ export class StageController {
     return tween;
   }
 
-  resetZoom() {
-    this.setScale(1);
-  }
-
-  fitNodes(nodes) {
-    const visibleNodes = nodes.filter((node) => node.isVisible());
-    if (!visibleNodes.length) return;
-
-    const boxes = visibleNodes.map((node) => node.getClientRect({ skipTransform: false }));
-    const bounds = boxes.reduce(
-      (acc, box) => ({
-        x: Math.min(acc.x, box.x),
-        y: Math.min(acc.y, box.y),
-        maxX: Math.max(acc.maxX, box.x + box.width),
-        maxY: Math.max(acc.maxY, box.y + box.height),
-      }),
-      { x: Infinity, y: Infinity, maxX: -Infinity, maxY: -Infinity },
-    );
-
-    const width = Math.max(bounds.maxX - bounds.x, 100);
-    const height = Math.max(bounds.maxY - bounds.y, 100);
-    const padding = 80;
-    const scale = Math.max(
-      MIN_SCALE,
-      Math.min(
-        MAX_SCALE,
-        Math.min(
-          (this.stage.width() - padding * 2) / width,
-          (this.stage.height() - padding * 2) / height,
-        ),
-      ),
-    );
-
-    this.setViewport({
-      scale,
-      position: {
-        x: this.stage.width() / 2 - (bounds.x + width / 2) * scale,
-        y: this.stage.height() / 2 - (bounds.y + height / 2) * scale,
-      },
-    });
-  }
-
   consumePanClickSuppression() {
     const shouldSuppress = this.suppressNextClick;
     this.suppressNextClick = false;

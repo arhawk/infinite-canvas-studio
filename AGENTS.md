@@ -236,8 +236,6 @@ Implemented in [src/stage.js](src/stage.js).
 - In `edit.arrange`, primary drag on empty canvas also pans the viewport
 - In presentation mode, primary drag also pans the viewport
 - A Konva grid layer redraws with pan and zoom so the grid scales with the canvas
-- `Fit All` centers and scales all visible content into view
-- `Cmd/Ctrl + 0` resets zoom to `100%`
 - `viewport:change` is emitted whenever pan/zoom/animated camera restore updates the visible canvas region
 
 ### 2. Coordinate Conversion
@@ -359,10 +357,6 @@ Controls:
 - `Focus: Absolute / Relative` toggle that reflects and updates the selected component's own focus mode
 - Color picker (enabled only for brush tool)
 - Stroke width slider (enabled only for brush tool)
-- Zoom label and reset button
-- Fit All button
-
-Registered commands: `zoom:reset`, `fit:all`
 
 ### 8. Context Menu
 

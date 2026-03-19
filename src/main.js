@@ -33,8 +33,6 @@ const ui = {
   strokeColor: getRequiredElement("#stroke-color"),
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
-  zoomReset: getRequiredElement("#zoom-reset"),
-  fitAll: getRequiredElement("#fit-all"),
   componentPalette: getRequiredElement("#component-palette"),
 };
 
@@ -63,8 +61,6 @@ app.use(ToolbarPlugin, {
   strokeColorEl: ui.strokeColor,
   strokeWidthEl: ui.strokeWidth,
   strokeWidthValueEl: ui.strokeWidthValue,
-  zoomResetEl: ui.zoomReset,
-  fitAllEl: ui.fitAll,
 });
 app.use(SidebarPlugin, {
   paletteEl: ui.componentPalette,
