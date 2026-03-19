@@ -340,7 +340,9 @@ export class ConnectionsPlugin extends BasePlugin {
       geometry.end.y,
     ]);
 
-    connectionNode.moveToBottom();
+    // Keep connections above page/container backgrounds so links stay visible
+    // when endpoints are captured inside those groups.
+    connectionNode.moveToTop();
 
     if (connectionNode === this.selectedConnection) {
       this.syncSelectedConnectionControls();
