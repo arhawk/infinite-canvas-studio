@@ -2,6 +2,13 @@
 
 A vanilla JavaScript mind-map board built on Konva.js with a lightweight Vite setup. The app combines an infinite canvas, draggable components, single-node selection and transform, edit-mode canvas panning, freehand drawing, editable content blocks, and container-to-container connections in a dependency-light architecture designed for extension.
 
+## Highlights
+
+- Presentation focus views can be saved from the toolbar or the context menu.
+- Each focusable component tracks its own focus mode (`absolute` or `relative`), and new components default to `absolute`.
+- Relative focus keeps presentation framing attached to the component when that component moves.
+- In presentation mode, saved focuses can be reached from connection edge buttons or by double-clicking the component itself.
+
 ## Stack
 
 - pnpm

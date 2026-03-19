@@ -27,6 +27,8 @@ const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
   modeToggle: getRequiredElement("#mode-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
+  saveFocus: getRequiredElement("#save-focus"),
+  focusPositionMode: getRequiredElement("#focus-position-mode"),
   strokeColor: getRequiredElement("#stroke-color"),
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
@@ -54,6 +56,8 @@ app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
   modeToggleEl: ui.modeToggle,
   toolButtonsEl: ui.toolButtons,
+  saveFocusEl: ui.saveFocus,
+  focusPositionModeEl: ui.focusPositionMode,
   strokeColorEl: ui.strokeColor,
   strokeWidthEl: ui.strokeWidth,
   strokeWidthValueEl: ui.strokeWidthValue,

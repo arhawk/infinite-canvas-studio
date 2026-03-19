@@ -71,13 +71,13 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, and zoom commands
+- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, focus controls, and zoom commands
 - [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
-- [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, bidirectional edge jump buttons, and `Save Focus` context menu integration
+- [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, per-component absolute/relative focus mode state, bidirectional edge jump buttons, toolbar/context-menu `Save Focus`, and presentation double-click navigation
 - [src/plugins/contextMenu.js](src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
 
 ### Stage
@@ -218,7 +218,7 @@ app.destroy()
 The app is split into three main regions:
 
 - Left sidebar: draggable component palette
-- Top toolbar: tools, stroke settings, zoom controls
+- Top toolbar: tools, focus controls, stroke settings, zoom controls
 - Main board: Konva infinite canvas
 
 ## Implemented Features
@@ -350,6 +350,8 @@ Controls:
 
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
+- `Save Focus` button for the current selection in `edit.arrange`
+- `Focus: Absolute / Relative` toggle that reflects and updates the selected component's own focus mode
 - Color picker (enabled only for brush tool)
 - Stroke width slider (enabled only for brush tool)
 - Zoom label and reset button
@@ -387,14 +389,17 @@ Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) 
 
 Saved focus behavior:
 
-- In `edit.arrange`, right-click any non-connection component and choose **Save Focus**.
-- `Save Focus` stores the current camera center and current zoom on the node in a `savedFocus` attribute shaped like `{ center: { x, y }, scale }`.
-- The saved focus is deliberately view-based rather than node-relative. It captures exactly the camera framing the editor wants to revisit later during presentation.
-- Saving focus emits `node:changed`, which keeps dependent presentation affordances in sync without a dedicated persistence subsystem.
+- In `edit.arrange`, you can save focus either from the top toolbar or by right-clicking any non-connection component and choosing **Save Focus**.
+- Every focusable component owns a `focusPositionMode` state. New components default to `absolute` as soon as they are created, even before any focus view is saved.
+- The toolbar `Focus: Absolute / Relative` toggle always reflects the currently selected component's mode and updates that component directly.
+- `Save Focus` stores the current camera center and zoom on the node in a `savedFocus` attribute. Absolute focus is saved as `{ positionMode: "absolute", center: { x, y }, scale }`.
+- Relative focus stores the same framing relative to the component's current anchor, shaped like `{ positionMode: "relative", offset: { x, y }, scale }`, so moving the component also moves the destination framing.
+- Saving focus emits `node:changed`, shows a small success toast, and keeps dependent presentation affordances in sync without a dedicated persistence subsystem.
 
 Presentation navigation rules:
 
 - Navigation buttons are evaluated only in `presentation` mode.
+- Double-clicking a component in `presentation` mode also jumps directly to that component's saved focus, if one exists.
 - Each connection is checked in both directions:
   source visible -> target saved focus
   target visible -> source saved focus

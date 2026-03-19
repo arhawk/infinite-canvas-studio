@@ -1,4 +1,5 @@
 import {
+  BaseCommand,
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
@@ -14,6 +15,16 @@ function isConnectionNode(node) {
 
 function isFocusableNode(node) {
   return !!node?.hasName?.("selectable") && !isConnectionNode(node);
+}
+
+function isFinitePoint(point) {
+  return Number.isFinite(point?.x) && Number.isFinite(point?.y);
+}
+
+function normalizeFocusPositionMode(mode) {
+  if (mode === "relative") return "relative";
+  if (mode === "absolute") return "absolute";
+  return null;
 }
 
 function resolveFocusableNode(target) {
@@ -86,6 +97,39 @@ class SaveFocusMenuItem extends BaseContextMenuItem {
   }
 }
 
+class SaveSelectionFocusCommand extends BaseCommand {
+  static commandId = "focus:save-selection";
+  static label = "Save Focus";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute() {
+    this.plugin.saveFocusForSelection();
+  }
+}
+
+class SetFocusPositionModeCommand extends BaseCommand {
+  static commandId = "focus:position-mode:set";
+  static label = "Set Focus Position Mode";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+        brush: {},
+      },
+    },
+  };
+
+  execute(mode) {
+    this.plugin.setFocusPositionMode(mode);
+  }
+}
+
 export class FocusNavigationPlugin extends BasePlugin {
   static pluginId = "focus-navigation";
   static modes = {
@@ -97,6 +141,10 @@ export class FocusNavigationPlugin extends BasePlugin {
     },
   };
 
+  commands() {
+    return [SaveSelectionFocusCommand, SetFocusPositionModeCommand];
+  }
+
   menuItems() {
     return [SaveFocusMenuItem];
   }
@@ -105,24 +153,56 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.stage = this.app.stage;
     this.layer = this.app.mainLayer;
     this.uiLayer = this.app.uiLayer;
+    this.selectedNode = null;
+    this.focusPositionMode = "absolute";
+    this.saveToastTimeout = null;
 
     this.navButtonGroup = new Konva.Group({
       visible: false,
       name: "presentation-nav-buttons",
     });
     this.uiLayer.add(this.navButtonGroup);
+    this.buildSaveToast();
+    this.layer.find(".selectable").forEach((node) => {
+      this.ensureNodeFocusPositionMode(node);
+    });
 
-    this.listen("interaction:change", () => this.syncNavigationButtons());
+    this.listen("interaction:change", () => {
+      this.syncNavigationButtons();
+      this.emitToolbarState();
+    });
     this.listen("viewport:change", () => this.syncNavigationButtons());
-    this.listen("node:added", () => this.syncNavigationButtons());
+    this.listen("node:added", ({ node }) => {
+      this.syncNavigationButtons();
+      this.ensureNodeFocusPositionMode(node);
+      if (node === this.selectedNode) {
+        this.syncFocusPositionModeFromNode(node);
+        this.emitToolbarState();
+      }
+    });
     this.listen("node:removed", () => this.syncNavigationButtons());
-    this.listen("node:changed", () => this.syncNavigationButtons());
+    this.listen("node:changed", ({ node }) => {
+      this.syncNavigationButtons();
+      if (node === this.selectedNode) {
+        this.syncFocusPositionModeFromNode(node);
+        this.emitToolbarState();
+      }
+    });
+    this.listen("selection:change", ({ nodes }) => {
+      this.selectedNode = nodes.find((node) => isFocusableNode(node)) ?? null;
+      this.syncFocusPositionModeFromNode(this.selectedNode);
+      this.emitToolbarState();
+    });
 
     this.stage.on("dblclick.focusNavigation dbltap.focusNavigation", (event) => {
       this.handleStageDoubleClick(event);
     });
 
+    this.emitToolbarState();
+
     this.cleanups.push(() => {
+      window.clearTimeout(this.saveToastTimeout);
+      this.saveToastEl?.remove();
       this.stage.off(".focusNavigation");
       this.navButtonGroup.destroy();
     });
@@ -144,29 +224,231 @@ export class FocusNavigationPlugin extends BasePlugin {
     });
   }
 
-  saveFocus(node) {
-    if (!isFocusableNode(node)) return;
+  getNodeFocusAnchor(node) {
+    const bounds = this.getNodeBounds(node);
+    if (!bounds) return null;
 
-    node.setAttr("savedFocus", {
-      center: this.getViewportCenter(),
-      scale: this.app.stageApi.getScale(),
+    return {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    };
+  }
+
+  getSelectedFocusableNode() {
+    return isFocusableNode(this.selectedNode) ? this.selectedNode : null;
+  }
+
+  canSaveSelectionFocus() {
+    return (
+      this.app.modeManager.matches({ mode: "edit", editorTool: "arrange" })
+      && isFocusableNode(this.selectedNode)
+    );
+  }
+
+  getNodeFocusPositionMode(node) {
+    return normalizeFocusPositionMode(node?.getAttr?.("focusPositionMode"));
+  }
+
+  setNodeFocusPositionMode(node, mode) {
+    if (!isFocusableNode(node)) return false;
+
+    const nextMode = normalizeFocusPositionMode(mode);
+    if (!nextMode) return false;
+
+    const currentMode = this.getNodeFocusPositionMode(node);
+    const didChange = currentMode !== nextMode;
+
+    node.setAttr("focusPositionMode", nextMode);
+    return didChange;
+  }
+
+  ensureNodeFocusPositionMode(node, fallbackMode = "absolute") {
+    if (!isFocusableNode(node)) return null;
+
+    const currentMode = this.getNodeFocusPositionMode(node);
+    if (currentMode) return currentMode;
+
+    const nextMode = this.getSavedFocusMode(node)
+      ?? normalizeFocusPositionMode(fallbackMode)
+      ?? "absolute";
+
+    this.setNodeFocusPositionMode(node, nextMode);
+    return nextMode;
+  }
+
+  getSavedFocusMode(node) {
+    const savedFocus = node?.getAttr?.("savedFocus");
+    if (!savedFocus || !Number.isFinite(savedFocus.scale)) {
+      return null;
+    }
+
+    const positionMode = savedFocus.positionMode === "relative" ? "relative" : "absolute";
+    if (positionMode === "relative") {
+      return isFinitePoint(savedFocus.offset) ? positionMode : null;
+    }
+
+    return isFinitePoint(savedFocus.center) ? positionMode : null;
+  }
+
+  getFocusPositionModeForNode(node) {
+    if (isFocusableNode(node)) {
+      return this.ensureNodeFocusPositionMode(node);
+    }
+
+    return this.focusPositionMode;
+  }
+
+  syncFocusPositionModeFromNode(node) {
+    const nodeMode = this.getFocusPositionModeForNode(node);
+    if (nodeMode) {
+      this.focusPositionMode = nodeMode;
+    }
+  }
+
+  createSavedFocus(node, {
+    positionMode = this.getFocusPositionModeForNode(node),
+    center = this.getViewportCenter(),
+    scale = this.app.stageApi.getScale(),
+  } = {}) {
+    if (!isFocusableNode(node) || !isFinitePoint(center) || !Number.isFinite(scale)) {
+      return null;
+    }
+
+    if (positionMode === "relative") {
+      const anchor = this.getNodeFocusAnchor(node);
+      if (!anchor) return null;
+
+      return {
+        positionMode,
+        offset: {
+          x: center.x - anchor.x,
+          y: center.y - anchor.y,
+        },
+        scale,
+      };
+    }
+
+    return {
+      positionMode: "absolute",
+      center,
+      scale,
+    };
+  }
+
+  setFocusPositionMode(mode) {
+    const nextMode = normalizeFocusPositionMode(mode) ?? "absolute";
+    this.focusPositionMode = nextMode;
+    const node = this.getSelectedFocusableNode();
+    const savedFocus = node ? this.getSavedFocus(node) : null;
+    let didChangeNode = false;
+
+    if (node) {
+      didChangeNode = this.setNodeFocusPositionMode(node, nextMode);
+    }
+
+    if (savedFocus && this.getSavedFocusMode(node) !== nextMode) {
+      const nextSavedFocus = this.createSavedFocus(node, {
+        positionMode: nextMode,
+        center: savedFocus.center,
+        scale: savedFocus.scale,
+      });
+
+      if (nextSavedFocus) {
+        node.setAttr("savedFocus", nextSavedFocus);
+        didChangeNode = true;
+      }
+    }
+
+    if (didChangeNode && node) {
+      this.app.events.emit("node:changed", { node });
+    }
+
+    this.emitToolbarState();
+  }
+
+  emitToolbarState() {
+    this.app.events.emit("focus:state-change", {
+      positionMode: this.getFocusPositionModeForNode(this.selectedNode),
+      canSave: this.canSaveSelectionFocus(),
     });
+  }
+
+  buildSaveToast() {
+    this.saveToastEl = document.createElement("div");
+    this.saveToastEl.className = "focus-save-toast";
+    this.saveToastEl.textContent = "Focus saved";
+    document.body.append(this.saveToastEl);
+  }
+
+  showSaveToast(message = "Focus saved") {
+    if (!this.saveToastEl) return;
+
+    window.clearTimeout(this.saveToastTimeout);
+    this.saveToastEl.textContent = message;
+    this.saveToastEl.classList.add("is-visible");
+
+    this.saveToastTimeout = window.setTimeout(() => {
+      this.saveToastEl?.classList.remove("is-visible");
+    }, 1400);
+  }
+
+  saveFocus(node) {
+    if (!isFocusableNode(node)) return false;
+
+    const savedFocus = this.createSavedFocus(node);
+    if (!savedFocus) return false;
+
+    this.setNodeFocusPositionMode(node, savedFocus.positionMode);
+    node.setAttr("savedFocus", savedFocus);
+    this.syncFocusPositionModeFromNode(node);
 
     this.app.events.emit("node:changed", { node });
+    this.showSaveToast();
+    return true;
+  }
+
+  saveFocusForSelection() {
+    const node = this.getSelectedFocusableNode();
+    if (!node || !this.canSaveSelectionFocus()) return false;
+
+    return this.saveFocus(node);
   }
 
   getSavedFocus(node) {
     const savedFocus = node?.getAttr?.("savedFocus");
-    if (
-      !savedFocus ||
-      !Number.isFinite(savedFocus.scale) ||
-      !Number.isFinite(savedFocus.center?.x) ||
-      !Number.isFinite(savedFocus.center?.y)
-    ) {
+    if (!savedFocus || !Number.isFinite(savedFocus.scale)) {
       return null;
     }
 
-    return savedFocus;
+    const positionMode = savedFocus.positionMode === "relative" ? "relative" : "absolute";
+
+    if (positionMode === "relative") {
+      if (!isFinitePoint(savedFocus.offset)) {
+        return null;
+      }
+
+      const anchor = this.getNodeFocusAnchor(node);
+      if (!anchor) return null;
+
+      return {
+        positionMode,
+        scale: savedFocus.scale,
+        center: {
+          x: anchor.x + savedFocus.offset.x,
+          y: anchor.y + savedFocus.offset.y,
+        },
+      };
+    }
+
+    if (!isFinitePoint(savedFocus.center)) {
+      return null;
+    }
+
+    return {
+      positionMode,
+      scale: savedFocus.scale,
+      center: savedFocus.center,
+    };
   }
 
   navigateToSavedFocus(node, savedFocus = this.getSavedFocus(node)) {

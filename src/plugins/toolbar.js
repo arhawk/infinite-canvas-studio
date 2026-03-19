@@ -38,6 +38,8 @@ export class ToolbarPlugin extends BasePlugin {
     const {
       modeToggleEl,
       toolButtonsEl,
+      saveFocusEl,
+      focusPositionModeEl,
       strokeColorEl,
       strokeWidthEl,
       strokeWidthValueEl,
@@ -48,16 +50,29 @@ export class ToolbarPlugin extends BasePlugin {
     this.ui = {
       modeToggleEl,
       toolButtonsEl,
+      saveFocusEl,
+      focusPositionModeEl,
       strokeColorEl,
       strokeWidthEl,
       strokeWidthValueEl,
       zoomResetEl,
       fitAllEl,
     };
+    this.focusState = {
+      positionMode: "absolute",
+      canSave: false,
+    };
 
     this.app.keybindings.register("Mod+0", "zoom:reset");
     this.cleanups.push(() => this.app.keybindings.unregister("Mod+0"));
 
+    this.listenDom(saveFocusEl, "click", () => {
+      this.app.commands.execute("focus:save-selection");
+    });
+    this.listenDom(focusPositionModeEl, "click", () => {
+      const nextMode = this.focusState.positionMode === "relative" ? "absolute" : "relative";
+      this.app.commands.execute("focus:position-mode:set", nextMode);
+    });
     this.listenDom(strokeColorEl, "input", () => this.emitStrokeChange());
     this.listenDom(strokeWidthEl, "input", () => this.emitStrokeChange());
     this.listenDom(zoomResetEl, "click", () => this.app.commands.execute("zoom:reset"));
@@ -68,6 +83,13 @@ export class ToolbarPlugin extends BasePlugin {
       zoomResetEl.textContent = `${zoom}%`;
     });
     this.listen("interaction:change", () => this.syncUi());
+    this.listen("focus:state-change", (payload = {}) => {
+      this.focusState = {
+        ...this.focusState,
+        ...payload,
+      };
+      this.syncUi();
+    });
 
     this.setupModeToggle();
     this.renderToolButtons();
@@ -128,6 +150,8 @@ export class ToolbarPlugin extends BasePlugin {
   syncUi() {
     const {
       toolButtonsEl,
+      saveFocusEl,
+      focusPositionModeEl,
       strokeColorEl,
       strokeWidthEl,
       strokeWidthValueEl,
@@ -136,6 +160,9 @@ export class ToolbarPlugin extends BasePlugin {
     } = this.ui;
 
     const isEdit = this.app.getMode() === "edit";
+    const focusSaveCommand = this.app.commands.get("focus:save-selection");
+    const focusModeCommand = this.app.commands.get("focus:position-mode:set");
+    const isRelativeFocus = this.focusState.positionMode === "relative";
 
     document.body.classList.toggle("is-edit-mode", isEdit);
     document.body.classList.toggle("is-presentation-mode", !isEdit);
@@ -151,6 +178,14 @@ export class ToolbarPlugin extends BasePlugin {
       button.setAttribute("aria-pressed", String(button.dataset.toolId === this.app.tools.getActive()));
       button.disabled = !isEdit;
     }
+
+    saveFocusEl.disabled = !focusSaveCommand?.isEnabled?.() || !this.focusState.canSave;
+    focusPositionModeEl.disabled = !focusModeCommand?.isEnabled?.();
+    focusPositionModeEl.setAttribute("aria-pressed", String(isRelativeFocus));
+    focusPositionModeEl.textContent = isRelativeFocus ? "Focus: Relative" : "Focus: Absolute";
+    focusPositionModeEl.title = isRelativeFocus
+      ? "Focus positioning follows the component when it moves"
+      : "Focus positioning stays fixed in canvas space";
 
     const drawingEnabled = this.app.modeManager.matches({
       mode: "edit",
