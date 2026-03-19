@@ -149,10 +149,24 @@ export class SelectionPlugin extends BasePlugin {
     return nodes.filter((node) => node.getAttr("componentType") !== "connection");
   }
 
+  syncTransformer() {
+    const transformableNodes = this.getTransformableNodes(this.selectedNodes);
+    const primaryNode = transformableNodes[0] ?? null;
+    const transformLocked = Boolean(primaryNode?.getAttr("transformLocked"));
+
+    this.transformer.rotateEnabled(!transformLocked);
+    this.transformer.enabledAnchors(
+      transformLocked
+        ? []
+        : ["top-left", "top-right", "bottom-left", "bottom-right"],
+    );
+    this.transformer.nodes(transformableNodes);
+  }
+
   setSelected(nodes) {
     const nextNode = nodes.find(Boolean) ?? null;
     this.selectedNodes = nextNode ? [nextNode] : [];
-    this.transformer.nodes(this.getTransformableNodes(this.selectedNodes));
+    this.syncTransformer();
     this.layer.batchDraw();
     this.app.events.emit("selection:change", { nodes: this.selectedNodes });
   }

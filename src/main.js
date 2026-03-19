@@ -14,6 +14,7 @@ import { TextComponent } from "./component/text.js";
 import { StickyComponent } from "./component/sticky.js";
 import { ImageComponent } from "./component/image.js";
 import { ContainerComponent } from "./component/container.js";
+import { PageComponent } from "./component/page.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -43,6 +44,7 @@ const app = new App({
 
 // Register built-in components
 [
+  PageComponent,
   ContainerComponent,
   TextComponent,
   StickyComponent,

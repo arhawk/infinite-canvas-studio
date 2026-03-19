@@ -90,6 +90,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/component/text.js](src/component/text.js): `TextComponent`
 - [src/component/sticky.js](src/component/sticky.js): `StickyComponent`
 - [src/component/image.js](src/component/image.js): `ImageComponent`
+- [src/component/page.js](src/component/page.js): `PageComponent`
 - [src/component/connection.js](src/component/connection.js): `ConnectionComponent`
 - [src/component/container.js](src/component/container.js): `ContainerComponent` for grouping nodes
 
@@ -267,6 +268,7 @@ Implemented in [src/plugins/sidebar.js](src/plugins/sidebar.js).
 
 Available component types:
 
+- Page
 - Text
 - Sticky Note
 - Image
@@ -275,6 +277,7 @@ Available component types:
 Behavior:
 
 - Non-image components are draggable from the sidebar onto the canvas
+- `Page` appears first in the palette and creates a fixed-size landscape page surface
 - Image icon in the sidebar is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
 - Drop coordinates are converted from screen space to canvas space.
 - Internal-only components such as `connection` are hidden from the palette via component metadata and are created programmatically by plugins.
@@ -291,6 +294,7 @@ Structure:
 
 Current component classes:
 
+- `page`
 - `text`
 - `sticky`
 - `image`
@@ -316,6 +320,7 @@ Supported interactions:
 - Drag a selected node to move it
 - Drag on empty canvas to pan the viewport in `edit.arrange`
 - Drag and transform show Konva alignment guides and snap to nearby edges or centers
+- Fixed-size components such as `page` remain draggable and selectable but do not expose resize or rotation controls
 - `Delete` or `Backspace` removes selected nodes (via `selection:delete` command)
 
 Transformer rules:
@@ -390,7 +395,8 @@ Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) 
 Saved focus behavior:
 
 - In `edit.arrange`, you can save focus either from the top toolbar or by right-clicking any non-connection component and choosing **Save Focus**.
-- Every focusable component owns a `focusPositionMode` state. New components default to `absolute` as soon as they are created, even before any focus view is saved.
+- Every focusable component owns a `focusPositionMode` state. Regular components default to `absolute` as soon as they are created, even before any focus view is saved.
+- `Page` components are created with a fixed landscape size, a default `focusPositionMode` of `relative`, and a built-in saved focus centered on the page.
 - The toolbar `Focus: Absolute / Relative` toggle always reflects the currently selected component's mode and updates that component directly.
 - `Save Focus` stores the current camera center and zoom on the node in a `savedFocus` attribute. Absolute focus is saved as `{ positionMode: "absolute", center: { x, y }, scale }`.
 - Relative focus stores the same framing relative to the component's current anchor, shaped like `{ positionMode: "relative", offset: { x, y }, scale }`, so moving the component also moves the destination framing.
