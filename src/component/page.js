@@ -1,8 +1,8 @@
 import { Konva } from "../lib/konva.js";
 import { ContainerComponent } from "./container.js";
 
-const PAGE_WIDTH = 1240;
-const PAGE_HEIGHT = 760;
+const PAGE_WIDTH = 960;
+const PAGE_HEIGHT = 540;
 const PAGE_VIEW_PADDING = 24;
 
 function getDefaultPageScale(app, width, height) {
