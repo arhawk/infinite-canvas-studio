@@ -53,8 +53,16 @@ export class DrawingPlugin extends BasePlugin {
     return this.app.stageApi.screenToCanvas(pointer);
   }
 
+  canStartDrawing(target) {
+    if (!target) return false;
+    if (target === this.stage) return true;
+
+    const layer = target.getLayer?.();
+    return layer === this.app.mainLayer || layer === this.app.drawLayer;
+  }
+
   handlePointerDown(event) {
-    if (!this.isEnabled() || event.target !== this.stage) return;
+    if (!this.isEnabled() || !this.canStartDrawing(event.target)) return;
     const point = this.pointerToCanvas();
     if (!point) return;
 
