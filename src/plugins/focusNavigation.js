@@ -45,10 +45,6 @@ function pointInRect(point, rect) {
   );
 }
 
-function distance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
 function cubicBezierPoint(points, t) {
   const p0 = points[0];
   const p1 = points[1];
@@ -482,6 +478,12 @@ export class FocusNavigationPlugin extends BasePlugin {
     );
   }
 
+  isCanvasPointVisible(point) {
+    if (!isFinitePoint(point)) return false;
+
+    return pointInRect(point, this.app.stageApi.getViewportBounds());
+  }
+
   getConnectionScreenCurve(connectionNode, { reverse = false } = {}) {
     const line = connectionNode.findOne(".connection-line");
     const points = line?.points?.() ?? [];
@@ -630,8 +632,6 @@ export class FocusNavigationPlugin extends BasePlugin {
 
   tryAddNavigationButton(connectionNode, fromNode, toNode, {
     reverse = false,
-    centerScreen,
-    diagonalDistance,
   }) {
     if (!isFocusableNode(fromNode) || !isFocusableNode(toNode)) return;
 
@@ -641,8 +641,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     const fromBounds = this.getNodeBounds(fromNode);
     if (!this.isBoxFullyVisible(fromBounds)) return;
 
-    const targetFocusScreen = this.app.stageApi.canvasToScreen(savedFocus.center);
-    if (distance(targetFocusScreen, centerScreen) <= diagonalDistance) return;
+    if (this.isCanvasPointVisible(savedFocus.center)) return;
 
     const screenPoint = this.findNavigationButtonPoint(connectionNode, { reverse });
     if (!screenPoint) return;
@@ -656,13 +655,6 @@ export class FocusNavigationPlugin extends BasePlugin {
       return;
     }
 
-    const screenSize = this.app.stageApi.getScreenSize();
-    const centerScreen = {
-      x: screenSize.width / 2,
-      y: screenSize.height / 2,
-    };
-    const diagonalDistance = Math.hypot(screenSize.width, screenSize.height);
-
     this.app.clearCursorOverride();
     this.navButtonGroup.destroyChildren();
 
@@ -671,13 +663,9 @@ export class FocusNavigationPlugin extends BasePlugin {
       const target = this.findNodeById(connectionNode.getAttr("targetNodeId"));
       this.tryAddNavigationButton(connectionNode, source, target, {
         reverse: false,
-        centerScreen,
-        diagonalDistance,
       });
       this.tryAddNavigationButton(connectionNode, target, source, {
         reverse: true,
-        centerScreen,
-        diagonalDistance,
       });
     });
 

@@ -404,7 +404,7 @@ Presentation navigation rules:
   target visible -> source saved focus
 - A direction is eligible only when the currently visible endpoint is fully inside the viewport bounds.
 - A direction is eligible only when the destination endpoint has a valid `savedFocus`.
-- A direction is eligible only when the saved focus center is farther from the current screen center than one current viewport diagonal.
+- A direction is eligible only when the saved focus center is outside the current viewport bounds.
 - When eligible, the plugin samples the rendered Bezier curve, finds where that directional curve exits the viewport, and places a floating edge button slightly inside the boundary.
 - Clicking the button restores both the saved camera center and the saved zoom through `stageApi.centerOn(..., { scale })`.
 - Because the check is directional, a single connection can surface one button, two buttons, or none depending on the current viewport and which endpoints have saved focus views.
