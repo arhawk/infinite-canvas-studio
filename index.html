@@ -18,11 +18,12 @@
     <div class="app-shell">
       <aside class="sidebar">
         <div class="sidebar__header">
-          <p class="eyebrow">Palette</p>
-          <h1>Mind Map Canvas</h1>
-          <p class="sidebar__hint">
-            Drag components onto the board or click image to upload.
-          </p>
+          <div id="sidebar-brand" class="sidebar__brand" aria-label="Components">
+            <span class="sidebar__brand-mark" aria-hidden="true">
+              <i data-lucide="route"></i>
+            </span>
+            <h1>Components</h1>
+          </div>
         </div>
         <div id="component-palette" class="component-palette"></div>
       </aside>

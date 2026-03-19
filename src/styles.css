@@ -90,6 +90,11 @@ body.is-presentation-mode .sidebar {
   pointer-events: none;
 }
 
+.sidebar__header {
+  display: flex;
+  align-items: center;
+}
+
 .workspace {
   display: flex;
   flex-direction: column;
@@ -112,6 +117,33 @@ h2 {
   margin: 0;
   font-family: "Space Grotesk", sans-serif;
   line-height: 1;
+}
+
+.sidebar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.sidebar__brand h1 {
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+}
+
+.sidebar__brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.95rem;
+  color: var(--accent);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.85), transparent 45%),
+    linear-gradient(180deg, rgba(215, 97, 47, 0.2), rgba(215, 97, 47, 0.08));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 0.8rem 1.8rem rgba(215, 97, 47, 0.16);
 }
 
 .sidebar__hint {

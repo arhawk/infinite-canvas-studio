@@ -1,5 +1,6 @@
 import "./styles.css";
 import { App } from "./core/app.js";
+import { renderIcons } from "./lib/icons.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { SidebarPlugin } from "./plugins/sidebar.js";
 import { SelectionPlugin } from "./plugins/selection.js";
@@ -26,6 +27,7 @@ function getRequiredElement(selector) {
 
 const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
+  sidebarBrand: getRequiredElement("#sidebar-brand"),
   modeToggle: getRequiredElement("#mode-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
   arrangeControls: getRequiredElement("#arrange-controls"),
@@ -38,6 +40,12 @@ const ui = {
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   componentPalette: getRequiredElement("#component-palette"),
 };
+
+renderIcons(ui.sidebarBrand, {
+  width: 20,
+  height: 20,
+  "stroke-width": 2.2,
+});
 
 const app = new App({
   container: ui.canvasContainer,
