@@ -13,6 +13,8 @@ export class ToolbarPlugin extends BasePlugin {
     const {
       modeToggleEl,
       toolButtonsEl,
+      arrangeControlsEl,
+      brushControlsEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -23,6 +25,8 @@ export class ToolbarPlugin extends BasePlugin {
     this.ui = {
       modeToggleEl,
       toolButtonsEl,
+      arrangeControlsEl,
+      brushControlsEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -114,6 +118,8 @@ export class ToolbarPlugin extends BasePlugin {
   syncUi() {
     const {
       toolButtonsEl,
+      arrangeControlsEl,
+      brushControlsEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -124,6 +130,11 @@ export class ToolbarPlugin extends BasePlugin {
     } = this.ui;
 
     const isEdit = this.app.getMode() === "edit";
+    const activeToolId = isEdit ? this.app.getEditorTool() : null;
+    const showArrangeControls =
+      activeToolId === "arrange"
+      && (this.focusState.canSave || this.focusState.canTogglePositionMode);
+    const showBrushControls = activeToolId === "brush";
     const focusSaveCommand = this.app.commands.get("focus:save-selection");
     const focusModeCommand = this.app.commands.get("focus:position-mode:set");
     const isRelativeFocus = this.focusState.positionMode === "relative";
@@ -143,8 +154,16 @@ export class ToolbarPlugin extends BasePlugin {
       button.disabled = !isEdit;
     }
 
+    if (arrangeControlsEl) {
+      arrangeControlsEl.hidden = !showArrangeControls;
+    }
+    if (brushControlsEl) {
+      brushControlsEl.hidden = !showBrushControls;
+    }
+
     saveFocusEl.disabled = !focusSaveCommand?.isEnabled?.() || !this.focusState.canSave;
-    focusPositionModeEl.disabled = !focusModeCommand?.isEnabled?.() || !this.focusState.canTogglePositionMode;
+    focusPositionModeEl.disabled =
+      !focusModeCommand?.isEnabled?.() || !this.focusState.canTogglePositionMode;
     focusPositionModeEl.setAttribute("aria-pressed", String(isRelativeFocus));
     focusPositionModeEl.textContent = isRelativeFocus ? "Focus: Relative" : "Focus: Absolute";
     focusPositionModeEl.title = isRelativeFocus

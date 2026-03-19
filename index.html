@@ -30,7 +30,7 @@
       <main class="workspace">
         <header class="toolbar">
           <div id="tool-buttons" class="toolbar__cluster"></div>
-          <div class="toolbar__cluster">
+          <div id="arrange-controls" class="toolbar__cluster toolbar__tool-panel" hidden>
             <button id="save-focus" class="ghost-button" type="button">Save Focus</button>
             <button
               id="focus-position-mode"
@@ -41,15 +41,17 @@
               Focus: Absolute
             </button>
           </div>
-          <label class="toolbar__field">
-            <span>Color</span>
-            <input id="stroke-color" type="color" value="#1f6feb" />
-          </label>
-          <label class="toolbar__field toolbar__field--slider">
-            <span>Stroke</span>
-            <input id="stroke-width" type="range" min="1" max="24" value="4" />
-            <output id="stroke-width-value">4</output>
-          </label>
+          <div id="brush-controls" class="toolbar__cluster toolbar__tool-panel" hidden>
+            <label class="toolbar__field">
+              <span>Color</span>
+              <input id="stroke-color" type="color" value="#1f6feb" />
+            </label>
+            <label class="toolbar__field toolbar__field--slider">
+              <span>Stroke</span>
+              <input id="stroke-width" type="range" min="1" max="24" value="4" />
+              <output id="stroke-width-value">4</output>
+            </label>
+          </div>
         </header>
 
         <section class="board-shell">

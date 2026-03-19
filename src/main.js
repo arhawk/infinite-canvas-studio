@@ -28,6 +28,8 @@ const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
   modeToggle: getRequiredElement("#mode-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
+  arrangeControls: getRequiredElement("#arrange-controls"),
+  brushControls: getRequiredElement("#brush-controls"),
   saveFocus: getRequiredElement("#save-focus"),
   focusPositionMode: getRequiredElement("#focus-position-mode"),
   strokeColor: getRequiredElement("#stroke-color"),
@@ -56,6 +58,8 @@ app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
   modeToggleEl: ui.modeToggle,
   toolButtonsEl: ui.toolButtons,
+  arrangeControlsEl: ui.arrangeControls,
+  brushControlsEl: ui.brushControls,
   saveFocusEl: ui.saveFocus,
   focusPositionModeEl: ui.focusPositionMode,
   strokeColorEl: ui.strokeColor,

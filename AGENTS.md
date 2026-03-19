@@ -71,7 +71,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, stroke controls, focus controls, and zoom commands
+- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, and contextual per-tool control groups for focus and brush settings
 - [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
@@ -219,7 +219,7 @@ app.destroy()
 The app is split into three main regions:
 
 - Left sidebar: draggable component palette
-- Top toolbar: tools, focus controls, stroke settings, zoom controls
+- Top toolbar: tools plus contextual helper controls for the active tool
 - Main board: Konva infinite canvas
 
 ## Implemented Features
@@ -353,10 +353,9 @@ Controls:
 
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
-- `Save Focus` button for the current selection in `edit.arrange`
-- `Focus: Absolute / Relative` toggle that reflects and updates the selected component's own focus mode
-- Color picker (enabled only for brush tool)
-- Stroke width slider (enabled only for brush tool)
+- In `edit.arrange`, a focus control group appears only when a focusable node is selected
+- That arrange group contains `Save Focus` plus the `Focus: Absolute / Relative` toggle for the selected component
+- In `edit.brush`, a brush control group appears with the color picker and stroke width slider
 
 ### 8. Context Menu
 

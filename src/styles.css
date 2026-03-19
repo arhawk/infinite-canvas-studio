@@ -210,6 +210,10 @@ body.is-presentation-mode .toolbar {
   gap: 0.5rem;
 }
 
+.toolbar__tool-panel[hidden] {
+  display: none !important;
+}
+
 .toolbar__field {
   display: flex;
   align-items: center;
