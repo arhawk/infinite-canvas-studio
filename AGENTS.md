@@ -477,6 +477,7 @@ Implementation notes:
 - Mutations that should be reversible emit `node:change:start` before the change and `node:changed` after the change.
 - Live drag / transform interactions emit `node:changing` for real-time connection updates without creating extra history entries.
 - Completed brush strokes emit `draw:added` once, after the pointer is released.
+- History coverage is event-driven. If a future feature mutates node state without emitting the history events, that mutation will fall outside undo / redo.
 
 ### 8. Local Document Save / Load
 
@@ -512,6 +513,13 @@ Why this matters:
 - connections depend on already-restored endpoint ids
 - history must not record import-time mutations
 - selection, container recapture, and editor UI should not react as if the user manually added every restored node
+
+Known gaps in the current implementation:
+
+- Import is currently a full-board replace, not a partial import or merge operation.
+- Restore is not yet rollback-atomic. If a restore step fails after the board has been cleared, the board can be left partially restored.
+- Unknown component types are not yet treated as a hard compatibility failure; unsupported snapshots can currently be skipped during restore.
+- `schemaVersion` is validated, but there is no schema migration pipeline yet.
 
 ### 9. Toolbar
 
@@ -626,6 +634,11 @@ Responsive behavior:
 - Save / load is currently manual JSON import/export only; there is no autosave or local draft persistence yet
 - There is no collaboration or remote-operation merge model yet
 - Loading a document restores board state but not the prior undo / redo stacks, current selection, or the current mode / tool
+- Loading also does not restore transient plugin UI state such as open editors, context menus, connection-picking state, or other in-progress interactions
+- Import is currently full-replace only; there is no partial import, merge import, or diff/patch flow
+- Import is not yet rollback-safe if restore fails midway through the transaction
+- Unknown component types and future schema changes do not yet have a robust compatibility / migration strategy
+- Undo / redo depends on the mutation event contract; new features that skip `node:change:start` / `node:changed` will not be tracked
 - Images are embedded as inline data URLs inside exported JSON, which keeps documents portable but can make files large
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
 - Right-click anchor naming uses `window.prompt`
