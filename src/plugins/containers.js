@@ -45,6 +45,7 @@ export class ContainersPlugin extends BasePlugin {
   handleCapture(node) {
     if (
       this.app.isReplayingHistory ||
+      this.app.isRestoringDocument ||
       !node?.hasName?.("selectable") ||
       isContainerNode(node) ||
       isConnectionNode(node)

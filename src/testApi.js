@@ -129,6 +129,11 @@ export function setupAppTestApi(app) {
     setMode: (mode) => app.setMode(mode),
     getEditorTool: () => app.getEditorTool(),
     setEditorTool: (toolId) => app.setEditorTool(toolId),
+    getDocumentState: () => app.documentManager?.getDocumentState?.() ?? null,
+    exportDocument: () => app.documentManager?.exportDocument?.({ download: false }) ?? null,
+    loadDocument: (snapshot) => app.documentManager?.loadDocument?.(snapshot, {
+      source: "test-api",
+    }) ?? null,
     canUndo: () => app.history?.canUndo?.() ?? false,
     canRedo: () => app.history?.canRedo?.() ?? false,
     undo: () => app.history?.undo?.() ?? false,

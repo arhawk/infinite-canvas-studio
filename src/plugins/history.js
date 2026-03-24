@@ -78,6 +78,10 @@ class RedoCommand extends BaseCommand {
 export class HistoryPlugin extends BasePlugin {
   static pluginId = "history";
 
+  isTrackingSuspended() {
+    return this.isApplyingHistory || this.app.isRestoringDocument;
+  }
+
   commands() {
     return [UndoCommand, RedoCommand];
   }
@@ -181,7 +185,7 @@ export class HistoryPlugin extends BasePlugin {
   }
 
   enqueueOperation(operation) {
-    if (!operation || this.isApplyingHistory) return;
+    if (!operation || this.isTrackingSuspended()) return;
 
     this.mergePendingOperation(operation);
     this.scheduleCommit();
@@ -336,7 +340,7 @@ export class HistoryPlugin extends BasePlugin {
   }
 
   handleNodeAdded(node) {
-    if (!isSelectableNode(node) || this.isApplyingHistory) return;
+    if (!isSelectableNode(node) || this.isTrackingSuspended()) return;
 
     const snapshots = this.snapshotNodeTree(node);
     if (!snapshots.length) return;
@@ -352,7 +356,7 @@ export class HistoryPlugin extends BasePlugin {
   }
 
   handleNodeRemoved(node) {
-    if (!isSelectableNode(node) || this.isApplyingHistory) return;
+    if (!isSelectableNode(node) || this.isTrackingSuspended()) return;
 
     const snapshots = this.snapshotNodeTree(node);
     if (!snapshots.length) return;
@@ -369,7 +373,7 @@ export class HistoryPlugin extends BasePlugin {
   }
 
   captureNodeBeforeChange(node) {
-    if (!isSelectableNode(node) || this.isApplyingHistory) return;
+    if (!isSelectableNode(node) || this.isTrackingSuspended()) return;
 
     const snapshot =
       this.nodeSnapshotCache.get(node.id()) ??
@@ -380,7 +384,7 @@ export class HistoryPlugin extends BasePlugin {
   }
 
   handleNodeChanged(node) {
-    if (!isSelectableNode(node) || this.isApplyingHistory) return;
+    if (!isSelectableNode(node) || this.isTrackingSuspended()) return;
 
     const after = this.snapshotNode(node, this.getSelectableParentId(node));
     if (!after) return;
@@ -405,7 +409,7 @@ export class HistoryPlugin extends BasePlugin {
   }
 
   handleDrawingAdded(node) {
-    if (!(node instanceof Konva.Line) || this.isApplyingHistory) return;
+    if (!(node instanceof Konva.Line) || this.isTrackingSuspended()) return;
 
     const snapshot = this.serializeDrawing(node);
     if (!snapshot) return;

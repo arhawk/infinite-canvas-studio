@@ -58,6 +58,39 @@
             </button>
           </div>
           <div
+            id="document-controls"
+            class="toolbar__cluster"
+            data-testid="document-controls"
+          >
+            <button
+              id="save-document-action"
+              class="ghost-button ghost-button--icon-only"
+              type="button"
+              aria-label="Save document as JSON"
+              title="Save JSON (Mod+S)"
+              data-testid="save-document-action"
+            >
+              <i data-lucide="download" aria-hidden="true"></i>
+            </button>
+            <button
+              id="load-document-action"
+              class="ghost-button ghost-button--icon-only"
+              type="button"
+              aria-label="Load document from JSON"
+              title="Load JSON (Mod+O)"
+              data-testid="load-document-action"
+            >
+              <i data-lucide="upload" aria-hidden="true"></i>
+            </button>
+            <input
+              id="load-document-input"
+              type="file"
+              accept="application/json,.json"
+              hidden
+              data-testid="load-document-input"
+            />
+          </div>
+          <div
             id="arrange-controls"
             class="toolbar__cluster toolbar__tool-panel"
             data-testid="arrange-controls"

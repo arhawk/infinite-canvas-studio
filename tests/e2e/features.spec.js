@@ -182,6 +182,75 @@ test("opens the component editor and applies sticky text changes", async ({ page
     .toBe("Updated from Playwright");
 });
 
+test("loads a saved document snapshot and resets the undo baseline", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 560, y: 260 });
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.saveFocus(nodeId), target.id);
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1.35,
+    position: { x: -240, y: -140 },
+  }));
+
+  await page.getByTestId("tool-button-brush").click();
+  const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  await page.mouse.move(rect.left + 240, rect.top + 220);
+  await page.mouse.down();
+  await page.mouse.move(rect.left + 360, rect.top + 280, { steps: 10 });
+  await page.mouse.up();
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await expect.poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length).toBe(0);
+
+  await page.getByTestId("load-document-input").setInputFiles({
+    name: "mind-map.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(exported)),
+  });
+
+  await expect(page.getByTestId("document-status-toast")).toHaveText("Document loaded");
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
+    .toBe(3);
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBeGreaterThan(0);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.canUndo())).toBe(
+    false,
+  );
+
+  const restoredTarget = await getNode(page, target.id);
+  expect(restoredTarget?.savedFocus).toBeTruthy();
+
+  const restoredConnection = await page.evaluate(() => (
+    window.__APP_TEST_API__.listNodes().find((node) => node.componentType === "connection")
+  ));
+  expect(restoredConnection.summary.sourceNodeId).toBe(source.id);
+  expect(restoredConnection.summary.targetNodeId).toBe(target.id);
+
+  const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  expect(viewport.scale).toBeCloseTo(exported.view.scale, 4);
+  expect(viewport.position.x).toBeCloseTo(exported.view.position.x, 4);
+  expect(viewport.position.y).toBeCloseTo(exported.view.position.y, 4);
+
+  const beforeMove = await getNode(page, source.id);
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    { id: source.id, position: { x: 760, y: 420 } },
+  );
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => Math.abs(((await getNode(page, source.id))?.bounds?.x ?? 0) - (beforeMove?.bounds?.x ?? 0)))
+    .toBeLessThan(2);
+});
+
 test("undoes and redoes a node move", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 200, y: 200 });
   const beforeMove = await getNode(page, sticky.id);

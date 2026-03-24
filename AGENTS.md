@@ -17,11 +17,44 @@ The app includes:
 - Single-select and transform
 - Freehand brush drawing
 - Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
+- Local JSON save/load with icon-only toolbar controls, keyboard shortcuts, and viewport restoration
 - Container system with parent-child grouping and arbitrary component-to-component connections
 - Per-component saved focus views for presentation jumps
 - Persistent mode toggle (Edit/View) with animated UI transitions
 - Icon-based tool interface using Lucide Icons
 - Class-based extension points for secondary development
+
+## First Read This
+
+If you only read one section before editing the project, read this one.
+
+The shortest correct mental model is:
+
+1. Components own content.
+   A component is responsible for how its node is created, what data it stores, and how that data is serialized/restored.
+2. Plugins own behavior.
+   Selection, history, document import/export, connections, focus navigation, context menus, and toolbar interactions live in plugins.
+3. History and documents are different state layers.
+   `HistoryPlugin` replays reversible session-local mutations. `DocumentPlugin` restores a full JSON snapshot and then resets the history baseline.
+4. Reversible mutations use events, not direct coupling.
+   Emit `node:change:start` before a reversible node mutation and `node:changed` after it. Use `node:changing` only for live visual sync.
+5. A new component is not complete until it survives a roundtrip.
+   If it cannot survive undo/redo and save/load, it is not integrated yet.
+
+New component checklist:
+
+- add the component class under `src/component/`
+- register it in `src/main.js`
+- implement `createNode(payload)`
+- implement `serializeNode(node)`
+- implement `applySerializedData(node, data)`
+- add `editorFields()` if the content is user-editable
+- emit mutation events for any reversible edits outside the component editor
+- add at least one roundtrip test through undo/redo or document load
+
+Most common failure mode:
+
+- the component looks correct when first created, but it does not serialize its own content, so undo/redo or import restores a stale node
 
 ## Tech Stack
 
@@ -58,7 +91,12 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 ### Entry Point
 
 - [src/main.js](src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app, seeds starter nodes, resets local history baseline, and exposes a test API in E2E mode
-- [src/testApi.js](src/testApi.js): Test-only browser API for Playwright, including canvas coordinate helpers, node lookup helpers, board reset utilities, history helpers, and editor-opening helpers
+- [src/testApi.js](src/testApi.js): Test-only browser API for Playwright, including canvas coordinate helpers, node lookup helpers, board reset utilities, history helpers, document helpers, and editor-opening helpers
+
+### Document Layer (`src/document/`)
+
+- [src/document/schema.js](src/document/schema.js): Versioned JSON document schema normalization, defaults, and validation helpers
+- [src/document/serializer.js](src/document/serializer.js): Runtime document export/import helpers for nodes, drawings, viewport state, and layer reset / restore
 
 ### Core Infrastructure (`src/core/`)
 
@@ -84,6 +122,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
 - [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
+- [src/plugins/document.js](src/plugins/document.js): Local document plugin with JSON export/import commands, file input handling, status toasts, and restore transactions that reset the history baseline
 - [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
@@ -93,8 +132,9 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 ### Tests (`tests/`)
 
 - [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
+- [tests/unit/document/](tests/unit/document/): Vitest coverage for document schema normalization and validation
 - [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, and brush drawing undo/redo
-- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, component editor editing, and undo/redo of node movement
+- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, component editor editing, document roundtrip load, and undo/redo of node movement
 
 ## Testing
 
@@ -104,7 +144,7 @@ The repository now has a local automated testing baseline:
 - Browser smoke and feature tests use `Playwright`
 - `pnpm test` runs build + unit tests + all Playwright E2E coverage
 - `playwright.config.js` starts the Vite dev server with `VITE_E2E=1`, which enables the browser-side test helpers in `src/testApi.js`
-- `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, component editor opening, history reset, and undo/redo activation
+- `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, component editor opening, document export/load, history reset, and undo/redo activation
 
 Testability conventions:
 
@@ -165,6 +205,26 @@ Project convention:
 - Plugins own behavior, UI, commands, tools, menu items, and mode reactions
 - Do not register components from plugins in normal project development
 
+### State Layering
+
+This codebase has three different kinds of board state:
+
+- Runtime state: the live Konva node tree plus the current viewport
+- History state: local in-memory undo/redo entries managed by `HistoryPlugin`
+- Document state: a JSON snapshot used by `DocumentPlugin` for export/import
+
+They are related, but they are not interchangeable.
+
+- Runtime state is what the user is currently editing.
+- History state is a reversible mutation log for the current browser session.
+- Document state is a portable snapshot format that restores the board, then becomes a new history baseline.
+
+This separation is deliberate:
+
+- `undo/redo` should replay reversible edits inside one session
+- `save/load` should restore a whole board without restoring stale `past/future` stacks
+- future collaboration can build on top of the same document/component contracts without depending on local history internals
+
 ### Mode System
 
 The entire app is organized around these interaction states:
@@ -204,6 +264,10 @@ Cross-module communication uses `app.events` and the shorthand `app.on` / `app.o
 | `node:added` | `{ node }` | app.addComponent |
 | `node:removed` | `{ node }` | selection plugin (delete) |
 | `draw:added` | `{ node }` | drawing plugin after a completed brush stroke |
+| `document:exported` | `{ document }` | document plugin after a JSON snapshot is created |
+| `document:load:start` | `{ source, document }` | document plugin before clearing/restoring the board |
+| `document:load:end` | `{ source, document }` | document plugin after a document restore completes |
+| `document:load:error` | `{ source, error }` | document plugin when import fails |
 | `zoom:change` | `{ zoom }` | `StageController` via app |
 | `viewport:change` | `{ scale, viewport, size, position }` | `StageController` via app |
 | `stroke:change` | `{ color, width }` | toolbar plugin |
@@ -230,6 +294,7 @@ The app object exposes:
 app.modeManager
 app.stageApi
 app.history
+app.documentManager
 app.tools
 app.commands
 app.keybindings
@@ -351,6 +416,10 @@ Component rules:
 - Components can opt out of appearing in the sidebar by setting `static palette = false`
 - Text-like components reuse `EditableTextBehavior`
 - New components should be added by extending `BaseComponent`
+- For new components, the key extension contract is:
+  `createNode(payload)` for live creation,
+  `serializeNode(node)` for component-specific persistence,
+  `applySerializedData(node, data)` for undo/redo and document restore
 
 ### 5. Selection and Transform
 
@@ -409,7 +478,42 @@ Implementation notes:
 - Live drag / transform interactions emit `node:changing` for real-time connection updates without creating extra history entries.
 - Completed brush strokes emit `draw:added` once, after the pointer is released.
 
-### 8. Toolbar
+### 8. Local Document Save / Load
+
+Implemented in [src/plugins/document.js](src/plugins/document.js) with support from [src/document/schema.js](src/document/schema.js) and [src/document/serializer.js](src/document/serializer.js).
+
+Behavior:
+
+- Documents can be exported as JSON from the toolbar or with `Mod+S`.
+- Documents can be imported from JSON from the toolbar or with `Mod+O`.
+- The saved document includes component snapshots, parent-child container structure, connections, saved focus data, completed brush strokes, and current stage position / scale.
+- Import runs through a dedicated restore transaction so plugins can suspend side effects such as history capture, auto-selection, container recapture, and stale editor UI.
+- After a document is loaded, `history.resetHistory()` is called so the loaded state becomes the new undo / redo baseline.
+- Image components serialize their inline data URL source, so exported documents remain self-contained.
+
+Implementation notes:
+
+- `schemaVersion` is normalized and validated in the document schema module.
+- Regular nodes are restored before connection nodes so endpoint references already exist when connectors rebuild geometry.
+- The current document session tracks `documentId`, `revision`, and a simple title placeholder for future expansion.
+
+Restore transaction order:
+
+- clear existing selectable roots and drawables
+- restore regular component nodes
+- reattach child nodes using `parentId`
+- restore connection nodes after endpoint nodes exist
+- restore draw-layer content
+- restore viewport position / scale
+- reset the history baseline
+
+Why this matters:
+
+- connections depend on already-restored endpoint ids
+- history must not record import-time mutations
+- selection, container recapture, and editor UI should not react as if the user manually added every restored node
+
+### 9. Toolbar
 
 Implemented in [src/plugins/toolbar.js](src/plugins/toolbar.js).
 
@@ -418,11 +522,12 @@ Controls:
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
 - Icon-only undo / redo buttons rendered with Lucide icons
+- Icon-only save / load document buttons rendered with Lucide icons
 - In `edit.arrange`, a helper control group appears only when a focusable node is selected
 - That arrange group contains `Connect to...`, `Save Focus`, and the `Focus: Absolute / Relative` toggle for the selected component
 - In `edit.brush`, a brush control group appears with the color picker and stroke width slider
 
-### 9. Context Menu
+### 10. Context Menu
 
 Implemented in [src/plugins/contextMenu.js](src/plugins/contextMenu.js).
 
@@ -433,7 +538,7 @@ Behavior:
 - The menu is rendered as a Konva overlay on the UI layer
 - In `edit.arrange`, non-connection components expose both connection actions and the `Save Focus` action supplied by feature plugins
 
-### 10. Containers and Connections
+### 11. Containers and Connections
 
 Implemented in [src/plugins/containers.js](src/plugins/containers.js), [src/plugins/connections.js](src/plugins/connections.js), and [src/component/connection.js](src/component/connection.js).
 
@@ -446,7 +551,7 @@ Behavior:
 - The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
 - Container labels are editable via double-click.
 
-### 11. Saved Focus Views And Presentation Navigation
+### 12. Saved Focus Views And Presentation Navigation
 
 Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) with support from [src/stage.js](src/stage.js).
 
@@ -485,6 +590,7 @@ Responsibilities:
 - Mount built-in plugin classes in dependency-aware order
 - Mount `ConnectionsPlugin` before `FocusNavigationPlugin` so presentation navigation always reads already-updated connection geometry
 - Mount `HistoryPlugin` so undo / redo wiring is available after core interaction plugins are in place
+- Mount `DocumentPlugin` after history so imported documents can immediately reset the history baseline
 - Call `app.start()` to initialize
 - Seed a few starter nodes on load
 - Reset the local history baseline after starter nodes are added
@@ -517,15 +623,15 @@ Responsive behavior:
 ## Current Limitations
 
 - Undo / redo history is local in-memory state only and is lost on full reload
-- There is no save/load document format yet
+- Save / load is currently manual JSON import/export only; there is no autosave or local draft persistence yet
 - There is no collaboration or remote-operation merge model yet
-- Images are stored in runtime data URLs and are not persisted across reload without a document format
-- Saved focus views currently live only on in-memory node attrs, so they are lost on full reload until a document persistence format exists
+- Loading a document restores board state but not the prior undo / redo stacks, current selection, or the current mode / tool
+- Images are embedded as inline data URLs inside exported JSON, which keeps documents portable but can make files large
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
 - Right-click anchor naming uses `window.prompt`
 - Alignment guide snapping currently focuses on nearby bounds and viewport center lines, not full smart-layout constraints
 - Konva and Lucide are imported from package dependencies through shared module wrappers in `src/lib/`
-- Automated coverage now includes core unit tests plus smoke/feature E2E for connections, focus navigation, and component editing, but it is still not exhaustive for all canvas edge cases
+- Automated coverage now includes core unit tests plus smoke/feature E2E for connections, focus navigation, component editing, and document roundtrips, but it is still not exhaustive for all canvas edge cases
 
 ## Expected Workflow For Future Changes
 
@@ -752,7 +858,7 @@ app.components.register(new DiamondComponent(app));
 - adds `componentType`
 - stores `baseDraggable`
 
-If the component should participate correctly in local undo / redo, also implement the serialization hooks used by `HistoryPlugin`:
+If the component should participate correctly in local undo / redo and document save / load, also implement the serialization hooks used by `HistoryPlugin` and the document serializer:
 
 ```js
 serializeNode(node) {
@@ -776,6 +882,24 @@ async applySerializedData(node, data = {}) {
 - `opacity`
 - `focusPositionMode`
 - `savedFocus`
+
+New component checklist:
+
+1. Add the component file under `src/component/`.
+2. Register it centrally in `src/main.js`.
+3. Make sure the root node is selectable and draggable when appropriate.
+4. Implement `createNode(payload)`.
+5. Implement `serializeNode(node)`.
+6. Implement `applySerializedData(node, data)`.
+7. Add `editorFields()` if the component exposes editable content.
+8. If the component mutates outside the editor, emit `node:change:start` before the mutation and `node:changed` after it.
+9. Test at least one roundtrip through undo/redo or document load.
+
+Common mistakes:
+
+- Only serializing visible geometry instead of the source data needed to rebuild it
+- Forgetting serialization hooks, so the component works until undo/redo or import
+- Mutating node state without emitting the history events that reversible features depend on
 
 ### 6. Declare Mode Behavior
 

@@ -96,7 +96,7 @@ export class SelectionPlugin extends BasePlugin {
     this.listen("node:added", ({ node }) => {
       this.syncNodeInteractivity(node);
       this.bindNodeChangeSync(node);
-      if (this.app.isReplayingHistory) {
+      if (this.app.isReplayingHistory || this.app.isRestoringDocument) {
         return;
       }
       this.setSelected([node]);
@@ -111,6 +111,11 @@ export class SelectionPlugin extends BasePlugin {
     this.listen("node:removed", ({ node }) => {
       if (!this.selectedNodes.includes(node)) return;
       this.setSelected(this.selectedNodes.filter((selectedNode) => selectedNode !== node));
+    });
+
+    this.listen("document:load:start", () => {
+      this.clearSelection();
+      this.hideGuides();
     });
 
     this.listen("interaction:change", () => this.syncMode());

@@ -37,7 +37,9 @@ export class App {
     this.plugins = [];
     this.cursorOverride = null;
     this.isReplayingHistory = false;
+    this.isRestoringDocument = false;
     this.history = null;
+    this.documentManager = null;
 
     this.stage.setAttr("app", this);
   }

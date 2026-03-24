@@ -78,6 +78,7 @@ export class ComponentEditorPlugin extends BasePlugin {
         this.close();
       }
     });
+    this.listen("document:load:start", () => this.close());
 
     this.app.keybindings.register("Enter", "component:edit");
     this.cleanups.push(() => this.app.keybindings.unregister("Enter"));

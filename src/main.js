@@ -11,6 +11,7 @@ import { ConnectionsPlugin } from "./plugins/connections.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { HistoryPlugin } from "./plugins/history.js";
+import { DocumentPlugin } from "./plugins/document.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -34,8 +35,12 @@ const ui = {
   modeToggle: getRequiredElement("#mode-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
   historyControls: getRequiredElement("#history-controls"),
+  documentControls: getRequiredElement("#document-controls"),
   undoAction: getRequiredElement("#undo-action"),
   redoAction: getRequiredElement("#redo-action"),
+  saveDocumentAction: getRequiredElement("#save-document-action"),
+  loadDocumentAction: getRequiredElement("#load-document-action"),
+  loadDocumentInput: getRequiredElement("#load-document-input"),
   arrangeControls: getRequiredElement("#arrange-controls"),
   brushControls: getRequiredElement("#brush-controls"),
   connectSelection: getRequiredElement("#connect-selection"),
@@ -95,6 +100,12 @@ app.use(ContainersPlugin);
 const historyPlugin = app.use(HistoryPlugin, {
   undoEl: ui.undoAction,
   redoEl: ui.redoAction,
+});
+app.use(DocumentPlugin, {
+  documentControlsEl: ui.documentControls,
+  exportEl: ui.saveDocumentAction,
+  importEl: ui.loadDocumentAction,
+  importInputEl: ui.loadDocumentInput,
 });
 
 app.start();

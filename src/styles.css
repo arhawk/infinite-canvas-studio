@@ -526,6 +526,37 @@ body.is-presentation-mode .toolbar {
   transform: translate(-50%, 0);
 }
 
+.document-toast {
+  position: fixed;
+  top: 4.85rem;
+  right: 1.25rem;
+  z-index: 40;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(84, 64, 43, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  box-shadow: 0 1rem 2.4rem rgba(54, 41, 25, 0.16);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.document-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.document-toast--error {
+  border-color: rgba(167, 54, 36, 0.22);
+  color: #8d2f1e;
+}
+
 .board-shell {
   position: relative;
   flex: 1;
