@@ -68,7 +68,6 @@ export class BasePlugin extends ModeAware {
     this.registerTools(this.tools());
     this.registerCommands(this.commands());
     this.registerMenuItems(this.menuItems());
-    this.registerComponents(this.components());
     this.onSetup();
     this.#registerOwnModeFeature();
   }
@@ -90,10 +89,6 @@ export class BasePlugin extends ModeAware {
   }
 
   menuItems() {
-    return [];
-  }
-
-  components() {
     return [];
   }
 
@@ -132,17 +127,6 @@ export class BasePlugin extends ModeAware {
 
   registerMenuItems(entries) {
     return entries.map((entry) => this.registerMenuItem(entry));
-  }
-
-  registerComponent(entry) {
-    const component = toInstance(entry, BaseComponent, [this.app, this]);
-    this.app.components.register(component);
-    this.cleanups.push(() => this.app.components.unregister(component.type));
-    return component;
-  }
-
-  registerComponents(entries) {
-    return entries.map((entry) => this.registerComponent(entry));
   }
 
   registerFeature(descriptor) {
@@ -231,9 +215,8 @@ export class BaseContextMenuItem extends ModeAware {
 }
 
 export class BaseComponent {
-  constructor(app, plugin = null) {
+  constructor(app) {
     this.app = app;
-    this.plugin = plugin;
   }
 
   get type() {

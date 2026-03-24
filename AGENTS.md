@@ -119,13 +119,18 @@ Inside a plugin, secondary developers usually only need to override:
 - `tools()`
 - `commands()`
 - `menuItems()`
-- `components()`
 - `onSetup()`
 - `onModeEnter()`
 - `onModeExit()`
 - `onModeChange()`
 
 The base class handles registration, cleanup, and mode lifecycle wiring.
+
+Project convention:
+
+- All component classes are instantiated and registered centrally in `src/main.js`
+- Plugins own behavior, UI, commands, tools, menu items, and mode reactions
+- Do not register components from plugins in normal project development
 
 ### Mode System
 
@@ -289,6 +294,7 @@ Structure:
 - Each component is a class extending `BaseComponent`
 - Shared inline text editing lives in [src/component/editableText.js](src/component/editableText.js)
 - Components are registered as instantiated classes via `app.components.register(new MyComponent(app))`
+- In this project, all component registration happens centrally in `src/main.js`
 
 Current component classes:
 
@@ -416,7 +422,7 @@ Implemented in [src/main.js](src/main.js).
 Responsibilities:
 
 - Create the app via `new App()`
-- Register built-in component instances
+- Register all built-in component instances centrally before plugins mount
 - Mount built-in plugin classes in dependency-aware order
 - Mount `ConnectionsPlugin` before `FocusNavigationPlugin` so presentation navigation always reads already-updated connection geometry
 - Call `app.start()` to initialize
@@ -525,7 +531,11 @@ Useful `BasePlugin` methods:
 - `this.registerTool(ToolClass)`
 - `this.registerCommand(CommandClass)`
 - `this.registerMenuItem(MenuItemClass)`
-- `this.registerComponent(ComponentClass)`
+
+Current project convention:
+
+- Plugins should not register components
+- New component types should be registered centrally in `src/main.js`
 
 ### 2. Add a Tool
 
@@ -728,10 +738,11 @@ When adding a new feature:
 
 1. Create a plugin class if the feature owns behavior or UI
 2. Add tool, command, or menu item classes only if the plugin needs them
-3. Declare `static modes` first
-4. Put setup logic in `onSetup()`
-5. Put visibility or enable/disable reactions in `onModeChange()`
-6. Register the plugin in `src/main.js`
+3. If the feature introduces a new node type, create a `BaseComponent` subclass and register it in `src/main.js`
+4. Declare `static modes` first
+5. Put setup logic in `onSetup()`
+6. Put visibility or enable/disable reactions in `onModeChange()`
+7. Register the plugin in `src/main.js`
 
 Start by copying the closest built-in example:
 

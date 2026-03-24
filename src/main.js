@@ -16,6 +16,7 @@ import { StickyComponent } from "./component/sticky.js";
 import { ImageComponent } from "./component/image.js";
 import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
+import { ConnectionComponent } from "./component/connection.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -58,6 +59,7 @@ const app = new App({
   TextComponent,
   StickyComponent,
   ImageComponent,
+  ConnectionComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)

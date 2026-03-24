@@ -3,7 +3,6 @@ import {
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
-import { ConnectionComponent } from "../component/connection.js";
 import { Konva } from "../lib/konva.js";
 
 const CONTROL_HANDLE_RADIUS = 8;
@@ -101,10 +100,6 @@ export class ConnectionsPlugin extends BasePlugin {
       },
     },
   };
-
-  components() {
-    return [ConnectionComponent];
-  }
 
   commands() {
     return [ConnectNodesCommand, DeleteConnectionCommand];
