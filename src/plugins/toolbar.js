@@ -4,6 +4,7 @@ import { renderIcons } from "../lib/icons.js";
 const TOOL_ICONS = {
   arrange: "mouse-pointer-2",
   brush: "brush",
+  eraser: "eraser",
 };
 
 export class ToolbarPlugin extends BasePlugin {

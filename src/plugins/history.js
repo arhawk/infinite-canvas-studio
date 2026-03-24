@@ -110,6 +110,7 @@ class UndoCommand extends BaseCommand {
       tools: {
         arrange: {},
         brush: {},
+        eraser: {},
       },
     },
   };
@@ -127,6 +128,7 @@ class RedoCommand extends BaseCommand {
       tools: {
         arrange: {},
         brush: {},
+        eraser: {},
       },
     },
   };
@@ -178,6 +180,7 @@ export class HistoryPlugin extends BasePlugin {
     this.listen("node:change:start", ({ node }) => this.captureNodeBeforeChange(node));
     this.listen("node:changed", ({ node }) => this.handleNodeChanged(node));
     this.listen("draw:added", ({ node }) => this.handleDrawingAdded(node));
+    this.listen("draw:removed", ({ node }) => this.handleDrawingRemoved(node));
     this.listen("interaction:change", () => this.syncUi());
 
     if (undoEl) {
@@ -482,6 +485,23 @@ export class HistoryPlugin extends BasePlugin {
     this.drawSnapshotCache.set(snapshot.id, clonePlainData(snapshot));
     this.enqueueOperation({
       type: "add-drawing",
+      snapshot,
+    });
+  }
+
+  handleDrawingRemoved(node) {
+    if (!(node instanceof Konva.Line) || this.isTrackingSuspended()) return;
+
+    const nodeId = typeof node.id === "function" ? node.id() : node.getAttr?.("id");
+    const snapshot =
+      this.serializeDrawing(node) ??
+      (nodeId ? this.drawSnapshotCache.get(nodeId) ?? null : null);
+
+    if (!snapshot) return;
+
+    this.drawSnapshotCache.delete(snapshot.id);
+    this.enqueueOperation({
+      type: "remove-drawing",
       snapshot,
     });
   }

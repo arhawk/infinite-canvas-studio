@@ -102,3 +102,45 @@ test("draws a brush stroke on the canvas", async ({ page }) => {
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBeGreaterThan(0);
 });
+
+test("erases an entire brush stroke and supports undo and redo", async ({ page }) => {
+  await page.getByTestId("tool-button-brush").click();
+  const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const start = {
+    x: rect.left + rect.width * 0.4,
+    y: rect.top + rect.height * 0.4,
+  };
+  const end = {
+    x: start.x + 140,
+    y: start.y + 90,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBeGreaterThan(0);
+
+  await page.getByTestId("tool-button-eraser").click();
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBeGreaterThan(0);
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+});

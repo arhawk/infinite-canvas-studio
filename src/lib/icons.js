@@ -1,6 +1,7 @@
 import {
   Brush,
   Download,
+  Eraser,
   Image,
   Link2,
   MousePointer2,
@@ -14,6 +15,7 @@ import {
 const PROJECT_ICONS = {
   Brush,
   Download,
+  Eraser,
   Image,
   Link2,
   MousePointer2,

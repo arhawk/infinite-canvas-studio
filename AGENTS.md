@@ -15,7 +15,7 @@ The app includes:
 - Drag-and-drop component palette
 - Editable text and sticky notes
 - Single-select and transform
-- Freehand brush drawing
+- Freehand brush drawing and whole-stroke erasing
 - Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
 - Local JSON save/load with icon-only toolbar controls, keyboard shortcuts, and viewport restoration
 - Container system with parent-child grouping and arbitrary component-to-component connections
@@ -120,7 +120,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, icon-only undo/redo controls, persistent mode toggle, and contextual per-tool control groups for connection, focus, and brush settings
 - [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
-- [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
+- [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush and eraser tools
 - [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
 - [src/plugins/document.js](src/plugins/document.js): Local document plugin with JSON export/import commands, file input handling, status toasts, and restore transactions that reset the history baseline
 - [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
@@ -133,7 +133,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 - [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
 - [tests/unit/document/](tests/unit/document/): Vitest coverage for document schema normalization and validation
-- [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, and brush drawing undo/redo
+- [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, brush drawing undo/redo, and whole-stroke erase undo/redo
 - [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, component editor editing, document roundtrip load, and undo/redo of node movement
 
 ## Testing
@@ -232,6 +232,7 @@ The entire app is organized around these interaction states:
 - `presentation`
 - `edit.arrange`
 - `edit.brush`
+- `edit.eraser`
 
 Modes are managed by `ModeManager`. Each plugin, command, tool, or menu item can declare static `modes` and automatically opt into lifecycle callbacks:
 
@@ -264,6 +265,7 @@ Cross-module communication uses `app.events` and the shorthand `app.on` / `app.o
 | `node:added` | `{ node }` | app.addComponent |
 | `node:removed` | `{ node }` | selection plugin (delete) |
 | `draw:added` | `{ node }` | drawing plugin after a completed brush stroke |
+| `draw:removed` | `{ node }` | drawing plugin when the eraser deletes a whole stroke |
 | `document:exported` | `{ document }` | document plugin after a JSON snapshot is created |
 | `document:load:start` | `{ source, document }` | document plugin before clearing/restoring the board |
 | `document:load:end` | `{ source, document }` | document plugin after a document restore completes |
@@ -451,10 +453,12 @@ Implemented in [src/plugins/drawing.js](src/plugins/drawing.js).
 Supported tools:
 
 - `brush`
+- `eraser`
 
 Behavior:
 
 - Brush creates Konva lines with rounded caps and joins
+- Eraser deletes a whole Konva line as soon as the pointer hits that stroke
 - Drawing happens only on empty stage area
 - Drawing coordinates respect current pan and zoom
 
@@ -470,7 +474,7 @@ Behavior:
 - Undo / redo now also shows a small toast describing the action that was undone or redone.
 - The plugin batches related mutations that happen in the same event loop into a single history entry.
 - History replay restores component nodes by calling per-component serialization / restoration hooks on `BaseComponent`.
-- History currently tracks component add, delete, move, transform, editor changes, focus save, focus mode toggle, connection control-point updates, container reparenting, and completed brush strokes.
+- History currently tracks component add, delete, move, transform, editor changes, focus save, focus mode toggle, connection control-point updates, container reparenting, completed brush strokes, and erased strokes.
 - Starter seed nodes are created first and then treated as the initial baseline by calling `history.resetHistory()`.
 
 Implementation notes:
@@ -478,6 +482,7 @@ Implementation notes:
 - Mutations that should be reversible emit `node:change:start` before the change and `node:changed` after the change.
 - Live drag / transform interactions emit `node:changing` for real-time connection updates without creating extra history entries.
 - Completed brush strokes emit `draw:added` once, after the pointer is released.
+- Whole-stroke erasing emits `draw:removed` before the stroke is destroyed.
 - History coverage is event-driven. If a future feature mutates node state without emitting the history events, that mutation will fall outside undo / redo.
 
 ### 8. Local Document Save / Load
@@ -536,6 +541,7 @@ Controls:
 - In `edit.arrange`, a helper control group appears only when a focusable node is selected
 - That arrange group contains `Connect to...`, `Save Focus`, and the `Focus: Absolute / Relative` toggle for the selected component
 - In `edit.brush`, a brush control group appears with the color picker and stroke width slider
+- In `edit.eraser`, no extra controls are shown; dragging over a stroke deletes the whole stroke
 
 ### 10. Context Menu
 
@@ -925,6 +931,7 @@ Available states:
 - `presentation`
 - `edit.arrange`
 - `edit.brush`
+- `edit.eraser`
 
 Example:
 
@@ -937,6 +944,9 @@ static modes = {
         config: { snap: true },
       },
       brush: {
+        config: { snap: false },
+      },
+      eraser: {
         config: { snap: false },
       },
     },
