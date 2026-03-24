@@ -89,7 +89,12 @@ export class DrawingPlugin extends BasePlugin {
   }
 
   handlePointerUp() {
+    const finishedLine = this.currentLine;
     this.isDrawing = false;
     this.currentLine = null;
+    if (finishedLine) {
+      this.layer.batchDraw();
+      this.app.events.emit("draw:added", { node: finishedLine });
+    }
   }
 }

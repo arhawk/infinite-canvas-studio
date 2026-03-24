@@ -106,4 +106,38 @@ export class ConnectionComponent extends BaseComponent {
       controlOffsetEnd: payload.controlOffsetEnd ?? { x: 0, y: 0 },
     });
   }
+
+  serializeNode(node) {
+    const line = getLine(node);
+    return {
+      sourceNodeId: node.getAttr("sourceNodeId") ?? null,
+      targetNodeId: node.getAttr("targetNodeId") ?? null,
+      controlOffsetStart: node.getAttr("controlOffsetStart") ?? { x: 0, y: 0 },
+      controlOffsetEnd: node.getAttr("controlOffsetEnd") ?? { x: 0, y: 0 },
+      stroke: line?.stroke() ?? DEFAULT_STROKE,
+      strokeWidth: line?.strokeWidth() ?? 3,
+      pointerLength: line?.pointerLength() ?? 10,
+      pointerWidth: line?.pointerWidth() ?? 10,
+    };
+  }
+
+  async applySerializedData(node, data = {}) {
+    const line = getLine(node);
+    if (!line) return;
+
+    if (typeof data.stroke === "string" && data.stroke) {
+      line.stroke(data.stroke);
+      line.fill(data.stroke);
+    }
+    if (Number.isFinite(data.strokeWidth)) line.strokeWidth(data.strokeWidth);
+    if (Number.isFinite(data.pointerLength)) line.pointerLength(data.pointerLength);
+    if (Number.isFinite(data.pointerWidth)) line.pointerWidth(data.pointerWidth);
+
+    node.setAttrs({
+      sourceNodeId: data.sourceNodeId ?? null,
+      targetNodeId: data.targetNodeId ?? null,
+      controlOffsetStart: data.controlOffsetStart ?? { x: 0, y: 0 },
+      controlOffsetEnd: data.controlOffsetEnd ?? { x: 0, y: 0 },
+    });
+  }
 }

@@ -96,6 +96,9 @@ export class SelectionPlugin extends BasePlugin {
     this.listen("node:added", ({ node }) => {
       this.syncNodeInteractivity(node);
       this.bindNodeChangeSync(node);
+      if (this.app.isReplayingHistory) {
+        return;
+      }
       this.setSelected([node]);
       if (this.app.getMode() !== "edit") {
         this.app.setMode("edit");
@@ -195,7 +198,15 @@ export class SelectionPlugin extends BasePlugin {
   bindNodeChangeSync(node) {
     if (!node?.hasName?.("selectable")) return;
     node.off(".selectionSync");
-    node.on("dragmove.selectionSync transform.selectionSync transformend.selectionSync", () => {
+    node.on("dragstart.selectionSync transformstart.selectionSync", () => {
+      if (!node.getStage?.()) return;
+      this.app.events.emit("node:change:start", { node });
+    });
+    node.on("dragmove.selectionSync transform.selectionSync", () => {
+      if (!node.getStage?.()) return;
+      this.app.events.emit("node:changing", { node });
+    });
+    node.on("dragend.selectionSync transformend.selectionSync", () => {
       if (!node.getStage?.()) return;
       this.app.events.emit("node:changed", { node });
     });

@@ -176,7 +176,7 @@ export class ComponentEditorPlugin extends BasePlugin {
 
     this.listenDom(this.formEl, "submit", (event) => {
       event.preventDefault();
-      this.apply();
+      void this.apply();
     });
   }
 
@@ -296,22 +296,25 @@ export class ComponentEditorPlugin extends BasePlugin {
     return input;
   }
 
-  apply() {
+  async apply() {
     if (!this.currentEditor || !this.currentNode) return;
 
-    this.currentEditor.fields.forEach((field) => {
+    this.app.events.emit("node:change:start", { node: this.currentNode });
+
+    for (const field of this.currentEditor.fields) {
       const input = this.formEl.elements.namedItem(field.id);
-      if (!input) return;
+      if (!input) continue;
 
       if (field.type === "file") {
         const file = input.files?.[0];
         if (file) {
-          field.write(this.currentNode, file);
+          await field.write(this.currentNode, file);
         }
-      } else {
-        field.write(this.currentNode, input.value);
+        continue;
       }
-    });
+
+      await field.write(this.currentNode, input.value);
+    }
 
     this.currentNode.getLayer()?.batchDraw();
     this.app.overlayLayer.batchDraw();

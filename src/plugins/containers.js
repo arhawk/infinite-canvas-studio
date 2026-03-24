@@ -43,7 +43,12 @@ export class ContainersPlugin extends BasePlugin {
   }
 
   handleCapture(node) {
-    if (!node?.hasName?.("selectable") || isContainerNode(node) || isConnectionNode(node)) {
+    if (
+      this.app.isReplayingHistory ||
+      !node?.hasName?.("selectable") ||
+      isContainerNode(node) ||
+      isConnectionNode(node)
+    ) {
       return;
     }
 
@@ -79,6 +84,7 @@ export class ContainersPlugin extends BasePlugin {
         node.moveTo(targetContainer);
         node.setAbsolutePosition(absolutePosition);
         this.layer.batchDraw();
+        this.app.events.emit("node:changed", { node });
       }
       return;
     }
@@ -88,6 +94,7 @@ export class ContainersPlugin extends BasePlugin {
       node.moveTo(this.layer);
       node.setAbsolutePosition(absolutePosition);
       this.layer.batchDraw();
+      this.app.events.emit("node:changed", { node });
     }
   }
 }

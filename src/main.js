@@ -10,6 +10,7 @@ import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
+import { HistoryPlugin } from "./plugins/history.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -32,6 +33,9 @@ const ui = {
   sidebarBrand: getRequiredElement("#sidebar-brand"),
   modeToggle: getRequiredElement("#mode-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
+  historyControls: getRequiredElement("#history-controls"),
+  undoAction: getRequiredElement("#undo-action"),
+  redoAction: getRequiredElement("#redo-action"),
   arrangeControls: getRequiredElement("#arrange-controls"),
   brushControls: getRequiredElement("#brush-controls"),
   connectSelection: getRequiredElement("#connect-selection"),
@@ -70,6 +74,7 @@ app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
   modeToggleEl: ui.modeToggle,
   toolButtonsEl: ui.toolButtons,
+  historyControlsEl: ui.historyControls,
   arrangeControlsEl: ui.arrangeControls,
   brushControlsEl: ui.brushControls,
   connectSelectionEl: ui.connectSelection,
@@ -87,6 +92,10 @@ app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
+const historyPlugin = app.use(HistoryPlugin, {
+  undoEl: ui.undoAction,
+  redoEl: ui.redoAction,
+});
 
 app.start();
 
@@ -95,6 +104,7 @@ await Promise.all([
   app.addComponent("sticky", { x: 120, y: 120 }),
   app.addComponent("text", { x: 380, y: 170 }),
 ]);
+historyPlugin.resetHistory();
 
 if (import.meta.env.VITE_E2E === "1") {
   setupAppTestApi(app);

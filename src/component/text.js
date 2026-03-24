@@ -40,16 +40,39 @@ export class TextComponent extends BaseComponent {
     ];
   }
 
-  async createNode({ x, y }) {
+  async createNode({
+    x,
+    y,
+    text = "New idea",
+    fontSize = 24,
+    fill = "#1d1b16",
+    padding = 12,
+  }) {
     return new Konva.Text({
       x,
       y,
-      text: "New idea",
-      fontSize: 24,
+      text,
+      fontSize,
       fontFamily: "IBM Plex Sans",
-      fill: "#1d1b16",
-      padding: 12,
+      fill,
+      padding,
       draggable: true,
     });
+  }
+
+  serializeNode(node) {
+    return {
+      text: node.text(),
+      fontSize: node.fontSize(),
+      fill: node.fill(),
+      padding: node.padding(),
+    };
+  }
+
+  async applySerializedData(node, data = {}) {
+    node.text(data.text || "New idea");
+    if (Number.isFinite(data.fontSize)) node.fontSize(data.fontSize);
+    if (typeof data.fill === "string" && data.fill) node.fill(data.fill);
+    if (Number.isFinite(data.padding)) node.padding(data.padding);
   }
 }

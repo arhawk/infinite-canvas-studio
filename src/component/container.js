@@ -93,4 +93,42 @@ export class ContainerComponent extends BaseComponent {
 
     return group;
   }
+
+  serializeNode(node) {
+    const rect = node.findOne(".container-bg");
+    const label = node.findOne(".container-label");
+
+    return {
+      width: rect?.width() ?? node.width() ?? 300,
+      height: rect?.height() ?? node.height() ?? 200,
+      label: label?.text() ?? "New Container",
+      stroke: rect?.stroke() ?? "#d7612f",
+      fill: rect?.fill() ?? "rgba(255, 255, 255, 0.4)",
+      labelColor: label?.fill() ?? "#ab4f28",
+    };
+  }
+
+  async applySerializedData(node, data = {}) {
+    const rect = node.findOne(".container-bg");
+    const label = node.findOne(".container-label");
+
+    if (rect) {
+      if (Number.isFinite(data.width)) rect.width(data.width);
+      if (Number.isFinite(data.height)) rect.height(data.height);
+      if (typeof data.stroke === "string" && data.stroke) rect.stroke(data.stroke);
+      if (typeof data.fill === "string" && data.fill) rect.fill(data.fill);
+    }
+
+    node.width(Number.isFinite(data.width) ? data.width : node.width());
+    node.height(Number.isFinite(data.height) ? data.height : node.height());
+
+    if (label) {
+      label.text(data.label || "Container");
+      if (typeof data.labelColor === "string" && data.labelColor) {
+        label.fill(data.labelColor);
+      } else if (typeof data.stroke === "string" && data.stroke) {
+        label.fill(data.stroke);
+      }
+    }
+  }
 }

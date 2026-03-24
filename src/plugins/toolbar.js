@@ -13,6 +13,7 @@ export class ToolbarPlugin extends BasePlugin {
     const {
       modeToggleEl,
       toolButtonsEl,
+      historyControlsEl,
       arrangeControlsEl,
       brushControlsEl,
       connectSelectionEl,
@@ -26,6 +27,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.ui = {
       modeToggleEl,
       toolButtonsEl,
+      historyControlsEl,
       arrangeControlsEl,
       brushControlsEl,
       connectSelectionEl,
@@ -84,7 +86,7 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   renderToolButtons() {
-    const { toolButtonsEl, arrangeControlsEl } = this.ui;
+    const { toolButtonsEl, historyControlsEl, arrangeControlsEl } = this.ui;
     toolButtonsEl.innerHTML = "";
 
     for (const tool of this.app.tools.list()) {
@@ -113,6 +115,11 @@ export class ToolbarPlugin extends BasePlugin {
       "stroke-width": 2,
     });
     renderIcons(arrangeControlsEl, {
+      width: 16,
+      height: 16,
+      "stroke-width": 2,
+    });
+    renderIcons(historyControlsEl, {
       width: 16,
       height: 16,
       "stroke-width": 2,

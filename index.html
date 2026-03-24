@@ -32,6 +32,32 @@
         <header class="toolbar" data-testid="toolbar">
           <div id="tool-buttons" class="toolbar__cluster" data-testid="tool-buttons"></div>
           <div
+            id="history-controls"
+            class="toolbar__cluster"
+            data-testid="history-controls"
+          >
+            <button
+              id="undo-action"
+              class="ghost-button ghost-button--icon-only"
+              type="button"
+              aria-label="Undo"
+              title="Undo"
+              data-testid="undo-action"
+            >
+              <i data-lucide="undo-2" aria-hidden="true"></i>
+            </button>
+            <button
+              id="redo-action"
+              class="ghost-button ghost-button--icon-only"
+              type="button"
+              aria-label="Redo"
+              title="Redo"
+              data-testid="redo-action"
+            >
+              <i data-lucide="redo-2" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div
             id="arrange-controls"
             class="toolbar__cluster toolbar__tool-panel"
             data-testid="arrange-controls"

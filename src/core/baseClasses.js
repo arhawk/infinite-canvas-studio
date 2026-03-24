@@ -9,6 +9,18 @@ function nextComponentNodeId(prefix) {
   return `${prefix}-${componentNodeCount}`;
 }
 
+function syncComponentNodeCount(id) {
+  if (typeof id !== "string") return;
+  const match = id.match(/-(\d+)$/);
+  if (!match) return;
+  componentNodeCount = Math.max(componentNodeCount, Number(match[1]));
+}
+
+function clonePlainData(value) {
+  if (value == null) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
 export class ModeAware {
   constructor(app) {
     this.app = app;
@@ -267,9 +279,13 @@ export class BaseComponent {
       names.push("selectable");
     }
     const finalName = names.join(" ");
+    const requestedId =
+      typeof payload?.id === "string" && payload.id ? payload.id : nextComponentNodeId(this.type);
+
+    syncComponentNodeCount(requestedId);
 
     node.setAttrs({
-      id: nextComponentNodeId(this.type),
+      id: requestedId,
       name: finalName,
       componentType: this.type,
       baseDraggable: node.draggable(),
@@ -283,6 +299,71 @@ export class BaseComponent {
   }
 
   onCreated() {}
+
+  serialize(node, { parentId = null } = {}) {
+    if (!node?.hasName?.("selectable")) return null;
+
+    return {
+      id: node.id(),
+      type: this.type,
+      parentId,
+      x: node.x(),
+      y: node.y(),
+      rotation: node.rotation(),
+      scaleX: node.scaleX(),
+      scaleY: node.scaleY(),
+      visible: node.visible(),
+      opacity: node.opacity(),
+      focusPositionMode: node.getAttr("focusPositionMode") ?? null,
+      savedFocus: clonePlainData(node.getAttr("savedFocus") ?? null),
+      data: clonePlainData(this.serializeNode(node)),
+    };
+  }
+
+  serializeNode() {
+    return {};
+  }
+
+  getRestorePayload(snapshot = {}) {
+    return {
+      x: snapshot.x ?? 0,
+      y: snapshot.y ?? 0,
+      id: snapshot.id,
+      ...(clonePlainData(snapshot.data) ?? {}),
+    };
+  }
+
+  async restore(snapshot = {}) {
+    const node = await this.create(this.getRestorePayload(snapshot));
+    if (!node) return null;
+    await this.applySerializedData(node, snapshot.data ?? {});
+    this.applySerializedState(node, snapshot);
+    return node;
+  }
+
+  async applySerializedData() {}
+
+  applySerializedState(node, snapshot = {}) {
+    if (!node) return;
+
+    node.position({
+      x: Number.isFinite(snapshot.x) ? snapshot.x : 0,
+      y: Number.isFinite(snapshot.y) ? snapshot.y : 0,
+    });
+    node.rotation(Number.isFinite(snapshot.rotation) ? snapshot.rotation : 0);
+    node.scaleX(Number.isFinite(snapshot.scaleX) ? snapshot.scaleX : 1);
+    node.scaleY(Number.isFinite(snapshot.scaleY) ? snapshot.scaleY : 1);
+    node.visible(snapshot.visible !== false);
+    node.opacity(Number.isFinite(snapshot.opacity) ? snapshot.opacity : 1);
+
+    if (snapshot.focusPositionMode != null) {
+      node.setAttr("focusPositionMode", snapshot.focusPositionMode);
+    }
+
+    if (Object.hasOwn(snapshot, "savedFocus")) {
+      node.setAttr("savedFocus", clonePlainData(snapshot.savedFocus) ?? null);
+    }
+  }
 }
 
 export class BaseComponentEditorField {
@@ -313,7 +394,7 @@ export class BaseComponentEditorField {
   }
 
   write(node, value) {
-    this.setValue(node, this.normalize(value, node));
+    return this.setValue(node, this.normalize(value, node));
   }
 
   normalize(value) {

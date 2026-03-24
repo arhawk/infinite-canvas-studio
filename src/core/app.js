@@ -36,6 +36,8 @@ export class App {
 
     this.plugins = [];
     this.cursorOverride = null;
+    this.isReplayingHistory = false;
+    this.history = null;
 
     this.stage.setAttr("app", this);
   }

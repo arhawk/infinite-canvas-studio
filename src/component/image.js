@@ -13,6 +13,15 @@ function loadImage(src) {
   });
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export class ImageComponent extends BaseComponent {
   static type = "image";
   static label = "Image";
@@ -30,10 +39,10 @@ export class ImageComponent extends BaseComponent {
         description: "Select a new image file",
         input: { accept: "image/*" },
         getValue: () => null,
-        setValue: (node, file) => {
+        setValue: async (node, file) => {
           if (file instanceof File) {
-            const src = URL.createObjectURL(file);
-            this.updateNode(node, src);
+            const src = await readFileAsDataUrl(file);
+            await this.updateNode(node, src);
           }
         },
       }),
@@ -64,6 +73,7 @@ export class ImageComponent extends BaseComponent {
   #addPlaceholderToGroup(group) {
     const width = group.width();
     const height = group.height();
+    group.setAttr("imageSrc", null);
 
     const rect = new Konva.Rect({
       width,
@@ -107,17 +117,28 @@ export class ImageComponent extends BaseComponent {
 
     group.add(img);
     group.height(height);
-
-    if (src.startsWith("blob:")) {
-      group.on("removed", () => URL.revokeObjectURL(src));
-    }
+    group.setAttr("imageSrc", src);
   }
 
   async updateNode(node, src) {
     if (!(node instanceof Konva.Group)) return;
 
     node.destroyChildren();
-    await this.#addImageToGroup(node, src);
+    if (!src) {
+      this.#addPlaceholderToGroup(node);
+    } else {
+      await this.#addImageToGroup(node, src);
+    }
     node.getLayer()?.batchDraw();
+  }
+
+  serializeNode(node) {
+    return {
+      src: node.getAttr("imageSrc") ?? null,
+    };
+  }
+
+  async applySerializedData(node, data = {}) {
+    await this.updateNode(node, data.src ?? null);
   }
 }

@@ -336,7 +336,14 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.focusPositionMode = nextMode;
     const node = this.getSelectedFocusableNode();
     const savedFocus = node ? this.getSavedFocus(node) : null;
+    const willChangeNodeMode = Boolean(node) && this.getNodeFocusPositionMode(node) !== nextMode;
+    const willChangeSavedFocus =
+      Boolean(node && savedFocus) && this.getSavedFocusMode(node) !== nextMode;
     let didChangeNode = false;
+
+    if ((willChangeNodeMode || willChangeSavedFocus) && node) {
+      this.app.events.emit("node:change:start", { node });
+    }
 
     if (node) {
       didChangeNode = this.setNodeFocusPositionMode(node, nextMode);
@@ -397,11 +404,22 @@ export class FocusNavigationPlugin extends BasePlugin {
     const savedFocus = this.createSavedFocus(node);
     if (!savedFocus) return false;
 
+    const currentSavedFocus = node.getAttr("savedFocus") ?? null;
+    const didChangeSavedFocus =
+      JSON.stringify(currentSavedFocus) !== JSON.stringify(savedFocus) ||
+      this.getNodeFocusPositionMode(node) !== savedFocus.positionMode;
+
+    if (didChangeSavedFocus) {
+      this.app.events.emit("node:change:start", { node });
+    }
+
     this.setNodeFocusPositionMode(node, savedFocus.positionMode);
     node.setAttr("savedFocus", savedFocus);
     this.syncFocusPositionModeFromNode(node);
 
-    this.app.events.emit("node:changed", { node });
+    if (didChangeSavedFocus) {
+      this.app.events.emit("node:changed", { node });
+    }
     this.showSaveToast();
     return true;
   }

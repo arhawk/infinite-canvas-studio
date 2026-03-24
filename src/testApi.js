@@ -129,6 +129,17 @@ export function setupAppTestApi(app) {
     setMode: (mode) => app.setMode(mode),
     getEditorTool: () => app.getEditorTool(),
     setEditorTool: (toolId) => app.setEditorTool(toolId),
+    canUndo: () => app.history?.canUndo?.() ?? false,
+    canRedo: () => app.history?.canRedo?.() ?? false,
+    undo: () => app.history?.undo?.() ?? false,
+    redo: () => app.history?.redo?.() ?? false,
+    resetHistory: () => {
+      app.history?.resetHistory?.();
+      return {
+        canUndo: app.history?.canUndo?.() ?? false,
+        canRedo: app.history?.canRedo?.() ?? false,
+      };
+    },
     listNodes: () => app.mainLayer.find(".selectable").map((node) => serializeNode(app, node)),
     getNode: (id) => {
       const node = getNodeById(app, id);
@@ -176,6 +187,7 @@ export function setupAppTestApi(app) {
         return null;
       }
 
+      app.events.emit("node:change:start", { node });
       node.position({
         x: position.x,
         y: position.y,
@@ -188,6 +200,12 @@ export function setupAppTestApi(app) {
       const connectionsPlugin = getPlugin(app, "connections");
       const connection = await connectionsPlugin?.createConnection?.(sourceId, targetId);
       return connection ? serializeNode(app, connection) : null;
+    },
+    openComponentEditor: (id) => {
+      const componentEditorPlugin = getPlugin(app, "component-editor");
+      const node = getNodeById(app, id);
+      componentEditorPlugin?.open?.(node);
+      return Boolean(componentEditorPlugin?.currentNode);
     },
     saveFocus: (id) => {
       const focusPlugin = getPlugin(app, "focus-navigation");
@@ -228,6 +246,7 @@ export function setupAppTestApi(app) {
       app.drawLayer.destroyChildren();
       app.mainLayer.batchDraw();
       app.drawLayer.batchDraw();
+      app.history?.resetHistory?.();
     },
     countDrawables: () => app.drawLayer.find(".drawable").length,
   };

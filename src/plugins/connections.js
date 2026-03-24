@@ -133,6 +133,7 @@ export class ConnectionsPlugin extends BasePlugin {
 
     this.listen("node:added", ({ node }) => this.handleNodeAdded(node));
     this.listen("node:removed", ({ node }) => this.handleNodeRemoved(node));
+    this.listen("node:changing", ({ node }) => this.handleNodeChanged(node));
     this.listen("node:changed", ({ node }) => this.handleNodeChanged(node));
     this.listen("selection:change", ({ nodes }) => this.handleSelectionChange(nodes));
     this.listen("interaction:change", () => {
@@ -188,6 +189,9 @@ export class ConnectionsPlugin extends BasePlugin {
 
     handle.on("dragstart", (event) => {
       event.cancelBubble = true;
+      if (this.selectedConnection) {
+        this.app.events.emit("node:change:start", { node: this.selectedConnection });
+      }
       this.app.setCursorOverride("grabbing");
     });
 

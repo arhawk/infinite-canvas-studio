@@ -57,6 +57,20 @@ test("adds a sticky note from the palette and deletes it with the keyboard", asy
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 });
 
+test("undoes and redoes adding a sticky note", async ({ page }) => {
+  await expect(page.getByTestId("undo-action")).toBeDisabled();
+  await expect(page.getByTestId("redo-action")).toBeDisabled();
+
+  await page.getByTestId("palette-card-sticky").click();
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+
+  await page.getByTestId("undo-action").click();
+  await expect.poll(async () => (await listNodes(page)).length).toBe(0);
+
+  await page.getByTestId("redo-action").click();
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+});
+
 test("draws a brush stroke on the canvas", async ({ page }) => {
   await page.getByTestId("tool-button-brush").click();
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
@@ -74,6 +88,16 @@ test("draws a brush stroke on the canvas", async ({ page }) => {
   await page.mouse.move(end.x, end.y, { steps: 10 });
   await page.mouse.up();
 
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBeGreaterThan(0);
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+
+  await page.getByTestId("redo-action").click();
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBeGreaterThan(0);

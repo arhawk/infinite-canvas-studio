@@ -94,4 +94,27 @@ export class PageComponent extends ContainerComponent {
       },
     });
   }
+
+  serializeNode(node) {
+    const base = super.serializeNode(node);
+    const headerLine = node.findOne(".page-header-line");
+
+    return {
+      ...base,
+      headerLineStroke: headerLine?.stroke() ?? "rgba(171, 79, 40, 0.12)",
+    };
+  }
+
+  async applySerializedData(node, data = {}) {
+    await super.applySerializedData(node, data);
+
+    const headerLine = node.findOne(".page-header-line");
+    const width = Number.isFinite(data.width) ? data.width : PAGE_WIDTH;
+    if (headerLine) {
+      headerLine.points([0, 56, width, 56]);
+      if (typeof data.headerLineStroke === "string" && data.headerLineStroke) {
+        headerLine.stroke(data.headerLineStroke);
+      }
+    }
+  }
 }

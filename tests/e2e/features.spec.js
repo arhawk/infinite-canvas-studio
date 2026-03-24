@@ -148,9 +148,7 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
 
 test("opens the component editor and applies sticky text changes", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 220, y: 220 });
-  const center = await getNodePageCenter(page, sticky.id);
-
-  await page.mouse.dblclick(center.x, center.y);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), sticky.id);
 
   await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
   await expect(page.getByTestId("component-editor-title")).toHaveText("Sticky Note");
@@ -166,4 +164,44 @@ test("opens the component editor and applies sticky text changes", async ({ page
       return node?.summary?.text ?? "";
     })
     .toBe("Updated from Playwright");
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => {
+      const node = await getNode(page, sticky.id);
+      return node?.summary?.text ?? "";
+    })
+    .toBe("Sticky note");
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => {
+      const node = await getNode(page, sticky.id);
+      return node?.summary?.text ?? "";
+    })
+    .toBe("Updated from Playwright");
+});
+
+test("undoes and redoes a node move", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 200, y: 200 });
+  const beforeMove = await getNode(page, sticky.id);
+
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    { id: sticky.id, position: { x: 640, y: 360 } },
+  );
+
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.bounds?.x ?? 0)
+    .toBeGreaterThan((beforeMove?.bounds?.x ?? 0) + 300);
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => Math.abs(((await getNode(page, sticky.id))?.bounds?.x ?? 0) - (beforeMove?.bounds?.x ?? 0)))
+    .toBeLessThan(2);
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.bounds?.x ?? 0)
+    .toBeGreaterThan((beforeMove?.bounds?.x ?? 0) + 300);
 });

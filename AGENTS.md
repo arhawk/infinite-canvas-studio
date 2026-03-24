@@ -16,6 +16,7 @@ The app includes:
 - Editable text and sticky notes
 - Single-select and transform
 - Freehand brush drawing
+- Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
 - Container system with parent-child grouping and arbitrary component-to-component connections
 - Per-component saved focus views for presentation jumps
 - Persistent mode toggle (Edit/View) with animated UI transitions
@@ -56,8 +57,8 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 ### Entry Point
 
-- [src/main.js](src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app, seeds starter nodes, and exposes a test API in E2E mode
-- [src/testApi.js](src/testApi.js): Test-only browser API for Playwright, including canvas coordinate helpers, node lookup helpers, and board reset utilities
+- [src/main.js](src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app, seeds starter nodes, resets local history baseline, and exposes a test API in E2E mode
+- [src/testApi.js](src/testApi.js): Test-only browser API for Playwright, including canvas coordinate helpers, node lookup helpers, board reset utilities, history helpers, and editor-opening helpers
 
 ### Core Infrastructure (`src/core/`)
 
@@ -78,10 +79,11 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, persistent mode toggle, and contextual per-tool control groups for connection, focus, and brush settings
+- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, icon-only undo/redo controls, persistent mode toggle, and contextual per-tool control groups for connection, focus, and brush settings
 - [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
+- [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
 - [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
@@ -91,8 +93,8 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 ### Tests (`tests/`)
 
 - [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
-- [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, and brush drawing
-- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, and component editor editing
+- [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, and brush drawing undo/redo
+- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, component editor editing, and undo/redo of node movement
 
 ## Testing
 
@@ -102,7 +104,7 @@ The repository now has a local automated testing baseline:
 - Browser smoke and feature tests use `Playwright`
 - `pnpm test` runs build + unit tests + all Playwright E2E coverage
 - `playwright.config.js` starts the Vite dev server with `VITE_E2E=1`, which enables the browser-side test helpers in `src/testApi.js`
-- `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, and presentation navigation button activation
+- `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, component editor opening, history reset, and undo/redo activation
 
 Testability conventions:
 
@@ -197,8 +199,11 @@ Cross-module communication uses `app.events` and the shorthand `app.on` / `app.o
 |-------|---------|--------|
 | `tool:change` | `{ toolId }` | `ToolRegistry` |
 | `selection:change` | `{ nodes }` | selection plugin |
+| `node:change:start` | `{ node }` | selection, editor, focus, connection-handle, and test helpers before tracked mutation |
+| `node:changing` | `{ node }` | selection plugin during live drag / transform |
 | `node:added` | `{ node }` | app.addComponent |
 | `node:removed` | `{ node }` | selection plugin (delete) |
+| `draw:added` | `{ node }` | drawing plugin after a completed brush stroke |
 | `zoom:change` | `{ zoom }` | `StageController` via app |
 | `viewport:change` | `{ scale, viewport, size, position }` | `StageController` via app |
 | `stroke:change` | `{ color, width }` | toolbar plugin |
@@ -224,6 +229,7 @@ The app object exposes:
 // Core objects
 app.modeManager
 app.stageApi
+app.history
 app.tools
 app.commands
 app.keybindings
@@ -341,6 +347,7 @@ Component rules:
 - `BaseComponent` assigns a unique `id`
 - `BaseComponent` marks component nodes with `name: "selectable"` and `componentType`
 - Components control their own Konva node creation through `createNode(payload)`
+- Components now support serialization / restoration hooks used by local history replay
 - Components can opt out of appearing in the sidebar by setting `static palette = false`
 - Text-like components reuse `EditableTextBehavior`
 - New components should be added by extending `BaseComponent`
@@ -382,7 +389,27 @@ Behavior:
 - Drawing happens only on empty stage area
 - Drawing coordinates respect current pan and zoom
 
-### 7. Toolbar
+### 7. Local History (Undo / Redo)
+
+Implemented in [src/plugins/history.js](src/plugins/history.js) with support from [src/core/baseClasses.js](src/core/baseClasses.js).
+
+Behavior:
+
+- History entries are stored locally in memory and are reset on full reload.
+- `Undo` and `Redo` are available from icon-only toolbar buttons and from keyboard shortcuts:
+  `Mod+Z`, `Mod+Shift+Z`, and `Mod+Y`.
+- The plugin batches related mutations that happen in the same event loop into a single history entry.
+- History replay restores component nodes by calling per-component serialization / restoration hooks on `BaseComponent`.
+- History currently tracks component add, delete, move, transform, editor changes, focus save, focus mode toggle, connection control-point updates, container reparenting, and completed brush strokes.
+- Starter seed nodes are created first and then treated as the initial baseline by calling `history.resetHistory()`.
+
+Implementation notes:
+
+- Mutations that should be reversible emit `node:change:start` before the change and `node:changed` after the change.
+- Live drag / transform interactions emit `node:changing` for real-time connection updates without creating extra history entries.
+- Completed brush strokes emit `draw:added` once, after the pointer is released.
+
+### 8. Toolbar
 
 Implemented in [src/plugins/toolbar.js](src/plugins/toolbar.js).
 
@@ -390,11 +417,12 @@ Controls:
 
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
+- Icon-only undo / redo buttons rendered with Lucide icons
 - In `edit.arrange`, a helper control group appears only when a focusable node is selected
 - That arrange group contains `Connect to...`, `Save Focus`, and the `Focus: Absolute / Relative` toggle for the selected component
 - In `edit.brush`, a brush control group appears with the color picker and stroke width slider
 
-### 8. Context Menu
+### 9. Context Menu
 
 Implemented in [src/plugins/contextMenu.js](src/plugins/contextMenu.js).
 
@@ -405,7 +433,7 @@ Behavior:
 - The menu is rendered as a Konva overlay on the UI layer
 - In `edit.arrange`, non-connection components expose both connection actions and the `Save Focus` action supplied by feature plugins
 
-### 9. Containers and Connections
+### 10. Containers and Connections
 
 Implemented in [src/plugins/containers.js](src/plugins/containers.js), [src/plugins/connections.js](src/plugins/connections.js), and [src/component/connection.js](src/component/connection.js).
 
@@ -418,7 +446,7 @@ Behavior:
 - The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
 - Container labels are editable via double-click.
 
-### 10. Saved Focus Views And Presentation Navigation
+### 11. Saved Focus Views And Presentation Navigation
 
 Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) with support from [src/stage.js](src/stage.js).
 
@@ -456,8 +484,10 @@ Responsibilities:
 - Register all built-in component instances centrally before plugins mount
 - Mount built-in plugin classes in dependency-aware order
 - Mount `ConnectionsPlugin` before `FocusNavigationPlugin` so presentation navigation always reads already-updated connection geometry
+- Mount `HistoryPlugin` so undo / redo wiring is available after core interaction plugins are in place
 - Call `app.start()` to initialize
 - Seed a few starter nodes on load
+- Reset the local history baseline after starter nodes are added
 - In E2E mode, expose the browser test API only after starter nodes have finished loading
 
 ## Styling Notes
@@ -486,9 +516,10 @@ Responsive behavior:
 
 ## Current Limitations
 
-- Images are created from local object URLs and are not persisted
+- Undo / redo history is local in-memory state only and is lost on full reload
 - There is no save/load document format yet
-- There is no undo/redo yet
+- There is no collaboration or remote-operation merge model yet
+- Images are stored in runtime data URLs and are not persisted across reload without a document format
 - Saved focus views currently live only on in-memory node attrs, so they are lost on full reload until a document persistence format exists
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
 - Right-click anchor naming uses `window.prompt`
@@ -510,6 +541,9 @@ Responsive behavior:
 - Prefer adding plugins over modifying core infrastructure
 - When adding new UI controls that E2E should target, add stable `data-testid` hooks
 - When adding new canvas interactions that need browser verification, extend `src/testApi.js` rather than duplicating fragile test-side coordinate logic
+- When adding reversible node mutations, emit `node:change:start` before the mutation and `node:changed` after it
+- When adding real-time drag-like updates that should not create repeated history entries, emit `node:changing`
+- When adding reversible draw-layer content, provide a single completed-operation event similar to `draw:added`
 - Prefer updating `pnpm test` coverage as part of feature work, not as a separate cleanup pass
 
 ## Secondary Development Guide
@@ -717,6 +751,31 @@ app.components.register(new DiamondComponent(app));
 - marks the node as selectable
 - adds `componentType`
 - stores `baseDraggable`
+
+If the component should participate correctly in local undo / redo, also implement the serialization hooks used by `HistoryPlugin`:
+
+```js
+serializeNode(node) {
+  return {
+    label: node.findOne(".diamond-label")?.text() ?? "",
+  };
+}
+
+async applySerializedData(node, data = {}) {
+  node.findOne(".diamond-label")?.text(data.label || "");
+}
+```
+
+`BaseComponent.serialize(...)` and `BaseComponent.restore(...)` already handle shared node state such as:
+
+- `id`
+- `x` / `y`
+- `rotation`
+- `scaleX` / `scaleY`
+- `visible`
+- `opacity`
+- `focusPositionMode`
+- `savedFocus`
 
 ### 6. Declare Mode Behavior
 
