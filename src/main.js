@@ -10,6 +10,7 @@ import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
+import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
 import { StickyComponent } from "./component/sticky.js";
@@ -90,5 +91,11 @@ app.use(ContainersPlugin);
 app.start();
 
 // Seed starter nodes
-app.addComponent("sticky", { x: 120, y: 120 });
-app.addComponent("text", { x: 380, y: 170 });
+await Promise.all([
+  app.addComponent("sticky", { x: 120, y: 120 }),
+  app.addComponent("text", { x: 380, y: 170 }),
+]);
+
+if (import.meta.env.VITE_E2E === "1") {
+  setupAppTestApi(app);
+}

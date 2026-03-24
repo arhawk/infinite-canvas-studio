@@ -95,6 +95,7 @@ export class SidebarPlugin extends BasePlugin {
       card.className = "component-card";
       card.draggable = true;
       card.dataset.componentType = item.type;
+      card.dataset.testid = `palette-card-${item.type}`;
 
       const previewDiv = document.createElement("div");
       previewDiv.className = "component-preview";

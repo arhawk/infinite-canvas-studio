@@ -374,6 +374,7 @@ export class FocusNavigationPlugin extends BasePlugin {
   buildSaveToast() {
     this.saveToastEl = document.createElement("div");
     this.saveToastEl.className = "focus-save-toast";
+    this.saveToastEl.dataset.testid = "focus-save-toast";
     this.saveToastEl.textContent = "Focus saved";
     document.body.append(this.saveToastEl);
   }

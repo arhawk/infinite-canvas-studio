@@ -37,6 +37,10 @@ The app includes:
 - Start local dev server: `pnpm dev`
 - Build static output: `pnpm build`
 - Preview production build: `pnpm preview`
+- Run unit tests: `pnpm test:unit`
+- Run E2E smoke tests: `pnpm test:e2e`
+- Run full local verification: `pnpm test`
+- First-time Playwright browser install on a new machine: `pnpm exec playwright install chromium`
 
 The Vite dev server is configured in [vite.config.js](vite.config.js) and runs at `http://localhost:3000`.
 
@@ -47,10 +51,13 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [index.html](index.html): Main application shell
 - [src/styles.css](src/styles.css): Global layout and visual styling
 - [vite.config.js](vite.config.js): Vite dev and preview server configuration
+- [vitest.config.js](vitest.config.js): Vitest unit-test configuration
+- [playwright.config.js](playwright.config.js): Playwright E2E configuration with local Vite web server
 
 ### Entry Point
 
-- [src/main.js](src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app
+- [src/main.js](src/main.js): App bootstrap — creates `App`, registers built-in components, registers built-in plugins, starts the app, seeds starter nodes, and exposes a test API in E2E mode
+- [src/testApi.js](src/testApi.js): Test-only browser API for Playwright, including canvas coordinate helpers, node lookup helpers, and board reset utilities
 
 ### Core Infrastructure (`src/core/`)
 
@@ -75,10 +82,34 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush tool
+- [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
 - [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, per-component absolute/relative focus mode state, bidirectional edge jump buttons, toolbar/context-menu `Save Focus`, and presentation double-click navigation
 - [src/plugins/contextMenu.js](src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
+
+### Tests (`tests/`)
+
+- [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
+- [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, and brush drawing
+- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, and component editor editing
+
+## Testing
+
+The repository now has a local automated testing baseline:
+
+- Unit tests use `Vitest` with `jsdom`
+- Browser smoke and feature tests use `Playwright`
+- `pnpm test` runs build + unit tests + all Playwright E2E coverage
+- `playwright.config.js` starts the Vite dev server with `VITE_E2E=1`, which enables the browser-side test helpers in `src/testApi.js`
+- `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, and presentation navigation button activation
+
+Testability conventions:
+
+- Stable DOM controls used by E2E should keep `data-testid` attributes
+- Canvas-heavy E2E flows should prefer helpers from `window.__APP_TEST_API__` instead of hard-coded pixel math in tests
+- For new pure logic, prefer extracting helper functions so they can be covered by Vitest instead of only browser tests
+- For new interaction-heavy features, add or extend Playwright smoke coverage
 
 ### Stage
 
@@ -427,6 +458,7 @@ Responsibilities:
 - Mount `ConnectionsPlugin` before `FocusNavigationPlugin` so presentation navigation always reads already-updated connection geometry
 - Call `app.start()` to initialize
 - Seed a few starter nodes on load
+- In E2E mode, expose the browser test API only after starter nodes have finished loading
 
 ## Styling Notes
 
@@ -462,6 +494,7 @@ Responsive behavior:
 - Right-click anchor naming uses `window.prompt`
 - Alignment guide snapping currently focuses on nearby bounds and viewport center lines, not full smart-layout constraints
 - Konva and Lucide are imported from package dependencies through shared module wrappers in `src/lib/`
+- Automated coverage now includes core unit tests plus smoke/feature E2E for connections, focus navigation, and component editing, but it is still not exhaustive for all canvas edge cases
 
 ## Expected Workflow For Future Changes
 
@@ -475,6 +508,9 @@ Responsive behavior:
 - Keep stage zoom uniform on `x` and `y`
 - Keep transformer scaling ratio-locked unless requirements change
 - Prefer adding plugins over modifying core infrastructure
+- When adding new UI controls that E2E should target, add stable `data-testid` hooks
+- When adding new canvas interactions that need browser verification, extend `src/testApi.js` rather than duplicating fragile test-side coordinate logic
+- Prefer updating `pnpm test` coverage as part of feature work, not as a separate cleanup pass
 
 ## Secondary Development Guide
 
@@ -759,3 +795,6 @@ The project has been verified with:
 
 - `node --check` on source modules
 - `pnpm build`
+- `pnpm test:unit`
+- `pnpm test:e2e`
+- `pnpm test`

@@ -98,23 +98,57 @@ export class ComponentEditorPlugin extends BasePlugin {
   buildModal() {
     this.overlay = document.createElement("div");
     this.overlay.className = "component-editor-modal";
+    this.overlay.dataset.testid = "component-editor-modal";
     this.overlay.hidden = true;
     this.overlay.innerHTML = `
       <div class="component-editor-modal__backdrop" data-close-editor></div>
-      <div class="component-editor-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="component-editor-title">
+      <div
+        class="component-editor-modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="component-editor-title"
+        data-testid="component-editor-dialog"
+      >
         <div class="component-editor-modal__header">
           <div>
             <p class="component-editor-modal__eyebrow">Component Editor</p>
-            <h2 id="component-editor-title" class="component-editor-modal__title"></h2>
-            <p class="component-editor-modal__description"></p>
+            <h2
+              id="component-editor-title"
+              class="component-editor-modal__title"
+              data-testid="component-editor-title"
+            ></h2>
+            <p
+              class="component-editor-modal__description"
+              data-testid="component-editor-description"
+            ></p>
           </div>
-          <button type="button" class="component-editor-modal__close ghost-button" data-close-editor>Close</button>
+          <button
+            type="button"
+            class="component-editor-modal__close ghost-button"
+            data-close-editor
+            data-testid="component-editor-close"
+          >
+            Close
+          </button>
         </div>
-        <form class="component-editor-modal__form">
-          <div class="component-editor-modal__fields"></div>
+        <form class="component-editor-modal__form" data-testid="component-editor-form">
+          <div class="component-editor-modal__fields" data-testid="component-editor-fields"></div>
           <div class="component-editor-modal__actions">
-            <button type="button" class="ghost-button" data-close-editor>Cancel</button>
-            <button type="submit" class="component-editor-modal__submit">Apply</button>
+            <button
+              type="button"
+              class="ghost-button"
+              data-close-editor
+              data-testid="component-editor-cancel"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="component-editor-modal__submit"
+              data-testid="component-editor-apply"
+            >
+              Apply
+            </button>
           </div>
         </form>
       </div>
@@ -180,6 +214,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     editor.fields.forEach((field) => {
       const fieldEl = document.createElement("div");
       fieldEl.className = "component-editor-modal__field";
+      fieldEl.dataset.testid = `component-editor-field-${field.id}`;
 
       const labelEl = document.createElement("label");
       labelEl.className = "component-editor-modal__field-label";
@@ -213,6 +248,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     input.name = field.id;
     input.className = "component-editor-modal__input";
     input.placeholder = field.placeholder ?? "";
+    input.dataset.testid = `component-editor-input-${field.id}`;
 
     if (field.type === "textarea") {
       input.rows = field.rows ?? 4;
@@ -226,6 +262,7 @@ export class ComponentEditorPlugin extends BasePlugin {
       fileInput.id = inputId;
       fileInput.name = field.id;
       fileInput.className = "component-editor-modal__file-input";
+      fileInput.dataset.testid = `component-editor-input-${field.id}`;
 
       const label = document.createElement("label");
       label.htmlFor = inputId;

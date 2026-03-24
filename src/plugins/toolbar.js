@@ -93,6 +93,7 @@ export class ToolbarPlugin extends BasePlugin {
       button.className = "tool-button";
       button.title = tool.label;
       button.dataset.toolId = tool.id;
+      button.dataset.testid = `tool-button-${tool.id}`;
 
       if (TOOL_ICONS[tool.id]) {
         const icon = document.createElement("i");

@@ -21,3 +21,8 @@ Thumbs.db
 
 # Agents
 .cursor/
+
+# Test output
+coverage/
+playwright-report/
+test-results/

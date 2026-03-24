@@ -16,7 +16,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar" data-testid="sidebar">
         <div class="sidebar__header">
           <div id="sidebar-brand" class="sidebar__brand" aria-label="Components">
             <span class="sidebar__brand-mark" aria-hidden="true">
@@ -25,48 +25,73 @@
             <h1>Components</h1>
           </div>
         </div>
-        <div id="component-palette" class="component-palette"></div>
+        <div id="component-palette" class="component-palette" data-testid="component-palette"></div>
       </aside>
 
-      <main class="workspace">
-        <header class="toolbar">
-          <div id="tool-buttons" class="toolbar__cluster"></div>
-          <div id="arrange-controls" class="toolbar__cluster toolbar__tool-panel" hidden>
-            <button id="connect-selection" class="ghost-button ghost-button--icon" type="button">
+      <main class="workspace" data-testid="workspace">
+        <header class="toolbar" data-testid="toolbar">
+          <div id="tool-buttons" class="toolbar__cluster" data-testid="tool-buttons"></div>
+          <div
+            id="arrange-controls"
+            class="toolbar__cluster toolbar__tool-panel"
+            data-testid="arrange-controls"
+            hidden
+          >
+            <button
+              id="connect-selection"
+              class="ghost-button ghost-button--icon"
+              type="button"
+              data-testid="connect-selection"
+            >
               <i data-lucide="link-2" aria-hidden="true"></i>
               <span>Connect to...</span>
             </button>
-            <button id="save-focus" class="ghost-button" type="button">Save Focus</button>
+            <button id="save-focus" class="ghost-button" type="button" data-testid="save-focus">
+              Save Focus
+            </button>
             <button
               id="focus-position-mode"
               class="ghost-button"
               type="button"
               aria-pressed="false"
+              data-testid="focus-position-mode"
             >
               Focus: Absolute
             </button>
           </div>
-          <div id="brush-controls" class="toolbar__cluster toolbar__tool-panel" hidden>
+          <div
+            id="brush-controls"
+            class="toolbar__cluster toolbar__tool-panel"
+            data-testid="brush-controls"
+            hidden
+          >
             <label class="toolbar__field">
               <span>Color</span>
-              <input id="stroke-color" type="color" value="#1f6feb" />
+              <input id="stroke-color" type="color" value="#1f6feb" data-testid="stroke-color" />
             </label>
             <label class="toolbar__field toolbar__field--slider">
               <span>Stroke</span>
-              <input id="stroke-width" type="range" min="1" max="24" value="4" />
-              <output id="stroke-width-value">4</output>
+              <input
+                id="stroke-width"
+                type="range"
+                min="1"
+                max="24"
+                value="4"
+                data-testid="stroke-width"
+              />
+              <output id="stroke-width-value" data-testid="stroke-width-value">4</output>
             </label>
           </div>
         </header>
 
-        <section class="board-shell">
-          <div id="canvas-container" class="canvas-container"></div>
-          <label class="mode-toggle" id="mode-toggle">
-            <input type="checkbox" checked />
+        <section class="board-shell" data-testid="board-shell">
+          <div id="canvas-container" class="canvas-container" data-testid="canvas-container"></div>
+          <label class="mode-toggle" id="mode-toggle" data-testid="mode-toggle">
+            <input type="checkbox" checked data-testid="mode-toggle-input" />
             <span class="mode-toggle__track">
               <span class="mode-toggle__thumb"></span>
             </span>
-            <span class="mode-toggle__label">Edit</span>
+            <span class="mode-toggle__label" data-testid="mode-toggle-label">Edit</span>
           </label>
         </section>
       </main>

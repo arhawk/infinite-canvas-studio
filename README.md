@@ -35,6 +35,26 @@ pnpm build
 pnpm preview
 ```
 
+## Testing
+
+```bash
+pnpm test:unit
+pnpm test:e2e
+pnpm test
+```
+
+Current automated coverage includes:
+
+- Core unit tests for registries, mode management, keybindings, and base classes
+- Playwright smoke tests for mode toggle, palette add/delete flow, and brush drawing
+- Playwright feature tests for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, and component editor editing
+
+On a new machine, install the Playwright browser once before the first E2E run:
+
+```bash
+pnpm exec playwright install chromium
+```
+
 ## Project Structure
 
 - `index.html`: application shell
@@ -47,4 +67,4 @@ pnpm preview
 ## Notes
 
 - Image uploads currently rely on object URLs and are not persisted.
-- Manual browser testing is still recommended for interaction-heavy changes.
+- Manual browser testing is still recommended for new interaction-heavy edge cases beyond the current automated coverage.
