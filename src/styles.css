@@ -557,6 +557,32 @@ body.is-presentation-mode .toolbar {
   color: #8d2f1e;
 }
 
+.history-action-toast {
+  position: fixed;
+  top: 7.65rem;
+  right: 1.25rem;
+  z-index: 40;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(215, 97, 47, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  box-shadow: 0 1rem 2.4rem rgba(54, 41, 25, 0.16);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.history-action-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .board-shell {
   position: relative;
   flex: 1;

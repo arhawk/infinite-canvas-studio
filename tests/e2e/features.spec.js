@@ -201,6 +201,7 @@ test("opens the component editor and applies sticky text changes", async ({ page
     .toBe("Updated from Playwright");
 
   await page.getByTestId("undo-action").click();
+  await expect(page.getByTestId("history-action-toast")).toHaveText("Undid editing Sticky Note");
   await expect
     .poll(async () => {
       const node = await getNode(page, sticky.id);
@@ -209,12 +210,51 @@ test("opens the component editor and applies sticky text changes", async ({ page
     .toBe("Sticky note");
 
   await page.getByTestId("redo-action").click();
+  await expect(page.getByTestId("history-action-toast")).toHaveText("Redid editing Sticky Note");
   await expect
     .poll(async () => {
       const node = await getNode(page, sticky.id);
       return node?.summary?.text ?? "";
     })
     .toBe("Updated from Playwright");
+});
+
+test("asks for confirmation before loading over current content", async ({ page }) => {
+  await addComponent(page, "sticky", { x: 180, y: 180 });
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await addComponent(page, "sticky", { x: 520, y: 240 });
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("replace the current board content");
+    await dialog.dismiss();
+  });
+
+  await page.getByTestId("load-document-input").setInputFiles({
+    name: "mind-map.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(exported)),
+  });
+
+  await waitForPaint(page);
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
+    .toBe(2);
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("replace the current board content");
+    await dialog.accept();
+  });
+
+  await page.getByTestId("load-document-input").setInputFiles({
+    name: "mind-map.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(exported)),
+  });
+
+  await expect(page.getByTestId("document-status-toast")).toHaveText("Document loaded");
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
+    .toBe(1);
 });
 
 test("loads a saved document snapshot and resets the undo baseline", async ({ page }) => {

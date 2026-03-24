@@ -2,6 +2,7 @@ import { BaseCommand, BasePlugin } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
 
 const HISTORY_LIMIT = 100;
+const HISTORY_TOAST_DURATION = 1800;
 
 let drawingNodeCount = 0;
 
@@ -39,6 +40,66 @@ function isConnectionSnapshot(snapshot) {
 
 function snapshotsEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function summarizeComponentLabel(label) {
+  return typeof label === "string" && label ? label : "item";
+}
+
+function summarizeUpdateDescription(before = {}, after = {}, componentLabel = "item") {
+  const beforeData = before.data ?? {};
+  const afterData = after.data ?? {};
+  const type = after.type ?? before.type ?? null;
+  const parentChanged = before.parentId !== after.parentId;
+  const positionChanged = before.x !== after.x || before.y !== after.y;
+  const transformChanged =
+    before.rotation !== after.rotation ||
+    before.scaleX !== after.scaleX ||
+    before.scaleY !== after.scaleY;
+  const focusChanged =
+    before.focusPositionMode !== after.focusPositionMode ||
+    !snapshotsEqual(before.savedFocus ?? null, after.savedFocus ?? null);
+  const dataChanged = !snapshotsEqual(beforeData, afterData);
+
+  if (type === "connection") {
+    const shapeChanged =
+      !snapshotsEqual(beforeData.controlOffsetStart ?? null, afterData.controlOffsetStart ?? null) ||
+      !snapshotsEqual(beforeData.controlOffsetEnd ?? null, afterData.controlOffsetEnd ?? null);
+    const styleChanged =
+      beforeData.stroke !== afterData.stroke ||
+      beforeData.strokeWidth !== afterData.strokeWidth ||
+      beforeData.pointerLength !== afterData.pointerLength ||
+      beforeData.pointerWidth !== afterData.pointerWidth;
+    const endpointChanged =
+      beforeData.sourceNodeId !== afterData.sourceNodeId ||
+      beforeData.targetNodeId !== afterData.targetNodeId;
+
+    if (shapeChanged && !styleChanged && !endpointChanged) {
+      return `adjusting ${componentLabel}`;
+    }
+  }
+
+  if (parentChanged) {
+    return `moving ${componentLabel} between containers`;
+  }
+
+  if (focusChanged && !dataChanged && !positionChanged && !transformChanged) {
+    return `updating focus for ${componentLabel}`;
+  }
+
+  if (dataChanged && !positionChanged && !transformChanged && !focusChanged) {
+    return `editing ${componentLabel}`;
+  }
+
+  if (positionChanged && !transformChanged && !dataChanged && !focusChanged) {
+    return `moving ${componentLabel}`;
+  }
+
+  if (transformChanged && !dataChanged && !focusChanged) {
+    return `transforming ${componentLabel}`;
+  }
+
+  return `updating ${componentLabel}`;
 }
 
 class UndoCommand extends BaseCommand {
@@ -109,6 +170,8 @@ export class HistoryPlugin extends BasePlugin {
     this.nodeSnapshotCache = new Map();
     this.drawSnapshotCache = new Map();
     this.isApplyingHistory = false;
+    this.toastTimeout = null;
+    this.buildActionToast();
 
     this.listen("node:added", ({ node }) => this.handleNodeAdded(node));
     this.listen("node:removed", ({ node }) => this.handleNodeRemoved(node));
@@ -137,6 +200,8 @@ export class HistoryPlugin extends BasePlugin {
     this.cleanups.push(() => this.app.keybindings.unregister("Mod+Y"));
     this.cleanups.push(() => {
       this.cancelPendingCommit();
+      window.clearTimeout(this.toastTimeout);
+      this.toastEl?.remove();
       if (this.app.history === this) {
         this.app.history = null;
       }
@@ -429,6 +494,72 @@ export class HistoryPlugin extends BasePlugin {
     return id ? this.app.drawLayer.findOne(`#${id}`) : null;
   }
 
+  buildActionToast() {
+    this.toastEl = document.createElement("div");
+    this.toastEl.className = "history-action-toast";
+    this.toastEl.hidden = true;
+    this.toastEl.dataset.testid = "history-action-toast";
+    document.body.append(this.toastEl);
+  }
+
+  getComponentLabel(snapshot = {}) {
+    const componentLabel = this.app.components.get(snapshot.type)?.label;
+    return summarizeComponentLabel(componentLabel ?? snapshot.type);
+  }
+
+  describeOperation(operation) {
+    if (!operation) return "making changes";
+
+    switch (operation.type) {
+      case "add-node-tree":
+        return `adding ${this.getComponentLabel(operation.snapshots?.[0])}`;
+      case "remove-node-tree":
+        return `deleting ${this.getComponentLabel(operation.snapshots?.[0])}`;
+      case "update-node":
+        return summarizeUpdateDescription(
+          operation.before,
+          operation.after,
+          this.getComponentLabel(operation.after ?? operation.before),
+        );
+      case "add-drawing":
+        return "drawing a stroke";
+      case "remove-drawing":
+        return "deleting a stroke";
+      case "batch": {
+        const descriptions = [...new Set(
+          (operation.operations ?? [])
+            .map((item) => this.describeOperation(item))
+            .filter(Boolean),
+        )];
+
+        if (descriptions.length === 1) {
+          return descriptions[0];
+        }
+
+        const count = Array.isArray(operation.operations) ? operation.operations.length : 0;
+        return count > 1 ? `making ${count} changes` : "making changes";
+      }
+      default:
+        return "making changes";
+    }
+  }
+
+  showActionToast(direction, entry) {
+    if (!this.toastEl) return;
+
+    const action = direction === "undo" ? "Undid" : "Redid";
+    const description = this.describeOperation(entry);
+
+    window.clearTimeout(this.toastTimeout);
+    this.toastEl.textContent = `${action} ${description}`;
+    this.toastEl.hidden = false;
+    this.toastEl.classList.add("is-visible");
+
+    this.toastTimeout = window.setTimeout(() => {
+      this.toastEl?.classList.remove("is-visible");
+    }, HISTORY_TOAST_DURATION);
+  }
+
   async undo() {
     this.flushPendingCommit();
     if (!this.canUndo()) return false;
@@ -436,6 +567,7 @@ export class HistoryPlugin extends BasePlugin {
     const entry = this.past.pop();
     await this.applyEntry(entry, "undo");
     this.future.push(entry);
+    this.showActionToast("undo", entry);
     this.syncUi();
     return true;
   }
@@ -447,6 +579,7 @@ export class HistoryPlugin extends BasePlugin {
     const entry = this.future.pop();
     await this.applyEntry(entry, "redo");
     this.past.push(entry);
+    this.showActionToast("redo", entry);
     this.syncUi();
     return true;
   }

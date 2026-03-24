@@ -467,6 +467,7 @@ Behavior:
 - History entries are stored locally in memory and are reset on full reload.
 - `Undo` and `Redo` are available from icon-only toolbar buttons and from keyboard shortcuts:
   `Mod+Z`, `Mod+Shift+Z`, and `Mod+Y`.
+- Undo / redo now also shows a small toast describing the action that was undone or redone.
 - The plugin batches related mutations that happen in the same event loop into a single history entry.
 - History replay restores component nodes by calling per-component serialization / restoration hooks on `BaseComponent`.
 - History currently tracks component add, delete, move, transform, editor changes, focus save, focus mode toggle, connection control-point updates, container reparenting, and completed brush strokes.
@@ -487,6 +488,7 @@ Behavior:
 
 - Documents can be exported as JSON from the toolbar or with `Mod+S`.
 - Documents can be imported from JSON from the toolbar or with `Mod+O`.
+- Import asks for confirmation before replacing the current board when the board already contains content.
 - The saved document includes component snapshots, parent-child container structure, connections, saved focus data, completed brush strokes, and current stage position / scale.
 - Import runs through a dedicated restore transaction so plugins can suspend side effects such as history capture, auto-selection, container recapture, and stale editor UI.
 - After a document is loaded, `history.resetHistory()` is called so the loaded state becomes the new undo / redo baseline.

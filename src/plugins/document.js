@@ -46,6 +46,9 @@ function downloadTextFile(filename, text, mimeType = "application/json") {
   }, 0);
 }
 
+const LOAD_CONFIRM_MESSAGE =
+  "Loading a document will replace the current board content. Continue?";
+
 class ExportDocumentCommand extends BaseCommand {
   static commandId = "document:export";
   static label = "Export Document";
@@ -147,6 +150,13 @@ export class DocumentPlugin extends BasePlugin {
     return clonePlainData(this.documentState);
   }
 
+  hasCurrentContent() {
+    return (
+      this.app.mainLayer.find(".selectable").length > 0 ||
+      this.app.drawLayer.find(".drawable").length > 0
+    );
+  }
+
   buildStatusToast() {
     this.statusEl = document.createElement("div");
     this.statusEl.className = "document-toast";
@@ -219,6 +229,10 @@ export class DocumentPlugin extends BasePlugin {
     if (!file) return false;
 
     try {
+      if (this.hasCurrentContent() && !window.confirm(LOAD_CONFIRM_MESSAGE)) {
+        return false;
+      }
+
       const text = await file.text();
       await this.importDocumentFromText(text, { source: "file" });
       this.showStatus("Document loaded");
