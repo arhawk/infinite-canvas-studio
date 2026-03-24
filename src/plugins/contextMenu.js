@@ -67,7 +67,7 @@ export class ContextMenuPlugin extends BasePlugin {
   }
 
   buildMenu(items) {
-    this.menuGroup.destroyChildren();
+    this.menuGroup.removeChildren();
     this.menuGroup.add(this.menuBackground);
     this.menuBackground.height(this.paddingY * 2 + items.length * this.itemHeight);
 

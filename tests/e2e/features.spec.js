@@ -29,6 +29,12 @@ async function getNodePageCenter(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNodePageCenter(nodeId), id);
 }
 
+async function waitForPaint(page) {
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await waitForTestApi(page);
@@ -89,6 +95,35 @@ test("saves focus from the toolbar for the selected node", async ({ page }) => {
   await expect
     .poll(async () => Boolean((await getNode(page, sticky.id))?.savedFocus))
     .toBe(true);
+});
+
+test("reopens the context menu without Konva destroyed-shape warnings", async ({ page }) => {
+  const warnings = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning" && message.text().includes("destroyed shape")) {
+      warnings.push(message.text());
+    }
+  });
+
+  const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
+  const center = await getNodePageCenter(page, sticky.id);
+  const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const emptyCanvasPoint = {
+    x: rect.left + rect.width - 48,
+    y: rect.top + rect.height / 2,
+  };
+
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await waitForPaint(page);
+  await page.mouse.click(emptyCanvasPoint.x, emptyCanvasPoint.y);
+  await waitForPaint(page);
+
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await waitForPaint(page);
+  await page.mouse.click(emptyCanvasPoint.x, emptyCanvasPoint.y);
+  await waitForPaint(page);
+
+  expect(warnings).toEqual([]);
 });
 
 test("follows a presentation navigation button toward a saved focus", async ({ page }) => {
