@@ -91,3 +91,4 @@ The E2E harness uses `window.__APP_TEST_API__` for canvas-heavy flows instead of
 - `src/testApi.js`: browser-only helpers used by Playwright
 - `tests/unit/`: Vitest coverage for core logic
 - `tests/e2e/`: Playwright smoke and feature coverage
+- `pr-guide.md`: contributor guide for branching, PRs, and conflict resolution
