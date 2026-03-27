@@ -2,7 +2,7 @@
 
 A vanilla JavaScript mind-map board built on Konva.js with a lightweight Vite setup. The app combines an infinite canvas, draggable components, contextual editing tools, presentation focus navigation, and a local undo/redo history system in a dependency-light architecture designed for extension.
 
-For internal architecture, extension conventions, and implementation details, see [AGENTS.md](/Users/baitian/Documents/assignment%20s4/CS61-3-USYD2026/AGENTS.md).
+For internal architecture, extension conventions, and implementation details, see [AGENTS.md](AGENTS.md).
 
 ## Highlights
 
