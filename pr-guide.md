@@ -3,10 +3,15 @@
 
 ### When you had GitHub login
 一共五个存储位置, 由远及近
+
 upstream 官方aka.Bai远程仓库(作用: 每次递交前, 本地main pull一遍然后合并解决冲突)
+
 origin 自己远程仓库(作用: 让origin的main库与upstream保持同步即可)
+
 local 自己开发的本地仓库(在git commit后存储) .git/objects `git ls-tree -r HEAD --name-only`
+
 stage 自己本地暂存区(在git add后存储在当前branch上)`git ls-files`
+
 workspace 当前的开发目录的(只是创建文件不存储在任何branch上) `ls`
 
 ### STEP1: 下载upstream到origin,与local
