@@ -88,3 +88,4 @@ git push origin feature/<your-feature-name>
  - Bowen Bai
  - Zehao Liu
  - Xuexin Lin
+ - Jialu Shi
