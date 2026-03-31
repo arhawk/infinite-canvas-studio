@@ -12,6 +12,7 @@ import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
+import { TimerPlugin } from "./plugins/timer.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -41,6 +42,14 @@ const ui = {
   saveDocumentAction: getRequiredElement("#save-document-action"),
   loadDocumentAction: getRequiredElement("#load-document-action"),
   loadDocumentInput: getRequiredElement("#load-document-input"),
+  timerToggle: getRequiredElement("#timer-toggle"),
+  timerWidget: getRequiredElement("#timer-widget"),
+  timerDisplay: getRequiredElement("#timer-display"),
+  timerStartPause: getRequiredElement("#timer-start-pause"),
+  timerReset: getRequiredElement("#timer-reset"),
+  timerMm: getRequiredElement("#timer-mm"),
+  timerSs: getRequiredElement("#timer-ss"),
+  timerDurationRow: getRequiredElement("#timer-duration-row"),
   arrangeControls: getRequiredElement("#arrange-controls"),
   brushControls: getRequiredElement("#brush-controls"),
   connectSelection: getRequiredElement("#connect-selection"),
@@ -106,6 +115,16 @@ app.use(DocumentPlugin, {
   exportEl: ui.saveDocumentAction,
   importEl: ui.loadDocumentAction,
   importInputEl: ui.loadDocumentInput,
+});
+app.use(TimerPlugin, {
+  toggleEl: ui.timerToggle,
+  widgetEl: ui.timerWidget,
+  displayEl: ui.timerDisplay,
+  startPauseEl: ui.timerStartPause,
+  resetEl: ui.timerReset,
+  mmInputEl: ui.timerMm,
+  ssInputEl: ui.timerSs,
+  durationRowEl: ui.timerDurationRow,
 });
 
 app.start();

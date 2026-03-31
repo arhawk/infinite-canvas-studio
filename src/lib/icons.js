@@ -7,6 +7,7 @@ import {
   MousePointer2,
   Redo2,
   Route,
+  Timer,
   Undo2,
   Upload,
   createIcons,
@@ -21,6 +22,7 @@ const PROJECT_ICONS = {
   MousePointer2,
   Redo2,
   Route,
+  Timer,
   Undo2,
   Upload,
 };
