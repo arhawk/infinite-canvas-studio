@@ -90,6 +90,5 @@ git push origin feature/<your-feature-name>
  - Xuexin Lin
  - Jialu Shi
  - xiaoyan Cao
- - xiaoyan
  - Zeru Li
  - Qiuwen Li
