@@ -58,14 +58,30 @@ Wait for the owner to review and merge.
 If your push is rejected or the PR shows conflicts:
 
 ```bash
+# 1. 切到主分支
 git checkout main
-git pull origin main
+
+# 2. 从 upstream 拉最新代码
+git pull upstream main
+
+# 3. 切回你的开发分支
 git checkout feature/<your-feature-name>
+
+# 4. 合并 main
 git merge main
-# Resolve conflicts in your editor, then:
+
+# 5. 解决冲突
+# （在编辑器里处理）
+
+# 6. 提交
 git add .
-git commit -m "resolve merge conflicts"
+git commit -m "chore: resolve merge conflicts"
+
+# 7. 推送到你自己的 fork
 git push origin feature/<your-feature-name>
+
+# 8. New pull request
+# （在GitHub上处理）
 ```
 
 ---
