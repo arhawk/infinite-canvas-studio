@@ -14,6 +14,7 @@ import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
+import { MinimapPlugin } from "./plugins/minimap.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -123,6 +124,7 @@ app.use(BinaryCalculatorPlugin, {
   toggleEl: ui.calculatorToggle,
   widgetEl: ui.calculatorWidget,
 });
+app.use(MinimapPlugin);
 app.use(TimerPlugin, {
   toggleEl: ui.timerToggle,
   widgetEl: ui.timerWidget,
