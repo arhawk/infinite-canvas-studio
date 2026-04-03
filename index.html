@@ -31,6 +31,19 @@
       <main class="workspace" data-testid="workspace">
         <header class="toolbar" data-testid="toolbar">
           <div id="tool-buttons" class="toolbar__cluster" data-testid="tool-buttons"></div>
+          <div id="calculator-controls" class="toolbar__cluster" data-testid="calculator-controls">
+            <button
+              id="calculator-toggle"
+              class="tool-button"
+              type="button"
+              aria-label="Binary Calculator"
+              title="Binary Calculator"
+              aria-pressed="false"
+              data-testid="calculator-toggle"
+            >
+              <i data-lucide="calculator" aria-hidden="true"></i>
+            </button>
+          </div>
           <div id="timer-controls" class="toolbar__cluster" data-testid="timer-controls">
             <button
               id="timer-toggle"
@@ -165,6 +178,15 @@
             </span>
             <span class="mode-toggle__label" data-testid="mode-toggle-label">Edit</span>
           </label>
+
+          <div
+            id="calculator-widget"
+            class="calc-widget"
+            hidden
+            role="region"
+            aria-label="Binary Calculator"
+            data-testid="calculator-widget"
+          ></div>
 
           <div
             id="timer-widget"

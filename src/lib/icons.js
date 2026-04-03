@@ -1,5 +1,6 @@
 import {
   Brush,
+  Calculator,
   Download,
   Eraser,
   Image,
@@ -15,6 +16,7 @@ import {
 
 const PROJECT_ICONS = {
   Brush,
+  Calculator,
   Download,
   Eraser,
   Image,

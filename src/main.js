@@ -13,6 +13,7 @@ import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
 import { TimerPlugin } from "./plugins/timer.js";
+import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -42,6 +43,8 @@ const ui = {
   saveDocumentAction: getRequiredElement("#save-document-action"),
   loadDocumentAction: getRequiredElement("#load-document-action"),
   loadDocumentInput: getRequiredElement("#load-document-input"),
+  calculatorToggle: getRequiredElement("#calculator-toggle"),
+  calculatorWidget: getRequiredElement("#calculator-widget"),
   timerToggle: getRequiredElement("#timer-toggle"),
   timerWidget: getRequiredElement("#timer-widget"),
   timerDisplay: getRequiredElement("#timer-display"),
@@ -115,6 +118,10 @@ app.use(DocumentPlugin, {
   exportEl: ui.saveDocumentAction,
   importEl: ui.loadDocumentAction,
   importInputEl: ui.loadDocumentInput,
+});
+app.use(BinaryCalculatorPlugin, {
+  toggleEl: ui.calculatorToggle,
+  widgetEl: ui.calculatorWidget,
 });
 app.use(TimerPlugin, {
   toggleEl: ui.timerToggle,
