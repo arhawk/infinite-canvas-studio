@@ -72,7 +72,7 @@ test("undoes and redoes adding a sticky note", async ({ page }) => {
 });
 
 test("draws a brush stroke on the canvas", async ({ page }) => {
-  await page.getByTestId("tool-button-brush").click();
+  await page.getByTestId("tool-button-pen").click();
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   const start = {
     x: rect.left + rect.width * 0.45,
@@ -104,7 +104,7 @@ test("draws a brush stroke on the canvas", async ({ page }) => {
 });
 
 test("erases an entire brush stroke and supports undo and redo", async ({ page }) => {
-  await page.getByTestId("tool-button-brush").click();
+  await page.getByTestId("tool-button-pen").click();
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   const start = {
     x: rect.left + rect.width * 0.4,

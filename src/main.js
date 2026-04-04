@@ -62,6 +62,7 @@ const ui = {
   saveFocus: getRequiredElement("#save-focus"),
   focusPositionMode: getRequiredElement("#focus-position-mode"),
   strokeColor: getRequiredElement("#stroke-color"),
+  recentColors: getRequiredElement("#recent-colors"),
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   componentPalette: getRequiredElement("#component-palette"),
@@ -104,6 +105,7 @@ app.use(ToolbarPlugin, {
   saveFocusEl: ui.saveFocus,
   focusPositionModeEl: ui.focusPositionMode,
   strokeColorEl: ui.strokeColor,
+  recentColorsEl: ui.recentColors,
   strokeWidthEl: ui.strokeWidth,
   strokeWidthValueEl: ui.strokeWidthValue,
 });

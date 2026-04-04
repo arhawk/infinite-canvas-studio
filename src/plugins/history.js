@@ -109,7 +109,9 @@ class UndoCommand extends BaseCommand {
     edit: {
       tools: {
         arrange: {},
-        brush: {},
+        pen: {},
+        pencil: {},
+        highlighter: {},
         eraser: {},
       },
     },
@@ -127,7 +129,9 @@ class RedoCommand extends BaseCommand {
     edit: {
       tools: {
         arrange: {},
-        brush: {},
+        pen: {},
+        pencil: {},
+        highlighter: {},
         eraser: {},
       },
     },

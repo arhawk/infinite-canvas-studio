@@ -1,11 +1,13 @@
 import {
-  Brush,
   Calculator,
   Download,
   Eraser,
+  Highlighter,
   Image,
   Link2,
   MousePointer2,
+  Pen,
+  Pencil,
   Redo2,
   Route,
   Timer,
@@ -15,13 +17,15 @@ import {
 } from "lucide";
 
 const PROJECT_ICONS = {
-  Brush,
   Calculator,
   Download,
   Eraser,
+  Highlighter,
   Image,
   Link2,
   MousePointer2,
+  Pen,
+  Pencil,
   Redo2,
   Route,
   Timer,
