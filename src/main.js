@@ -8,6 +8,7 @@ import { DrawingPlugin } from "./plugins/drawing.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
+import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { HistoryPlugin } from "./plugins/history.js";
@@ -23,6 +24,7 @@ import { ImageComponent } from "./component/image.js";
 import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
+import { CatalogComponent } from "./component/catalog.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -83,10 +85,13 @@ const app = new App({
   StickyComponent,
   ImageComponent,
   ConnectionComponent,
+  CatalogComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)
 app.use(SelectionPlugin);
+app.use(SelectionPlugin);
+app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
 app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
@@ -142,6 +147,7 @@ app.start();
 await Promise.all([
   app.addComponent("sticky", { x: 120, y: 120 }),
   app.addComponent("text", { x: 380, y: 170 }),
+  app.addComponent("catalog", { x: 620, y: 140 }),
 ]);
 historyPlugin.resetHistory();
 
