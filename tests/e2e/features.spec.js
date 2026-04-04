@@ -271,7 +271,7 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
     position: { x: -240, y: -140 },
   }));
 
-  await page.getByTestId("tool-button-brush").click();
+  await page.getByTestId("tool-button-pen").click();
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   await page.mouse.move(rect.left + 240, rect.top + 220);
   await page.mouse.down();
@@ -349,3 +349,42 @@ test("undoes and redoes a node move", async ({ page }) => {
     .poll(async () => (await getNode(page, sticky.id))?.bounds?.x ?? 0)
     .toBeGreaterThan((beforeMove?.bounds?.x ?? 0) + 300);
 });
+
+test("keeps drawing tool settings separate and restores recent colors per tool", async ({ page }) => {
+  const strokeColor = page.getByTestId("stroke-color");
+  const strokeWidth = page.getByTestId("stroke-width");
+
+  await page.getByTestId("tool-button-pen").click();
+  await strokeColor.fill("#ff0000");
+  await strokeWidth.fill("6");
+
+  await strokeColor.fill("#00ff00");
+  await strokeColor.fill("#0000ff");
+
+  await page.getByTestId("tool-button-pencil").click();
+  await expect(strokeColor).toHaveValue("#4a4a4a");
+  await expect(strokeWidth).toHaveValue("3");
+
+  await strokeColor.fill("#123456");
+  await strokeWidth.fill("2");
+
+  await page.getByTestId("tool-button-pen").click();
+  await expect(strokeColor).toHaveValue("#0000ff");
+  await expect(strokeWidth).toHaveValue("6");
+
+  await expect(page.getByTestId("recent-color-0000ff")).toBeVisible();
+  await expect(page.getByTestId("recent-color-00ff00")).toBeVisible();
+  await expect(page.getByTestId("recent-color-ff0000")).toBeVisible();
+
+  await page.getByTestId("tool-button-pencil").click();
+  await expect(strokeColor).toHaveValue("#123456");
+  await expect(strokeWidth).toHaveValue("2");
+
+  await expect(page.getByTestId("recent-color-123456")).toBeVisible();
+  await expect(page.getByTestId("recent-color-4a4a4a")).toBeVisible();
+
+  await page.getByTestId("tool-button-pen").click();
+  await page.getByTestId("recent-color-ff0000").click();
+  await expect(strokeColor).toHaveValue("#ff0000");
+});
+

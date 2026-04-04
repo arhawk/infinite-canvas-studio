@@ -3,9 +3,47 @@ import { renderIcons } from "../lib/icons.js";
 
 const TOOL_ICONS = {
   arrange: "mouse-pointer-2",
-  brush: "brush",
+  pen: "pen",
+  pencil: "pencil",
+  highlighter: "highlighter",
   eraser: "eraser",
 };
+
+const DRAWING_TOOL_IDS = ["pen", "pencil", "highlighter"];
+
+const DEFAULT_DRAWING_TOOL_STATE = {
+  pen: {
+    color: "#1f6feb",
+    width: 4,
+    opacity: 1,
+    recentColors: ["#1f6feb"],
+  },
+  pencil: {
+    color: "#4a4a4a",
+    width: 3,
+    opacity: 0.55,
+    recentColors: ["#4a4a4a"],
+  },
+  highlighter: {
+    color: "#f6d32d",
+    width: 16,
+    opacity: 0.25,
+    recentColors: ["#f6d32d"],
+  },
+};
+
+function cloneDrawingToolState() {
+  return Object.fromEntries(
+    Object.entries(DEFAULT_DRAWING_TOOL_STATE).map(([toolId, config]) => [
+      toolId,
+      {
+        ...config,
+        recentColors: [...config.recentColors],
+      },
+    ]),
+  );
+}
+
 
 export class ToolbarPlugin extends BasePlugin {
   static pluginId = "toolbar";
@@ -21,6 +59,7 @@ export class ToolbarPlugin extends BasePlugin {
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
+      recentColorsEl,
       strokeWidthEl,
       strokeWidthValueEl,
     } = this.options;
@@ -35,6 +74,7 @@ export class ToolbarPlugin extends BasePlugin {
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
+      recentColorsEl,
       strokeWidthEl,
       strokeWidthValueEl,
     };
@@ -44,6 +84,8 @@ export class ToolbarPlugin extends BasePlugin {
       canTogglePositionMode: false,
       selectedNodeId: null,
     };
+
+    this.drawingToolState = cloneDrawingToolState();
 
     this.listenDom(connectSelectionEl, "click", () => {
       if (!this.focusState.selectedNodeId) return;
@@ -59,8 +101,16 @@ export class ToolbarPlugin extends BasePlugin {
     this.listenDom(strokeColorEl, "input", () => this.emitStrokeChange());
     this.listenDom(strokeWidthEl, "input", () => this.emitStrokeChange());
 
-    this.listen("tool:change", () => this.syncUi());
-    this.listen("interaction:change", () => this.syncUi());
+    this.listen("tool:change", () => {
+      this.syncDrawingUiToActiveTool();
+      this.syncUi();
+    });
+
+    this.listen("interaction:change", () => {
+      this.syncDrawingUiToActiveTool();
+      this.syncUi();
+    });
+
     this.listen("focus:state-change", (payload = {}) => {
       this.focusState = {
         ...this.focusState,
@@ -71,8 +121,87 @@ export class ToolbarPlugin extends BasePlugin {
 
     this.setupModeToggle();
     this.renderToolButtons();
+
+    this.loadDrawingUiFromTool("pen");
+    this.renderRecentColors("pen");
+
     this.emitStrokeChange();
     this.syncUi();
+  }
+
+  isDrawingTool(toolId) {
+    return DRAWING_TOOL_IDS.includes(toolId);
+  }
+
+  getDrawingToolState(toolId = this.app.getEditorTool()) {
+    if (!this.isDrawingTool(toolId)) return null;
+    return this.drawingToolState[toolId] ?? null;
+  }
+
+  loadDrawingUiFromTool(toolId = this.app.getEditorTool()) {
+    const toolState = this.getDrawingToolState(toolId);
+    if (!toolState) return;
+
+    const { strokeColorEl, strokeWidthEl, strokeWidthValueEl } = this.ui;
+    strokeColorEl.value = toolState.color;
+    strokeWidthEl.value = String(toolState.width);
+    strokeWidthValueEl.value = String(toolState.width);
+  }
+
+  saveDrawingUiToTool(toolId = this.app.getEditorTool()) {
+    const toolState = this.getDrawingToolState(toolId);
+    if (!toolState) return null;
+
+    const { strokeColorEl, strokeWidthEl } = this.ui;
+    toolState.color = strokeColorEl.value;
+    toolState.width = Number(strokeWidthEl.value);
+    return toolState;
+  }
+
+  renderRecentColors(toolId = this.app.getEditorTool()) {
+    const toolState = this.getDrawingToolState(toolId);
+    const { recentColorsEl } = this.ui;
+    if (!toolState || !recentColorsEl) return;
+
+    recentColorsEl.innerHTML = "";
+
+    for (const color of toolState.recentColors) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "recent-color-swatch";
+      button.dataset.color = color;
+      button.dataset.testid = `recent-color-${color.slice(1)}`;
+      button.title = color;
+      button.setAttribute("aria-label", `Recent color ${color}`);
+      button.style.backgroundColor = color;
+
+      this.listenDom(button, "click", () => {
+        const { strokeColorEl } = this.ui;
+        strokeColorEl.value = color;
+        this.emitStrokeChange();
+      });
+
+      recentColorsEl.append(button);
+    }
+  }
+
+  pushRecentColor(toolId, color) {
+    const toolState = this.getDrawingToolState(toolId);
+    if (!toolState || typeof color !== "string" || !color) return;
+
+    toolState.recentColors = [
+      color,
+      ...toolState.recentColors.filter((item) => item !== color),
+    ].slice(0, 3);
+  }
+
+  syncDrawingUiToActiveTool() {
+    const activeToolId = this.app.getEditorTool();
+    if (!this.isDrawingTool(activeToolId)) return;
+
+    this.loadDrawingUiFromTool(activeToolId);
+    this.renderRecentColors(activeToolId);
+    this.emitStrokeChange();
   }
 
   setupModeToggle() {
@@ -128,11 +257,21 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   emitStrokeChange() {
-    const { strokeColorEl, strokeWidthEl, strokeWidthValueEl } = this.ui;
+    const { strokeWidthEl, strokeWidthValueEl } = this.ui;
     strokeWidthValueEl.value = strokeWidthEl.value;
+
+    const activeToolId = this.app.getEditorTool();
+    const toolState = this.saveDrawingUiToTool(activeToolId);
+    if (!toolState) return;
+
+    this.pushRecentColor(activeToolId, toolState.color);
+    this.renderRecentColors(activeToolId);
+
     this.app.events.emit("stroke:change", {
-      color: strokeColorEl.value,
-      width: Number(strokeWidthEl.value),
+      toolId: activeToolId,
+      color: toolState.color,
+      width: toolState.width,
+      opacity: toolState.opacity,
     });
   }
 
@@ -156,7 +295,7 @@ export class ToolbarPlugin extends BasePlugin {
     const showArrangeControls =
       activeToolId === "arrange"
       && (this.focusState.canSave || this.focusState.canTogglePositionMode);
-    const showBrushControls = activeToolId === "brush";
+    const showBrushControls = this.isDrawingTool(activeToolId);
     const connectCommand = this.app.commands.get("connection:connect");
     const focusSaveCommand = this.app.commands.get("focus:save-selection");
     const focusModeCommand = this.app.commands.get("focus:position-mode:set");
@@ -198,12 +337,12 @@ export class ToolbarPlugin extends BasePlugin {
       ? "Focus positioning follows the component when it moves"
       : "Focus positioning stays fixed in canvas space";
 
-    const drawingEnabled = this.app.modeManager.matches({
-      mode: "edit",
-      editorTool: "brush",
-    });
+    const drawingEnabled =
+      isEdit && this.isDrawingTool(activeToolId);
+
     strokeColorEl.disabled = !drawingEnabled;
     strokeWidthEl.disabled = !drawingEnabled;
     strokeWidthValueEl.disabled = !drawingEnabled;
   }
 }
+
