@@ -16,6 +16,8 @@ import { DocumentPlugin } from "./plugins/document.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
+import { CenterMapPlugin } from "./plugins/centerMap.js";
+import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -66,6 +68,14 @@ const ui = {
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   componentPalette: getRequiredElement("#component-palette"),
+  centerMapBtn: getRequiredElement("#center-map-btn"),
+  annotatorToggle: getRequiredElement("#annotator-toggle"),
+  annotatorControls: getRequiredElement("#annotator-controls"),
+  annotatorColor: getRequiredElement("#annotator-color"),
+  annotatorShape: getRequiredElement("#annotator-shape"),
+  annotatorWidth: getRequiredElement("#annotator-width"),
+  annotatorWidthValue: getRequiredElement("#annotator-width-value"),
+  annotatorClear: getRequiredElement("#annotator-clear"),
 };
 
 renderIcons(ui.sidebarBrand, {
@@ -141,6 +151,18 @@ app.use(TimerPlugin, {
   mmInputEl: ui.timerMm,
   ssInputEl: ui.timerSs,
   durationRowEl: ui.timerDurationRow,
+});
+app.use(CenterMapPlugin, {
+  centerMapEl: ui.centerMapBtn,
+});
+app.use(AnnotatorPlugin, {
+  toggleEl: ui.annotatorToggle,
+  controlsEl: ui.annotatorControls,
+  colorEl: ui.annotatorColor,
+  shapeEl: ui.annotatorShape,
+  widthEl: ui.annotatorWidth,
+  widthValueEl: ui.annotatorWidthValue,
+  clearEl: ui.annotatorClear,
 });
 
 app.start();

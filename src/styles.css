@@ -1243,3 +1243,22 @@ body.is-edit-mode .mode-toggle__label {
       0 0 4px 1px rgba(224, 48, 32, 0.15);
   }
 }
+
+/* ── Annotator plugin ──────────────────────────────────────────────── */
+.tool-button.is-active {
+  background: var(--color-accent, #d7612f);
+  color: #fff;
+}
+.tool-button.is-active svg {
+  stroke: #fff;
+}
+.ghost-select {
+  background: transparent;
+  border: 1px solid rgba(61, 47, 32, 0.18);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+}
