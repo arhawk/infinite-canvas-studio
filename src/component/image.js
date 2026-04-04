@@ -2,6 +2,7 @@ import {
   BaseComponent,
   FileEditorField,
 } from "../core/baseClasses.js";
+import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 function loadImage(src) {
@@ -93,7 +94,7 @@ export class ImageComponent extends BaseComponent {
       align: "center",
       verticalAlign: "middle",
       fontSize: 14,
-      fontFamily: "Space Grotesk",
+      fontFamily: DISPLAY_FONT_FAMILY,
       fill: "#a68b6d",
       name: "placeholder-text",
     });

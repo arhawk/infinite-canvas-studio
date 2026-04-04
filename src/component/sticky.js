@@ -3,6 +3,7 @@ import {
   ColorEditorField,
   TextareaEditorField,
 } from "../core/baseClasses.js";
+import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 export class StickyComponent extends BaseComponent {
@@ -80,7 +81,7 @@ export class StickyComponent extends BaseComponent {
       text,
       fontSize: 20,
       lineHeight: 1.35,
-      fontFamily: "IBM Plex Sans",
+      fontFamily: UI_FONT_FAMILY,
       fill: textColor,
       name: "sticky-text",
     });

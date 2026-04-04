@@ -4,6 +4,7 @@ import {
   NumberEditorField,
   TextareaEditorField,
 } from "../core/baseClasses.js";
+import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 export class TextComponent extends BaseComponent {
@@ -53,7 +54,7 @@ export class TextComponent extends BaseComponent {
       y,
       text,
       fontSize,
-      fontFamily: "IBM Plex Sans",
+      fontFamily: UI_FONT_FAMILY,
       fill,
       padding,
       draggable: true,

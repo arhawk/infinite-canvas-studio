@@ -41,7 +41,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: var(--ink);
   background:
     radial-gradient(circle at top left, rgba(255, 225, 177, 0.55), transparent 28%),
@@ -115,7 +115,7 @@ body.is-presentation-mode .sidebar {
 h1,
 h2 {
   margin: 0;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Trebuchet MS", "Avenir Next Condensed", "Avenir Next", "Segoe UI", sans-serif;
   line-height: 1;
 }
 
@@ -788,7 +788,7 @@ body.is-edit-mode .mode-toggle__label {
   font-size: 0.65rem;
   color: var(--muted);
   opacity: 0.7;
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 .calc-widget__display-val {
@@ -850,7 +850,7 @@ body.is-edit-mode .mode-toggle__label {
   padding: 0.2rem 0;
   font-size: 0.65rem;
   font-weight: 600;
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: var(--muted);
   cursor: pointer;
   text-align: center;
@@ -916,7 +916,7 @@ body.is-edit-mode .mode-toggle__label {
   border-radius: 0.4rem;
   padding: 0.38rem 0;
   font-size: 0.78rem;
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: #2a2018;
   cursor: pointer;
   text-align: center;
@@ -1037,7 +1037,7 @@ body.is-edit-mode .mode-toggle__label {
 
 .timer-widget__display {
   text-align: center;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Trebuchet MS", "Avenir Next Condensed", "Avenir Next", "Segoe UI", sans-serif;
   font-size: 2.6rem;
   font-weight: 700;
   letter-spacing: -0.04em;

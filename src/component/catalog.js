@@ -1,4 +1,5 @@
 import { BaseComponent, TextareaEditorField } from "../core/baseClasses.js";
+import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 export class CatalogComponent extends BaseComponent {
@@ -80,7 +81,7 @@ export class CatalogComponent extends BaseComponent {
     const label = new Konva.Text({
       text: title,
       fontSize: 20,
-      fontFamily: "IBM Plex Sans",
+      fontFamily: UI_FONT_FAMILY,
       fill: "#1d1b16",
       x: 12,
       y: 12,
@@ -90,7 +91,7 @@ export class CatalogComponent extends BaseComponent {
     const subtitle = new Konva.Text({
       text: safeItems.length === 1 ? "1 item" : `${safeItems.length} items`,
       fontSize: 12,
-      fontFamily: "IBM Plex Sans",
+      fontFamily: UI_FONT_FAMILY,
       fill: "#6b6257",
       x: 12,
       y: 42,

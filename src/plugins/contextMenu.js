@@ -1,4 +1,5 @@
 import { BasePlugin } from "../core/baseClasses.js";
+import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 export class ContextMenuPlugin extends BasePlugin {
@@ -85,7 +86,7 @@ export class ContextMenuPlugin extends BasePlugin {
         y: y + 9,
         text: item.label,
         fontSize: 14,
-        fontFamily: "IBM Plex Sans",
+        fontFamily: UI_FONT_FAMILY,
         fontStyle: "600",
         fill: "#1d1b16",
         listening: false,

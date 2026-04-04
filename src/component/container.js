@@ -3,6 +3,7 @@ import {
   ColorEditorField,
   TextEditorField,
 } from "../core/baseClasses.js";
+import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 export class ContainerComponent extends BaseComponent {
@@ -63,7 +64,7 @@ export class ContainerComponent extends BaseComponent {
     const text = new Konva.Text({
       text: label,
       fontSize: 14,
-      fontFamily: "Space Grotesk",
+      fontFamily: DISPLAY_FONT_FAMILY,
       fontStyle: "700",
       fill: "#ab4f28",
       padding: 12,

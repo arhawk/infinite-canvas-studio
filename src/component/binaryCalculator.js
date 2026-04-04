@@ -1,4 +1,5 @@
 import { BaseComponent } from "../core/baseClasses.js";
+import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 // ── Layout ────────────────────────────────────────────────────────────────────
@@ -166,7 +167,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
         width: W,
         text: "Binary Calculator",
         fontSize: 12,
-        fontFamily: "IBM Plex Sans, sans-serif",
+        fontFamily: UI_FONT_FAMILY,
         fill: C.title,
         align: "center",
         name: "calc-title",
@@ -195,7 +196,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
         width: 70,
         text: "",
         fontSize: 10,
-        fontFamily: "IBM Plex Sans, sans-serif",
+        fontFamily: UI_FONT_FAMILY,
         fill: C.opIndicator,
         name: "calc-op-ind",
       }),
@@ -209,7 +210,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
         width: W - 2 * PAD - 6,
         text: "DEC",
         fontSize: 10,
-        fontFamily: "IBM Plex Sans, sans-serif",
+        fontFamily: UI_FONT_FAMILY,
         fill: C.displaySub,
         align: "right",
         name: "calc-base-lbl",
@@ -261,7 +262,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
           width: 28,
           text: label,
           fontSize: 10,
-          fontFamily: "IBM Plex Sans, sans-serif",
+          fontFamily: UI_FONT_FAMILY,
           fill: C.textBase,
           name: `calc-bp-lbl-${key}`,
         }),
@@ -301,7 +302,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
         height: 24,
         text: label,
         fontSize: 11,
-        fontFamily: "IBM Plex Sans, sans-serif",
+        fontFamily: UI_FONT_FAMILY,
         fill: C.textBase,
         align: "center",
         verticalAlign: "middle",
@@ -405,7 +406,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
         fontFamily:
           label.length === 1 && /[\d±←]/.test(label)
             ? "Courier New, monospace"
-            : "IBM Plex Sans, sans-serif",
+            : UI_FONT_FAMILY,
         fill: s.text,
         align: "center",
         verticalAlign: "middle",
@@ -435,7 +436,7 @@ export class BinaryCalculatorComponent extends BaseComponent {
       height: BH,
       text: "=",
       fontSize: 16,
-      fontFamily: "IBM Plex Sans, sans-serif",
+      fontFamily: UI_FONT_FAMILY,
       fill: C.textEq,
       align: "center",
       verticalAlign: "middle",

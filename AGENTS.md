@@ -70,6 +70,7 @@ Most common failure mode:
 - Install dependencies: `pnpm install`
 - Start local dev server: `pnpm dev`
 - Build static output: `pnpm build`
+- Export a single self-contained HTML file: `pnpm export:html`
 - Preview production build: `pnpm preview`
 - Run unit tests: `pnpm test:unit`
 - Run E2E smoke tests: `pnpm test:e2e`
@@ -620,7 +621,7 @@ Design direction:
 
 - Warm paper-like background
 - Frosted panel surfaces
-- `IBM Plex Sans` and `Space Grotesk` typography
+- Offline-safe local/system typography with no Google Fonts runtime dependency
 - Responsive layout using `rem`
 - Root font size adjusted with media queries
 - The canvas grid is rendered inside Konva instead of using a CSS background pattern
