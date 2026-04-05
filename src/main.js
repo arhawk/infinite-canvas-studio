@@ -18,6 +18,10 @@ import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
+import {
+  captureRuntimeHtmlTemplate,
+  readEmbeddedSnapshot,
+} from "./document/runtimeHtmlExport.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -83,6 +87,8 @@ renderIcons(ui.sidebarBrand, {
   height: 20,
   "stroke-width": 2.2,
 });
+
+captureRuntimeHtmlTemplate();
 
 const app = new App({
   container: ui.canvasContainer,
@@ -167,13 +173,21 @@ app.use(AnnotatorPlugin, {
 
 app.start();
 
-// Seed starter nodes
-await Promise.all([
-  app.addComponent("sticky", { x: 120, y: 120 }),
-  app.addComponent("text", { x: 380, y: 170 }),
-  app.addComponent("catalog", { x: 620, y: 140 }),
-]);
-historyPlugin.resetHistory();
+const embeddedSnapshot = readEmbeddedSnapshot();
+
+if (embeddedSnapshot) {
+  await app.documentManager?.loadDocument?.(embeddedSnapshot, {
+    source: "embedded-html",
+  });
+} else {
+  // Seed starter nodes
+  await Promise.all([
+    app.addComponent("sticky", { x: 120, y: 120 }),
+    app.addComponent("text", { x: 380, y: 170 }),
+    app.addComponent("catalog", { x: 620, y: 140 }),
+  ]);
+  historyPlugin.resetHistory();
+}
 
 if (import.meta.env.VITE_E2E === "1") {
   setupAppTestApi(app);

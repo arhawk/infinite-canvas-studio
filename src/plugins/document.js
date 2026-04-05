@@ -5,6 +5,7 @@ import {
   importDocumentSnapshot,
 } from "../document/serializer.js";
 import { normalizeDocumentSnapshot, stringifyDocumentSnapshot } from "../document/schema.js";
+import { buildRuntimeExportHtml } from "../document/runtimeHtmlExport.js";
 
 function clonePlainData(value) {
   if (value == null) return value;
@@ -91,6 +92,7 @@ export class DocumentPlugin extends BasePlugin {
     this.app.documentManager = this;
     this.documentState = this.createDocumentState();
     this.statusTimeout = null;
+    this.isStandaloneSingleFile = Boolean(__SINGLE_FILE_EXPORT__);
     this.buildStatusToast();
 
     if (documentControlsEl) {
@@ -105,6 +107,11 @@ export class DocumentPlugin extends BasePlugin {
       this.listenDom(exportEl, "click", () => {
         void this.app.commands.execute("document:export");
       });
+      exportEl.title = this.isStandaloneSingleFile ? "Save HTML (Mod+S)" : "Save JSON (Mod+S)";
+      exportEl.setAttribute(
+        "aria-label",
+        this.isStandaloneSingleFile ? "Save document as HTML" : "Save document as JSON",
+      );
     }
 
     if (importEl) {
@@ -181,7 +188,7 @@ export class DocumentPlugin extends BasePlugin {
 
   getSuggestedFilename() {
     const titlePart = sanitizeFilenamePart(this.documentState.title, "mind-map");
-    return `${titlePart}-r${this.documentState.revision || 0}.json`;
+    return `${titlePart}-r${this.documentState.revision || 0}`;
   }
 
   serializeDocument() {
@@ -198,19 +205,43 @@ export class DocumentPlugin extends BasePlugin {
     return snapshot;
   }
 
+  getRuntimeHtmlTemplate() {
+    return typeof window !== "undefined" ? window.__APP_HTML_TEMPLATE__ ?? "" : "";
+  }
+
+  getExportFormat() {
+    return this.isStandaloneSingleFile ? "html" : "json";
+  }
+
   exportDocument({ download = false } = {}) {
     const snapshot = this.serializeDocument();
+    const exportFormat = this.getExportFormat();
+    const suggestedBase = this.getSuggestedFilename();
 
     if (download) {
-      downloadTextFile(
-        this.getSuggestedFilename(),
-        stringifyDocumentSnapshot(snapshot),
-      );
-      this.showStatus("Document saved");
+      if (exportFormat === "html") {
+        const template = this.getRuntimeHtmlTemplate();
+        if (!template) {
+          throw new Error("Runtime HTML template is unavailable.");
+        }
+
+        const html = buildRuntimeExportHtml(template, snapshot, {
+          title: this.documentState.title,
+        });
+        downloadTextFile(`${suggestedBase}.html`, html, "text/html");
+        this.showStatus("HTML saved");
+      } else {
+        downloadTextFile(
+          `${suggestedBase}.json`,
+          stringifyDocumentSnapshot(snapshot),
+        );
+        this.showStatus("Document saved");
+      }
     }
 
     this.app.events.emit("document:exported", {
       document: clonePlainData(snapshot),
+      format: exportFormat,
     });
     return snapshot;
   }

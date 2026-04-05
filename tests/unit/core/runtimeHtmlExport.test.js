@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import { buildRuntimeExportHtml } from "../../../src/document/runtimeHtmlExport.js";
+
+describe("buildRuntimeExportHtml", () => {
+  it("injects the latest snapshot into the runtime html template", () => {
+    const template = `<!doctype html>
+<html lang="en">
+  <head>
+    <title>Old Title</title>
+    <script id="app-snapshot" type="application/json"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>`;
+
+    const html = buildRuntimeExportHtml(template, {
+      documentId: "doc-1",
+      revision: 2,
+      meta: { title: "Deck Demo" },
+      savedAt: "2026-04-05T10:00:00.000Z",
+      view: {
+        scale: 1,
+        position: { x: 0, y: 0 },
+      },
+      nodes: [],
+      drawings: [],
+    }, {
+      title: "Deck Demo",
+    });
+
+    expect(html).toContain("<title>Deck Demo</title>");
+    expect(html).toContain('"documentId": "doc-1"');
+    expect(html).toContain('id="app-snapshot"');
+  });
+});

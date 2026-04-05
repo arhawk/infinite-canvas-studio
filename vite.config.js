@@ -53,6 +53,9 @@ export default defineConfig(() => {
 
   return {
     base: isSingleFileExport ? "./" : undefined,
+    define: {
+      __SINGLE_FILE_EXPORT__: JSON.stringify(isSingleFileExport),
+    },
     plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [],
     server: {
       port: 3000,
