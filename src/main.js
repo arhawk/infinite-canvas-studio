@@ -11,6 +11,7 @@ import { ConnectionsPlugin } from "./plugins/connections.js";
 import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
+import { AttachmentsPlugin } from "./plugins/attachments.js";
 import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
 import { TimerPlugin } from "./plugins/timer.js";
@@ -131,6 +132,7 @@ app.use(SidebarPlugin, {
 });
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
+app.use(AttachmentsPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 const historyPlugin = app.use(HistoryPlugin, {

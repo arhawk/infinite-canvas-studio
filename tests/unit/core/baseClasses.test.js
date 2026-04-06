@@ -115,6 +115,11 @@ class ExampleComponent extends BaseComponent {
   }
 }
 
+class AttachmentComponent extends ExampleComponent {
+  static type = "attachment-example";
+  static attachments = true;
+}
+
 describe("base classes", () => {
   it("assigns component metadata when creating nodes", async () => {
     const component = new ExampleComponent({});
@@ -199,5 +204,79 @@ describe("base classes", () => {
     expect(field.normalize("18")).toBe(18);
     expect(field.normalize("40")).toBe(24);
     expect(field.normalize("oops", {})).toBe(16);
+  });
+
+  it("serializes and restores attachment state for attachment-enabled components", async () => {
+    const component = new AttachmentComponent({});
+    const node = await component.create({
+      id: "attachment-example-9",
+      label: "Attachment Host",
+    });
+
+    component.setAttachmentState(node, {
+      directory: {
+        handleKey: "directory-1",
+        name: "Week 1",
+      },
+      entries: [
+        {
+          id: "local-1",
+          kind: "local-file",
+          sourceKind: "directory",
+          label: "notes.txt",
+          path: "notes.txt",
+          fileName: "notes.txt",
+          handleKey: "directory-1",
+        },
+        {
+          id: "url-1",
+          kind: "url",
+          sourceKind: "url",
+          label: "Spec",
+          url: "https://example.com/spec",
+        },
+      ],
+    });
+
+    const snapshot = component.serialize(node);
+    const restored = await component.restore(snapshot);
+
+    expect(snapshot.data.attachments).toEqual({
+      directory: {
+        handleKey: "directory-1",
+        name: "Week 1",
+      },
+      entries: [
+        {
+          id: "local-1",
+          kind: "local-file",
+          sourceKind: "directory",
+          label: "notes.txt",
+          fileName: "notes.txt",
+          path: "notes.txt",
+          url: null,
+          mimeType: null,
+          size: null,
+          handleKey: "directory-1",
+          sourceName: null,
+          addedAt: expect.any(String),
+        },
+        {
+          id: "url-1",
+          kind: "url",
+          sourceKind: "url",
+          label: "Spec",
+          fileName: null,
+          path: null,
+          url: "https://example.com/spec",
+          mimeType: null,
+          size: null,
+          handleKey: null,
+          sourceName: null,
+          addedAt: expect.any(String),
+        },
+      ],
+    });
+    expect(component.getAttachmentState(restored)).toEqual(snapshot.data.attachments);
   });
 });

@@ -10,6 +10,7 @@ export class ContainerComponent extends BaseComponent {
   static type = "container";
   static label = "Container";
   static description = "A box to group and organize components";
+  static attachments = true;
 
   getEditorTitle() {
     return "Container";

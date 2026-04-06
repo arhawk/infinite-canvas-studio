@@ -21,6 +21,7 @@ export class PageComponent extends ContainerComponent {
   static type = "page";
   static label = "Page";
   static description = "Fixed-size page that can contain other components";
+  static attachments = true;
 
   getEditorTitle() {
     return "Page";
