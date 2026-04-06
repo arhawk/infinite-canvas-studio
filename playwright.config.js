@@ -17,7 +17,11 @@ export default defineConfig({
     testIdAttribute: "data-testid",
   },
   webServer: {
-    command: "VITE_E2E=1 pnpm dev --host 127.0.0.1 --port 3000",
+    command: "pnpm dev --host 127.0.0.1 --port 3000",
+    env: {
+      ...process.env,
+      VITE_E2E: "1",
+    },
     url: "http://127.0.0.1:3000",
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,

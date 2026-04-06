@@ -6,6 +6,7 @@ export class CatalogComponent extends BaseComponent {
   static type = "catalog";
   static label = "Catalog";
   static description = "Document outline data node";
+  static palette = false;
 
   getEditorTitle() {
     return "Catalog";
@@ -60,7 +61,10 @@ export class CatalogComponent extends BaseComponent {
     const group = new Konva.Group({
       x,
       y,
-      draggable: true,
+      draggable: false,
+      visible: false,
+      listening: false,
+      opacity: 0,
     });
 
     group.setAttr("data", {
@@ -134,5 +138,13 @@ export class CatalogComponent extends BaseComponent {
       const count = nextData.items.length;
       subtitleNode.text(count === 1 ? "1 item" : `${count} items`);
     }
+  }
+
+  applySerializedState(node, snapshot = {}) {
+    super.applySerializedState(node, snapshot);
+    node.draggable(false);
+    node.visible(false);
+    node.opacity(0);
+    node.listening(false);
   }
 }

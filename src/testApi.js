@@ -123,6 +123,28 @@ function getPlugin(app, pluginId) {
   return app.plugins.find((plugin) => plugin.id === pluginId) ?? null;
 }
 
+function getCatalogNode(app) {
+  return app.mainLayer.find(".selectable").find((node) => {
+    return node.getAttr("componentType") === "catalog";
+  }) || null;
+}
+
+function serializeCatalogItems(app) {
+  const catalogNode = getCatalogNode(app);
+  const items = catalogNode?.getAttr?.("data")?.items ?? [];
+
+  return items.map((item) => {
+    const node = getNodeById(app, item.nodeId);
+    return {
+      ...item,
+      renderedTitle:
+        document.querySelector(`[data-testid="catalog-item-title-${item.id}"]`)?.textContent?.trim()
+        || "",
+      nodeExists: Boolean(node),
+    };
+  });
+}
+
 export function setupAppTestApi(app) {
   const testApi = {
     getMode: () => app.getMode(),
@@ -149,6 +171,14 @@ export function setupAppTestApi(app) {
     getNode: (id) => {
       const node = getNodeById(app, id);
       return node ? serializeNode(app, node) : null;
+    },
+    selectNode: (id) => {
+      const selectionPlugin = getPlugin(app, "selection");
+      const node = getNodeById(app, id);
+      if (!selectionPlugin || !node) return false;
+
+      selectionPlugin.setSelected([node]);
+      return true;
     },
     getNodePageCenter: (id) => {
       const node = getNodeById(app, id);
@@ -185,6 +215,18 @@ export function setupAppTestApi(app) {
     addComponent: async (type, payload) => {
       const node = await app.addComponent(type, payload);
       return node ? serializeNode(app, node) : null;
+    },
+    ensureCatalogNode: async () => {
+      const existing = getCatalogNode(app);
+      if (existing) return true;
+
+      const node = await app.addComponent("catalog", { x: 0, y: 0 });
+      return Boolean(node);
+    },
+    listCatalogItems: () => serializeCatalogItems(app),
+    addSelectedNodeToCatalog: async () => {
+      await app.commands.execute("catalog:add-selected");
+      return serializeCatalogItems(app);
     },
     moveNode: (id, position) => {
       const node = getNodeById(app, id);

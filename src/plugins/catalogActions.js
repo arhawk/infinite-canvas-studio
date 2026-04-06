@@ -1,4 +1,10 @@
 import { BaseCommand, BasePlugin } from "../core/baseClasses.js";
+import {
+  applyCatalogData,
+  findCatalogItemByNodeId,
+  getCatalogData,
+  insertCatalogItemIntoItems,
+} from "../catalog/api.js";
 
 function getSelectionPlugin(app) {
   return app.plugins.find(
@@ -12,21 +18,28 @@ function getCatalogNode(app) {
   }) || null;
 }
 
-function getCatalogData(node) {
-  const data = node?.getAttr("data");
-  if (!data || typeof data !== "object") {
-    return {
-      version: 1,
-      title: "Catalog",
-      items: [],
-    };
+function syncCatalogNodeUi(node, data) {
+  const labelNode = node?.findOne?.(".catalog-label");
+  if (labelNode) {
+    labelNode.text(data.title);
   }
 
-  return {
-    version: 1,
-    title: typeof data.title === "string" && data.title ? data.title : "Catalog",
-    items: Array.isArray(data.items) ? data.items : [],
-  };
+  const subtitleNode = node?.findOne?.(".catalog-subtitle");
+  if (subtitleNode) {
+    const count = data.items.length;
+    subtitleNode.text(count === 1 ? "1 item" : `${count} items`);
+  }
+}
+
+function notifyCatalogAction(message) {
+  if (!message) return;
+
+  if (import.meta.env.VITE_E2E === "1") {
+    console.info(`[catalog] ${message}`);
+    return;
+  }
+
+  window.alert(message);
 }
 
 function getNodeDisplayTitle(node) {
@@ -35,15 +48,16 @@ function getNodeDisplayTitle(node) {
   const componentType = node.getAttr("componentType");
 
   if (componentType === "text" && typeof node.text === "function") {
-    return node.text() || "Text";
+    return node.text()?.trim() || "Text";
   }
 
   if (componentType === "sticky") {
-    return "Sticky Note";
+    return node.findOne(".sticky-text")?.text()?.trim() || "Sticky Note";
   }
 
-  if (componentType === "page") return "Page";
-  if (componentType === "container") return "Container";
+  if (componentType === "page" || componentType === "container") {
+    return node.findOne(".container-label")?.text()?.trim() || (componentType === "page" ? "Page" : "Container");
+  }
   if (componentType === "image") return "Image";
   if (componentType === "catalog") return "Catalog";
 
@@ -85,51 +99,52 @@ export class CatalogActionsPlugin extends BasePlugin {
     const selectedNode = selectedNodes[0] || null;
 
     if (!selectedNode) {
-      alert("Please select a node first.");
+      notifyCatalogAction("Please select a node first.");
       return;
     }
 
     if (selectedNode.getAttr("componentType") === "catalog") {
-      alert("You cannot add the catalog node into itself.");
+      notifyCatalogAction("You cannot add the catalog node into itself.");
       return;
     }
 
     const catalogNode = getCatalogNode(this.app);
     if (!catalogNode) {
-      alert("Catalog node not found.");
+      notifyCatalogAction("Catalog node not found.");
       return;
     }
 
     const catalogData = getCatalogData(catalogNode);
-    const existingItem = catalogData.items.find(
-      (item) => item.nodeId === selectedNode.id(),
+    const existingItem = findCatalogItemByNodeId(
+      catalogData.items,
+      selectedNode.id(),
     );
 
     if (existingItem) {
-      alert("This node is already in the catalog.");
+      notifyCatalogAction("This node is already in the catalog.");
       return;
     }
 
-    const newItem = {
-      id: crypto.randomUUID(),
+    const nextItems = insertCatalogItemIntoItems(catalogData.items, {
       nodeId: selectedNode.id(),
       title: getNodeDisplayTitle(selectedNode),
+      titleSource: "node",
       parentId: null,
-      order: catalogData.items.length,
-      collapsed: false,
-    };
+    });
 
     const nextData = {
       ...catalogData,
-      items: [...catalogData.items, newItem],
+      items: nextItems,
     };
 
-    catalogNode.setAttr("data", nextData);
-
+    this.app.events.emit("node:change:start", { node: catalogNode });
+    applyCatalogData(catalogNode, nextData);
+    syncCatalogNodeUi(catalogNode, nextData);
     this.app.events.emit("node:changed", { node: catalogNode });
+
+    catalogNode.getLayer()?.batchDraw?.();
     this.app.mainLayer.batchDraw();
 
-    console.log("Added to catalog:", newItem);
-    alert(`Added "${newItem.title}" to catalog.`);
+    notifyCatalogAction(`Added "${getNodeDisplayTitle(selectedNode)}" to catalog.`);
   }
 }

@@ -24,6 +24,7 @@ export function createCatalogNode() {
 export function createCatalogItem({
   nodeId,
   title = "Untitled",
+  titleSource = "node",
   parentId = null,
   order = 0,
   collapsed = false,
@@ -36,6 +37,7 @@ export function createCatalogItem({
     id: crypto.randomUUID(),
     nodeId,
     title: typeof title === "string" && title.trim() ? title.trim() : "Untitled",
+    titleSource: titleSource === "manual" ? "manual" : "node",
     parentId: typeof parentId === "string" && parentId ? parentId : null,
     order: Number.isFinite(order) ? order : 0,
     collapsed: collapsed === true,

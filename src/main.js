@@ -9,6 +9,7 @@ import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
 import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
+import { CatalogPanelPlugin } from "./plugins/catalogPanel.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { AttachmentsPlugin } from "./plugins/attachments.js";
@@ -73,6 +74,7 @@ const ui = {
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   componentPalette: getRequiredElement("#component-palette"),
+  catalogPanel: getRequiredElement("#catalog-panel"),
   centerMapBtn: getRequiredElement("#center-map-btn"),
   annotatorToggle: getRequiredElement("#annotator-toggle"),
   annotatorControls: getRequiredElement("#annotator-controls"),
@@ -108,7 +110,6 @@ const app = new App({
 
 // Register plugins (order matters: tools before toolbar so buttons render)
 app.use(SelectionPlugin);
-app.use(SelectionPlugin);
 app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
 app.use(ComponentEditorPlugin);
@@ -129,6 +130,9 @@ app.use(ToolbarPlugin, {
 app.use(SidebarPlugin, {
   paletteEl: ui.componentPalette,
   canvasEl: ui.canvasContainer,
+});
+app.use(CatalogPanelPlugin, {
+  panelEl: ui.catalogPanel,
 });
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
@@ -186,7 +190,7 @@ if (embeddedSnapshot) {
   await Promise.all([
     app.addComponent("sticky", { x: 120, y: 120 }),
     app.addComponent("text", { x: 380, y: 170 }),
-    app.addComponent("catalog", { x: 620, y: 140 }),
+    app.addComponent("catalog", { x: 0, y: 0 }),
   ]);
   historyPlugin.resetHistory();
 }

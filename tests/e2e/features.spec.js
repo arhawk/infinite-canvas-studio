@@ -29,6 +29,10 @@ async function getNodePageCenter(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNodePageCenter(nodeId), id);
 }
 
+async function listCatalogItems(page) {
+  return page.evaluate(() => window.__APP_TEST_API__.listCatalogItems());
+}
+
 async function waitForPaint(page) {
   await page.evaluate(() => new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
@@ -39,6 +43,39 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await waitForTestApi(page);
   await clearBoard(page);
+});
+
+test("adds the selected node to the outline panel", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const sticky = await addComponent(page, "sticky", { x: 220, y: 220 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+
+  await page.getByTestId("catalog-add-selected").click();
+
+  await expect
+    .poll(async () => (await listCatalogItems(page)).map((item) => item.renderedTitle))
+    .toEqual(["Sticky note"]);
+
+  await expect(page.getByTestId("catalog-panel")).toContainText("Sticky note");
+});
+
+test("undoes and redoes an outline add action", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const sticky = await addComponent(page, "sticky", { x: 240, y: 240 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+
+  await page.getByTestId("catalog-add-selected").click();
+  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(1);
+
+  await page.getByTestId("undo-action").click();
+  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(0);
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => (await listCatalogItems(page)).map((item) => item.renderedTitle))
+    .toEqual(["Sticky note"]);
 });
 
 test("creates a connection from the toolbar and updates it when a node moves", async ({ page }) => {

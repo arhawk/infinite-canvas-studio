@@ -226,15 +226,16 @@
           </div>
         </header>
 
-        <section class="board-shell" data-testid="board-shell">
-          <div id="canvas-container" class="canvas-container" data-testid="canvas-container"></div>
-          <label class="mode-toggle" id="mode-toggle" data-testid="mode-toggle">
-            <input type="checkbox" checked data-testid="mode-toggle-input" />
-            <span class="mode-toggle__track">
-              <span class="mode-toggle__thumb"></span>
-            </span>
-            <span class="mode-toggle__label" data-testid="mode-toggle-label">Edit</span>
-          </label>
+        <div class="workspace__content">
+          <section class="board-shell" data-testid="board-shell">
+            <div id="canvas-container" class="canvas-container" data-testid="canvas-container"></div>
+            <label class="mode-toggle" id="mode-toggle" data-testid="mode-toggle">
+              <input type="checkbox" checked data-testid="mode-toggle-input" />
+              <span class="mode-toggle__track">
+                <span class="mode-toggle__thumb"></span>
+              </span>
+              <span class="mode-toggle__label" data-testid="mode-toggle-label">Edit</span>
+            </label>
 
           <div
             id="calculator-widget"
@@ -322,7 +323,15 @@
               >Reset</button>
             </div>
           </div>
-        </section>
+          </section>
+
+          <aside
+            id="catalog-panel"
+            class="catalog-sidebar"
+            data-testid="catalog-panel"
+            aria-label="Catalog outline"
+          ></aside>
+        </div>
       </main>
     </div>
     <script type="module" src="/src/main.js"></script>
