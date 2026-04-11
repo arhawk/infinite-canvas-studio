@@ -1,4 +1,5 @@
 import { Konva } from "../lib/konva.js";
+import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { ContainerComponent } from "./container.js";
 
 const PAGE_WIDTH = 960;
@@ -20,6 +21,7 @@ export class PageComponent extends ContainerComponent {
   static type = "page";
   static label = "Page";
   static description = "Fixed-size page that can contain other components";
+  static attachments = true;
 
   getEditorTitle() {
     return "Page";
@@ -68,7 +70,7 @@ export class PageComponent extends ContainerComponent {
       y: 0,
       text: label,
       fontSize: 16,
-      fontFamily: "Space Grotesk",
+      fontFamily: DISPLAY_FONT_FAMILY,
       fontStyle: "700",
       fill: "#ab4f28",
       padding: 16,

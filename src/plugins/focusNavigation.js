@@ -3,6 +3,7 @@ import {
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
+import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 const NAV_BUTTON_RADIUS = 16;
@@ -604,7 +605,7 @@ export class FocusNavigationPlugin extends BasePlugin {
       align: "center",
       verticalAlign: "middle",
       fontSize: 18,
-      fontFamily: "Space Grotesk",
+      fontFamily: DISPLAY_FONT_FAMILY,
       fontStyle: "700",
       fill: "#ab4f28",
       listening: false,

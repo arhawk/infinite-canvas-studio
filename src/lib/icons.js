@@ -1,5 +1,6 @@
 import {
   Calculator,
+  Crosshair,
   Download,
   Eraser,
   Eye,
@@ -20,6 +21,7 @@ import {
 
 const PROJECT_ICONS = {
   Calculator,
+  Crosshair,
   Download,
   Eraser,
   Eye,

@@ -1,3 +1,5 @@
+import { normalizeAttachmentState } from "../attachments/model.js";
+
 function toInstance(entry, Type, args) {
   return entry instanceof Type ? entry : new entry(...args);
 }
@@ -247,6 +249,12 @@ export class BaseComponent {
     return this.constructor.palette !== false;
   }
 
+  // Attachment support stays opt-in per component so existing components
+  // keep their current serialization contract unchanged.
+  supportsAttachments() {
+    return this.constructor.attachments === true;
+  }
+
   getEditorTitle() {
     return `${this.label} Editor`;
   }
@@ -303,6 +311,13 @@ export class BaseComponent {
   serialize(node, { parentId = null } = {}) {
     if (!node?.hasName?.("selectable")) return null;
 
+    const serializedData = clonePlainData(this.serializeNode(node)) ?? {};
+    // Attachments travel with component data so JSON save/load and exported
+    // HTML reuse the existing document roundtrip without schema changes.
+    if (this.supportsAttachments(node)) {
+      serializedData.attachments = this.getAttachmentState(node);
+    }
+
     return {
       id: node.id(),
       type: this.type,
@@ -316,7 +331,7 @@ export class BaseComponent {
       opacity: node.opacity(),
       focusPositionMode: node.getAttr("focusPositionMode") ?? null,
       savedFocus: clonePlainData(node.getAttr("savedFocus") ?? null),
-      data: clonePlainData(this.serializeNode(node)),
+      data: serializedData,
     };
   }
 
@@ -337,11 +352,26 @@ export class BaseComponent {
     const node = await this.create(this.getRestorePayload(snapshot));
     if (!node) return null;
     await this.applySerializedData(node, snapshot.data ?? {});
+    // Restore attachment metadata after component data so attachment-capable
+    // components can stay focused on their own visual fields.
+    if (this.supportsAttachments(node)) {
+      this.setAttachmentState(node, snapshot.data?.attachments ?? null);
+    }
     this.applySerializedState(node, snapshot);
     return node;
   }
 
   async applySerializedData() {}
+
+  getAttachmentState(node) {
+    if (!this.supportsAttachments(node)) return null;
+    return normalizeAttachmentState(node?.getAttr("attachments"));
+  }
+
+  setAttachmentState(node, state) {
+    if (!this.supportsAttachments(node) || !node?.setAttr) return;
+    node.setAttr("attachments", normalizeAttachmentState(state));
+  }
 
   applySerializedState(node, snapshot = {}) {
     if (!node) return;

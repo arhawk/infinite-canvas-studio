@@ -40,11 +40,21 @@ The Vite dev server runs on `http://localhost:3000`.
 
 ```bash
 pnpm build
+pnpm export:html
 pnpm preview
 pnpm test:unit
 pnpm test:e2e
 pnpm test
 ```
+
+`pnpm build` keeps the normal Vite output for development hosting and Cloudflare deployment:
+
+- `dist/index.html`
+- `dist/assets/*`
+
+`pnpm export:html` is a separate export path for a double-clickable single-file build. It writes one self-contained HTML file to:
+
+- `dist-single-html/index.html`
 
 On a new machine, install the Playwright browser once before the first E2E run:
 
@@ -78,6 +88,19 @@ The E2E harness uses `window.__APP_TEST_API__` for canvas-heavy flows instead of
 - document export / load
 - history reset / undo / redo
 - component editor opening
+
+## Offline Constraints
+
+The app now targets offline-safe typography by default:
+
+- The project no longer depends on Google Fonts at runtime
+- Normal builds and single-file exports both use local/system font stacks only
+- This guarantees the UI remains readable when opened without network access
+
+Current limitation:
+
+- Offline support currently favors local availability over exact font matching, so the app no longer renders with the original `IBM Plex Sans` / `Space Grotesk` web fonts
+- If exact typography is required later, those font files need to be vendored into the repository and served locally
 
 ## Project Structure
 

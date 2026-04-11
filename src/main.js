@@ -8,13 +8,22 @@ import { DrawingPlugin } from "./plugins/drawing.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
+import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
+import { CatalogPanelPlugin } from "./plugins/catalogPanel.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
+import { AttachmentsPlugin } from "./plugins/attachments.js";
 import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
+import { CenterMapPlugin } from "./plugins/centerMap.js";
+import { AnnotatorPlugin } from "./plugins/annotator.js";
+import {
+  captureRuntimeHtmlTemplate,
+  readEmbeddedSnapshot,
+} from "./document/runtimeHtmlExport.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -23,6 +32,7 @@ import { ImageComponent } from "./component/image.js";
 import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
+import { CatalogComponent } from "./component/catalog.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -67,6 +77,15 @@ const ui = {
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   clearStrokes: getRequiredElement("#clear-strokes"),
   componentPalette: getRequiredElement("#component-palette"),
+  catalogPanel: getRequiredElement("#catalog-panel"),
+  centerMapBtn: getRequiredElement("#center-map-btn"),
+  annotatorToggle: getRequiredElement("#annotator-toggle"),
+  annotatorControls: getRequiredElement("#annotator-controls"),
+  annotatorColor: getRequiredElement("#annotator-color"),
+  annotatorShape: getRequiredElement("#annotator-shape"),
+  annotatorWidth: getRequiredElement("#annotator-width"),
+  annotatorWidthValue: getRequiredElement("#annotator-width-value"),
+  annotatorClear: getRequiredElement("#annotator-clear"),
 };
 
 renderIcons(ui.sidebarBrand, {
@@ -74,6 +93,8 @@ renderIcons(ui.sidebarBrand, {
   height: 20,
   "stroke-width": 2.2,
 });
+
+captureRuntimeHtmlTemplate();
 
 const app = new App({
   container: ui.canvasContainer,
@@ -87,10 +108,12 @@ const app = new App({
   StickyComponent,
   ImageComponent,
   ConnectionComponent,
+  CatalogComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)
 app.use(SelectionPlugin);
+app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
 app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
@@ -114,8 +137,12 @@ app.use(SidebarPlugin, {
   paletteEl: ui.componentPalette,
   canvasEl: ui.canvasContainer,
 });
+app.use(CatalogPanelPlugin, {
+  panelEl: ui.catalogPanel,
+});
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
+app.use(AttachmentsPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 const historyPlugin = app.use(HistoryPlugin, {
@@ -143,15 +170,36 @@ app.use(TimerPlugin, {
   ssInputEl: ui.timerSs,
   durationRowEl: ui.timerDurationRow,
 });
+app.use(CenterMapPlugin, {
+  centerMapEl: ui.centerMapBtn,
+});
+app.use(AnnotatorPlugin, {
+  toggleEl: ui.annotatorToggle,
+  controlsEl: ui.annotatorControls,
+  colorEl: ui.annotatorColor,
+  shapeEl: ui.annotatorShape,
+  widthEl: ui.annotatorWidth,
+  widthValueEl: ui.annotatorWidthValue,
+  clearEl: ui.annotatorClear,
+});
 
 app.start();
 
-// Seed starter nodes
-await Promise.all([
-  app.addComponent("sticky", { x: 120, y: 120 }),
-  app.addComponent("text", { x: 380, y: 170 }),
-]);
-historyPlugin.resetHistory();
+const embeddedSnapshot = readEmbeddedSnapshot();
+
+if (embeddedSnapshot) {
+  await app.documentManager?.loadDocument?.(embeddedSnapshot, {
+    source: "embedded-html",
+  });
+} else {
+  // Seed starter nodes
+  await Promise.all([
+    app.addComponent("sticky", { x: 120, y: 120 }),
+    app.addComponent("text", { x: 380, y: 170 }),
+    app.addComponent("catalog", { x: 0, y: 0 }),
+  ]);
+  historyPlugin.resetHistory();
+}
 
 if (import.meta.env.VITE_E2E === "1") {
   setupAppTestApi(app);

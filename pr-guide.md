@@ -1,6 +1,4 @@
 # GitHub PR Workflow Guide
-
-
 ### When you had GitHub login
 一共五个存储位置, 由远及近
 
