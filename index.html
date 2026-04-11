@@ -212,7 +212,7 @@
             ></div>
             
             <label class="toolbar__field toolbar__field--slider">
-              <span>Stroke</span>
+              <span id="stroke-width-label">Stroke</span>
               <input
                 id="stroke-width"
                 type="range"
@@ -223,6 +223,17 @@
               />
               <output id="stroke-width-value" data-testid="stroke-width-value">4</output>
             </label>
+            <button
+              id="clear-strokes"
+              class="ghost-button"
+              type="button"
+              title="Clear all strokes"
+              aria-label="Clear all strokes"
+              data-testid="clear-strokes"
+              hidden
+            >
+              Clear Strokes
+            </button>
           </div>
         </header>
 
@@ -236,6 +247,18 @@
               </span>
               <span class="mode-toggle__label" data-testid="mode-toggle-label">Edit</span>
             </label>
+            <button
+              id="drawing-visibility-toggle"
+              class="view-overlay-toggle"
+              type="button"
+              aria-label="Hide drawings"
+              title="Hide drawings"
+              aria-pressed="true"
+              data-testid="drawing-visibility-toggle"
+              hidden
+            >
+              <i data-lucide="eye" aria-hidden="true"></i>
+            </button>
 
           <div
             id="calculator-widget"

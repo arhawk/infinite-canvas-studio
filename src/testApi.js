@@ -296,6 +296,7 @@ export function setupAppTestApi(app) {
       app.history?.resetHistory?.();
     },
     countDrawables: () => app.drawLayer.find(".drawable").length,
+    isDrawLayerVisible: () => app.drawLayer.visible(),
   };
 
   window.__APP_TEST_API__ = testApi;

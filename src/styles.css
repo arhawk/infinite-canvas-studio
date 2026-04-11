@@ -1027,6 +1027,49 @@ body.is-edit-mode .mode-toggle__label {
   color: var(--accent);
 }
 
+.view-overlay-toggle {
+  position: absolute;
+  top: 1rem;
+  left: calc(50% + 4.75rem);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  cursor: pointer;
+  backdrop-filter: blur(1rem);
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.view-overlay-toggle[hidden] {
+  display: none;
+}
+
+.view-overlay-toggle:hover {
+  transform: translateY(-1px);
+  background: var(--panel-strong);
+  color: var(--accent);
+}
+
+.view-overlay-toggle[aria-pressed="false"] {
+  color: rgba(110, 101, 88, 0.62);
+  background: rgba(255, 251, 245, 0.72);
+}
+
+.view-overlay-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .is-drop-target {
   outline: 2px dashed rgba(215, 97, 47, 0.6);
   outline-offset: -0.8rem;

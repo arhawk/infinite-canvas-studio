@@ -46,6 +46,7 @@ const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
   sidebarBrand: getRequiredElement("#sidebar-brand"),
   modeToggle: getRequiredElement("#mode-toggle"),
+  drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
   historyControls: getRequiredElement("#history-controls"),
   documentControls: getRequiredElement("#document-controls"),
@@ -71,8 +72,10 @@ const ui = {
   focusPositionMode: getRequiredElement("#focus-position-mode"),
   strokeColor: getRequiredElement("#stroke-color"),
   recentColors: getRequiredElement("#recent-colors"),
+  strokeWidthLabel: getRequiredElement("#stroke-width-label"),
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
+  clearStrokes: getRequiredElement("#clear-strokes"),
   componentPalette: getRequiredElement("#component-palette"),
   catalogPanel: getRequiredElement("#catalog-panel"),
   centerMapBtn: getRequiredElement("#center-map-btn"),
@@ -115,6 +118,7 @@ app.use(DrawingPlugin);
 app.use(ComponentEditorPlugin);
 app.use(ToolbarPlugin, {
   modeToggleEl: ui.modeToggle,
+  drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
   toolButtonsEl: ui.toolButtons,
   historyControlsEl: ui.historyControls,
   arrangeControlsEl: ui.arrangeControls,
@@ -124,8 +128,10 @@ app.use(ToolbarPlugin, {
   focusPositionModeEl: ui.focusPositionMode,
   strokeColorEl: ui.strokeColor,
   recentColorsEl: ui.recentColors,
+  strokeWidthLabelEl: ui.strokeWidthLabel,
   strokeWidthEl: ui.strokeWidth,
   strokeWidthValueEl: ui.strokeWidthValue,
+  clearStrokesEl: ui.clearStrokes,
 });
 app.use(SidebarPlugin, {
   paletteEl: ui.componentPalette,

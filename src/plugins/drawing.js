@@ -1,5 +1,47 @@
-import { BasePlugin, BaseTool } from "../core/baseClasses.js";
+import { BaseCommand, BasePlugin, BaseTool } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
+
+function distanceToSegment(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSq = dx * dx + dy * dy;
+
+  if (lengthSq === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+
+  let t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq;
+  t = Math.max(0, Math.min(1, t));
+
+  const projX = start.x + t * dx;
+  const projY = start.y + t * dy;
+  return Math.hypot(point.x - projX, point.y - projY);
+}
+
+function isPointNearLine(point, linePoints, radius) {
+  if (!Array.isArray(linePoints) || linePoints.length < 2) return false;
+
+  if (linePoints.length === 2) {
+    return Math.hypot(point.x - linePoints[0], point.y - linePoints[1]) <= radius;
+  }
+
+  for (let index = 0; index < linePoints.length - 2; index += 2) {
+    const start = {
+      x: linePoints[index],
+      y: linePoints[index + 1],
+    };
+    const end = {
+      x: linePoints[index + 2],
+      y: linePoints[index + 3],
+    };
+
+    if (distanceToSegment(point, start, end) <= radius) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 class PenTool extends BaseTool {
   static toolId = "pen";
@@ -21,6 +63,22 @@ class EraserTool extends BaseTool {
   static label = "Erase Stroke";
 }
 
+class ClearStrokesCommand extends BaseCommand {
+  static commandId = "drawing:clear-strokes";
+  static label = "Clear All Strokes";
+  static modes = {
+    edit: {
+      tools: {
+        eraser: {},
+      },
+    },
+  };
+
+  execute() {
+    return this.plugin.clearAllDrawings();
+  }
+}
+
 export class DrawingPlugin extends BasePlugin {
   static pluginId = "drawing";
   static modes = {
@@ -36,6 +94,10 @@ export class DrawingPlugin extends BasePlugin {
 
   tools() {
     return [PenTool, PencilTool, HighlighterTool, EraserTool];
+  }
+
+  commands() {
+    return [ClearStrokesCommand];
   }
 
   onSetup() {
@@ -61,9 +123,21 @@ export class DrawingPlugin extends BasePlugin {
         opacity: 0.25,
       },
     };
+    this.eraserStyle = {
+      radius: 12,
+    };
 
     this.listen("stroke:change", (stroke = {}) => {
       const { toolId } = stroke;
+
+      if (toolId === "eraser") {
+        this.eraserStyle.radius = Number.isFinite(stroke.radius)
+          ? stroke.radius
+          : this.eraserStyle.radius;
+        this.updateEraserPreview();
+        return;
+      }
+
       if (!toolId || !this.toolStyles[toolId]) return;
 
       this.toolStyles[toolId] = {
@@ -77,21 +151,42 @@ export class DrawingPlugin extends BasePlugin {
     this.stage.on("mousedown.drawing touchstart.drawing", (event) => this.handlePointerDown(event));
     this.stage.on("mousemove.drawing touchmove.drawing", (event) => this.handlePointerMove(event));
     this.stage.on("mouseup.drawing touchend.drawing touchcancel.drawing", () => this.handlePointerUp());
-    this.cleanups.push(() => this.stage.off(".drawing"));
+
+    this.eraserPreview = new Konva.Circle({
+      visible: false,
+      listening: false,
+      stroke: "rgba(215, 97, 47, 0.95)",
+      fill: "rgba(215, 97, 47, 0.12)",
+      dash: [6, 4],
+    });
+    this.app.overlayLayer.add(this.eraserPreview);
+
+    this.cleanups.push(() => {
+      this.stage.off(".drawing");
+      this.eraserPreview?.destroy();
+    });
   }
 
   onModeEnter() {
     this.app.setCursorOverride("crosshair");
+    this.syncEraserPreviewVisibility();
+    this.updateEraserPreview();
   }
 
   onModeChange() {
     this.app.setCursorOverride("crosshair");
+    this.syncEraserPreviewVisibility();
+    this.updateEraserPreview();
   }
 
   onModeExit() {
     this.isDrawing = false;
     this.isErasing = false;
     this.currentLine = null;
+    if (this.eraserPreview) {
+      this.eraserPreview.visible(false);
+      this.app.overlayLayer.batchDraw();
+    }
     this.app.clearCursorOverride();
   }
 
@@ -143,18 +238,63 @@ export class DrawingPlugin extends BasePlugin {
     return this.isEnabled() && this.app.getEditorTool() === "eraser";
   }
 
-  getDrawableTarget(target = null) {
-    const candidate = target?.findAncestor?.(".drawable", true) ?? target;
-    if (candidate?.hasName?.("drawable")) {
-      return candidate;
+  getActiveEraserRadius() {
+    return this.eraserStyle.radius ?? 12;
+  }
+
+  isPointNearDrawable(point, drawable) {
+    if (!point || !drawable?.hasName?.("drawable")) return false;
+
+    const hitRadius =
+      this.getActiveEraserRadius() + (drawable.strokeWidth?.() ?? 0) / 2;
+
+    return isPointNearLine(point, drawable.points?.() ?? [], hitRadius);
+  }
+
+  getDrawableNearPoint(point) {
+    if (!point) return null;
+
+    const drawables = this.layer.find(".drawable");
+    for (let index = drawables.length - 1; index >= 0; index -= 1) {
+      const drawable = drawables[index];
+      if (this.isPointNearDrawable(point, drawable)) {
+        return drawable;
+      }
     }
 
-    const pointer = this.stage.getPointerPosition();
-    if (!pointer) return null;
+    return null;
+  }
 
-    const intersected = this.stage.getIntersection(pointer);
-    const hovered = intersected?.findAncestor?.(".drawable", true) ?? intersected;
-    return hovered?.hasName?.("drawable") ? hovered : null;
+  syncEraserPreviewVisibility() {
+    if (!this.eraserPreview) return;
+
+    this.eraserPreview.visible(this.isEraserActive());
+    this.app.overlayLayer.batchDraw();
+  }
+
+  updateEraserPreview() {
+    if (!this.eraserPreview) return;
+
+    if (!this.isEraserActive()) {
+      this.eraserPreview.visible(false);
+      this.app.overlayLayer.batchDraw();
+      return;
+    }
+
+    const point = this.pointerToCanvas();
+    if (!point) {
+      this.eraserPreview.visible(false);
+      this.app.overlayLayer.batchDraw();
+      return;
+    }
+
+    const scale = this.app.stageApi.getScale();
+    this.eraserPreview.position(point);
+    this.eraserPreview.radius(this.getActiveEraserRadius());
+    this.eraserPreview.strokeWidth(1 / scale);
+    this.eraserPreview.dash([6 / scale, 4 / scale]);
+    this.eraserPreview.visible(true);
+    this.app.overlayLayer.batchDraw();
   }
 
   eraseDrawable(target) {
@@ -166,6 +306,39 @@ export class DrawingPlugin extends BasePlugin {
     target.destroy();
     this.layer.batchDraw();
     return true;
+  }
+
+  hasDrawings() {
+    return this.layer.find(".drawable").length > 0;
+  }
+
+  clearAllDrawings() {
+    const drawables = this.layer.find(".drawable");
+    if (!drawables.length) return false;
+
+    drawables.forEach((drawable) => {
+      if (!drawable?.getStage?.()) return;
+      this.app.events.emit("draw:removed", { node: drawable });
+      drawable.destroy();
+    });
+
+    this.layer.batchDraw();
+    return true;
+  }
+
+  isDrawLayerVisible() {
+    return this.layer.visible();
+  }
+
+  setDrawLayerVisible(visible) {
+    const nextVisible = visible !== false;
+    this.layer.visible(nextVisible);
+    this.layer.batchDraw();
+    return nextVisible;
+  }
+
+  toggleDrawLayerVisibility() {
+    return this.setDrawLayerVisible(!this.isDrawLayerVisible());
   }
 
   handlePointerDown(event) {
@@ -199,10 +372,13 @@ export class DrawingPlugin extends BasePlugin {
     if (!this.isEraserActive()) return;
 
     this.isErasing = true;
-    this.eraseDrawable(this.getDrawableTarget(event.target));
+    const point = this.pointerToCanvas();
+    this.eraseDrawable(this.getDrawableNearPoint(point));
   }
 
   handlePointerMove(event) {
+    this.updateEraserPreview();
+
     if (this.isDrawingActive()) {
       if (!this.isDrawing || !this.currentLine) return;
       const point = this.pointerToCanvas();
@@ -221,7 +397,8 @@ export class DrawingPlugin extends BasePlugin {
     }
 
     if (!this.isEraserActive() || !this.isErasing) return;
-    this.eraseDrawable(this.getDrawableTarget(event?.target));
+    const point = this.pointerToCanvas();
+    this.eraseDrawable(this.getDrawableNearPoint(point));
   }
 
   handlePointerUp() {
