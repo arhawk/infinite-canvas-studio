@@ -1372,7 +1372,7 @@ body.is-edit-mode .mode-toggle__label {
 
 .timer-widget {
   position: absolute;
-  bottom: 1.25rem;
+  top: 1.25rem;
   right: 1.25rem;
   z-index: 20;
   width: 15rem;
