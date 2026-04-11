@@ -20,6 +20,7 @@ import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
+import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import {
   captureRuntimeHtmlTemplate,
   readEmbeddedSnapshot,
@@ -140,6 +141,7 @@ app.use(SidebarPlugin, {
 app.use(CatalogPanelPlugin, {
   panelEl: ui.catalogPanel,
 });
+app.use(MindMapBranchPlugin);
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
 app.use(AttachmentsPlugin);
