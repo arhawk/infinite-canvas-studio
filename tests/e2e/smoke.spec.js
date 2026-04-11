@@ -20,6 +20,32 @@ async function getNodePageCenter(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNodePageCenter(nodeId), id);
 }
 
+async function drawStroke(page, options = {}) {
+  const {
+    xRatio = 0.45,
+    yRatio = 0.45,
+    dx = 120,
+    dy = 80,
+    steps = 10,
+  } = options;
+  const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const start = {
+    x: rect.left + rect.width * xRatio,
+    y: rect.top + rect.height * yRatio,
+  };
+  const end = {
+    x: start.x + dx,
+    y: start.y + dy,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps });
+  await page.mouse.up();
+
+  return { start, end };
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await waitForTestApi(page);
@@ -143,4 +169,64 @@ test("erases an entire brush stroke and supports undo and redo", async ({ page }
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBe(0);
+});
+
+test("clears all drawn strokes from the eraser controls and supports undo and redo", async ({ page }) => {
+  await page.getByTestId("tool-button-pen").click();
+  await drawStroke(page, { xRatio: 0.32, yRatio: 0.36, dx: 100, dy: 40 });
+  await drawStroke(page, { xRatio: 0.54, yRatio: 0.5, dx: 90, dy: -50 });
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(2);
+
+  await page.getByTestId("tool-button-eraser").click();
+  await expect(page.locator("#stroke-width-label")).toHaveText("Radius");
+  await expect(page.getByTestId("stroke-width")).toHaveAttribute("min", "4");
+  await expect(page.getByTestId("stroke-width")).toHaveAttribute("max", "48");
+  await expect(page.getByTestId("clear-strokes")).toBeVisible();
+  await expect(page.getByTestId("clear-strokes")).toBeEnabled();
+
+  await page.getByTestId("clear-strokes").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(2);
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+});
+
+test("toggles drawing layer visibility in presentation mode", async ({ page }) => {
+  await page.getByTestId("tool-button-pen").click();
+  await drawStroke(page);
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(1);
+
+  await page.getByTestId("mode-toggle").click();
+  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+  await expect(page.getByTestId("drawing-visibility-toggle")).toBeVisible();
+  await expect(page.getByTestId("drawing-visibility-toggle")).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.isDrawLayerVisible()))
+    .toBe(true);
+
+  await page.getByTestId("drawing-visibility-toggle").click();
+  await expect(page.getByTestId("drawing-visibility-toggle")).toHaveAttribute("aria-pressed", "false");
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.isDrawLayerVisible()))
+    .toBe(false);
+
+  await page.getByTestId("drawing-visibility-toggle").click();
+  await expect(page.getByTestId("drawing-visibility-toggle")).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.isDrawLayerVisible()))
+    .toBe(true);
 });
