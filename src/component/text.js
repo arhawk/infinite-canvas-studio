@@ -23,7 +23,7 @@ export class TextComponent extends BaseComponent {
         label: "Content",
         rows: 5,
         getValue: (node) => node.text(),
-        setValue: (node, value) => node.text(value || "Text"),
+        setValue: (node, value) => node.text(value ?? ""),
       }),
       new NumberEditorField({
         id: "fontSize",
@@ -62,11 +62,21 @@ export class TextComponent extends BaseComponent {
   }
 
   serializeNode(node) {
+    const peerId = node.getAttr("termDefPeerId");
+    const pairId = node.getAttr("termDefPairId");
+    const required = node.getAttr("termDefRequired");
     return {
       text: node.text(),
       fontSize: node.fontSize(),
       fill: node.fill(),
       padding: node.padding(),
+      termDefinition: peerId || pairId || required
+        ? {
+          peerId: typeof peerId === "string" ? peerId : null,
+          pairId: typeof pairId === "string" ? pairId : null,
+          required: required === true,
+        }
+        : null,
     };
   }
 
@@ -75,5 +85,12 @@ export class TextComponent extends BaseComponent {
     if (Number.isFinite(data.fontSize)) node.fontSize(data.fontSize);
     if (typeof data.fill === "string" && data.fill) node.fill(data.fill);
     if (Number.isFinite(data.padding)) node.padding(data.padding);
+
+    const td = data.termDefinition;
+    if (td && typeof td === "object") {
+      if (typeof td.peerId === "string" && td.peerId) node.setAttr("termDefPeerId", td.peerId);
+      if (typeof td.pairId === "string" && td.pairId) node.setAttr("termDefPairId", td.pairId);
+      node.setAttr("termDefRequired", td.required === true);
+    }
   }
 }

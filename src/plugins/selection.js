@@ -172,8 +172,15 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   setSelected(nodes) {
-    const nextNode = nodes.find(Boolean) ?? null;
-    this.selectedNodes = nextNode ? [nextNode] : [];
+    const unique = [];
+    const seen = new Set();
+    (nodes || []).filter(Boolean).forEach((node) => {
+      const id = node?.id?.();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      unique.push(node);
+    });
+    this.selectedNodes = unique;
     this.syncTransformer();
     this.layer.batchDraw();
     this.app.events.emit("selection:change", { nodes: this.selectedNodes });
@@ -326,13 +333,27 @@ export class SelectionPlugin extends BasePlugin {
     if (this.app.stageApi.consumePanClickSuppression()) {
       return;
     }
+    if (event.evt && event.evt.button === 2) {
+      return;
+    }
 
     const target = this.getSelectable(event.target);
     if (!target) {
       this.clearSelection();
       return;
     }
-    this.setSelected([target]);
+    const isMulti = Boolean(event.evt?.metaKey || event.evt?.ctrlKey);
+    if (!isMulti) {
+      this.setSelected([target]);
+      return;
+    }
+
+    const alreadySelected = this.selectedNodes.includes(target);
+    if (alreadySelected) {
+      this.setSelected(this.selectedNodes.filter((node) => node !== target));
+      return;
+    }
+    this.setSelected([...this.selectedNodes, target]);
   }
 
   handleSnapMove(event) {

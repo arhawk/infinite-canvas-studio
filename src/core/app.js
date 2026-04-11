@@ -60,6 +60,11 @@ export class App {
     return plugin;
   }
 
+  getPlugin(pluginId) {
+    if (typeof pluginId !== "string" || !pluginId) return null;
+    return this.plugins.find((plugin) => plugin?.constructor?.pluginId === pluginId) ?? null;
+  }
+
   start() {
     for (const plugin of this.plugins) {
       plugin.setup();

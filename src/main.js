@@ -20,6 +20,7 @@ import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
+import { TermDefinitionLinkPlugin } from "./plugins/termDefinitionLink.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import {
   captureRuntimeHtmlTemplate,
@@ -145,6 +146,7 @@ app.use(MindMapBranchPlugin);
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
 app.use(AttachmentsPlugin);
+app.use(TermDefinitionLinkPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 const historyPlugin = app.use(HistoryPlugin, {
