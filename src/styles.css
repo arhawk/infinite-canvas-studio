@@ -958,6 +958,201 @@ body.is-presentation-mode .toolbar {
   display: block;
 }
 
+.page-compare-selection-bar {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(34rem, calc(100% - 2rem));
+  padding: 0.75rem;
+  border: 1px solid rgba(61, 47, 32, 0.12);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(1rem);
+}
+
+.page-compare-selection-bar[hidden] {
+  display: none;
+}
+
+.page-compare-selection-bar__count {
+  white-space: nowrap;
+}
+
+.page-compare-selection-bar__hint {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-compare-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  min-height: 0;
+  background:
+    linear-gradient(180deg, rgba(29, 27, 22, 0.82), rgba(29, 27, 22, 0.74));
+  color: #fffdf8;
+}
+
+.page-compare-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(255, 253, 248, 0.18);
+  background: rgba(29, 27, 22, 0.78);
+}
+
+.page-compare-toolbar__title {
+  min-width: 0;
+  font-weight: 700;
+}
+
+.page-compare-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.page-compare-button {
+  border: 1px solid rgba(255, 253, 248, 0.22);
+  border-radius: 999px;
+  padding: 0.55rem 0.85rem;
+  background: rgba(255, 253, 248, 0.1);
+  color: #fffdf8;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.page-compare-selection-bar .page-compare-button {
+  border-color: rgba(215, 97, 47, 0.2);
+  background: rgba(215, 97, 47, 0.1);
+  color: var(--accent);
+}
+
+.page-compare-selection-bar .page-compare-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.page-compare-selection-bar .page-compare-button:not(:disabled):hover {
+  background: rgba(215, 97, 47, 0.16);
+}
+
+.page-compare-button:hover {
+  background: rgba(255, 253, 248, 0.18);
+}
+
+.page-compare-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.page-compare-pane {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid rgba(255, 253, 248, 0.16);
+}
+
+.page-compare-pane:last-child {
+  border-right: 0;
+}
+
+.page-compare-pane__header {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.65rem 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 253, 248, 0.86);
+  background: rgba(29, 27, 22, 0.38);
+  font-weight: 700;
+}
+
+.page-compare-pane__viewport {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #f7f3ea;
+  cursor: grab;
+  touch-action: none;
+}
+
+.page-compare-pane__viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.page-compare-pane__image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: 0 1rem 2.4rem rgba(29, 27, 22, 0.2);
+}
+
+.page-compare-pane__empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(22rem, calc(100% - 2rem));
+  margin: 0;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .page-compare-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .page-compare-panes {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .page-compare-pane {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 253, 248, 0.16);
+  }
+
+  .page-compare-pane:last-child {
+    border-bottom: 0;
+  }
+
+  .page-compare-selection-bar {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    border-radius: 0.9rem;
+    flex-wrap: wrap;
+  }
+}
+
 .mode-toggle {
   position: absolute;
   top: 1rem;

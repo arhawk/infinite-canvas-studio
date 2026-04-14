@@ -8,6 +8,14 @@ function isConnectionNode(node) {
   return node?.getAttr?.("componentType") === "connection";
 }
 
+function isRankingNode(node) {
+  return node?.getAttr?.("componentType") === "ranking";
+}
+
+function isInsideRankingNode(node) {
+  return Boolean(node?.findAncestor?.(".ranking-root"));
+}
+
 export class ContainersPlugin extends BasePlugin {
   static pluginId = "containers";
   static modes = {
@@ -35,7 +43,7 @@ export class ContainersPlugin extends BasePlugin {
   }
 
   getContainers() {
-    return this.layer.find((node) => isContainerNode(node));
+    return this.layer.find((node) => isContainerNode(node) && !isInsideRankingNode(node));
   }
 
   handleDragEnd(event) {
@@ -48,6 +56,7 @@ export class ContainersPlugin extends BasePlugin {
       this.app.isRestoringDocument ||
       !node?.hasName?.("selectable") ||
       isContainerNode(node) ||
+      isRankingNode(node) ||
       isConnectionNode(node)
     ) {
       return;

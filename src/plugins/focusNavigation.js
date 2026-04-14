@@ -186,7 +186,8 @@ export class FocusNavigationPlugin extends BasePlugin {
       }
     });
     this.listen("selection:change", ({ nodes }) => {
-      this.selectedNode = nodes.find((node) => isFocusableNode(node)) ?? null;
+      this.selectedNode =
+        nodes.length === 1 && isFocusableNode(nodes[0]) ? nodes[0] : null;
       this.syncFocusPositionModeFromNode(this.selectedNode);
       this.emitToolbarState();
     });

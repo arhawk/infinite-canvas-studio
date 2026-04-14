@@ -161,12 +161,26 @@ export class SelectionPlugin extends BasePlugin {
     const transformableNodes = this.getTransformableNodes(this.selectedNodes);
     const primaryNode = transformableNodes[0] ?? null;
     const transformLocked = Boolean(primaryNode?.getAttr("transformLocked"));
+    const isFreeResizeNode = primaryNode?.getAttr("componentType") === "ranking";
+    const isMultiSelection = transformableNodes.length > 1;
 
-    this.transformer.rotateEnabled(!transformLocked);
+    this.transformer.rotateEnabled(!transformLocked && !isMultiSelection);
+    this.transformer.keepRatio(!isFreeResizeNode || isMultiSelection);
     this.transformer.enabledAnchors(
-      transformLocked
+      transformLocked || isMultiSelection
         ? []
-        : ["top-left", "top-right", "bottom-left", "bottom-right"],
+        : isFreeResizeNode
+          ? [
+              "top-left",
+              "top-center",
+              "top-right",
+              "middle-left",
+              "middle-right",
+              "bottom-left",
+              "bottom-center",
+              "bottom-right",
+            ]
+          : ["top-left", "top-right", "bottom-left", "bottom-right"],
     );
     this.transformer.nodes(transformableNodes);
   }
@@ -214,9 +228,12 @@ export class SelectionPlugin extends BasePlugin {
       if (!node.getStage?.()) return;
       this.app.events.emit("node:change:start", { node });
     });
-    node.on("dragmove.selectionSync transform.selectionSync", () => {
+    node.on("dragmove.selectionSync transform.selectionSync", (event) => {
       if (!node.getStage?.()) return;
       this.app.events.emit("node:changing", { node });
+      if (event.type === "transform" && node.getAttr("componentType") === "ranking") {
+        this.transformer.forceUpdate();
+      }
     });
     node.on("dragend.selectionSync transformend.selectionSync", () => {
       if (!node.getStage?.()) return;

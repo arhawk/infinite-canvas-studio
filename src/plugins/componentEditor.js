@@ -182,6 +182,7 @@ export class ComponentEditorPlugin extends BasePlugin {
   }
 
   openForSelection() {
+    if (this.selectedNodes.length !== 1) return;
     this.open(this.selectedNodes[0]);
   }
 

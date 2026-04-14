@@ -360,9 +360,11 @@ export class ToolbarPlugin extends BasePlugin {
     const isEdit = this.app.getMode() === "edit";
     const activeToolId = isEdit ? this.app.getEditorTool() : null;
     const isEraser = activeToolId === "eraser";
+    const showFocusControls =
+      this.focusState.canSave || this.focusState.canTogglePositionMode;
     const showArrangeControls =
       activeToolId === "arrange"
-      && (this.focusState.canSave || this.focusState.canTogglePositionMode);
+      && showFocusControls;
     const showBrushControls = this.showsBrushControls(activeToolId);
     const connectCommand = this.app.commands.get("connection:connect");
     const focusSaveCommand = this.app.commands.get("focus:save-selection");
@@ -411,7 +413,6 @@ export class ToolbarPlugin extends BasePlugin {
     if (brushControlsEl) {
       brushControlsEl.hidden = !showBrushControls;
     }
-
     const colorFieldEl = strokeColorEl.closest(".toolbar__field");
     if (colorFieldEl) {
       colorFieldEl.hidden = isEraser;
@@ -424,6 +425,9 @@ export class ToolbarPlugin extends BasePlugin {
       clearStrokesEl.disabled = !isEraser || !drawingPlugin?.hasDrawings?.();
     }
 
+    connectSelectionEl.hidden = !showFocusControls;
+    saveFocusEl.hidden = !showFocusControls;
+    focusPositionModeEl.hidden = !showFocusControls;
     connectSelectionEl.disabled =
       !connectCommand?.isEnabled?.() || !this.focusState.selectedNodeId;
     connectSelectionEl.title = this.focusState.selectedNodeId

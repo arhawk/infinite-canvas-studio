@@ -7,6 +7,7 @@ const GRID_SPACING = 32;
 const GRID_COLOR = "rgba(84, 64, 43, 0.08)";
 const GRID_MAJOR_COLOR = "rgba(84, 64, 43, 0.14)";
 const GRID_MAJOR_EVERY = 4;
+const PAN_CLICK_THRESHOLD = 4;
 
 export class StageController {
   constructor(container, { onZoomChange, onViewportChange } = {}) {
@@ -285,7 +286,8 @@ export class StageController {
 
     if (
       this.panStartPointer &&
-      Math.hypot(pointer.x - this.panStartPointer.x, pointer.y - this.panStartPointer.y) >= 2
+      Math.hypot(pointer.x - this.panStartPointer.x, pointer.y - this.panStartPointer.y) >=
+        PAN_CLICK_THRESHOLD
     ) {
       this.didPanSincePointerDown = true;
     }

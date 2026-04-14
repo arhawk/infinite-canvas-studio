@@ -151,7 +151,7 @@ export class AttachmentsPlugin extends BasePlugin {
     this.buildPanel();
 
     this.listen("selection:change", ({ nodes }) => {
-      this.selectedNode = nodes?.[0] ?? null;
+      this.selectedNode = nodes?.length === 1 ? nodes[0] : null;
       if (!this.resolveAttachmentNode(this.selectedNode)) {
         this.closePanel();
       }

@@ -10,6 +10,8 @@ import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
 import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
 import { CatalogPanelPlugin } from "./plugins/catalogPanel.js";
+import { RankingPlugin } from "./plugins/ranking.js";
+import { PageComparePlugin } from "./plugins/pageCompare.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { AttachmentsPlugin } from "./plugins/attachments.js";
@@ -35,6 +37,7 @@ import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
 import { CatalogComponent } from "./component/catalog.js";
+import { RankingComponent } from "./component/ranking.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -111,6 +114,7 @@ const app = new App({
   ImageComponent,
   ConnectionComponent,
   CatalogComponent,
+  RankingComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)
@@ -118,6 +122,7 @@ app.use(SelectionPlugin);
 app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
 app.use(ComponentEditorPlugin);
+app.use(PageComparePlugin);
 app.use(ToolbarPlugin, {
   modeToggleEl: ui.modeToggle,
   drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
@@ -142,6 +147,7 @@ app.use(SidebarPlugin, {
 app.use(CatalogPanelPlugin, {
   panelEl: ui.catalogPanel,
 });
+app.use(RankingPlugin);
 app.use(MindMapBranchPlugin);
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);

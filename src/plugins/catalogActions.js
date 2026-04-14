@@ -96,10 +96,14 @@ export class CatalogActionsPlugin extends BasePlugin {
     }
 
     const selectedNodes = selectionPlugin.getSelectedNodes();
-    const selectedNode = selectedNodes[0] || null;
+    const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
 
     if (!selectedNode) {
-      notifyCatalogAction("Please select a node first.");
+      notifyCatalogAction(
+        selectedNodes.length > 1
+          ? "Please select one node before adding it to the catalog."
+          : "Please select a node first.",
+      );
       return;
     }
 
