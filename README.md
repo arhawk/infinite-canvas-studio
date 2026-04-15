@@ -7,10 +7,11 @@ For internal architecture, extension conventions, and implementation details, se
 ## Highlights
 
 - Infinite canvas pan and zoom with stage-aware coordinate conversion
-- Drag-and-drop component palette with `Page`, `Container`, `Text`, `Sticky Note`, and `Image`
+- Drag-and-drop component palette with `Page`, `Text`, `Sticky Note`, `Image`, and `Ranking Module`
 - Single-node selection, constrained transform handles, and snap guides
 - Freehand brush drawing with contextual stroke controls and whole-stroke erasing
 - Container capture/release and curved component-to-component connections
+- Legacy `Container` nodes remain loadable for compatibility, but new ones are no longer exposed in the palette
 - Saved focus views with per-node `absolute` / `relative` positioning
 - Presentation navigation via connection edge buttons and component double-click
 - Icon-first toolbar UI powered by Lucide, including icon-only undo/redo controls
@@ -64,7 +65,7 @@ pnpm exec playwright install chromium
 
 ## Feature Overview
 - Four interaction states: `presentation`, `edit.arrange`, `edit.brush`, and `edit.eraser`
-- Palette components: `Page`, `Container`, `Text`, `Sticky Note`, and `Image`
+- Palette components: `Page`, `Text`, `Sticky Note`, `Image`, and `Ranking Module`
 - Drawing tools: `Brush` for creating strokes and `Eraser` for deleting a whole stroke on contact
 - Internal connection nodes support component-to-component linking and presentation navigation
 - Local undo/redo supports add, delete, move, transform, editor changes, focus changes, connection edits, container reparenting, completed brush strokes, and erased strokes
