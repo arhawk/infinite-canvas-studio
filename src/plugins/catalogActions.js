@@ -89,6 +89,11 @@ export class CatalogActionsPlugin extends BasePlugin {
   }
 
   addSelectedNodeToCatalog() {
+    if (this.app.isReadOnly()) {
+      notifyCatalogAction("Switch to Edit before changing the catalog.");
+      return;
+    }
+
     const selectionPlugin = getSelectionPlugin(this.app);
     if (!selectionPlugin) {
       console.warn("Selection plugin not found.");
