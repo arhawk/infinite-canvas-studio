@@ -27,6 +27,10 @@ function isRankingBoxNode(node) {
   return node?.getAttr?.("componentType") === "rankingBox";
 }
 
+function isButtonNode(node) {
+  return node?.getAttr?.("componentType") === "button";
+}
+
 function readOffset(offset) {
   return {
     x: Number.isFinite(offset?.x) ? offset.x : 0,
@@ -254,7 +258,7 @@ export class ConnectionsPlugin extends BasePlugin {
 
   getAttachmentNode(node) {
     if (!node) return null;
-    return node.findOne?.(".container-bg") ?? node;
+    return node.findOne?.(".container-bg") ?? node.findOne?.(".button-bg") ?? node;
   }
 
   getNodeBounds(node) {
@@ -609,15 +613,27 @@ export class ConnectionsPlugin extends BasePlugin {
     const target = this.findNodeById(targetId);
     if (!this.isConnectable(source) || !this.isConnectable(target)) return null;
 
+    if (isButtonNode(source)) {
+      this.getConnections()
+        .filter((connectionNode) => connectionNode.getAttr("sourceNodeId") === sourceId)
+        .forEach((connectionNode) => this.removeConnection(connectionNode));
+    }
+
     const connection = await this.app.addComponent("connection", {
       sourceNodeId: sourceId,
       targetNodeId: targetId,
+      hiddenUntilEndpointSelected: isButtonNode(source),
     });
 
     if (!connection) return null;
 
     this.updateConnection(connection);
     this.layer.batchDraw();
+
+    if (isButtonNode(source)) {
+      this.app.getPlugin("selection")?.setSelected?.([source]);
+    }
+
     return connection;
   }
 

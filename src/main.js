@@ -32,6 +32,7 @@ import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
 import { StickyComponent } from "./component/sticky.js";
+import { ButtonComponent } from "./component/button.js";
 import { ImageComponent } from "./component/image.js";
 import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
@@ -112,6 +113,7 @@ const app = new App({
 [
   PageComponent,
   ContainerComponent,
+  ButtonComponent,
   TextComponent,
   StickyComponent,
   ImageComponent,

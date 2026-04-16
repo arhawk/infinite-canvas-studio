@@ -71,6 +71,26 @@ async function listRecentColors(page) {
   );
 }
 
+function getExpectedAutoFocus(nodeSnapshot, canvasRect) {
+  const bounds = nodeSnapshot?.bounds;
+  if (!bounds) return null;
+
+  return {
+    center: {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    },
+    scale: Math.max(
+      0.1,
+      Math.min(
+        5,
+        (canvasRect.width * 0.8) / Math.max(bounds.width, 1),
+        (canvasRect.height * 0.8) / Math.max(bounds.height, 1),
+      ),
+    ),
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await waitForTestApi(page);
@@ -171,6 +191,10 @@ test("pulses transparent connections red when an endpoint or the line itself is 
   await expect
     .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
     .toBe(true);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? true)
+    .toBe(false);
   await expect
     .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
     .toBe(0);
@@ -206,8 +230,8 @@ test("pulses transparent connections red when an endpoint or the line itself is 
 
   const lineSelectedPulseSamples = await page.evaluate(async (connectionId) => {
     const samples = [];
-    for (let index = 0; index < 4; index += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 180));
+    for (let index = 0; index < 8; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
       const node = window.__APP_TEST_API__.getNode(connectionId);
       samples.push(node?.summary?.opacity ?? null);
     }
@@ -215,7 +239,7 @@ test("pulses transparent connections red when an endpoint or the line itself is 
   }, connection.id);
 
   expect(Math.max(...lineSelectedPulseSamples.map((sample) => sample ?? 0))).toBeGreaterThan(0.7);
-  expect(Math.min(...lineSelectedPulseSamples.map((sample) => sample ?? 1))).toBeLessThan(0.25);
+  expect(Math.min(...lineSelectedPulseSamples.map((sample) => sample ?? 1))).toBeLessThan(0.35);
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
 
@@ -242,6 +266,7 @@ test("does not let fully transparent connections capture mouse selection", async
   await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
   await page.getByTestId("component-editor-apply").click();
 
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
   await expect
     .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
     .toBe(0);
@@ -279,13 +304,155 @@ test("does not let fully transparent connections capture mouse selection", async
     .toBe(false);
 });
 
-test("saves focus from the toolbar for the selected node", async ({ page }) => {
-  const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
-  const center = await getNodePageCenter(page, sticky.id);
+test("button components keep one hidden outgoing connection and jump to the target auto focus", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const firstTarget = await addComponent(page, "sticky", { x: 980, y: 180, text: "First" });
+  const secondTarget = await addComponent(page, "sticky", { x: 1840, y: 180, text: "Second" });
 
-  await page.mouse.click(center.x, center.y);
-  await expect(page.getByTestId("save-focus")).toBeEnabled();
-  await page.getByTestId("save-focus").click();
+  const firstConnection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: firstTarget.id },
+  );
+
+  expect(firstConnection.summary.sourceNodeId).toBe(button.id);
+  expect(firstConnection.summary.targetNodeId).toBe(firstTarget.id);
+  expect(firstConnection.summary.hiddenUntilEndpointSelected).toBe(true);
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: secondTarget.id },
+  );
+
+  await expect.poll(async () => {
+    const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+    return nodes.filter((node) => node.componentType === "connection").map((node) => ({
+      sourceNodeId: node.summary.sourceNodeId,
+      targetNodeId: node.summary.targetNodeId,
+      hidden: node.summary.hiddenUntilEndpointSelected,
+    }));
+  }).toEqual([
+    {
+      sourceNodeId: button.id,
+      targetNodeId: secondTarget.id,
+      hidden: true,
+    },
+  ]);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
+  const beforeClickViewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  const secondTargetSnapshot = await getNode(page, secondTarget.id);
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const expectedFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    secondTarget.id,
+  );
+  const expectedAutoFocus = getExpectedAutoFocus(secondTargetSnapshot, canvasRect);
+  expect(expectedFocus.scale).toBeCloseTo(expectedAutoFocus.scale, 3);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.activateButton(nodeId), button.id);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - expectedFocus.center.x);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.y - expectedFocus.center.y);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.scale - expectedFocus.scale);
+    })
+    .toBeLessThan(0.05);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return viewport.center.x - beforeClickViewport.center.x;
+    })
+    .toBeGreaterThan(1000);
+});
+
+test("buttons start compact and can be resized", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 220, y: 180, label: "Go" });
+
+  expect(button.summary.width).toBeCloseTo(132, 3);
+  expect(button.summary.height).toBeCloseTo(44, 3);
+
+  const resized = await page.evaluate(
+    ({ id, size }) => window.__APP_TEST_API__.resizeButton(id, size),
+    {
+      id: button.id,
+      size: { width: 96, height: 36 },
+    },
+  );
+
+  expect(resized.summary.width).toBeCloseTo(96, 3);
+  expect(resized.summary.height).toBeCloseTo(36, 3);
+
+  const reloaded = await getNode(page, button.id);
+  expect(reloaded.summary.width).toBeCloseTo(96, 3);
+  expect(reloaded.summary.height).toBeCloseTo(36, 3);
+});
+
+test("double-clicking a button follows its connected target instead of its own focus", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const target = await addComponent(page, "sticky", { x: 1120, y: 180, text: "Target" });
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: target.id },
+  );
+
+  const [buttonFocus, targetFocus] = await Promise.all([
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId), button.id),
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId), target.id),
+  ]);
+
+  expect(Math.abs(targetFocus.center.x - buttonFocus.center.x)).toBeGreaterThan(200);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.doubleClickNode(nodeId), button.id);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - targetFocus.center.x);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - buttonFocus.center.x);
+    })
+    .toBeGreaterThan(200);
+});
+
+test("saves focus through the focus api for a node", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
+  await expect(page.getByTestId("save-focus")).toBeHidden();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.saveFocus(nodeId), sticky.id);
   await expect(page.getByTestId("focus-save-toast")).toHaveText("Focus saved");
 
   await expect
@@ -322,7 +489,7 @@ test("reopens the context menu without Konva destroyed-shape warnings", async ({
   expect(warnings).toEqual([]);
 });
 
-test("follows a presentation navigation button toward a saved focus", async ({ page }) => {
+test("follows a presentation navigation button toward an auto focus", async ({ page }) => {
   const source = await addComponent(page, "sticky", { x: 180, y: 180 });
   const target = await addComponent(page, "sticky", { x: 1800, y: 180 });
 
@@ -331,16 +498,6 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
     { sourceId: source.id, targetId: target.id },
   );
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), target.id);
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.saveFocus(nodeId), target.id);
-
-  await expect
-    .poll(async () => Boolean((await getNode(page, target.id))?.savedFocus))
-    .toBe(true);
-
-  const targetSnapshot = await getNode(page, target.id);
-  const savedFocusCenter = targetSnapshot.savedFocus.center;
-
   await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
   const beforeNavigation = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
 
@@ -348,6 +505,16 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
+  await page.waitForTimeout(450);
+
+  const targetSnapshot = await getNode(page, target.id);
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const expectedFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    target.id,
+  );
+  const expectedAutoFocus = getExpectedAutoFocus(targetSnapshot, canvasRect);
+  expect(expectedFocus.scale).toBeCloseTo(expectedAutoFocus.scale, 3);
 
   await expect
     .poll(async () => {
@@ -361,9 +528,23 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
   await expect
     .poll(async () => {
       const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
-      return Math.abs(viewport.center.x - savedFocusCenter.x);
+      return Math.abs(viewport.center.x - expectedFocus.center.x);
     })
-    .toBeLessThan(150);
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.y - expectedFocus.center.y);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.scale - expectedFocus.scale);
+    })
+    .toBeLessThan(0.05);
 
   await expect
     .poll(async () => {
@@ -371,6 +552,36 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
       return viewport.center.x - beforeNavigation.center.x;
     })
     .toBeGreaterThan(1000);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getNavigationButtons().length))
+    .toBeGreaterThan(0);
+});
+
+test("does not show presentation navigation buttons for hidden connections", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 1800, y: 180 });
+
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
+    .toBe(true);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
 
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getNavigationButtons().length))

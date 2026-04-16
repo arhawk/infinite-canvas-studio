@@ -58,6 +58,9 @@ function getNodeDisplayTitle(node) {
   if (componentType === "page" || componentType === "container") {
     return node.findOne(".container-label")?.text()?.trim() || (componentType === "page" ? "Page" : "Container");
   }
+  if (componentType === "button") {
+    return node.findOne(".button-label")?.text()?.trim() || "Button";
+  }
   if (componentType === "image") return "Image";
   if (componentType === "catalog") return "Catalog";
 

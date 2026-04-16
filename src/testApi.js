@@ -7,7 +7,7 @@ function getNodeById(app, id) {
 }
 
 function getNodeBounds(app, node) {
-  const anchorNode = node?.findOne?.(".container-bg") ?? node;
+  const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
   return anchorNode?.getClientRect({ relativeTo: app.stage }) ?? null;
 }
 
@@ -42,6 +42,16 @@ function getNodeSummary(node) {
     return {
       label: node.findOne(".container-label")?.text() ?? "",
       stroke: node.findOne(".container-bg")?.stroke() ?? null,
+    };
+  }
+
+  if (componentType === "button") {
+    return {
+      label: node.findOne(".button-label")?.text() ?? "",
+      fill: node.findOne(".button-bg")?.fill() ?? null,
+      stroke: node.findOne(".button-bg")?.stroke() ?? null,
+      width: node.findOne(".button-bg")?.width() ?? node.width?.() ?? null,
+      height: node.findOne(".button-bg")?.height() ?? node.height?.() ?? null,
     };
   }
 
@@ -334,6 +344,29 @@ export function setupAppTestApi(app) {
       app.events.emit("node:changed", { node });
       return serializeNode(app, node);
     },
+    resizeButton: (id, size) => {
+      const node = getNodeById(app, id);
+      const background = node?.findOne?.(".button-bg");
+      if (
+        node?.getAttr?.("componentType") !== "button" ||
+        !Number.isFinite(size?.width) ||
+        !Number.isFinite(size?.height) ||
+        !Number.isFinite(background?.width?.()) ||
+        !Number.isFinite(background?.height?.())
+      ) {
+        return null;
+      }
+
+      app.events.emit("node:change:start", { node });
+      node.scale({
+        x: size.width / background.width(),
+        y: size.height / background.height(),
+      });
+      node.fire("transform", { type: "transform" });
+      node.getLayer()?.batchDraw();
+      app.events.emit("node:changed", { node });
+      return serializeNode(app, node);
+    },
     deleteNode: (id) => {
       const node = getNodeById(app, id);
       if (!node?.getStage?.()) return false;
@@ -358,6 +391,29 @@ export function setupAppTestApi(app) {
       const focusPlugin = getPlugin(app, "focus-navigation");
       const node = getNodeById(app, id);
       return focusPlugin?.saveFocus?.(node) ?? false;
+    },
+    getComputedFocus: (id) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      const node = getNodeById(app, id);
+      const focus = focusPlugin?.getSavedFocus?.(node) ?? null;
+      return focus ? JSON.parse(JSON.stringify(focus)) : null;
+    },
+    activateButton: (id) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      const node = getNodeById(app, id);
+      return focusPlugin?.navigateButtonTarget?.(node) ?? false;
+    },
+    doubleClickNode: (id) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      const node = getNodeById(app, id);
+      if (!focusPlugin || !node) return false;
+
+      focusPlugin.handleStageDoubleClick({
+        target: node,
+        evt: { button: 0 },
+        cancelBubble: false,
+      });
+      return true;
     },
     getNavigationButtons: () => {
       const focusPlugin = getPlugin(app, "focus-navigation");

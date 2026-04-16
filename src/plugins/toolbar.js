@@ -374,19 +374,15 @@ export class ToolbarPlugin extends BasePlugin {
     const isEdit = this.app.getMode() === "edit";
     const activeToolId = isEdit ? this.app.getEditorTool() : null;
     const isEraser = activeToolId === "eraser";
-    const showFocusControls =
-      this.focusState.canSave || this.focusState.canTogglePositionMode;
+    const hasSelectedArrangeNode = Boolean(this.focusState.selectedNodeId);
     const showArrangeControls =
       activeToolId === "arrange"
-      && showFocusControls;
+      && hasSelectedArrangeNode;
     const showBrushControls = this.showsBrushControls(activeToolId);
     const connectCommand = this.app.commands.get("connection:connect");
-    const focusSaveCommand = this.app.commands.get("focus:save-selection");
-    const focusModeCommand = this.app.commands.get("focus:position-mode:set");
     const drawingPlugin = this.getDrawingPlugin();
     const isPresentation = !isEdit;
     const drawLayerVisible = drawingPlugin?.isDrawLayerVisible?.() !== false;
-    const isRelativeFocus = this.focusState.positionMode === "relative";
 
     document.body.classList.toggle("is-edit-mode", isEdit);
     document.body.classList.toggle("is-presentation-mode", !isEdit);
@@ -439,22 +435,16 @@ export class ToolbarPlugin extends BasePlugin {
       clearStrokesEl.disabled = !isEraser || !drawingPlugin?.hasDrawings?.();
     }
 
-    connectSelectionEl.hidden = !showFocusControls;
-    saveFocusEl.hidden = !showFocusControls;
-    focusPositionModeEl.hidden = !showFocusControls;
+    connectSelectionEl.hidden = !hasSelectedArrangeNode;
+    saveFocusEl.hidden = true;
+    focusPositionModeEl.hidden = true;
     connectSelectionEl.disabled =
       !connectCommand?.isEnabled?.() || !this.focusState.selectedNodeId;
     connectSelectionEl.title = this.focusState.selectedNodeId
       ? "Select another component on the canvas to create a connection"
       : "Select a component first";
-    saveFocusEl.disabled = !focusSaveCommand?.isEnabled?.() || !this.focusState.canSave;
-    focusPositionModeEl.disabled =
-      !focusModeCommand?.isEnabled?.() || !this.focusState.canTogglePositionMode;
-    focusPositionModeEl.setAttribute("aria-pressed", String(isRelativeFocus));
-    focusPositionModeEl.textContent = isRelativeFocus ? "Focus: Relative" : "Focus: Absolute";
-    focusPositionModeEl.title = isRelativeFocus
-      ? "Focus positioning follows the component when it moves"
-      : "Focus positioning stays fixed in canvas space";
+    saveFocusEl.disabled = true;
+    focusPositionModeEl.disabled = true;
 
     const brushControlsEnabled =
       isEdit && this.showsBrushControls(activeToolId);
@@ -464,4 +454,3 @@ export class ToolbarPlugin extends BasePlugin {
     strokeWidthValueEl.disabled = !brushControlsEnabled;
   }
 }
-
