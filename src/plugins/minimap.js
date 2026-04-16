@@ -13,6 +13,7 @@ export class MinimapPlugin extends BasePlugin {
     this.mainLayer = this.app.mainLayer;
     this.minimapTransform = null;
     this.laserTimeout = null;
+    this.collapsed = false;
 
     this.buildPanel();
 
@@ -36,11 +37,24 @@ export class MinimapPlugin extends BasePlugin {
     this.panelEl.className = "minimap";
     this.panelEl.dataset.testid = "minimap";
 
-    // Header label
+    // Header row (label + toggle button)
+    const headerRow = document.createElement("div");
+    headerRow.className = "minimap__header-row";
+
     const header = document.createElement("div");
     header.className = "minimap__header";
     header.textContent = "Overview";
-    this.panelEl.appendChild(header);
+    headerRow.appendChild(header);
+
+    this.toggleBtn = document.createElement("button");
+    this.toggleBtn.className = "minimap__toggle-btn";
+    this.toggleBtn.setAttribute("aria-label", "Collapse minimap");
+    this.toggleBtn.innerHTML =
+      '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    this.listenDom(this.toggleBtn, "click", () => this.toggleCollapse());
+    headerRow.appendChild(this.toggleBtn);
+
+    this.panelEl.appendChild(headerRow);
 
     // Canvas wrapper (for relative positioning of the laser dot)
     const wrapper = document.createElement("div");
@@ -65,6 +79,21 @@ export class MinimapPlugin extends BasePlugin {
     // Append to .board-shell (parent of the Konva canvas container)
     const boardShell = this.stage.container().parentElement;
     boardShell.appendChild(this.panelEl);
+  }
+
+  // ── Collapse / expand ────────────────────────────────────────────────────
+
+  toggleCollapse() {
+    this.collapsed = !this.collapsed;
+    this.panelEl.classList.toggle("is-collapsed", this.collapsed);
+    this.toggleBtn.setAttribute(
+      "aria-label",
+      this.collapsed ? "Expand minimap" : "Collapse minimap",
+    );
+    if (!this.collapsed) {
+      // Resume rendering now that the panel is visible again
+      this.update();
+    }
   }
 
   // ── Coordinate helpers ────────────────────────────────────────────────────
@@ -135,6 +164,8 @@ export class MinimapPlugin extends BasePlugin {
   // ── Drawing ───────────────────────────────────────────────────────────────
 
   update() {
+    if (this.collapsed) return;
+
     const ctx = this.canvas.getContext("2d");
     const w = MINIMAP_W;
     const h = MINIMAP_H;
@@ -200,6 +231,7 @@ export class MinimapPlugin extends BasePlugin {
   // ── Laser dot ─────────────────────────────────────────────────────────────
 
   onSelectionChange(nodes) {
+    if (this.collapsed) return;
     if (!nodes?.length) return;
 
     // Pick the first non-connection selectable node

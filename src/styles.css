@@ -1802,6 +1802,12 @@ body.is-edit-mode .mode-toggle__label {
   user-select: none;
 }
 
+.minimap__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .minimap__header {
   font-size: 0.65rem;
   font-weight: 700;
@@ -1811,12 +1817,50 @@ body.is-edit-mode .mode-toggle__label {
   line-height: 1;
 }
 
+.minimap__toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.minimap__toggle-btn:hover {
+  background: rgba(61, 47, 32, 0.08);
+  color: var(--text, #3d2f20);
+}
+
+.minimap__toggle-btn svg {
+  transition: transform 0.28s ease;
+}
+
+.minimap.is-collapsed .minimap__toggle-btn svg {
+  transform: rotate(-90deg);
+}
+
 .minimap__canvas-wrap {
   position: relative;
   border-radius: 0.5rem;
   overflow: hidden;
   background: rgba(61, 47, 32, 0.03);
   border: 1px solid rgba(61, 47, 32, 0.08);
+  max-height: 200px;
+  opacity: 1;
+  transition: max-height 0.28s ease, opacity 0.28s ease;
+}
+
+.minimap.is-collapsed .minimap__canvas-wrap {
+  max-height: 0;
+  opacity: 0;
+  border-color: transparent;
 }
 
 .minimap__canvas {
