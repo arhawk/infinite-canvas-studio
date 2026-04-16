@@ -1372,6 +1372,7 @@ body.is-edit-mode .mode-toggle__label {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  cursor: grab;
 }
 
 .calc-widget__title {

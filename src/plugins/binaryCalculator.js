@@ -196,6 +196,58 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     eqBtn.textContent = "=";
     this.listenDom(eqBtn, "click", () => this._handleButton({ type: "equals" }));
     container.append(eqBtn);
+
+    this._setupDrag(header);
+  }
+
+  // ── Drag ────────────────────────────────────────────────────────────────────
+
+  _setupDrag(header) {
+    let dragging = false;
+    let startX, startY, startLeft, startTop;
+
+    this.listenDom(header, "mousedown", (e) => {
+      if (e.target.closest(".calc-widget__close")) return;
+      e.preventDefault();
+
+      const parentEl = this._widget.offsetParent ?? document.body;
+      const rect = this._widget.getBoundingClientRect();
+      const parentRect = parentEl.getBoundingClientRect();
+
+      startLeft = rect.left - parentRect.left;
+      startTop  = rect.top  - parentRect.top;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      // Switch from CSS bottom/left to inline top/left so we can move freely
+      this._widget.style.left   = startLeft + "px";
+      this._widget.style.top    = startTop  + "px";
+      this._widget.style.bottom = "auto";
+      this._widget.style.right  = "auto";
+
+      header.style.cursor = "grabbing";
+      dragging = true;
+    });
+
+    this.listenDom(document, "mousemove", (e) => {
+      if (!dragging) return;
+
+      const parentEl = this._widget.offsetParent ?? document.body;
+      const maxLeft = parentEl.clientWidth  - this._widget.offsetWidth;
+      const maxTop  = parentEl.clientHeight - this._widget.offsetHeight;
+
+      const newLeft = Math.max(0, Math.min(maxLeft, startLeft + (e.clientX - startX)));
+      const newTop  = Math.max(0, Math.min(maxTop,  startTop  + (e.clientY - startY)));
+
+      this._widget.style.left = newLeft + "px";
+      this._widget.style.top  = newTop  + "px";
+    });
+
+    this.listenDom(document, "mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      header.style.cursor = "";
+    });
   }
 
   // ── State machine ───────────────────────────────────────────────────────────
