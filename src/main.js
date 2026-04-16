@@ -21,7 +21,6 @@ import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
-import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { TermDefinitionLinkPlugin } from "./plugins/termDefinitionLink.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import {
@@ -93,13 +92,6 @@ const ui = {
   centerMapBtn: getRequiredElement("#center-map-btn"),
   zoomInBtn: document.getElementById("zoom-in-btn"),
   zoomOutBtn: document.getElementById("zoom-out-btn"),
-  annotatorToggle: getRequiredElement("#annotator-toggle"),
-  annotatorControls: getRequiredElement("#annotator-controls"),
-  annotatorColor: getRequiredElement("#annotator-color"),
-  annotatorShape: getRequiredElement("#annotator-shape"),
-  annotatorWidth: getRequiredElement("#annotator-width"),
-  annotatorWidthValue: getRequiredElement("#annotator-width-value"),
-  annotatorClear: getRequiredElement("#annotator-clear"),
 };
 
 renderIcons(ui.sidebarBrand, {
@@ -196,15 +188,6 @@ app.use(CenterMapPlugin, {
   centerMapEl: ui.centerMapBtn,
   zoomInEl: ui.zoomInBtn,
   zoomOutEl: ui.zoomOutBtn,
-});
-app.use(AnnotatorPlugin, {
-  toggleEl: ui.annotatorToggle,
-  controlsEl: ui.annotatorControls,
-  colorEl: ui.annotatorColor,
-  shapeEl: ui.annotatorShape,
-  widthEl: ui.annotatorWidth,
-  widthValueEl: ui.annotatorWidthValue,
-  clearEl: ui.annotatorClear,
 });
 
 app.start();

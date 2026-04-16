@@ -41,17 +41,6 @@
           </div>
           <div id="timer-controls" class="toolbar__cluster" data-testid="timer-controls">
             <button
-              id="annotator-toggle"
-              class="tool-button"
-              type="button"
-              aria-label="Annotator"
-              title="Annotator tool"
-              aria-pressed="false"
-              data-testid="annotator-toggle"
-            >
-              <i data-lucide="highlighter" aria-hidden="true"></i>
-            </button>
-            <button
               id="timer-toggle"
               class="tool-button"
               type="button"
@@ -188,35 +177,6 @@
             >
               Focus: Absolute
             </button>
-          </div>
-          <div
-            id="annotator-controls"
-            class="toolbar__cluster toolbar__tool-panel"
-            data-testid="annotator-controls"
-            hidden
-          >
-            <label class="toolbar__field">
-              <span>Color</span>
-              <input id="annotator-color" type="color" value="#f7c948" data-testid="annotator-color" />
-            </label>
-            <div class="toolbar__field">
-              <span>Shape</span>
-              <select id="annotator-shape" class="ghost-select" data-testid="annotator-shape">
-                <option value="highlight">Highlight</option>
-                <option value="straight">Straight</option>
-                <option value="wavy">Wavy</option>
-                <option value="dashed">Dashed</option>
-                <option value="circle">Circle</option>
-                <option value="arrow">Arrow</option>
-                <option value="eraser">🧹 Eraser</option>
-              </select>
-            </div>
-            <label class="toolbar__field toolbar__field--slider">
-              <span>Width</span>
-              <input id="annotator-width" type="range" min="1" max="16" value="3" data-testid="annotator-width" />
-              <output id="annotator-width-value" data-testid="annotator-width-value">3</output>
-            </label>
-            <button id="annotator-clear" class="ghost-button" type="button" data-testid="annotator-clear">Clear</button>
           </div>
           <div
             id="brush-controls"
