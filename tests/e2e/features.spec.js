@@ -29,6 +29,18 @@ async function getNodePageCenter(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNodePageCenter(nodeId), id);
 }
 
+async function canvasPointToPage(page, point) {
+  const [rect, viewport] = await Promise.all([
+    page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect()),
+    page.evaluate(() => window.__APP_TEST_API__.getViewportState()),
+  ]);
+
+  return {
+    x: rect.left + point.x * viewport.scale + viewport.position.x,
+    y: rect.top + point.y * viewport.scale + viewport.position.y,
+  };
+}
+
 async function listCatalogItems(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listCatalogItems());
 }
@@ -37,6 +49,46 @@ async function waitForPaint(page) {
   await page.evaluate(() => new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   }));
+}
+
+async function drawStroke(page, { xRatio = 0.45, yRatio = 0.45, dx = 80, dy = 36 } = {}) {
+  const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const start = {
+    x: rect.left + rect.width * xRatio,
+    y: rect.top + rect.height * yRatio,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + dx, start.y + dy, { steps: 6 });
+  await page.mouse.up();
+  await waitForPaint(page);
+}
+
+async function listRecentColors(page) {
+  return page.getByTestId("recent-colors").locator(".recent-color-swatch").evaluateAll(
+    (items) => items.map((item) => item.dataset.color),
+  );
+}
+
+function getExpectedAutoFocus(nodeSnapshot, canvasRect) {
+  const bounds = nodeSnapshot?.bounds;
+  if (!bounds) return null;
+
+  return {
+    center: {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    },
+    scale: Math.max(
+      0.1,
+      Math.min(
+        5,
+        (canvasRect.width * 0.8) / Math.max(bounds.width, 1),
+        (canvasRect.height * 0.8) / Math.max(bounds.height, 1),
+      ),
+    ),
+  };
 }
 
 test.beforeEach(async ({ page }) => {
@@ -120,13 +172,287 @@ test("creates a connection from the toolbar and updates it when a node moves", a
     .not.toBe(JSON.stringify(originalPoints));
 });
 
-test("saves focus from the toolbar for the selected node", async ({ page }) => {
-  const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
-  const center = await getNodePageCenter(page, sticky.id);
+test("pulses transparent connections red when an endpoint or the line itself is selected", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 560, y: 220 });
+  const other = await addComponent(page, "sticky", { x: 860, y: 220 });
 
-  await page.mouse.click(center.x, center.y);
-  await expect(page.getByTestId("save-focus")).toBeEnabled();
-  await page.getByTestId("save-focus").click();
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+
+  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
+    .toBe(true);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? true)
+    .toBe(false);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
+    .toBe(0);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), source.id);
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? false)
+    .toBe(true);
+
+  const pulseSamples = await page.evaluate(async (connectionId) => {
+    const samples = [];
+    for (let index = 0; index < 6; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 180));
+      const node = window.__APP_TEST_API__.getNode(connectionId);
+      samples.push({
+        stroke: node?.summary?.stroke ?? null,
+        opacity: node?.summary?.opacity ?? null,
+      });
+    }
+    return samples;
+  }, connection.id);
+
+  expect(pulseSamples.some((sample) => sample.stroke === "#ef4444")).toBe(true);
+  expect(Math.max(...pulseSamples.map((sample) => sample.opacity ?? 0))).toBeGreaterThan(0.7);
+  expect(Math.min(...pulseSamples.map((sample) => sample.opacity ?? 1))).toBeLessThan(0.25);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? false)
+    .toBe(true);
+
+  const lineSelectedPulseSamples = await page.evaluate(async (connectionId) => {
+    const samples = [];
+    for (let index = 0; index < 8; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      const node = window.__APP_TEST_API__.getNode(connectionId);
+      samples.push(node?.summary?.opacity ?? null);
+    }
+    return samples;
+  }, connection.id);
+
+  expect(Math.max(...lineSelectedPulseSamples.map((sample) => sample ?? 0))).toBeGreaterThan(0.7);
+  expect(Math.min(...lineSelectedPulseSamples.map((sample) => sample ?? 1))).toBeLessThan(0.35);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? true)
+    .toBe(false);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
+    .toBe(0);
+});
+
+test("does not let fully transparent connections capture mouse selection", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 560, y: 220 });
+  const other = await addComponent(page, "sticky", { x: 860, y: 220 });
+
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
+    .toBe(0);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
+    other.id,
+  ]);
+
+  const connectionCurvePoint = await page.evaluate((connectionId) => {
+    const node = window.__APP_TEST_API__.getNode(connectionId);
+    const points = node?.summary?.points ?? [];
+    if (points.length !== 8) return null;
+    const t = 0.5;
+
+    const cubicPoint = (t, p0, p1, p2, p3) => {
+      const mt = 1 - t;
+      return (mt ** 3) * p0 + 3 * (mt ** 2) * t * p1 + 3 * mt * (t ** 2) * p2 + (t ** 3) * p3;
+    };
+
+    const canvasPoint = {
+      x: cubicPoint(t, points[0], points[2], points[4], points[6]),
+      y: cubicPoint(t, points[1], points[3], points[5], points[7]),
+    };
+
+    return window.__APP_TEST_API__.canvasToPagePoint(canvasPoint);
+  }, connection.id);
+
+  await page.mouse.click(connectionCurvePoint.x, connectionCurvePoint.y);
+
+  await expect
+    .poll(async () => page.evaluate((connectionId) => (
+      window.__APP_TEST_API__.getSelectedNodeIds().includes(connectionId)
+    ), connection.id))
+    .toBe(false);
+});
+
+test("button components keep one hidden outgoing connection and jump to the target auto focus", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const firstTarget = await addComponent(page, "sticky", { x: 980, y: 180, text: "First" });
+  const secondTarget = await addComponent(page, "sticky", { x: 1840, y: 180, text: "Second" });
+
+  const firstConnection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: firstTarget.id },
+  );
+
+  expect(firstConnection.summary.sourceNodeId).toBe(button.id);
+  expect(firstConnection.summary.targetNodeId).toBe(firstTarget.id);
+  expect(firstConnection.summary.hiddenUntilEndpointSelected).toBe(true);
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: secondTarget.id },
+  );
+
+  await expect.poll(async () => {
+    const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+    return nodes.filter((node) => node.componentType === "connection").map((node) => ({
+      sourceNodeId: node.summary.sourceNodeId,
+      targetNodeId: node.summary.targetNodeId,
+      hidden: node.summary.hiddenUntilEndpointSelected,
+    }));
+  }).toEqual([
+    {
+      sourceNodeId: button.id,
+      targetNodeId: secondTarget.id,
+      hidden: true,
+    },
+  ]);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
+  const beforeClickViewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  const secondTargetSnapshot = await getNode(page, secondTarget.id);
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const expectedFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    secondTarget.id,
+  );
+  const expectedAutoFocus = getExpectedAutoFocus(secondTargetSnapshot, canvasRect);
+  expect(expectedFocus.scale).toBeCloseTo(expectedAutoFocus.scale, 3);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.activateButton(nodeId), button.id);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - expectedFocus.center.x);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.y - expectedFocus.center.y);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.scale - expectedFocus.scale);
+    })
+    .toBeLessThan(0.05);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return viewport.center.x - beforeClickViewport.center.x;
+    })
+    .toBeGreaterThan(1000);
+});
+
+test("buttons start compact and can be resized", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 220, y: 180, label: "Go" });
+
+  expect(button.summary.width).toBeCloseTo(132, 3);
+  expect(button.summary.height).toBeCloseTo(44, 3);
+
+  const resized = await page.evaluate(
+    ({ id, size }) => window.__APP_TEST_API__.resizeButton(id, size),
+    {
+      id: button.id,
+      size: { width: 96, height: 36 },
+    },
+  );
+
+  expect(resized.summary.width).toBeCloseTo(96, 3);
+  expect(resized.summary.height).toBeCloseTo(36, 3);
+
+  const reloaded = await getNode(page, button.id);
+  expect(reloaded.summary.width).toBeCloseTo(96, 3);
+  expect(reloaded.summary.height).toBeCloseTo(36, 3);
+});
+
+test("double-clicking a button follows its connected target instead of its own focus", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const target = await addComponent(page, "sticky", { x: 1120, y: 180, text: "Target" });
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: target.id },
+  );
+
+  const [buttonFocus, targetFocus] = await Promise.all([
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId), button.id),
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId), target.id),
+  ]);
+
+  expect(Math.abs(targetFocus.center.x - buttonFocus.center.x)).toBeGreaterThan(200);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.doubleClickNode(nodeId), button.id);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - targetFocus.center.x);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - buttonFocus.center.x);
+    })
+    .toBeGreaterThan(200);
+});
+
+test("saves focus through the focus api for a node", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
+  await expect(page.getByTestId("save-focus")).toBeHidden();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.saveFocus(nodeId), sticky.id);
   await expect(page.getByTestId("focus-save-toast")).toHaveText("Focus saved");
 
   await expect
@@ -163,7 +489,7 @@ test("reopens the context menu without Konva destroyed-shape warnings", async ({
   expect(warnings).toEqual([]);
 });
 
-test("follows a presentation navigation button toward a saved focus", async ({ page }) => {
+test("follows a presentation navigation button toward an auto focus", async ({ page }) => {
   const source = await addComponent(page, "sticky", { x: 180, y: 180 });
   const target = await addComponent(page, "sticky", { x: 1800, y: 180 });
 
@@ -172,16 +498,6 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
     { sourceId: source.id, targetId: target.id },
   );
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), target.id);
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.saveFocus(nodeId), target.id);
-
-  await expect
-    .poll(async () => Boolean((await getNode(page, target.id))?.savedFocus))
-    .toBe(true);
-
-  const targetSnapshot = await getNode(page, target.id);
-  const savedFocusCenter = targetSnapshot.savedFocus.center;
-
   await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
   const beforeNavigation = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
 
@@ -189,6 +505,16 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
+  await page.waitForTimeout(450);
+
+  const targetSnapshot = await getNode(page, target.id);
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const expectedFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    target.id,
+  );
+  const expectedAutoFocus = getExpectedAutoFocus(targetSnapshot, canvasRect);
+  expect(expectedFocus.scale).toBeCloseTo(expectedAutoFocus.scale, 3);
 
   await expect
     .poll(async () => {
@@ -202,9 +528,23 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
   await expect
     .poll(async () => {
       const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
-      return Math.abs(viewport.center.x - savedFocusCenter.x);
+      return Math.abs(viewport.center.x - expectedFocus.center.x);
     })
-    .toBeLessThan(150);
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.y - expectedFocus.center.y);
+    })
+    .toBeLessThan(4);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.scale - expectedFocus.scale);
+    })
+    .toBeLessThan(0.05);
 
   await expect
     .poll(async () => {
@@ -212,6 +552,36 @@ test("follows a presentation navigation button toward a saved focus", async ({ p
       return viewport.center.x - beforeNavigation.center.x;
     })
     .toBeGreaterThan(1000);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getNavigationButtons().length))
+    .toBeGreaterThan(0);
+});
+
+test("does not show presentation navigation buttons for hidden connections", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 1800, y: 180 });
+
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
+    .toBe(true);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
 
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getNavigationButtons().length))
@@ -254,6 +624,101 @@ test("opens the component editor and applies sticky text changes", async ({ page
       return node?.summary?.text ?? "";
     })
     .toBe("Updated from Playwright");
+});
+
+test("edits text inline and resizes the box without scaling the font", async ({ page }) => {
+  const text = await addComponent(page, "text", {
+    x: 220,
+    y: 220,
+    width: 160,
+    height: 80,
+    text: "Short text",
+    fontSize: 24,
+  });
+  const center = await getNodePageCenter(page, text.id);
+
+  await page.mouse.dblclick(center.x, center.y);
+  const inlineEditor = page.getByTestId("canvas-text-editor");
+  await expect(inlineEditor).toBeVisible();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await expect(inlineEditor).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(inlineEditor).toHaveCSS("border-top-style", "dashed");
+
+  const boundsDuringEdit = (await getNode(page, text.id)).bounds;
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.down();
+  await page.mouse.move(center.x + 60, center.y + 28, { steps: 4 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => {
+      const currentBounds = (await getNode(page, text.id)).bounds;
+      return Math.abs(currentBounds.x - boundsDuringEdit.x) + Math.abs(currentBounds.y - boundsDuringEdit.y);
+    })
+    .toBeLessThan(2);
+
+  const longText = "This inline text should wrap inside the fixed text box instead of stretching sideways.";
+  await inlineEditor.fill(longText);
+  await inlineEditor.press("Control+Enter");
+
+  await expect(inlineEditor).toHaveCount(0);
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.text ?? "")
+    .toBe(longText);
+
+  const afterEdit = await getNode(page, text.id);
+  expect(afterEdit.summary.width).toBeCloseTo(160, 1);
+  expect(afterEdit.summary.fontSize).toBe(24);
+
+  const resized = await page.evaluate(
+    ({ id }) => window.__APP_TEST_API__.resizeTextBox(id, { width: 120, height: 140 }),
+    { id: text.id },
+  );
+
+  expect(resized.summary.width).toBeCloseTo(120, 1);
+  expect(resized.summary.height).toBeCloseTo(140, 1);
+  expect(resized.summary.fontSize).toBe(24);
+  expect(resized.summary.scaleX).toBeCloseTo(1, 4);
+  expect(resized.summary.scaleY).toBeCloseTo(1, 4);
+});
+
+test("resizes a text box after it is captured by a page", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  const text = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    width: 160,
+    height: 80,
+    text: "Text inside page",
+    fontSize: 24,
+  });
+
+  await expect.poll(async () => (await getNode(page, text.id))?.parentId).toBe(pageNode.id);
+
+  const center = await getNodePageCenter(page, text.id);
+  await page.mouse.click(center.x, center.y);
+  await waitForPaint(page);
+
+  const before = await getNode(page, text.id);
+  const rightAnchor = await canvasPointToPage(page, {
+    x: before.bounds.x + before.bounds.width,
+    y: before.bounds.y + before.bounds.height / 2,
+  });
+
+  await page.mouse.move(rightAnchor.x, rightAnchor.y);
+  await page.mouse.down();
+  await page.mouse.move(rightAnchor.x + 90, rightAnchor.y, { steps: 8 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.width ?? 0)
+    .toBeGreaterThan(before.summary.width + 40);
+
+  const after = await getNode(page, text.id);
+  expect(after.parentId).toBe(pageNode.id);
+  expect(after.summary.fontSize).toBe(24);
+  expect(after.summary.scaleX).toBeCloseTo(1, 4);
+  expect(after.summary.scaleY).toBeCloseTo(1, 4);
 });
 
 test("asks for confirmation before loading over current content", async ({ page }) => {
@@ -363,6 +828,97 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
     .toBeLessThan(2);
 });
 
+test("keeps page ranking box items as duplicate text references", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  const textNode = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    text: "First ranked idea",
+  });
+
+  const rankingBox = await page.evaluate(
+    (pageId) => window.__APP_TEST_API__.createRankingBox(pageId),
+    pageNode.id,
+  );
+  expect(rankingBox.componentType).toBe("rankingBox");
+
+  await page.evaluate(
+    ({ rankingBoxId, textId }) => {
+      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
+      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
+    },
+    { rankingBoxId: rankingBox.id, textId: textNode.id },
+  );
+
+  await expect.poll(async () => {
+    const node = await getNode(page, rankingBox.id);
+    return node.summary.items.map((item) => item.sourceNodeId);
+  }).toEqual([textNode.id, textNode.id]);
+
+  const originalTextBounds = (await getNode(page, textNode.id)).bounds;
+  const firstItemId = (await getNode(page, rankingBox.id)).summary.items[0].id;
+  await page.evaluate(
+    ({ rankingBoxId, itemId }) => (
+      window.__APP_TEST_API__.removeRankingBoxItem(rankingBoxId, itemId)
+    ),
+    {
+      rankingBoxId: rankingBox.id,
+      itemId: firstItemId,
+    },
+  );
+  await expect.poll(async () => {
+    const node = await getNode(page, rankingBox.id);
+    return node.summary.items.length;
+  }).toBe(1);
+
+  await page.evaluate(
+    ({ rankingBoxId, textId }) => window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId),
+    { rankingBoxId: rankingBox.id, textId: textNode.id },
+  );
+  await page.evaluate(
+    ({ rankingBoxId, itemId }) => (
+      window.__APP_TEST_API__.reorderRankingBoxItem(rankingBoxId, itemId, 0)
+    ),
+    {
+      rankingBoxId: rankingBox.id,
+      itemId: (await getNode(page, rankingBox.id)).summary.items[1].id,
+    },
+  );
+
+  await expect
+    .poll(async () => (await getNode(page, textNode.id)).bounds.x)
+    .toBeCloseTo(originalTextBounds.x, 1);
+
+  await page.evaluate((textId) => window.__APP_TEST_API__.deleteNode(textId), textNode.id);
+  await expect.poll(async () => {
+    const node = await getNode(page, rankingBox.id);
+    return node.summary.items;
+  }).toEqual([]);
+
+  const replacementText = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    text: "First ranked idea",
+  });
+  await page.evaluate(
+    ({ rankingBoxId, textId }) => {
+      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
+      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
+    },
+    { rankingBoxId: rankingBox.id, textId: replacementText.id },
+  );
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+  await waitForPaint(page);
+
+  await expect.poll(async () => {
+    const ranking = (await page.evaluate(() => window.__APP_TEST_API__.listNodes()))
+      .find((node) => node.componentType === "rankingBox");
+    return ranking?.summary.items.map((item) => item.renderedText);
+  }).toEqual(["First ranked idea", "First ranked idea"]);
+});
+
 test("undoes and redoes a node move", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 200, y: 200 });
   const beforeMove = await getNode(page, sticky.id);
@@ -394,9 +950,13 @@ test("keeps drawing tool settings separate and restores recent colors per tool",
   await page.getByTestId("tool-button-pen").click();
   await strokeColor.fill("#ff0000");
   await strokeWidth.fill("6");
+  await expect(page.getByTestId("recent-color-ff0000")).toHaveCount(0);
+  await drawStroke(page);
 
   await strokeColor.fill("#00ff00");
+  await expect(page.getByTestId("recent-color-00ff00")).toHaveCount(0);
   await strokeColor.fill("#0000ff");
+  await drawStroke(page, { xRatio: 0.52, yRatio: 0.5, dx: 70, dy: -30 });
 
   await page.getByTestId("tool-button-pencil").click();
   await expect(strokeColor).toHaveValue("#4a4a4a");
@@ -404,13 +964,15 @@ test("keeps drawing tool settings separate and restores recent colors per tool",
 
   await strokeColor.fill("#123456");
   await strokeWidth.fill("2");
+  await expect(page.getByTestId("recent-color-123456")).toHaveCount(0);
+  await drawStroke(page, { xRatio: 0.38, yRatio: 0.55, dx: 70, dy: 24 });
 
   await page.getByTestId("tool-button-pen").click();
   await expect(strokeColor).toHaveValue("#0000ff");
   await expect(strokeWidth).toHaveValue("6");
 
   await expect(page.getByTestId("recent-color-0000ff")).toBeVisible();
-  await expect(page.getByTestId("recent-color-00ff00")).toBeVisible();
+  await expect(page.getByTestId("recent-color-00ff00")).toHaveCount(0);
   await expect(page.getByTestId("recent-color-ff0000")).toBeVisible();
 
   await page.getByTestId("tool-button-pencil").click();
@@ -423,5 +985,19 @@ test("keeps drawing tool settings separate and restores recent colors per tool",
   await page.getByTestId("tool-button-pen").click();
   await page.getByTestId("recent-color-ff0000").click();
   await expect(strokeColor).toHaveValue("#ff0000");
+  await expect.poll(() => listRecentColors(page)).toEqual([
+    "#ff0000",
+    "#0000ff",
+    "#1f6feb",
+  ]);
 });
 
+test("hides color controls when the eraser is active", async ({ page }) => {
+  await page.getByTestId("tool-button-pen").click();
+  await expect(page.getByTestId("stroke-color")).toBeVisible();
+  await expect(page.getByTestId("recent-colors")).toBeVisible();
+
+  await page.getByTestId("tool-button-eraser").click();
+  await expect(page.getByTestId("stroke-color")).toBeHidden();
+  await expect(page.getByTestId("recent-colors")).toBeHidden();
+});

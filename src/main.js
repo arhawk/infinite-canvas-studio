@@ -10,7 +10,7 @@ import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
 import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
 import { CatalogPanelPlugin } from "./plugins/catalogPanel.js";
-import { RankingPlugin } from "./plugins/ranking.js";
+import { RankingBoxPlugin } from "./plugins/rankingBox.js";
 import { PageComparePlugin } from "./plugins/pageCompare.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
@@ -32,12 +32,13 @@ import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
 import { StickyComponent } from "./component/sticky.js";
+import { ButtonComponent } from "./component/button.js";
 import { ImageComponent } from "./component/image.js";
 import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
 import { CatalogComponent } from "./component/catalog.js";
-import { RankingComponent } from "./component/ranking.js";
+import { RankingBoxComponent } from "./component/rankingBox.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -112,12 +113,13 @@ const app = new App({
 [
   PageComponent,
   ContainerComponent,
+  ButtonComponent,
   TextComponent,
   StickyComponent,
   ImageComponent,
   ConnectionComponent,
   CatalogComponent,
-  RankingComponent,
+  RankingBoxComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)
@@ -151,7 +153,7 @@ app.use(CatalogPanelPlugin, {
   panelEl: ui.catalogPanel,
   toggleEl: ui.catalogToggle,
 });
-app.use(RankingPlugin);
+app.use(RankingBoxPlugin);
 app.use(MindMapBranchPlugin);
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);

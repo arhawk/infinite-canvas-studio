@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { BaseComponent, NumberEditorField } from "../../../src/core/baseClasses.js";
+import {
+  BaseComponent,
+  CheckboxEditorField,
+  NumberEditorField,
+} from "../../../src/core/baseClasses.js";
 
 class FakeNode {
   constructor({ name = "", draggable = true, x = 0, y = 0, label = "" } = {}) {
@@ -204,6 +208,19 @@ describe("base classes", () => {
     expect(field.normalize("18")).toBe(18);
     expect(field.normalize("40")).toBe(24);
     expect(field.normalize("oops", {})).toBe(16);
+  });
+
+  it("normalizes checkbox fields to booleans", () => {
+    const field = new CheckboxEditorField({
+      id: "hiddenUntilEndpointSelected",
+      label: "Hide Until Endpoint Selected",
+    });
+
+    expect(field.normalize(true)).toBe(true);
+    expect(field.normalize("true")).toBe(true);
+    expect(field.normalize("on")).toBe(true);
+    expect(field.normalize(false)).toBe(false);
+    expect(field.normalize("0")).toBe(false);
   });
 
   it("serializes and restores attachment state for attachment-enabled components", async () => {

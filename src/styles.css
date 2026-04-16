@@ -55,6 +55,23 @@ textarea {
   font: inherit;
 }
 
+.canvas-text-editor {
+  position: fixed;
+  z-index: 70;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  border: 1px dashed #2563eb;
+  border-radius: 4px;
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+  caret-color: #2563eb;
+  resize: none;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .app-shell {
   display: flex;
   height: 100dvh;
@@ -581,7 +598,18 @@ h2 {
   gap: 0.5rem;
 }
 
+.toolbar__cluster--end {
+  margin-left: auto;
+  padding-left: 0.9rem;
+  border-left: 1px solid rgba(61, 47, 32, 0.1);
+}
+
 .toolbar__tool-panel[hidden] {
+  display: none !important;
+}
+
+.toolbar__field[hidden],
+.toolbar__recent-colors[hidden] {
   display: none !important;
 }
 
@@ -780,6 +808,14 @@ h2 {
 .component-editor-modal input[type="color"].component-editor-modal__input {
   padding: 0.35rem;
   min-height: 3rem;
+}
+
+.component-editor-modal input[type="checkbox"].component-editor-modal__input {
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border-radius: 0.35rem;
+  accent-color: var(--accent);
 }
 
 .component-editor-modal__file-wrapper {

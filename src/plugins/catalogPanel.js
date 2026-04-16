@@ -128,6 +128,10 @@ function getNodeDisplayTitle(node, fallback = "Untitled") {
     );
   }
 
+  if (componentType === "button") {
+    return node.findOne(".button-label")?.text()?.trim() || "Button";
+  }
+
   if (componentType === "image") return "Image";
   return componentType || fallback;
 }
@@ -163,6 +167,13 @@ function applyTitleToNode(node, title) {
 
   if (componentType === "page" || componentType === "container") {
     const labelNode = node.findOne(".container-label");
+    if (!labelNode || labelNode.text() === nextTitle) return false;
+    labelNode.text(nextTitle);
+    return true;
+  }
+
+  if (componentType === "button") {
+    const labelNode = node.findOne(".button-label");
     if (!labelNode || labelNode.text() === nextTitle) return false;
     labelNode.text(nextTitle);
     return true;

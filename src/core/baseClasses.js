@@ -485,6 +485,14 @@ export class ColorEditorField extends BaseComponentEditorField {
   }
 }
 
+export class CheckboxEditorField extends BaseComponentEditorField {
+  static fieldType = "checkbox";
+
+  normalize(value) {
+    return value === true || value === "true" || value === "on" || value === "1";
+  }
+}
+
 export class FileEditorField extends BaseComponentEditorField {
   static fieldType = "file";
 

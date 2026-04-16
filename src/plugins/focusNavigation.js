@@ -1,21 +1,36 @@
 import {
   BaseCommand,
-  BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
+import { getConnectionConfiguredStyle } from "../component/connection.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
 const NAV_BUTTON_RADIUS = 16;
 const NAV_BUTTON_OFFSET = NAV_BUTTON_RADIUS + 6;
 const CURVE_SAMPLE_STEPS = 48;
+const FOCUS_VIEWPORT_MARGIN_RATIO = 0.1;
+const MIN_FOCUS_SCALE = 0.1;
+const MAX_FOCUS_SCALE = 5;
 
 function isConnectionNode(node) {
   return node?.getAttr?.("componentType") === "connection";
 }
 
+function isHiddenConnectionNode(node) {
+  return isConnectionNode(node) && getConnectionConfiguredStyle(node).hiddenUntilEndpointSelected === true;
+}
+
+function isRankingBoxNode(node) {
+  return node?.getAttr?.("componentType") === "rankingBox";
+}
+
+function isButtonNode(node) {
+  return node?.getAttr?.("componentType") === "button";
+}
+
 function isFocusableNode(node) {
-  return !!node?.hasName?.("selectable") && !isConnectionNode(node);
+  return !!node?.hasName?.("selectable") && !isConnectionNode(node) && !isRankingBoxNode(node);
 }
 
 function isFinitePoint(point) {
@@ -74,26 +89,6 @@ function nudgePointInsideViewport(insidePoint, outsidePoint) {
   };
 }
 
-class SaveFocusMenuItem extends BaseContextMenuItem {
-  static itemId = "focus:save-menu";
-  static label = "Save Focus";
-  static modes = {
-    edit: {
-      tools: {
-        arrange: {},
-      },
-    },
-  };
-
-  condition(node) {
-    return isFocusableNode(node);
-  }
-
-  execute(node) {
-    this.plugin.saveFocus(node);
-  }
-}
-
 class SaveSelectionFocusCommand extends BaseCommand {
   static commandId = "focus:save-selection";
   static label = "Save Focus";
@@ -143,7 +138,7 @@ export class FocusNavigationPlugin extends BasePlugin {
   }
 
   menuItems() {
-    return [SaveFocusMenuItem];
+    return [];
   }
 
   onSetup() {
@@ -151,8 +146,9 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.layer = this.app.mainLayer;
     this.uiLayer = this.app.uiLayer;
     this.selectedNode = null;
-    this.focusPositionMode = "absolute";
+    this.focusPositionMode = "relative";
     this.saveToastTimeout = null;
+    this.navigationCorrectionTimeout = null;
 
     this.navButtonGroup = new Konva.Group({
       visible: false,
@@ -195,11 +191,15 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.stage.on("dblclick.focusNavigation dbltap.focusNavigation", (event) => {
       this.handleStageDoubleClick(event);
     });
+    this.stage.on("click.focusNavigation tap.focusNavigation", (event) => {
+      this.handleStageClick(event);
+    });
 
     this.emitToolbarState();
 
     this.cleanups.push(() => {
       window.clearTimeout(this.saveToastTimeout);
+      window.clearTimeout(this.navigationCorrectionTimeout);
       this.saveToastEl?.remove();
       this.stage.off(".focusNavigation");
       this.navButtonGroup.destroy();
@@ -210,16 +210,21 @@ export class FocusNavigationPlugin extends BasePlugin {
     return id ? this.layer.findOne(`#${id}`) : null;
   }
 
-  getNodeBounds(node) {
-    const anchorNode = node?.findOne?.(".container-bg") ?? node;
-    return anchorNode?.getClientRect({ relativeTo: this.stage }) ?? null;
+  getButtonTargetNode(buttonNode) {
+    if (!isButtonNode(buttonNode)) return null;
+
+    const outgoingConnection = this.layer.find((node) => (
+      isConnectionNode(node) &&
+      node.getAttr("sourceNodeId") === buttonNode.id()
+    )).at(-1) ?? null;
+
+    if (!outgoingConnection) return null;
+    return this.findNodeById(outgoingConnection.getAttr("targetNodeId"));
   }
 
-  getViewportCenter() {
-    return this.app.stageApi.screenToCanvas({
-      x: this.stage.width() / 2,
-      y: this.stage.height() / 2,
-    });
+  getNodeBounds(node) {
+    const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
+    return anchorNode?.getClientRect({ relativeTo: this.stage }) ?? null;
   }
 
   getNodeFocusAnchor(node) {
@@ -260,7 +265,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     return didChange;
   }
 
-  ensureNodeFocusPositionMode(node, fallbackMode = "absolute") {
+  ensureNodeFocusPositionMode(node, fallbackMode = "relative") {
     if (!isFocusableNode(node)) return null;
 
     const currentMode = this.getNodeFocusPositionMode(node);
@@ -303,44 +308,48 @@ export class FocusNavigationPlugin extends BasePlugin {
     }
   }
 
-  createSavedFocus(node, {
-    positionMode = this.getFocusPositionModeForNode(node),
-    center = this.getViewportCenter(),
-    scale = this.app.stageApi.getScale(),
-  } = {}) {
-    if (!isFocusableNode(node) || !isFinitePoint(center) || !Number.isFinite(scale)) {
+  getNodeFocusView(node) {
+    if (!isFocusableNode(node)) {
       return null;
     }
 
-    if (positionMode === "relative") {
-      const anchor = this.getNodeFocusAnchor(node);
-      if (!anchor) return null;
+    const center = this.getNodeFocusAnchor(node);
+    const bounds = this.getNodeBounds(node);
+    const screen = this.app.stageApi.getScreenSize();
+    if (!isFinitePoint(center) || !bounds) return null;
 
-      return {
-        positionMode,
-        offset: {
-          x: center.x - anchor.x,
-          y: center.y - anchor.y,
-        },
-        scale,
-      };
-    }
+    const width = Math.max(1, bounds.width);
+    const height = Math.max(1, bounds.height);
+    const availableWidth = Math.max(1, screen.width * (1 - FOCUS_VIEWPORT_MARGIN_RATIO * 2));
+    const availableHeight = Math.max(1, screen.height * (1 - FOCUS_VIEWPORT_MARGIN_RATIO * 2));
+    const scale = Math.min(availableWidth / width, availableHeight / height);
 
     return {
-      positionMode: "absolute",
       center,
-      scale,
+      scale: Math.max(MIN_FOCUS_SCALE, Math.min(MAX_FOCUS_SCALE, scale)),
+    };
+  }
+
+  createSavedFocus(node) {
+    const focusView = this.getNodeFocusView(node);
+    if (!focusView) return null;
+
+    return {
+      positionMode: "relative",
+      offset: { x: 0, y: 0 },
+      center: focusView.center,
+      scale: focusView.scale,
     };
   }
 
   setFocusPositionMode(mode) {
-    const nextMode = normalizeFocusPositionMode(mode) ?? "absolute";
-    this.focusPositionMode = nextMode;
+    normalizeFocusPositionMode(mode);
+    this.focusPositionMode = "relative";
     const node = this.getSelectedFocusableNode();
     const savedFocus = node ? this.getSavedFocus(node) : null;
-    const willChangeNodeMode = Boolean(node) && this.getNodeFocusPositionMode(node) !== nextMode;
+    const willChangeNodeMode = Boolean(node) && this.getNodeFocusPositionMode(node) !== "relative";
     const willChangeSavedFocus =
-      Boolean(node && savedFocus) && this.getSavedFocusMode(node) !== nextMode;
+      Boolean(node && savedFocus) && this.getSavedFocusMode(node) !== "relative";
     let didChangeNode = false;
 
     if ((willChangeNodeMode || willChangeSavedFocus) && node) {
@@ -348,15 +357,11 @@ export class FocusNavigationPlugin extends BasePlugin {
     }
 
     if (node) {
-      didChangeNode = this.setNodeFocusPositionMode(node, nextMode);
+      didChangeNode = this.setNodeFocusPositionMode(node, "relative");
     }
 
-    if (savedFocus && this.getSavedFocusMode(node) !== nextMode) {
-      const nextSavedFocus = this.createSavedFocus(node, {
-        positionMode: nextMode,
-        center: savedFocus.center,
-        scale: savedFocus.scale,
-      });
+    if (savedFocus && this.getSavedFocusMode(node) !== "relative") {
+      const nextSavedFocus = this.createSavedFocus(node);
 
       if (nextSavedFocus) {
         node.setAttr("savedFocus", nextSavedFocus);
@@ -374,9 +379,9 @@ export class FocusNavigationPlugin extends BasePlugin {
   emitToolbarState() {
     this.app.events.emit("focus:state-change", {
       selectedNodeId: this.selectedNode?.id?.() ?? null,
-      positionMode: this.getFocusPositionModeForNode(this.selectedNode),
+      positionMode: "relative",
       canSave: this.canSaveSelectionFocus(),
-      canTogglePositionMode: isFocusableNode(this.selectedNode),
+      canTogglePositionMode: false,
     });
   }
 
@@ -409,15 +414,15 @@ export class FocusNavigationPlugin extends BasePlugin {
     const currentSavedFocus = node.getAttr("savedFocus") ?? null;
     const didChangeSavedFocus =
       JSON.stringify(currentSavedFocus) !== JSON.stringify(savedFocus) ||
-      this.getNodeFocusPositionMode(node) !== savedFocus.positionMode;
+      this.getNodeFocusPositionMode(node) !== "relative";
 
     if (didChangeSavedFocus) {
       this.app.events.emit("node:change:start", { node });
     }
 
-    this.setNodeFocusPositionMode(node, savedFocus.positionMode);
+    this.setNodeFocusPositionMode(node, "relative");
     node.setAttr("savedFocus", savedFocus);
-    this.syncFocusPositionModeFromNode(node);
+    this.focusPositionMode = "relative";
 
     if (didChangeSavedFocus) {
       this.app.events.emit("node:changed", { node });
@@ -434,39 +439,13 @@ export class FocusNavigationPlugin extends BasePlugin {
   }
 
   getSavedFocus(node) {
-    const savedFocus = node?.getAttr?.("savedFocus");
-    if (!savedFocus || !Number.isFinite(savedFocus.scale)) {
-      return null;
-    }
-
-    const positionMode = savedFocus.positionMode === "relative" ? "relative" : "absolute";
-
-    if (positionMode === "relative") {
-      if (!isFinitePoint(savedFocus.offset)) {
-        return null;
-      }
-
-      const anchor = this.getNodeFocusAnchor(node);
-      if (!anchor) return null;
-
-      return {
-        positionMode,
-        scale: savedFocus.scale,
-        center: {
-          x: anchor.x + savedFocus.offset.x,
-          y: anchor.y + savedFocus.offset.y,
-        },
-      };
-    }
-
-    if (!isFinitePoint(savedFocus.center)) {
-      return null;
-    }
+    const focusView = this.getNodeFocusView(node);
+    if (!focusView) return null;
 
     return {
-      positionMode,
-      scale: savedFocus.scale,
-      center: savedFocus.center,
+      positionMode: "relative",
+      center: focusView.center,
+      scale: focusView.scale,
     };
   }
 
@@ -477,7 +456,35 @@ export class FocusNavigationPlugin extends BasePlugin {
       duration: 0.45,
       scale: savedFocus.scale,
     });
+    window.clearTimeout(this.navigationCorrectionTimeout);
+    this.navigationCorrectionTimeout = window.setTimeout(() => {
+      if (!node?.getStage?.()) return;
+      this.app.stageApi.centerOn(savedFocus.center, {
+        duration: 0,
+        scale: savedFocus.scale,
+      });
+    }, 420);
 
+    return true;
+  }
+
+  navigateButtonTarget(buttonNode) {
+    if (!isButtonNode(buttonNode)) return false;
+
+    const targetNode = this.getButtonTargetNode(buttonNode);
+    if (!targetNode?.getStage?.()) return false;
+
+    if (this.navigateToSavedFocus(targetNode)) {
+      return true;
+    }
+
+    const anchor = this.getNodeFocusAnchor(targetNode);
+    if (!anchor) return false;
+
+    this.app.stageApi.centerOn(anchor, {
+      duration: 0.45,
+      scale: this.app.stageApi.getScale(),
+    });
     return true;
   }
 
@@ -504,6 +511,19 @@ export class FocusNavigationPlugin extends BasePlugin {
     if (!isFinitePoint(point)) return false;
 
     return pointInRect(point, this.app.stageApi.getViewportBounds());
+  }
+
+  handleStageClick(event) {
+    if (!this.app.modeManager.matches({ mode: "presentation" })) return;
+    if (this.app.stageApi.consumePanClickSuppression()) return;
+    if (event.evt?.button != null && event.evt.button !== 0) return;
+
+    const target = resolveFocusableNode(event.target);
+    if (!isButtonNode(target)) return;
+
+    if (this.navigateButtonTarget(target)) {
+      event.cancelBubble = true;
+    }
   }
 
   getConnectionScreenCurve(connectionNode, { reverse = false } = {}) {
@@ -649,6 +669,13 @@ export class FocusNavigationPlugin extends BasePlugin {
     const targetNode = resolveFocusableNode(event.target);
     if (!targetNode) return;
 
+    if (isButtonNode(targetNode)) {
+      if (this.navigateButtonTarget(targetNode)) {
+        event.cancelBubble = true;
+      }
+      return;
+    }
+
     this.navigateToSavedFocus(targetNode);
   }
 
@@ -681,6 +708,8 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.navButtonGroup.destroyChildren();
 
     this.layer.find((node) => isConnectionNode(node)).forEach((connectionNode) => {
+      if (isHiddenConnectionNode(connectionNode)) return;
+
       const source = this.findNodeById(connectionNode.getAttr("sourceNodeId"));
       const target = this.findNodeById(connectionNode.getAttr("targetNodeId"));
       this.tryAddNavigationButton(connectionNode, source, target, {
