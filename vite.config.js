@@ -50,7 +50,7 @@ function escapeRegExp(value) {
 
 function stripDocumentControls(html) {
   return html.replace(
-    /\s*<div\b[^>]*\bid=["']document-controls["'][^>]*>[\s\S]*?<\/div>(?=\s*<div\b[^>]*\bid=["']arrange-controls["'])/i,
+    /\s*<div\b[^>]*\bid=["']document-controls["'][^>]*>[\s\S]*?<\/div>/i,
     "",
   );
 }
