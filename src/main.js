@@ -85,6 +85,8 @@ const ui = {
   componentPalette: getRequiredElement("#component-palette"),
   catalogPanel: getRequiredElement("#catalog-panel"),
   centerMapBtn: getRequiredElement("#center-map-btn"),
+  zoomInBtn: document.getElementById("zoom-in-btn"),
+  zoomOutBtn: document.getElementById("zoom-out-btn"),
   annotatorToggle: getRequiredElement("#annotator-toggle"),
   annotatorControls: getRequiredElement("#annotator-controls"),
   annotatorColor: getRequiredElement("#annotator-color"),
@@ -184,6 +186,8 @@ app.use(TimerPlugin, {
 });
 app.use(CenterMapPlugin, {
   centerMapEl: ui.centerMapBtn,
+  zoomInEl: ui.zoomInBtn,
+  zoomOutEl: ui.zoomOutBtn,
 });
 app.use(AnnotatorPlugin, {
   toggleEl: ui.annotatorToggle,
