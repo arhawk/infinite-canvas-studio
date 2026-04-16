@@ -443,6 +443,25 @@ export function setupAppTestApi(app) {
       const connection = await connectionsPlugin?.createConnection?.(sourceId, targetId);
       return connection ? serializeNode(app, connection) : null;
     },
+    openPageCompare: (pageIds = []) => {
+      const pageComparePlugin = getPlugin(app, "page-compare");
+      const pages = pageIds
+        .map((id) => getNodeById(app, id))
+        .filter((node) => node?.getAttr?.("componentType") === "page");
+      if (!pageComparePlugin || pages.length !== 2) return false;
+
+      pageComparePlugin.setPageSelection(pages);
+      return pageComparePlugin.openForSelection();
+    },
+    closePageCompare: () => {
+      const pageComparePlugin = getPlugin(app, "page-compare");
+      pageComparePlugin?.close?.({ restore: false });
+      return pageComparePlugin?.getDebugState?.() ?? null;
+    },
+    getPageCompareState: () => {
+      const pageComparePlugin = getPlugin(app, "page-compare");
+      return pageComparePlugin?.getDebugState?.() ?? null;
+    },
     openComponentEditor: (id) => {
       const componentEditorPlugin = getPlugin(app, "component-editor");
       const node = getNodeById(app, id);

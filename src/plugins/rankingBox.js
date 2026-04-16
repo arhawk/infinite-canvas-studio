@@ -9,6 +9,8 @@ import {
   isRankingBoxNode,
 } from "../component/rankingBox.js";
 
+const MOVE_OUT_THRESHOLD = 32;
+
 function resolveSelectable(node) {
   if (!node) return null;
   if (node.hasName?.("selectable")) return node;
@@ -38,6 +40,15 @@ function pointInRect(point, rect) {
     point.y >= rect.y &&
     point.y <= rect.y + rect.height
   );
+}
+
+function expandRect(rect, margin) {
+  return {
+    x: rect.x - margin,
+    y: rect.y - margin,
+    width: rect.width + margin * 2,
+    height: rect.height + margin * 2,
+  };
 }
 
 function getPageSize(pageNode) {
@@ -281,7 +292,9 @@ export class RankingBoxPlugin extends BasePlugin {
 
       card.on("dragmove.rankingItem", (event) => {
         event.cancelBubble = true;
-        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode)) {
+        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode, {
+          margin: MOVE_OUT_THRESHOLD,
+        })) {
           rankingNode.getLayer()?.batchDraw();
           return;
         }
@@ -294,7 +307,9 @@ export class RankingBoxPlugin extends BasePlugin {
       card.on("dragend.rankingItem", (event) => {
         event.cancelBubble = true;
         card.setAttr("isRankingItemDragging", false);
-        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode)) {
+        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode, {
+          margin: MOVE_OUT_THRESHOLD,
+        })) {
           void this.moveRankingItemOutToText(rankingNode, card);
           return;
         }
@@ -502,12 +517,12 @@ export class RankingBoxPlugin extends BasePlugin {
     return pointer ? this.app.stageApi.screenToCanvas(pointer) : null;
   }
 
-  isCardPointerOutsideRankingBox(rankingNode) {
+  isCardPointerOutsideRankingBox(rankingNode, { margin = 0 } = {}) {
     const point = this.getCanvasPointerPosition();
     if (!point) return false;
     const background = rankingNode.findOne(".ranking-box-bg");
     const box = background?.getClientRect?.() ?? rankingNode.getClientRect();
-    return !pointInRect(point, box);
+    return !pointInRect(point, margin > 0 ? expandRect(box, margin) : box);
   }
 
   async moveRankingItemOutToText(rankingNode, card) {

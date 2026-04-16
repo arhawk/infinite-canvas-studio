@@ -4,7 +4,76 @@ import { Konva } from "../lib/konva.js";
 const PANE_MIN_SCALE = 0.08;
 const PANE_MAX_SCALE = 6;
 const PANE_ZOOM_STEP = 1.08;
+const PANE_FIT_PADDING = 24;
+const SNAPSHOT_MAX_PIXEL_RATIO = 4;
+const SNAPSHOT_MAX_PIXELS = 16000000;
 const SELECTION_STROKE = "#f2b84b";
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function isPositiveFinite(value) {
+  return Number.isFinite(value) && value > 0;
+}
+
+function getPageSnapshotBox(pageNode) {
+  const background = pageNode?.findOne?.(".page-bg") ?? pageNode?.findOne?.(".container-bg");
+  const rect = background?.getClientRect?.({
+    relativeTo: pageNode,
+    skipShadow: true,
+  });
+
+  const width = isPositiveFinite(rect?.width)
+    ? rect.width
+    : pageNode?.width?.();
+  const height = isPositiveFinite(rect?.height)
+    ? rect.height
+    : pageNode?.height?.();
+
+  if (!isPositiveFinite(width) || !isPositiveFinite(height)) return null;
+
+  return {
+    x: Number.isFinite(rect?.x) ? rect.x : 0,
+    y: Number.isFinite(rect?.y) ? rect.y : 0,
+    width,
+    height,
+  };
+}
+
+function getSnapshotPixelRatio(box, viewportRect = null) {
+  const devicePixelRatio = Math.max(1, window.devicePixelRatio || 1);
+  const availableWidth = Math.max(
+    1,
+    (Number.isFinite(viewportRect?.width) ? viewportRect.width : box.width) - PANE_FIT_PADDING,
+  );
+  const availableHeight = Math.max(
+    1,
+    (Number.isFinite(viewportRect?.height) ? viewportRect.height : box.height) - PANE_FIT_PADDING,
+  );
+  const displayScale = Math.max(
+    1,
+    Math.min(availableWidth / box.width, availableHeight / box.height),
+  );
+  const pixelLimitRatio = Math.sqrt(SNAPSHOT_MAX_PIXELS / (box.width * box.height));
+  const maxRatio = Math.max(1, Math.min(SNAPSHOT_MAX_PIXEL_RATIO, pixelLimitRatio));
+
+  return clamp(devicePixelRatio * displayScale, 1, maxRatio);
+}
+
+function createSnapshotHost(width, height) {
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-100000px";
+  host.style.top = "0";
+  host.style.width = `${Math.ceil(width)}px`;
+  host.style.height = `${Math.ceil(height)}px`;
+  host.style.overflow = "hidden";
+  host.style.pointerEvents = "none";
+  host.style.opacity = "0";
+  document.body.append(host);
+  return host;
+}
 
 function isPageNode(node) {
   return node?.getAttr?.("componentType") === "page";
@@ -58,6 +127,9 @@ export class PageComparePlugin extends BasePlugin {
     this.openPages = [];
     this.overlay = null;
     this.overlayAbortController = null;
+    this.overlayResizeObserver = null;
+    this.paneViews = [];
+    this.pendingFitFrame = null;
     this.selectionBar = null;
     this.selectionBarCountEl = null;
     this.selectionBarHintEl = null;
@@ -354,27 +426,66 @@ export class PageComparePlugin extends BasePlugin {
     host.append(overlay);
 
     this.overlay = overlay;
+    this.paneViews = paneViews;
     this.overlayAbortController = new AbortController();
     const { signal } = this.overlayAbortController;
 
-    fitButton.addEventListener("click", () => paneViews.forEach((view) => view.fit()), { signal });
+    if (typeof ResizeObserver !== "undefined") {
+      this.overlayResizeObserver = new ResizeObserver(() => this.schedulePaneFit());
+      this.overlayResizeObserver.observe(overlay);
+      paneViews.forEach((view) => this.overlayResizeObserver.observe(view.viewport));
+    }
+
+    fitButton.addEventListener("click", () => this.fitOpenPanes({ force: true }), { signal });
     swapButton.addEventListener("click", () => this.swapPages(), { signal });
     fullscreenButton.addEventListener("click", () => this.toggleFullscreen(), { signal });
     exitButton.addEventListener("click", () => this.close(), { signal });
+    document.addEventListener("fullscreenchange", () => {
+      window.requestAnimationFrame(() => {
+        this.refreshPaneSnapshots({ fitAfterLoad: true });
+      });
+    }, { signal });
     overlay.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       this.close();
     }, { signal });
 
+    window.requestAnimationFrame(() => {
+      this.refreshPaneSnapshots({ fitAfterLoad: true });
+    });
     overlay.focus({ preventScroll: true });
   }
 
   destroyOverlay() {
+    if (this.pendingFitFrame != null) {
+      window.cancelAnimationFrame(this.pendingFitFrame);
+      this.pendingFitFrame = null;
+    }
+    this.overlayResizeObserver?.disconnect();
+    this.overlayResizeObserver = null;
     this.overlayAbortController?.abort();
     this.overlayAbortController = null;
     this.overlay?.remove();
     this.overlay = null;
+    this.paneViews = [];
+  }
+
+  fitOpenPanes({ force = false } = {}) {
+    this.paneViews.forEach((view) => view.fit({ force }));
+  }
+
+  refreshPaneSnapshots({ fitAfterLoad = false } = {}) {
+    this.paneViews.forEach((view) => view.refreshSnapshot({ fitAfterLoad }));
+  }
+
+  schedulePaneFit() {
+    if (!this.isOpen || this.pendingFitFrame != null) return;
+
+    this.pendingFitFrame = window.requestAnimationFrame(() => {
+      this.pendingFitFrame = null;
+      this.fitOpenPanes();
+    });
   }
 
   createPane(pageNode, index) {
@@ -399,49 +510,99 @@ export class PageComparePlugin extends BasePlugin {
     error.textContent = "This page preview is unavailable.";
     error.hidden = true;
 
-    const imageUrl = this.createPageSnapshot(pageNode);
-    if (imageUrl) {
-      image.src = imageUrl;
-      viewport.append(image);
-    } else {
-      error.hidden = false;
-      viewport.append(error);
-    }
-
+    viewport.append(image, error);
     pane.append(header, viewport);
 
     const state = {
       x: 0,
       y: 0,
       scale: 1,
+      isFit: true,
+      snapshot: null,
       pointerId: null,
       dragStart: null,
     };
 
     const applyTransform = () => {
       image.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+      image.dataset.compareX = String(state.x);
+      image.dataset.compareY = String(state.y);
+      image.dataset.compareScale = String(state.scale);
     };
 
-    const fit = () => {
-      if (!image.naturalWidth || !image.naturalHeight) return;
+    const showUnavailable = () => {
+      state.snapshot = null;
+      image.hidden = true;
+      image.removeAttribute("src");
+      image.style.removeProperty("width");
+      image.style.removeProperty("height");
+      error.hidden = false;
+    };
+
+    const fit = ({ force = false } = {}) => {
+      if (!state.snapshot || (!force && !state.isFit)) return;
 
       const rect = viewport.getBoundingClientRect();
-      const padding = 32;
+      if (rect.width <= 0 || rect.height <= 0) return;
+
       const nextScale = Math.min(
-        (rect.width - padding) / image.naturalWidth,
-        (rect.height - padding) / image.naturalHeight,
+        Math.max(1, rect.width - PANE_FIT_PADDING) / state.snapshot.width,
+        Math.max(1, rect.height - PANE_FIT_PADDING) / state.snapshot.height,
       );
       state.scale = Math.max(PANE_MIN_SCALE, Math.min(PANE_MAX_SCALE, nextScale));
-      state.x = (rect.width - image.naturalWidth * state.scale) / 2;
-      state.y = (rect.height - image.naturalHeight * state.scale) / 2;
+      state.x = (rect.width - state.snapshot.width * state.scale) / 2;
+      state.y = (rect.height - state.snapshot.height * state.scale) / 2;
+      state.isFit = true;
       applyTransform();
     };
 
-    image.addEventListener("load", () => fit(), { once: true });
-    window.setTimeout(fit, 0);
+    const showSnapshot = (snapshot, { fitAfterLoad = false } = {}) => {
+      state.snapshot = snapshot;
+      image.hidden = false;
+      error.hidden = true;
+      image.style.width = `${snapshot.width}px`;
+      image.style.height = `${snapshot.height}px`;
+      image.dataset.snapshotPixelRatio = String(snapshot.pixelRatio);
+      image.dataset.snapshotWidth = String(snapshot.width);
+      image.dataset.snapshotHeight = String(snapshot.height);
+
+      const shouldFit = fitAfterLoad || state.isFit;
+      image.onload = () => {
+        if (shouldFit) {
+          fit({ force: true });
+        } else {
+          applyTransform();
+        }
+      };
+      image.onerror = () => showUnavailable();
+      image.src = snapshot.url;
+
+      window.setTimeout(() => {
+        if (image.complete && state.snapshot === snapshot) {
+          if (shouldFit) {
+            fit({ force: true });
+          } else {
+            applyTransform();
+          }
+        }
+      }, 0);
+    };
+
+    const refreshSnapshot = ({ fitAfterLoad = false } = {}) => {
+      const snapshot = this.createPageSnapshot(pageNode, {
+        viewportRect: viewport.getBoundingClientRect(),
+      });
+
+      if (!snapshot) {
+        showUnavailable();
+        return;
+      }
+
+      showSnapshot(snapshot, { fitAfterLoad: fitAfterLoad || state.isFit });
+    };
 
     viewport.addEventListener("wheel", (event) => {
-      if (!imageUrl) return;
+      if (!state.snapshot) return;
       event.preventDefault();
 
       const rect = viewport.getBoundingClientRect();
@@ -459,11 +620,12 @@ export class PageComparePlugin extends BasePlugin {
       state.x = pointer.x - ((pointer.x - state.x) / oldScale) * nextScale;
       state.y = pointer.y - ((pointer.y - state.y) / oldScale) * nextScale;
       state.scale = nextScale;
+      state.isFit = false;
       applyTransform();
     }, { passive: false });
 
     viewport.addEventListener("pointerdown", (event) => {
-      if (!imageUrl || event.button !== 0) return;
+      if (!state.snapshot || event.button !== 0) return;
       viewport.setPointerCapture(event.pointerId);
       state.pointerId = event.pointerId;
       state.dragStart = {
@@ -479,6 +641,7 @@ export class PageComparePlugin extends BasePlugin {
       if (state.pointerId !== event.pointerId || !state.dragStart) return;
       state.x = state.dragStart.x + event.clientX - state.dragStart.clientX;
       state.y = state.dragStart.y + event.clientY - state.dragStart.clientY;
+      state.isFit = false;
       applyTransform();
     });
 
@@ -491,21 +654,110 @@ export class PageComparePlugin extends BasePlugin {
     viewport.addEventListener("pointerup", finishDrag);
     viewport.addEventListener("pointercancel", finishDrag);
 
-    return { pane, fit };
+    const getState = () => {
+      const rect = viewport.getBoundingClientRect();
+      return {
+        pageId: pageNode.id(),
+        title: getPageTitle(pageNode),
+        hasSnapshot: Boolean(state.snapshot),
+        snapshot: state.snapshot
+          ? {
+              width: state.snapshot.width,
+              height: state.snapshot.height,
+              pixelRatio: state.snapshot.pixelRatio,
+              urlLength: state.snapshot.url.length,
+            }
+          : null,
+        viewport: {
+          width: rect.width,
+          height: rect.height,
+        },
+        transform: {
+          x: state.x,
+          y: state.y,
+          scale: state.scale,
+          isFit: state.isFit,
+        },
+        image: {
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+          displayWidth: state.snapshot ? state.snapshot.width * state.scale : 0,
+          displayHeight: state.snapshot ? state.snapshot.height * state.scale : 0,
+          hidden: image.hidden,
+        },
+      };
+    };
+
+    return { pane, viewport, fit, refreshSnapshot, getState };
   }
 
-  createPageSnapshot(pageNode) {
-    if (!pageNode?.toDataURL) return null;
+  createPageSnapshot(pageNode, { viewportRect = null } = {}) {
+    if (!pageNode?.clone) return null;
+
+    const box = getPageSnapshotBox(pageNode);
+    if (!box) return null;
+
+    const width = Math.ceil(box.width);
+    const height = Math.ceil(box.height);
+    const pixelRatio = getSnapshotPixelRatio({ width, height }, viewportRect);
+    const host = createSnapshotHost(width, height);
+    let stage = null;
 
     try {
-      return pageNode.toDataURL({
-        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      stage = new Konva.Stage({
+        container: host,
+        width,
+        height,
+        listening: false,
+      });
+      const layer = new Konva.Layer({ listening: false });
+      const clone = pageNode.clone();
+
+      clone.position({
+        x: -box.x,
+        y: -box.y,
+      });
+      clone.scale({ x: 1, y: 1 });
+      clone.rotation(0);
+      clone.offset({ x: 0, y: 0 });
+      clone.draggable(false);
+      clone.listening(false);
+      layer.add(clone);
+      stage.add(layer);
+      layer.draw();
+
+      const url = stage.toDataURL({
+        x: 0,
+        y: 0,
+        width,
+        height,
+        pixelRatio,
         mimeType: "image/png",
       });
+
+      return {
+        url,
+        width,
+        height,
+        pixelRatio,
+      };
     } catch (error) {
       console.warn("Unable to create page comparison preview.", error);
       return null;
+    } finally {
+      stage?.destroy();
+      host.remove();
     }
+  }
+
+  getDebugState() {
+    return {
+      isOpen: this.isOpen,
+      selectedPageIds: this.selectedPages.map((page) => page.id()),
+      openPageIds: this.openPages.map((page) => page.id()),
+      isFullscreen: Boolean(this.overlay && document.fullscreenElement === this.overlay),
+      panes: this.paneViews.map((view) => view.getState()),
+    };
   }
 
   swapPages() {

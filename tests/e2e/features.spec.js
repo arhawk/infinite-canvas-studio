@@ -826,6 +826,82 @@ test("truncates long page titles inside the header", async ({ page }) => {
   expect(snapshot.summary.renderedLabel.length).toBeLessThan(longLabel.length);
 });
 
+test("fits page compare previews from stable page bounds", async ({ page }) => {
+  const firstPage = await addComponent(page, "page", {
+    x: 120,
+    y: 120,
+    width: 480,
+    height: 270,
+    label: "Before",
+  });
+  const secondPage = await addComponent(page, "page", {
+    x: 720,
+    y: 120,
+    width: 480,
+    height: 270,
+    label: "After",
+  });
+
+  const childText = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    width: 180,
+    height: 72,
+    text: "Captured content",
+  });
+
+  await expect.poll(async () => (await getNode(page, childText.id))?.parentId).toBe(firstPage.id);
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+
+  await page.evaluate(
+    ({ firstId, secondId }) => window.__APP_TEST_API__.openPageCompare([firstId, secondId]),
+    { firstId: firstPage.id, secondId: secondPage.id },
+  );
+
+  await expect(page.getByTestId("page-compare-overlay")).toBeVisible();
+  await expect
+    .poll(async () => page.evaluate(() => {
+      const state = window.__APP_TEST_API__.getPageCompareState();
+      return state?.panes.length === 2 &&
+        state.panes.every((pane) => pane.hasSnapshot && pane.image.naturalWidth > 0);
+    }))
+    .toBe(true);
+
+  const initialState = await page.evaluate(() => window.__APP_TEST_API__.getPageCompareState());
+  expect(initialState.panes).toHaveLength(2);
+
+  for (const pane of initialState.panes) {
+    expect(pane.snapshot.width).toBeGreaterThanOrEqual(480);
+    expect(pane.snapshot.width).toBeLessThanOrEqual(484);
+    expect(pane.snapshot.height).toBeGreaterThanOrEqual(270);
+    expect(pane.snapshot.height).toBeLessThanOrEqual(274);
+    expect(pane.snapshot.pixelRatio).toBeGreaterThanOrEqual(1);
+    expect(pane.snapshot.urlLength).toBeGreaterThan(1000);
+    expect(pane.image.naturalWidth).toBeGreaterThanOrEqual(pane.snapshot.width);
+    expect(pane.image.displayWidth).toBeLessThanOrEqual(pane.viewport.width + 1);
+    expect(pane.image.displayHeight).toBeLessThanOrEqual(pane.viewport.height + 1);
+    expect(Math.abs(pane.transform.x - (pane.viewport.width - pane.image.displayWidth) / 2))
+      .toBeLessThan(2);
+    expect(Math.abs(pane.transform.y - (pane.viewport.height - pane.image.displayHeight) / 2))
+      .toBeLessThan(2);
+  }
+
+  const beforeResizeScale = initialState.panes[0].transform.scale;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => {
+      const state = await page.evaluate(() => window.__APP_TEST_API__.getPageCompareState());
+      return state?.panes[0]?.transform.scale ?? 0;
+    })
+    .toBeGreaterThan(beforeResizeScale);
+});
+
 test("asks for confirmation before loading over current content", async ({ page }) => {
   await addComponent(page, "sticky", { x: 180, y: 180 });
   const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
