@@ -8,6 +8,7 @@ const GRID_COLOR = "rgba(84, 64, 43, 0.08)";
 const GRID_MAJOR_COLOR = "rgba(84, 64, 43, 0.14)";
 const GRID_MAJOR_EVERY = 4;
 const PAN_CLICK_THRESHOLD = 4;
+const GRID_BUFFER_CELLS = 2;
 
 function isRankingItemInteractionTarget(target) {
   return Boolean(target?.findAncestor?.(".ranking-item-card", true));
@@ -43,6 +44,12 @@ export class StageController {
     this.didPanSincePointerDown = false;
     this.suppressNextClick = false;
     this.isSpacePressed = false;
+    this.gridSignature = null;
+    this.pendingResizeFrame = null;
+    this.lastObservedSize = {
+      width: container.clientWidth,
+      height: container.clientHeight,
+    };
 
     this.onKeyDown = this.onKeyDown.bind(this);
     this.onKeyUp = this.onKeyUp.bind(this);
@@ -86,10 +93,17 @@ export class StageController {
       x: this.stage.width(),
       y: this.stage.height(),
     });
-    const minX = Math.floor(topLeft.x / GRID_SPACING) * GRID_SPACING;
-    const maxX = Math.ceil(bottomRight.x / GRID_SPACING) * GRID_SPACING;
-    const minY = Math.floor(topLeft.y / GRID_SPACING) * GRID_SPACING;
-    const maxY = Math.ceil(bottomRight.y / GRID_SPACING) * GRID_SPACING;
+    const minX = Math.floor((topLeft.x - GRID_BUFFER_CELLS * GRID_SPACING) / GRID_SPACING) * GRID_SPACING;
+    const maxX = Math.ceil((bottomRight.x + GRID_BUFFER_CELLS * GRID_SPACING) / GRID_SPACING) * GRID_SPACING;
+    const minY = Math.floor((topLeft.y - GRID_BUFFER_CELLS * GRID_SPACING) / GRID_SPACING) * GRID_SPACING;
+    const maxY = Math.ceil((bottomRight.y + GRID_BUFFER_CELLS * GRID_SPACING) / GRID_SPACING) * GRID_SPACING;
+    const nextSignature = `${minX}:${maxX}:${minY}:${maxY}`;
+
+    if (nextSignature === this.gridSignature) {
+      return;
+    }
+
+    this.gridSignature = nextSignature;
 
     this.gridLayer.destroyChildren();
 
@@ -321,17 +335,38 @@ export class StageController {
   }
 
   onResize() {
-    this.stage.size({
+    this.lastObservedSize = {
       width: this.container.clientWidth,
       height: this.container.clientHeight,
+    };
+
+    if (this.pendingResizeFrame != null) return;
+
+    this.pendingResizeFrame = window.requestAnimationFrame(() => {
+      this.pendingResizeFrame = null;
+      const { width, height } = this.lastObservedSize;
+
+      if (
+        width === this.stage.width() &&
+        height === this.stage.height()
+      ) {
+        return;
+      }
+
+      this.stage.size({ width, height });
+      this.gridSignature = null;
+      this.syncViewport();
     });
-    this.syncViewport();
   }
 
   destroy() {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     this.resizeObserver.disconnect();
+    if (this.pendingResizeFrame != null) {
+      window.cancelAnimationFrame(this.pendingResizeFrame);
+      this.pendingResizeFrame = null;
+    }
     this.stage.destroy();
   }
 }
