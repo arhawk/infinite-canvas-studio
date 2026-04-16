@@ -1,6 +1,7 @@
 function resolveSelectable(node) {
   if (!node) return null;
-  return node.findAncestor?.(".selectable", true) ?? (node.hasName?.("selectable") ? node : null);
+  if (node.hasName?.("selectable")) return node;
+  return node.findAncestor?.(".selectable", true) ?? null;
 }
 
 export class ComponentRegistry {

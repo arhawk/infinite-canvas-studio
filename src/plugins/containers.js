@@ -9,11 +9,11 @@ function isConnectionNode(node) {
 }
 
 function isRankingNode(node) {
-  return node?.getAttr?.("componentType") === "ranking";
+  return node?.getAttr?.("componentType") === "rankingBox";
 }
 
 function isInsideRankingNode(node) {
-  return Boolean(node?.findAncestor?.(".ranking-root"));
+  return Boolean(node?.findAncestor?.(".ranking-box-root"));
 }
 
 export class ContainersPlugin extends BasePlugin {

@@ -24,6 +24,13 @@ class DeleteSelectionCommand extends BaseCommand {
   }
 }
 
+function isRankingItemInteractionTarget(target) {
+  return Boolean(
+    target?.findAncestor?.(".ranking-item-card", true) ||
+    target?.findAncestor?.(".ranking-item-delete", true),
+  );
+}
+
 export class SelectionPlugin extends BasePlugin {
   static pluginId = "selection";
   static modes = {
@@ -113,6 +120,13 @@ export class SelectionPlugin extends BasePlugin {
       this.setSelected(this.selectedNodes.filter((selectedNode) => selectedNode !== node));
     });
 
+    this.listen("node:changed", ({ node }) => {
+      if (!this.selectedNodes.includes(node)) return;
+      this.syncTransformer();
+      this.transformer.forceUpdate();
+      this.layer.batchDraw();
+    });
+
     this.listen("document:load:start", () => {
       this.clearSelection();
       this.hideGuides();
@@ -145,8 +159,8 @@ export class SelectionPlugin extends BasePlugin {
 
   getSelectable(target) {
     if (!target || target === this.stage) return null;
-    const shape = target.findAncestor(".selectable", true);
-    return shape ?? (target.hasName?.("selectable") ? target : null);
+    if (target.hasName?.("selectable")) return target;
+    return target.findAncestor(".selectable", true);
   }
 
   getSelectedNodes() {
@@ -161,7 +175,8 @@ export class SelectionPlugin extends BasePlugin {
     const transformableNodes = this.getTransformableNodes(this.selectedNodes);
     const primaryNode = transformableNodes[0] ?? null;
     const transformLocked = Boolean(primaryNode?.getAttr("transformLocked"));
-    const isFreeResizeNode = primaryNode?.getAttr("componentType") === "ranking";
+    const primaryType = primaryNode?.getAttr("componentType");
+    const isFreeResizeNode = primaryType === "rankingBox" || primaryType === "text";
     const isMultiSelection = transformableNodes.length > 1;
 
     this.transformer.rotateEnabled(!transformLocked && !isMultiSelection);
@@ -183,6 +198,8 @@ export class SelectionPlugin extends BasePlugin {
           : ["top-left", "top-right", "bottom-left", "bottom-right"],
     );
     this.transformer.nodes(transformableNodes);
+    this.transformer.moveToTop();
+    this.transformer.forceUpdate();
   }
 
   setSelected(nodes) {
@@ -231,7 +248,10 @@ export class SelectionPlugin extends BasePlugin {
     node.on("dragmove.selectionSync transform.selectionSync", (event) => {
       if (!node.getStage?.()) return;
       this.app.events.emit("node:changing", { node });
-      if (event.type === "transform" && node.getAttr("componentType") === "ranking") {
+      if (
+        event.type === "transform" &&
+        (node.getAttr("componentType") === "rankingBox" || node.getAttr("componentType") === "text")
+      ) {
         this.transformer.forceUpdate();
       }
     });
@@ -347,6 +367,7 @@ export class SelectionPlugin extends BasePlugin {
 
   handleClick(event) {
     if (this.app.tools.getActive() !== "arrange") return;
+    if (isRankingItemInteractionTarget(event.target)) return;
     if (this.app.stageApi.consumePanClickSuppression()) {
       return;
     }
@@ -375,6 +396,7 @@ export class SelectionPlugin extends BasePlugin {
 
   handleSnapMove(event) {
     if (!this.isEnabled()) return;
+    if (isRankingItemInteractionTarget(event.target)) return;
     const target = this.getSelectable(event.target);
     if (!target) return;
     this.updateGuides(target);

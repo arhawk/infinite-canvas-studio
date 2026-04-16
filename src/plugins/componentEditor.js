@@ -87,6 +87,9 @@ export class ComponentEditorPlugin extends BasePlugin {
       if (!this.isEnabled()) return;
       const button = event.evt?.button;
       if (button != null && button !== 0) return;
+      const selectable = event.target?.findAncestor?.(".selectable", true)
+        ?? (event.target?.hasName?.("selectable") ? event.target : null);
+      if (selectable?.getAttr?.("componentType") === "text") return;
       this.open(event.target);
     });
 

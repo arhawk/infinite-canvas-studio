@@ -16,6 +16,10 @@ function isConnectionNode(node) {
   return node?.getAttr?.("componentType") === "connection";
 }
 
+function isRankingBoxNode(node) {
+  return node?.getAttr?.("componentType") === "rankingBox";
+}
+
 function readOffset(offset) {
   return {
     x: Number.isFinite(offset?.x) ? offset.x : 0,
@@ -212,7 +216,7 @@ export class ConnectionsPlugin extends BasePlugin {
   }
 
   isConnectable(node) {
-    return !!node?.hasName?.("selectable") && !isConnectionNode(node);
+    return !!node?.hasName?.("selectable") && !isConnectionNode(node) && !isRankingBoxNode(node);
   }
 
   getConnections() {

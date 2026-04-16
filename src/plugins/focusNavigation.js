@@ -14,8 +14,12 @@ function isConnectionNode(node) {
   return node?.getAttr?.("componentType") === "connection";
 }
 
+function isRankingBoxNode(node) {
+  return node?.getAttr?.("componentType") === "rankingBox";
+}
+
 function isFocusableNode(node) {
-  return !!node?.hasName?.("selectable") && !isConnectionNode(node);
+  return !!node?.hasName?.("selectable") && !isConnectionNode(node) && !isRankingBoxNode(node);
 }
 
 function isFinitePoint(point) {

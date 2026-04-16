@@ -138,7 +138,10 @@ export class ToolbarPlugin extends BasePlugin {
       };
       this.syncUi();
     });
-    this.listen("draw:added", () => this.syncUi());
+    this.listen("draw:added", (payload = {}) => {
+      this.recordRecentColorFromStroke(payload);
+      this.syncUi();
+    });
     this.listen("draw:removed", () => this.syncUi());
 
     this.setupModeToggle();
@@ -226,6 +229,8 @@ export class ToolbarPlugin extends BasePlugin {
       this.listenDom(button, "click", () => {
         const { strokeColorEl } = this.ui;
         strokeColorEl.value = color;
+        this.pushRecentColor(toolId, color);
+        this.renderRecentColors(toolId);
         this.emitStrokeChange();
       });
 
@@ -241,6 +246,18 @@ export class ToolbarPlugin extends BasePlugin {
       color,
       ...toolState.recentColors.filter((item) => item !== color),
     ].slice(0, 3);
+  }
+
+  recordRecentColorFromStroke({ node, toolId, color } = {}) {
+    const drawingToolId = toolId ?? node?.getAttr?.("drawingToolId");
+    if (!this.isDrawingTool(drawingToolId)) return;
+
+    const strokeColor = color ?? node?.stroke?.();
+    this.pushRecentColor(drawingToolId, strokeColor);
+
+    if (this.app.getEditorTool() === drawingToolId) {
+      this.renderRecentColors(drawingToolId);
+    }
   }
 
   syncDrawingUiToActiveTool() {
@@ -327,9 +344,6 @@ export class ToolbarPlugin extends BasePlugin {
 
     const toolState = this.saveDrawingUiToTool(activeToolId);
     if (!toolState) return;
-
-    this.pushRecentColor(activeToolId, toolState.color);
-    this.renderRecentColors(activeToolId);
 
     this.app.events.emit("stroke:change", {
       toolId: activeToolId,

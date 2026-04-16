@@ -347,6 +347,7 @@ export class DrawingPlugin extends BasePlugin {
       const point = this.pointerToCanvas();
       if (!point) return;
 
+      const toolId = this.getActiveDrawingToolId();
       const style = this.getActiveToolStyle();
       if (!style) return;
 
@@ -363,6 +364,7 @@ export class DrawingPlugin extends BasePlugin {
         lineJoin: "round",
         draggable: false,
         name: "drawable",
+        drawingToolId: toolId,
         globalCompositeOperation: "source-over",
       });
       this.layer.add(this.currentLine);
@@ -408,7 +410,11 @@ export class DrawingPlugin extends BasePlugin {
     this.currentLine = null;
     if (finishedLine) {
       this.layer.batchDraw();
-      this.app.events.emit("draw:added", { node: finishedLine });
+      this.app.events.emit("draw:added", {
+        node: finishedLine,
+        toolId: finishedLine.getAttr("drawingToolId"),
+        color: finishedLine.stroke(),
+      });
     }
   }
 }

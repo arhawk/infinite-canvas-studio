@@ -31,6 +31,10 @@ function getNodeSummary(node) {
       text: node.text?.() ?? "",
       fill: node.fill?.() ?? null,
       fontSize: node.fontSize?.() ?? null,
+      width: node.width?.() ?? null,
+      height: node.height?.() ?? null,
+      scaleX: node.scaleX?.() ?? null,
+      scaleY: node.scaleY?.() ?? null,
     };
   }
 
@@ -38,6 +42,23 @@ function getNodeSummary(node) {
     return {
       label: node.findOne(".container-label")?.text() ?? "",
       stroke: node.findOne(".container-bg")?.stroke() ?? null,
+    };
+  }
+
+  if (componentType === "rankingBox") {
+    const data = node.getAttr("data") ?? {};
+    const cards = node.find(".ranking-item-card");
+    return {
+      label: data.label ?? "",
+      items: Array.isArray(data.items)
+        ? data.items.map((item) => ({
+            ...item,
+            renderedText: cards
+              .find((card) => card.getAttr("rankingItemId") === item.id)
+              ?.findOne?.(".ranking-item-text")
+              ?.text?.() ?? "",
+          }))
+        : [],
     };
   }
 
@@ -64,10 +85,12 @@ function getNodeSummary(node) {
 
 function serializeNode(app, node) {
   const bounds = getNodeBounds(app, node);
+  const parent = node.getParent?.();
 
   return {
     id: node.id(),
     componentType: node.getAttr("componentType"),
+    parentId: parent?.hasName?.("selectable") ? parent.id() : null,
     focusPositionMode: node.getAttr("focusPositionMode") ?? null,
     savedFocus: node.getAttr("savedFocus") ?? null,
     bounds: bounds
@@ -228,6 +251,38 @@ export function setupAppTestApi(app) {
       await app.commands.execute("catalog:add-selected");
       return serializeCatalogItems(app);
     },
+    createRankingBox: async (pageId) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const node = await rankingPlugin?.createRankingBoxForPage?.(pageId);
+      return node ? serializeNode(app, node) : null;
+    },
+    addTextToRankingBox: (rankingBoxId, textId, options = {}) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const item = rankingPlugin?.addTextToRankingBox?.(rankingBoxId, textId, options);
+      const node = getNodeById(app, rankingBoxId);
+      return {
+        item,
+        rankingBox: node ? serializeNode(app, node) : null,
+      };
+    },
+    reorderRankingBoxItem: (rankingBoxId, itemId, insertIndex) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const ok = rankingPlugin?.reorderRankingItem?.(rankingBoxId, itemId, insertIndex) ?? false;
+      const node = getNodeById(app, rankingBoxId);
+      return {
+        ok,
+        rankingBox: node ? serializeNode(app, node) : null,
+      };
+    },
+    removeRankingBoxItem: (rankingBoxId, itemId) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const ok = rankingPlugin?.removeRankingItem?.(rankingBoxId, itemId) ?? false;
+      const node = getNodeById(app, rankingBoxId);
+      return {
+        ok,
+        rankingBox: node ? serializeNode(app, node) : null,
+      };
+    },
     moveNode: (id, position) => {
       const node = getNodeById(app, id);
       if (!node || !Number.isFinite(position?.x) || !Number.isFinite(position?.y)) {
@@ -242,6 +297,37 @@ export function setupAppTestApi(app) {
       node.getLayer()?.batchDraw();
       app.events.emit("node:changed", { node });
       return serializeNode(app, node);
+    },
+    resizeTextBox: (id, size) => {
+      const node = getNodeById(app, id);
+      if (
+        node?.getAttr?.("componentType") !== "text" ||
+        !Number.isFinite(size?.width) ||
+        !Number.isFinite(size?.height) ||
+        !Number.isFinite(node.width?.()) ||
+        !Number.isFinite(node.height?.())
+      ) {
+        return null;
+      }
+
+      app.events.emit("node:change:start", { node });
+      node.scale({
+        x: size.width / node.width(),
+        y: size.height / node.height(),
+      });
+      node.fire("transform", { type: "transform" });
+      node.getLayer()?.batchDraw();
+      app.events.emit("node:changed", { node });
+      return serializeNode(app, node);
+    },
+    deleteNode: (id) => {
+      const node = getNodeById(app, id);
+      if (!node?.getStage?.()) return false;
+
+      app.events.emit("node:removed", { node });
+      node.destroy();
+      app.mainLayer.batchDraw();
+      return true;
     },
     createConnection: async (sourceId, targetId) => {
       const connectionsPlugin = getPlugin(app, "connections");

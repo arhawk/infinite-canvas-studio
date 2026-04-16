@@ -55,6 +55,23 @@ textarea {
   font: inherit;
 }
 
+.canvas-text-editor {
+  position: fixed;
+  z-index: 70;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  border: 1px dashed #2563eb;
+  border-radius: 4px;
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+  caret-color: #2563eb;
+  resize: none;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .app-shell {
   display: flex;
   height: 100dvh;
@@ -588,6 +605,11 @@ h2 {
 }
 
 .toolbar__tool-panel[hidden] {
+  display: none !important;
+}
+
+.toolbar__field[hidden],
+.toolbar__recent-colors[hidden] {
   display: none !important;
 }
 
