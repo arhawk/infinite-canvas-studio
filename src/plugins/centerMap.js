@@ -11,17 +11,12 @@ import { renderIcons } from "../lib/icons.js";
  *   • 2nd click → restore the previous viewport (position + scale)
  *   • 3rd click → panorama again … and so on
  *
- * Zoom controls are injected as a small floating panel anchored to the
- * bottom-left of the board (same area as the minimap overview). They show:
- *   [ − ]  [ 75% ]  [ + ]
- * The percentage label updates live as the user pans/zooms.
- *
  * Keyboard shortcuts (unchanged):
  *   Home        — toggle panorama / previous view
  *   Ctrl/Cmd +  — zoom in  20 %
  *   Ctrl/Cmd -  — zoom out 20 %
  *
- * Registration in main.js (no HTML changes needed for zoom panel):
+ * Registration in main.js:
  *   app.use(CenterMapPlugin, {
  *     centerMapEl: ui.centerMapBtn,
  *   });
@@ -84,13 +79,8 @@ export class CenterMapPlugin extends BasePlugin {
       }
     });
 
-    // Build the floating zoom-level panel (bottom-left of board)
-    this._buildZoomPanel();
-
     // Reset toggle state when user manually pans/zooms
     this.listen("viewport:change", () => this._onViewportChange());
-
-    this.cleanups.push(() => this._zoomPanel?.remove());
   }
 
   // ─── Panorama toggle ──────────────────────────────────────────────────────
@@ -218,85 +208,4 @@ export class CenterMapPlugin extends BasePlugin {
 
   zoomIn()  { this._zoomBy(1 + ZOOM_STEP); }
   zoomOut() { this._zoomBy(1 - ZOOM_STEP); }
-
-  // ─── Floating zoom panel ──────────────────────────────────────────────────
-
-  _buildZoomPanel() {
-    const panel = document.createElement("div");
-    panel.className = "zoom-controls";
-    panel.dataset.testid = "zoom-controls";
-    panel.innerHTML = `
-      <button class="zoom-controls__btn" data-action="out"  title="Zoom out (Ctrl -)">−</button>
-      <button class="zoom-controls__label" data-action="fit" title="Fit all content (Home)">100%</button>
-      <button class="zoom-controls__btn" data-action="in" title="Zoom in (Ctrl +)">+</button>
-    `;
-
-    this._zoomLabel = panel.querySelector("[data-action='fit']");
-
-    panel.addEventListener("click", (e) => {
-      const action = e.target.closest("[data-action]")?.dataset.action;
-      if (action === "in")  this.zoomIn();
-      if (action === "out") this.zoomOut();
-      if (action === "fit") this.centerView();
-    });
-
-    // Inject styles (scoped — won't conflict with existing CSS)
-    const style = document.createElement("style");
-    style.textContent = `
-      .zoom-controls {
-        position: absolute;
-        bottom: 16px;
-        left: 16px;
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        background: var(--color-background-primary, #fff);
-        border: 1px solid var(--color-border-secondary, #e0d6cc);
-        border-radius: 8px;
-        padding: 3px 4px;
-        box-shadow: 0 1px 4px rgba(0,0,0,.10);
-        z-index: 100;
-        user-select: none;
-      }
-      .zoom-controls__btn,
-      .zoom-controls__label {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--color-text-primary, #2d2418);
-        padding: 3px 7px;
-        border-radius: 5px;
-        line-height: 1;
-        transition: background 0.1s;
-      }
-      .zoom-controls__btn:hover,
-      .zoom-controls__label:hover {
-        background: var(--color-background-secondary, #f5f0eb);
-      }
-      .zoom-controls__label {
-        min-width: 44px;
-        text-align: center;
-        font-variant-numeric: tabular-nums;
-        font-size: 12px;
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Attach to board-shell (same parent as minimap)
-    const boardShell = this.app.stage.container().parentElement;
-    boardShell.appendChild(panel);
-    this._zoomPanel = panel;
-    this._styleEl   = style;
-
-    // Keep label in sync with viewport changes
-    this.listen("viewport:change", ({ scale }) => {
-      if (this._zoomLabel) {
-        this._zoomLabel.textContent = `${Math.round(scale * 100)}%`;
-      }
-    });
-
-    this.cleanups.push(() => style.remove());
-  }
 }
