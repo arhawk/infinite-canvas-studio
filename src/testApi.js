@@ -70,6 +70,10 @@ function getNodeSummary(node) {
       points: line?.points?.() ?? [],
       stroke: line?.stroke?.() ?? null,
       strokeWidth: line?.strokeWidth?.() ?? null,
+      opacity: line?.opacity?.() ?? null,
+      hiddenUntilEndpointSelected:
+        node.getAttr("connectionHiddenUntilEndpointSelected") === true,
+      transparentPulseActive: node.getAttr("transparentPulseActive") === true,
     };
   }
 
@@ -203,12 +207,22 @@ export function setupAppTestApi(app) {
       selectionPlugin.setSelected([node]);
       return true;
     },
+    getSelectedNodeIds: () => {
+      const selectionPlugin = getPlugin(app, "selection");
+      return (selectionPlugin?.getSelectedNodes?.() ?? []).map((node) => node.id());
+    },
     getNodePageCenter: (id) => {
       const node = getNodeById(app, id);
       if (!node) return null;
 
       const canvasCenter = getNodeCanvasCenter(app, node);
       return canvasCenter ? canvasToPage(app, canvasCenter) : null;
+    },
+    canvasToPagePoint: (canvasPoint) => {
+      if (!Number.isFinite(canvasPoint?.x) || !Number.isFinite(canvasPoint?.y)) {
+        return null;
+      }
+      return canvasToPage(app, canvasPoint);
     },
     getViewportState: () => getViewportState(app),
     centerOnNode: (id, options = {}) => {

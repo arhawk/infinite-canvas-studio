@@ -810,6 +810,14 @@ h2 {
   min-height: 3rem;
 }
 
+.component-editor-modal input[type="checkbox"].component-editor-modal__input {
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border-radius: 0.35rem;
+  accent-color: var(--accent);
+}
+
 .component-editor-modal__file-wrapper {
   display: flex;
   align-items: center;

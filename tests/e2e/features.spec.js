@@ -152,6 +152,133 @@ test("creates a connection from the toolbar and updates it when a node moves", a
     .not.toBe(JSON.stringify(originalPoints));
 });
 
+test("pulses transparent connections red when an endpoint or the line itself is selected", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 560, y: 220 });
+  const other = await addComponent(page, "sticky", { x: 860, y: 220 });
+
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+
+  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
+    .toBe(true);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
+    .toBe(0);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), source.id);
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? false)
+    .toBe(true);
+
+  const pulseSamples = await page.evaluate(async (connectionId) => {
+    const samples = [];
+    for (let index = 0; index < 6; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 180));
+      const node = window.__APP_TEST_API__.getNode(connectionId);
+      samples.push({
+        stroke: node?.summary?.stroke ?? null,
+        opacity: node?.summary?.opacity ?? null,
+      });
+    }
+    return samples;
+  }, connection.id);
+
+  expect(pulseSamples.some((sample) => sample.stroke === "#ef4444")).toBe(true);
+  expect(Math.max(...pulseSamples.map((sample) => sample.opacity ?? 0))).toBeGreaterThan(0.7);
+  expect(Math.min(...pulseSamples.map((sample) => sample.opacity ?? 1))).toBeLessThan(0.25);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? false)
+    .toBe(true);
+
+  const lineSelectedPulseSamples = await page.evaluate(async (connectionId) => {
+    const samples = [];
+    for (let index = 0; index < 4; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 180));
+      const node = window.__APP_TEST_API__.getNode(connectionId);
+      samples.push(node?.summary?.opacity ?? null);
+    }
+    return samples;
+  }, connection.id);
+
+  expect(Math.max(...lineSelectedPulseSamples.map((sample) => sample ?? 0))).toBeGreaterThan(0.7);
+  expect(Math.min(...lineSelectedPulseSamples.map((sample) => sample ?? 1))).toBeLessThan(0.25);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.transparentPulseActive ?? true)
+    .toBe(false);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
+    .toBe(0);
+});
+
+test("does not let fully transparent connections capture mouse selection", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 560, y: 220 });
+  const other = await addComponent(page, "sticky", { x: 860, y: 220 });
+
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.opacity ?? null)
+    .toBe(0);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
+    other.id,
+  ]);
+
+  const connectionCurvePoint = await page.evaluate((connectionId) => {
+    const node = window.__APP_TEST_API__.getNode(connectionId);
+    const points = node?.summary?.points ?? [];
+    if (points.length !== 8) return null;
+    const t = 0.5;
+
+    const cubicPoint = (t, p0, p1, p2, p3) => {
+      const mt = 1 - t;
+      return (mt ** 3) * p0 + 3 * (mt ** 2) * t * p1 + 3 * mt * (t ** 2) * p2 + (t ** 3) * p3;
+    };
+
+    const canvasPoint = {
+      x: cubicPoint(t, points[0], points[2], points[4], points[6]),
+      y: cubicPoint(t, points[1], points[3], points[5], points[7]),
+    };
+
+    return window.__APP_TEST_API__.canvasToPagePoint(canvasPoint);
+  }, connection.id);
+
+  await page.mouse.click(connectionCurvePoint.x, connectionCurvePoint.y);
+
+  await expect
+    .poll(async () => page.evaluate((connectionId) => (
+      window.__APP_TEST_API__.getSelectedNodeIds().includes(connectionId)
+    ), connection.id))
+    .toBe(false);
+});
+
 test("saves focus from the toolbar for the selected node", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
   const center = await getNodePageCenter(page, sticky.id);

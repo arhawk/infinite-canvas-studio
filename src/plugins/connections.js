@@ -3,9 +3,16 @@ import {
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
+import {
+  DEFAULT_LINE_OPACITY,
+  getConnectionConfiguredStyle,
+  getConnectionLine,
+} from "../component/connection.js";
 import { Konva } from "../lib/konva.js";
 
 const CONTROL_HANDLE_RADIUS = 8;
+const TRANSPARENT_PULSE_STROKE = "#ef4444";
+const TRANSPARENT_PULSE_DURATION_MS = 1400;
 
 function resolveSelectable(node) {
   if (!node) return null;
@@ -118,6 +125,9 @@ export class ConnectionsPlugin extends BasePlugin {
     this.uiLayer = this.app.uiLayer;
     this.connectingFromId = null;
     this.selectedConnection = null;
+    this.selectedNodes = [];
+    this.transparentPulseConnectionIds = new Set();
+    this.transparentPulseAnimation = null;
 
     this.controlHandleGroup = new Konva.Group({
       visible: false,
@@ -146,8 +156,13 @@ export class ConnectionsPlugin extends BasePlugin {
       } else {
         this.syncSelectedConnectionControls();
       }
+      this.syncTransparentConnectionPulse();
     });
     this.listen("zoom:change", () => this.syncSelectedConnectionControls());
+    this.listen("document:load:start", () => {
+      this.selectedNodes = [];
+      this.setTransparentPulseConnections([]);
+    });
 
     this.listenDom(window, "keydown", (event) => {
       if (event.key === "Escape") {
@@ -157,6 +172,8 @@ export class ConnectionsPlugin extends BasePlugin {
 
     this.cleanups.push(() => {
       this.cancelConnecting();
+      this.setTransparentPulseConnections([]);
+      this.stopTransparentPulseAnimation();
       this.controlHandleGroup.destroy();
     });
   }
@@ -221,6 +238,14 @@ export class ConnectionsPlugin extends BasePlugin {
 
   getConnections() {
     return this.layer.find((node) => isConnectionNode(node));
+  }
+
+  isPulseEligibleConnection(connectionNode) {
+    return isConnectionNode(connectionNode) && connectionNode?.hasName?.("selectable");
+  }
+
+  isTransparentConnection(connectionNode) {
+    return getConnectionConfiguredStyle(connectionNode).hiddenUntilEndpointSelected === true;
   }
 
   findNodeById(id) {
@@ -309,16 +334,104 @@ export class ConnectionsPlugin extends BasePlugin {
 
   syncConnectionAppearance() {
     this.getConnections().forEach((connectionNode) => {
-      const line = connectionNode.findOne(".connection-line");
+      const line = getConnectionLine(connectionNode);
       if (!line) return;
 
       const isSelected = connectionNode === this.selectedConnection;
       line.shadowBlur(isSelected ? 8 : 2);
       line.shadowOpacity(isSelected ? 0.22 : 0.08);
-      line.opacity(isSelected ? 1 : 0.9);
+
+      if (this.transparentPulseConnectionIds.has(connectionNode.id())) {
+        return;
+      }
+
+      const { stroke, hiddenUntilEndpointSelected } = getConnectionConfiguredStyle(connectionNode);
+      line.stroke(stroke);
+      line.fill(stroke);
+      line.opacity(hiddenUntilEndpointSelected ? 0 : (isSelected ? 1 : DEFAULT_LINE_OPACITY));
     });
 
     this.layer.batchDraw();
+  }
+
+  startTransparentPulseAnimation() {
+    if (this.transparentPulseAnimation) return;
+
+    this.transparentPulseAnimation = new Konva.Animation((frame) => {
+      const time = frame?.time ?? 0;
+      const pulseOpacity = (Math.sin((time / TRANSPARENT_PULSE_DURATION_MS) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+
+      this.transparentPulseConnectionIds.forEach((connectionId) => {
+        const connectionNode = this.findNodeById(connectionId);
+        const line = getConnectionLine(connectionNode);
+        if (!connectionNode?.getStage?.() || !line) return;
+
+        line.stroke(TRANSPARENT_PULSE_STROKE);
+        line.fill(TRANSPARENT_PULSE_STROKE);
+        line.opacity(pulseOpacity);
+      });
+    }, this.layer);
+
+    this.transparentPulseAnimation.start();
+  }
+
+  stopTransparentPulseAnimation() {
+    if (!this.transparentPulseAnimation) return;
+    this.transparentPulseAnimation.stop();
+    this.transparentPulseAnimation = null;
+  }
+
+  getTransparentPulseConnections(nodes = this.selectedNodes) {
+    const selectedConnectionIds = new Set(
+      (nodes ?? [])
+        .filter((node) => isConnectionNode(node))
+        .map((node) => node.id()),
+    );
+    const selectedEndpointIds = new Set(
+      (nodes ?? [])
+        .filter((node) => node && !isConnectionNode(node))
+        .map((node) => node.id()),
+    );
+
+    if (!selectedEndpointIds.size && !selectedConnectionIds.size) return [];
+
+    return this.getConnections().filter((connectionNode) => (
+      this.isPulseEligibleConnection(connectionNode) &&
+      this.isTransparentConnection(connectionNode) &&
+      (
+        selectedConnectionIds.has(connectionNode.id()) ||
+        selectedEndpointIds.has(connectionNode.getAttr("sourceNodeId")) ||
+        selectedEndpointIds.has(connectionNode.getAttr("targetNodeId"))
+      )
+    ));
+  }
+
+  setTransparentPulseConnections(connectionNodes = []) {
+    const nextIds = new Set(connectionNodes.map((node) => node.id()));
+    const currentIds = [...this.transparentPulseConnectionIds];
+    const changed =
+      currentIds.length !== nextIds.size ||
+      currentIds.some((id) => !nextIds.has(id));
+
+    if (!changed) return;
+
+    this.getConnections().forEach((connectionNode) => {
+      connectionNode.setAttr("transparentPulseActive", nextIds.has(connectionNode.id()));
+    });
+
+    this.transparentPulseConnectionIds = nextIds;
+
+    if (nextIds.size) {
+      this.startTransparentPulseAnimation();
+    } else {
+      this.stopTransparentPulseAnimation();
+    }
+
+    this.syncConnectionAppearance();
+  }
+
+  syncTransparentConnectionPulse() {
+    this.setTransparentPulseConnections(this.getTransparentPulseConnections());
   }
 
   updateConnection(connectionNode) {
@@ -365,6 +478,8 @@ export class ConnectionsPlugin extends BasePlugin {
   handleNodeAdded(node) {
     if (!isConnectionNode(node)) return;
     this.updateConnection(node);
+    node.setAttr("transparentPulseActive", false);
+    this.syncTransparentConnectionPulse();
     this.syncConnectionAppearance();
   }
 
@@ -377,6 +492,8 @@ export class ConnectionsPlugin extends BasePlugin {
         this.selectedConnection = null;
         this.hideControlHandles();
       }
+      selectable.setAttr("transparentPulseActive", false);
+      this.syncTransparentConnectionPulse();
       this.syncConnectionAppearance();
       return;
     }
@@ -388,6 +505,7 @@ export class ConnectionsPlugin extends BasePlugin {
       ))
       .forEach((connectionNode) => this.removeConnection(connectionNode));
 
+    this.syncTransparentConnectionPulse();
     this.updateConnections();
   }
 
@@ -397,14 +515,17 @@ export class ConnectionsPlugin extends BasePlugin {
 
     if (isConnectionNode(selectable)) {
       this.updateConnection(selectable);
+      this.syncTransparentConnectionPulse();
       this.syncConnectionAppearance();
       return;
     }
 
+    this.syncTransparentConnectionPulse();
     this.updateConnections();
   }
 
   handleSelectionChange(nodes) {
+    this.selectedNodes = nodes;
     this.selectedConnection =
       nodes.length === 1 && isConnectionNode(nodes[0]) ? nodes[0] : null;
 
@@ -414,6 +535,7 @@ export class ConnectionsPlugin extends BasePlugin {
       this.syncSelectedConnectionControls();
     }
 
+    this.syncTransparentConnectionPulse();
     this.syncConnectionAppearance();
   }
 
@@ -544,6 +666,8 @@ export class ConnectionsPlugin extends BasePlugin {
     }
     this.app.events.emit("node:removed", { node: connectionNode });
     connectionNode.destroy();
+    this.syncTransparentConnectionPulse();
+    this.syncConnectionAppearance();
     this.layer.batchDraw();
   }
 }

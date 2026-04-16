@@ -258,6 +258,9 @@ export class ComponentEditorPlugin extends BasePlugin {
     if (field.type === "textarea") {
       input.rows = field.rows ?? 4;
       input.value = value ?? "";
+    } else if (field.type === "checkbox") {
+      input.type = "checkbox";
+      input.checked = value === true;
     } else if (field.type === "file") {
       const wrapper = document.createElement("div");
       wrapper.className = "component-editor-modal__file-wrapper";
@@ -318,7 +321,10 @@ export class ComponentEditorPlugin extends BasePlugin {
         continue;
       }
 
-      await field.write(this.currentNode, input.value);
+      await field.write(
+        this.currentNode,
+        field.type === "checkbox" ? input.checked : input.value,
+      );
     }
 
     this.currentNode.getLayer()?.batchDraw();
