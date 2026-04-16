@@ -581,6 +581,12 @@ h2 {
   gap: 0.5rem;
 }
 
+.toolbar__cluster--end {
+  margin-left: auto;
+  padding-left: 0.9rem;
+  border-left: 1px solid rgba(61, 47, 32, 0.1);
+}
+
 .toolbar__tool-panel[hidden] {
   display: none !important;
 }
