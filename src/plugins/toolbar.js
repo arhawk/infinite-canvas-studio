@@ -7,6 +7,8 @@ const TOOL_ICONS = {
   pencil: "pencil",
   highlighter: "highlighter",
   eraser: "eraser",
+  "annotate": "baseline",
+  "annotate-eraser": "eraser",
 };
 
 const DRAWING_TOOL_IDS = ["pen", "pencil", "highlighter"];

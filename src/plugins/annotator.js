@@ -1,98 +1,173 @@
-import { BasePlugin } from "../core/baseClasses.js";
+import { BasePlugin, BaseTool } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
 import { renderIcons } from "../lib/icons.js";
 
 /**
  * AnnotatorPlugin — One-line diagram annotator (2.5)
  *
- * KEY DISTINCTION from 2.2 DrawingPlugin (freehand whiteboard):
- *   - 2.2: free brush strokes anywhere on canvas
- *   - 2.5: structured marks (underline, highlight, circle, arrow) that only
- *     start when the pointer is over a selectable content node (text, page,
- *     sticky, container…). Dragging on empty canvas does nothing.
+ * ════════════════════════════════════════════════
+ *  HOW IT DIFFERS FROM 2.2 DrawingPlugin
+ * ════════════════════════════════════════════════
  *
- * Shape modes:
- *   highlight  — semi-transparent colour block (text highlight)
- *   straight   — solid underline
- *   wavy       — wavy underline
- *   dashed     — dashed underline
- *   circle     — ellipse outline (encircle a word/phrase)
- *   arrow      — directional arrow
- *   eraser     — click an annotation to delete it (never affects canvas nodes)
+ *  2.2 DrawingPlugin        │  2.5 AnnotatorPlugin
+ *  ─────────────────────────┼──────────────────────────────
+ *  Draw anywhere on canvas  │  Only works ON a content node
+ *  Free brush strokes       │  Structured marks only
+ *  Pen/Pencil/Highlighter   │  Underline/Highlight/Circle/Arrow
+ *  Eraser removes strokes   │  Eraser removes annotations only
+ *
+ * ════════════
+ *  WORKFLOW
+ * ════════════
+ *  1. Click the annotator toolbar button to enter annotator mode.
+ *  2. Choose Shape + Color + Width.
+ *  3. Click-drag directly ON a Page / Text / Sticky / Container node.
+ *     → The annotation attaches to whatever node is under the pointer.
+ *     → Dragging on empty canvas does nothing.
+ *  4. Switch Shape to "🧹 Eraser" → click an annotation to delete it.
+ *  5. "Clear" removes all annotations at once.
+ *  6. Click the button again or switch to another tool to exit.
  */
 
-function generateWavyPoints(x1, y1, x2, y2, amplitude = 6, frequency = 20) {
+// ─── Tool registrations ──────────────────────────────────────────────────────
+
+class AnnotateTool extends BaseTool {
+  static toolId = "annotate";
+  static label  = "Annotate";
+}
+
+class AnnotateEraserTool extends BaseTool {
+  static toolId = "annotate-eraser";
+  static label  = "Annotation Eraser";
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function generateWavyPoints(x1, y1, x2, y2, amplitude, frequency) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.hypot(dx, dy);
   if (len < 1) return [x1, y1, x2, y2];
   const steps = Math.max(2, Math.floor(len / frequency));
   const nx = -dy / len;
-  const ny = dx / len;
-  const points = [];
+  const ny =  dx / len;
+  const pts = [];
   for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
+    const t    = i / steps;
     const wave = Math.sin(t * Math.PI * 2 * (len / frequency)) * amplitude;
-    points.push(x1 + dx * t + nx * wave, y1 + dy * t + ny * wave);
+    pts.push(x1 + dx * t + nx * wave, y1 + dy * t + ny * wave);
   }
-  return points;
+  return pts;
 }
 
-/** True when the Konva event target sits on a selectable content node. */
-function isOverContentNode(target) {
-  if (!target) return false;
-  if (target.getType?.() === "Stage") return false;
-  return Boolean(
-    target.hasName?.("selectable") ||
-    target.findAncestor?.(".selectable", true),
-  );
+/**
+ * Find the topmost content node under the pointer position (canvas coords).
+ * Walks up from the Konva event target to find a "selectable" node.
+ */
+function getNodeUnderPointer(eventTarget) {
+  if (!eventTarget) return null;
+  // Stage itself = empty canvas
+  if (eventTarget.getType?.() === "Stage") return null;
+  // Walk up to find a selectable node
+  let node = eventTarget;
+  while (node) {
+    if (node.hasName?.("selectable")) return node;
+    node = node.getParent?.() ?? null;
+  }
+  return null;
 }
+
+// ─── Plugin ───────────────────────────────────────────────────────────────────
 
 export class AnnotatorPlugin extends BasePlugin {
   static pluginId = "annotator";
 
+  static modes = {
+    edit: {
+      tools: {
+        "annotate":        {},
+        "annotate-eraser": {},
+      },
+    },
+  };
+
+  tools() {
+    return [AnnotateTool, AnnotateEraserTool];
+  }
+
   onSetup() {
-    const { toggleEl, controlsEl, colorEl, shapeEl, widthEl, widthValueEl, clearEl } =
-      this.options;
+    const {
+      toggleEl,
+      controlsEl,
+      colorEl,
+      shapeEl,
+      widthEl,
+      widthValueEl,
+      clearEl,
+    } = this.options;
 
     this.ui = { toggleEl, controlsEl, colorEl, shapeEl, widthEl, widthValueEl, clearEl };
-    this.isActive = false;
-    this.isDrawing = false;
-    this.currentShape = null;
-    this.startPoint = null;
 
-    // Dedicated layer — above mainLayer/drawLayer.
-    // listening:true so eraser can hit-test annotation shapes.
+    this.isDrawing    = false;
+    this.currentShape = null;
+    this.startPoint   = null;
+
+    // Dedicated annotation layer — above everything else.
     this.annotLayer = new Konva.Layer({ listening: true });
     this.app.stage.add(this.annotLayer);
 
+    // Status hint label
+    this._statusEl = document.createElement("span");
+    this._statusEl.style.cssText =
+      "font-size:11px;opacity:0.6;margin-left:6px;white-space:nowrap;";
+    this._statusEl.textContent = "Draw on any node";
+    controlsEl.appendChild(this._statusEl);
+
     renderIcons(toggleEl, { width: 18, height: 18, "stroke-width": 2 });
 
-    this.listenDom(toggleEl, "click", () => this.toggle());
-
-    // Escape exits annotator mode
-    this.listenDom(window, "keydown", (e) => {
-      if (e.key === "Escape" && this.isActive) this.deactivate();
+    // Toolbar button → toggle annotate tool
+    this.listenDom(toggleEl, "click", () => {
+      const current = this.app.getEditorTool();
+      if (current === "annotate" || current === "annotate-eraser") {
+        this.app.setEditorTool("arrange");
+      } else {
+        this.app.setEditorTool("annotate");
+      }
     });
 
+    // Width slider sync
     this.listenDom(widthEl, "input", () => {
       widthValueEl.value = widthEl.value;
     });
 
-    this.listenDom(shapeEl, "change", () => {
-      if (this.isActive) this._applyCursor();
-    });
-
+    // Clear all annotations
     this.listenDom(clearEl, "click", () => {
       this.annotLayer.destroyChildren();
       this.annotLayer.batchDraw();
     });
 
-    this.app.stage.on("mousedown.annotator touchstart.annotator", (e) =>
-      this._onPointerDown(e),
+    // Shape selector: switch between annotate / annotate-eraser
+    this.listenDom(shapeEl, "change", () => {
+      if (!this._isAnnotatorActive()) return;
+      if (shapeEl.value === "eraser") {
+        this.app.setEditorTool("annotate-eraser");
+      } else {
+        this.app.setEditorTool("annotate");
+      }
+    });
+
+    // React to tool changes
+    this.listen("tool:change",        () => this._syncUi());
+    this.listen("interaction:change", () => this._syncUi());
+
+    // Stage pointer events
+    this.app.stage.on(
+      "mousedown.annotator touchstart.annotator",
+      (e) => this._onPointerDown(e),
     );
-    this.app.stage.on("mousemove.annotator touchmove.annotator", () =>
-      this._onPointerMove(),
+    this.app.stage.on(
+      "mousemove.annotator touchmove.annotator",
+      () => this._onPointerMove(),
     );
     this.app.stage.on(
       "mouseup.annotator touchend.annotator touchcancel.annotator",
@@ -107,43 +182,62 @@ export class AnnotatorPlugin extends BasePlugin {
     this._syncUi();
   }
 
-  // ─── Activation ──────────────────────────────────────────────────────────
-
-  toggle() {
-    this.isActive ? this.deactivate() : this.activate();
-  }
-
-  activate() {
-    this.isActive = true;
+  onModeEnter() {
+    this.annotLayer.listening(true);
     this._syncUi();
+    this._applyCursor();
   }
 
-  deactivate() {
-    this.isActive = false;
-    this.isDrawing = false;
+  onModeChange() {
+    this._syncUi();
+    this._applyCursor();
+  }
+
+  onModeExit() {
+    this.isDrawing    = false;
     this.currentShape = null;
-    this.startPoint = null;
+    this.startPoint   = null;
+    this.annotLayer.listening(false);
+    this.app.clearCursorOverride();
     this._syncUi();
+  }
+
+  // ─── State ────────────────────────────────────────────────────────────────
+
+  _isAnnotatorActive() {
+    const t = this.app.getEditorTool();
+    return t === "annotate" || t === "annotate-eraser";
+  }
+
+  _isEraserActive() {
+    return this.app.getEditorTool() === "annotate-eraser";
   }
 
   _syncUi() {
-    const { toggleEl, controlsEl } = this.ui;
-    toggleEl.setAttribute("aria-pressed", String(this.isActive));
-    toggleEl.classList.toggle("is-active", this.isActive);
-    controlsEl.hidden = !this.isActive;
-    if (this.isActive) {
+    const { toggleEl, controlsEl, shapeEl } = this.ui;
+    const active = this._isAnnotatorActive();
+
+    toggleEl.setAttribute("aria-pressed", String(active));
+    toggleEl.classList.toggle("is-active", active);
+    controlsEl.hidden = !active;
+
+    if (active) {
+      // Sync shape dropdown to current tool
+      if (this._isEraserActive() && shapeEl.value !== "eraser") {
+        shapeEl.value = "eraser";
+      } else if (!this._isEraserActive() && shapeEl.value === "eraser") {
+        shapeEl.value = "highlight";
+      }
       this._applyCursor();
-      this.annotLayer.listening(true);
-    } else {
-      this.app.clearCursorOverride();
-      this.annotLayer.listening(false);
     }
   }
 
   _applyCursor() {
-    this.app.setCursorOverride(
-      this.ui.shapeEl.value === "eraser" ? "pointer" : "crosshair",
-    );
+    if (!this._isAnnotatorActive()) {
+      this.app.clearCursorOverride();
+      return;
+    }
+    this.app.setCursorOverride(this._isEraserActive() ? "pointer" : "crosshair");
   }
 
   // ─── Options ─────────────────────────────────────────────────────────────
@@ -151,9 +245,9 @@ export class AnnotatorPlugin extends BasePlugin {
   _getOptions() {
     const { colorEl, shapeEl, widthEl } = this.ui;
     return {
-      color: colorEl.value,
-      shape: shapeEl.value,
-      width: Number(widthEl.value),
+      color : colorEl.value,
+      shape : shapeEl.value,
+      width : Number(widthEl.value),
     };
   }
 
@@ -166,13 +260,11 @@ export class AnnotatorPlugin extends BasePlugin {
   // ─── Pointer handlers ────────────────────────────────────────────────────
 
   _onPointerDown(event) {
-    if (!this.isActive) return;
+    if (!this._isAnnotatorActive()) return;
     if (event.evt.button != null && event.evt.button !== 0) return;
 
-    const { shape } = this._getOptions();
-
-    // ── Eraser mode ──
-    if (shape === "eraser") {
+    // ── Eraser: delete clicked annotation ──
+    if (this._isEraserActive()) {
       let node = event.target;
       while (node && node.getParent() !== this.annotLayer) {
         node = node.getParent?.() ?? null;
@@ -185,14 +277,18 @@ export class AnnotatorPlugin extends BasePlugin {
       return;
     }
 
-    // ── Draw mode: must start on a content node (text/page/sticky/…) ──
-    if (!isOverContentNode(event.target)) return;
+    // ── Draw: check pointer is over a content node ──
+    const contentNode = getNodeUnderPointer(event.target);
+    if (!contentNode) {
+      // Clicked on empty canvas — ignore
+      return;
+    }
 
     const point = this._pointerToCanvas();
     if (!point) return;
 
-    this.isDrawing = true;
-    this.startPoint = point;
+    this.isDrawing    = true;
+    this.startPoint   = point;
     this.currentShape = this._createShape(point, point);
     if (this.currentShape) {
       this.annotLayer.add(this.currentShape);
@@ -202,7 +298,7 @@ export class AnnotatorPlugin extends BasePlugin {
   }
 
   _onPointerMove() {
-    if (!this.isActive || !this.isDrawing || !this.currentShape || !this.startPoint) return;
+    if (!this._isAnnotatorActive() || !this.isDrawing || !this.currentShape || !this.startPoint) return;
     const point = this._pointerToCanvas();
     if (!point) return;
     this._updateShape(this.currentShape, this.startPoint, point);
@@ -210,12 +306,12 @@ export class AnnotatorPlugin extends BasePlugin {
   }
 
   _onPointerUp() {
-    if (!this.isActive || !this.isDrawing) return;
+    if (!this._isAnnotatorActive() || !this.isDrawing) return;
     // Discard tiny accidental marks (< 5 screen-px)
     if (this.currentShape && this.startPoint) {
-      const ptr = this._pointerToCanvas();
+      const ptr   = this._pointerToCanvas();
+      const scale = this.app.stageApi.getScale();
       if (ptr) {
-        const scale = this.app.stageApi.getScale();
         const dist =
           Math.hypot(ptr.x - this.startPoint.x, ptr.y - this.startPoint.y) * scale;
         if (dist < 5) {
@@ -224,9 +320,9 @@ export class AnnotatorPlugin extends BasePlugin {
         }
       }
     }
-    this.isDrawing = false;
+    this.isDrawing    = false;
     this.currentShape = null;
-    this.startPoint = null;
+    this.startPoint   = null;
   }
 
   // ─── Shape factory ───────────────────────────────────────────────────────
@@ -234,56 +330,42 @@ export class AnnotatorPlugin extends BasePlugin {
   _createShape(start, end) {
     const { color, shape, width } = this._getOptions();
     const scale = this.app.stageApi.getScale();
-    const sw = width / scale;
+    const sw    = width / scale;
     const hitSw = Math.max(sw, 12 / scale);
 
     switch (shape) {
       case "highlight":
         return new Konva.Rect({
-          x: start.x,
-          y: start.y,
-          width: end.x - start.x,
+          x: start.x, y: start.y,
+          width:  end.x - start.x,
           height: Math.max(sw * 4, 20 / scale),
-          fill: color,
-          opacity: 0.35,
-          listening: true,
-          name: "annotation",
+          fill: color, opacity: 0.35,
+          listening: true, name: "annotation",
         });
 
       case "straight":
         return new Konva.Line({
           points: [start.x, start.y, end.x, end.y],
-          stroke: color,
-          strokeWidth: sw,
-          lineCap: "round",
-          hitStrokeWidth: hitSw,
-          listening: true,
-          name: "annotation",
+          stroke: color, strokeWidth: sw, lineCap: "round",
+          hitStrokeWidth: hitSw, listening: true, name: "annotation",
         });
 
       case "wavy":
         return new Konva.Line({
-          points: generateWavyPoints(start.x, start.y, end.x, end.y, 6 / scale, 20 / scale),
-          stroke: color,
-          strokeWidth: sw,
-          lineCap: "round",
-          lineJoin: "round",
-          tension: 0.4,
-          hitStrokeWidth: hitSw,
-          listening: true,
-          name: "annotation",
+          points: generateWavyPoints(
+            start.x, start.y, end.x, end.y, 6 / scale, 20 / scale,
+          ),
+          stroke: color, strokeWidth: sw,
+          lineCap: "round", lineJoin: "round", tension: 0.4,
+          hitStrokeWidth: hitSw, listening: true, name: "annotation",
         });
 
       case "dashed":
         return new Konva.Line({
           points: [start.x, start.y, end.x, end.y],
-          stroke: color,
-          strokeWidth: sw,
-          dash: [10 / scale, 6 / scale],
-          lineCap: "round",
-          hitStrokeWidth: hitSw,
-          listening: true,
-          name: "annotation",
+          stroke: color, strokeWidth: sw,
+          dash: [10 / scale, 6 / scale], lineCap: "round",
+          hitStrokeWidth: hitSw, listening: true, name: "annotation",
         });
 
       case "circle":
@@ -292,26 +374,18 @@ export class AnnotatorPlugin extends BasePlugin {
           y: (start.y + end.y) / 2,
           radiusX: Math.abs(end.x - start.x) / 2,
           radiusY: Math.abs(end.y - start.y) / 2,
-          stroke: color,
-          strokeWidth: sw,
-          fill: "transparent",
-          hitStrokeWidth: hitSw,
-          listening: true,
-          name: "annotation",
+          stroke: color, strokeWidth: sw, fill: "transparent",
+          hitStrokeWidth: hitSw, listening: true, name: "annotation",
         });
 
       case "arrow": {
         const group = new Konva.Group({ listening: true, name: "annotation" });
-        const line = new Konva.Arrow({
+        const line  = new Konva.Arrow({
           points: [start.x, start.y, end.x, end.y],
-          stroke: color,
-          fill: color,
-          strokeWidth: sw,
-          pointerLength: 10 / scale,
-          pointerWidth: 8 / scale,
+          stroke: color, fill: color, strokeWidth: sw,
+          pointerLength: 10 / scale, pointerWidth: 8 / scale,
           lineCap: "round",
-          hitStrokeWidth: hitSw,
-          listening: true,
+          hitStrokeWidth: hitSw, listening: true,
         });
         group.add(line);
         group._line = line;
@@ -328,14 +402,14 @@ export class AnnotatorPlugin extends BasePlugin {
   _updateShape(shape, start, end) {
     const { shape: shapeType, width } = this._getOptions();
     const scale = this.app.stageApi.getScale();
-    const sw = width / scale;
+    const sw    = width / scale;
 
     switch (shapeType) {
       case "highlight":
         shape.setAttrs({
-          x: Math.min(start.x, end.x),
-          y: start.y,
-          width: Math.abs(end.x - start.x),
+          x:      Math.min(start.x, end.x),
+          y:      start.y,
+          width:  Math.abs(end.x - start.x),
           height: Math.max(sw * 4, 20 / scale),
         });
         break;
@@ -350,8 +424,8 @@ export class AnnotatorPlugin extends BasePlugin {
         break;
       case "circle":
         shape.setAttrs({
-          x: (start.x + end.x) / 2,
-          y: (start.y + end.y) / 2,
+          x:       (start.x + end.x) / 2,
+          y:       (start.y + end.y) / 2,
           radiusX: Math.abs(end.x - start.x) / 2,
           radiusY: Math.abs(end.y - start.y) / 2,
         });
@@ -361,7 +435,7 @@ export class AnnotatorPlugin extends BasePlugin {
           shape._line.points([start.x, start.y, end.x, end.y]);
           shape._line.strokeWidth(sw);
           shape._line.pointerLength(10 / scale);
-          shape._line.pointerWidth(8 / scale);
+          shape._line.pointerWidth(8  / scale);
         }
         break;
     }
