@@ -8,13 +8,23 @@ import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
-const DEFAULT_WIDTH = 240;
-const DEFAULT_HEIGHT = 96;
-const MIN_WIDTH = 80;
-const MIN_HEIGHT = 40;
+const MIN_WIDTH = 48;
+const MIN_HEIGHT = 32;
 
 function normalizeDimension(value, fallback, minimum) {
   return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
+}
+
+function measureDefaultTextBox(textNode, text, fontSize, padding, lineHeight) {
+  const measured = textNode.measureSize?.(text) ?? {
+    width: String(text ?? "").length * fontSize * 0.56,
+    height: fontSize,
+  };
+
+  return {
+    width: Math.ceil(Math.max(MIN_WIDTH, measured.width + padding * 2)),
+    height: Math.ceil(Math.max(MIN_HEIGHT, measured.height * lineHeight + padding * 2)),
+  };
 }
 
 function installTextBoxResize(textNode) {
@@ -69,15 +79,15 @@ export class TextComponent extends BaseComponent {
     fontSize = 24,
     fill = "#1d1b16",
     padding = 12,
-    width = DEFAULT_WIDTH,
-    height = DEFAULT_HEIGHT,
+    width,
+    height,
   }) {
     const textNode = new Konva.Text({
       x,
       y,
       text,
-      width: normalizeDimension(width, DEFAULT_WIDTH, MIN_WIDTH),
-      height: normalizeDimension(height, DEFAULT_HEIGHT, MIN_HEIGHT),
+      width: MIN_WIDTH,
+      height: MIN_HEIGHT,
       fontSize,
       fontFamily: UI_FONT_FAMILY,
       fill,
@@ -87,6 +97,9 @@ export class TextComponent extends BaseComponent {
       verticalAlign: "top",
       draggable: true,
     });
+    const autoSize = measureDefaultTextBox(textNode, text, fontSize, padding, textNode.lineHeight());
+    textNode.width(normalizeDimension(width, autoSize.width, MIN_WIDTH));
+    textNode.height(normalizeDimension(height, autoSize.height, MIN_HEIGHT));
 
     installTextBoxResize(textNode);
     EditableTextBehavior.attach(textNode, { fallbackText: "" });

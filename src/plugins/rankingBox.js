@@ -11,7 +11,8 @@ import {
 
 function resolveSelectable(node) {
   if (!node) return null;
-  return node.findAncestor?.(".selectable", true) ?? (node.hasName?.("selectable") ? node : null);
+  if (node.hasName?.("selectable")) return node;
+  return node.findAncestor?.(".selectable", true) ?? null;
 }
 
 function isPageNode(node) {
@@ -45,6 +46,11 @@ function getPageSize(pageNode) {
     width: background?.width?.() ?? pageNode?.width?.() ?? 960,
     height: background?.height?.() ?? pageNode?.height?.() ?? 540,
   };
+}
+
+function clonePlainData(value) {
+  if (value == null) return value;
+  return JSON.parse(JSON.stringify(value));
 }
 
 function resequenceItems(items = []) {
@@ -111,6 +117,7 @@ export class RankingBoxPlugin extends BasePlugin {
   onSetup() {
     this.layer = this.app.mainLayer;
     this.dragOrigins = new Map();
+    this.isMovingTextIntoRanking = false;
 
     this.app.stage.on("dragstart.rankingBox", (event) => this.handleDragStart(event));
     this.app.stage.on("dragend.rankingBox", (event) => this.handleDragEnd(event));
@@ -132,6 +139,7 @@ export class RankingBoxPlugin extends BasePlugin {
     this.listen("node:removed", ({ node }) => {
       if (
         isTextNode(node) &&
+        !this.isMovingTextIntoRanking &&
         !this.app.isReplayingHistory &&
         !this.app.isRestoringDocument
       ) {
@@ -183,6 +191,18 @@ export class RankingBoxPlugin extends BasePlugin {
   findRankingBoxForPage(pageNode) {
     if (!isPageNode(pageNode)) return null;
     return pageNode.getChildren?.((child) => isRankingBoxNode(child))[0] ?? null;
+  }
+
+  findPageAtPoint(point) {
+    const pages = this.layer.find(".page-root").filter((node) => isPageNode(node));
+    for (const pageNode of pages.reverse()) {
+      const background = pageNode.findOne(".page-bg") ?? pageNode.findOne(".container-bg");
+      const box = background?.getClientRect?.() ?? pageNode.getClientRect();
+      if (pointInRect(point, box)) {
+        return pageNode;
+      }
+    }
+    return null;
   }
 
   getRankingBoxes() {
@@ -248,39 +268,6 @@ export class RankingBoxPlugin extends BasePlugin {
   bindRankingCards(rankingNode) {
     rankingNode.find(".ranking-item-card").forEach((card) => {
       card.off(".rankingItem");
-      card.find(".ranking-item-delete").forEach((deleteButton) => {
-        deleteButton.off(".rankingItemDelete");
-        const deleteTargets = [
-          deleteButton,
-          ...deleteButton.getChildren(),
-        ];
-
-        deleteTargets.forEach((target) => {
-          target.off(".rankingItemDelete");
-          target.on("mousedown.rankingItemDelete touchstart.rankingItemDelete", (event) => {
-            event.cancelBubble = true;
-          });
-          target.on("click.rankingItemDelete tap.rankingItemDelete", (event) => {
-            event.cancelBubble = true;
-            this.removeRankingItem(rankingNode, deleteButton.getAttr("rankingItemId"));
-          });
-        });
-
-        deleteButton.on("mousedown.rankingItemDelete touchstart.rankingItemDelete", (event) => {
-          event.cancelBubble = true;
-        });
-        deleteButton.on("mouseenter.rankingItemDelete", () => {
-          this.app.setCursorOverride("pointer");
-          deleteButton.findOne(".ranking-item-delete-bg")?.fill("rgba(165, 61, 47, 0.14)");
-          rankingNode.getLayer()?.batchDraw();
-        });
-        deleteButton.on("mouseleave.rankingItemDelete", () => {
-          this.app.clearCursorOverride();
-          deleteButton.findOne(".ranking-item-delete-bg")?.fill("rgba(95, 72, 40, 0.08)");
-          rankingNode.getLayer()?.batchDraw();
-        });
-      });
-
       card.on("mousedown.rankingItem touchstart.rankingItem", (event) => {
         event.cancelBubble = true;
       });
@@ -294,6 +281,11 @@ export class RankingBoxPlugin extends BasePlugin {
 
       card.on("dragmove.rankingItem", (event) => {
         event.cancelBubble = true;
+        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode)) {
+          rankingNode.getLayer()?.batchDraw();
+          return;
+        }
+
         const metrics = this.getRankingData(rankingNode);
         card.x(metrics.padding);
         rankingNode.getLayer()?.batchDraw();
@@ -302,6 +294,11 @@ export class RankingBoxPlugin extends BasePlugin {
       card.on("dragend.rankingItem", (event) => {
         event.cancelBubble = true;
         card.setAttr("isRankingItemDragging", false);
+        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode)) {
+          void this.moveRankingItemOutToText(rankingNode, card);
+          return;
+        }
+
         this.reorderRankingItemFromCard(rankingNode, card);
         this.app.events.emit("node:changed", { node: rankingNode });
       });
@@ -337,12 +334,10 @@ export class RankingBoxPlugin extends BasePlugin {
       return;
     }
 
-    const added = this.addTextToRankingBox(rankingBox, node, {
+    this.moveTextToRankingBox(rankingBox, node, {
       dropPoint,
     });
-    if (added) {
-      this.restoreDraggedText(node);
-    }
+    event.cancelBubble = true;
     this.dragOrigins.delete(node.id());
   }
 
@@ -375,7 +370,7 @@ export class RankingBoxPlugin extends BasePlugin {
     if (!isRankingBoxNode(rankingBox) || !isTextNode(textNode)) return null;
     if (!this.canAddTextToRankingBox(textNode, rankingBox)) return null;
 
-    const item = createRankingItem(textNode.id());
+    const item = createRankingItem(textNode.id(), this.createTextSnapshot(textNode));
     if (!item) return null;
 
     const component = this.getRankingComponent();
@@ -394,6 +389,27 @@ export class RankingBoxPlugin extends BasePlugin {
     this.bindRankingBox(rankingBox);
     rankingBox.getLayer()?.batchDraw();
     this.app.events.emit("node:changed", { node: rankingBox });
+    return item;
+  }
+
+  moveTextToRankingBox(rankingBoxRef, textRef, options = {}) {
+    const textNode = typeof textRef === "string"
+      ? this.findNodeById(textRef)
+      : textRef;
+    if (!isTextNode(textNode)) return null;
+
+    if (!this.dragOrigins.has(textNode.id())) {
+      this.dragOrigins.set(textNode.id(), {
+        parent: textNode.getParent(),
+        absolutePosition: { ...textNode.getAbsolutePosition() },
+      });
+    }
+
+    const item = this.addTextToRankingBox(rankingBoxRef, textNode, options);
+    if (item) {
+      this.removeDraggedText(textNode);
+    }
+    this.dragOrigins.delete(textNode.id());
     return item;
   }
 
@@ -446,17 +462,152 @@ export class RankingBoxPlugin extends BasePlugin {
     return true;
   }
 
-  restoreDraggedText(textNode) {
+  removeDraggedText(textNode) {
     const origin = this.dragOrigins.get(textNode.id());
     if (!origin) return;
 
-    this.app.events.emit("node:change:start", { node: textNode });
-    if (origin.parent && textNode.getParent() !== origin.parent) {
-      textNode.moveTo(origin.parent);
+    this.isMovingTextIntoRanking = true;
+    try {
+      textNode.setAttr("rankingBoxConsumedDrop", true);
+      if (origin.parent && textNode.getParent() !== origin.parent) {
+        textNode.moveTo(origin.parent);
+      }
+      textNode.setAbsolutePosition(origin.absolutePosition);
+      this.app.events.emit("node:removed", { node: textNode });
+      textNode.destroy();
+      this.layer.batchDraw();
+    } finally {
+      this.isMovingTextIntoRanking = false;
     }
-    textNode.setAbsolutePosition(origin.absolutePosition);
-    textNode.getLayer()?.batchDraw();
-    this.app.events.emit("node:changed", { node: textNode });
+  }
+
+  createTextSnapshot(textNode) {
+    const component = this.app.components.getByNode(textNode);
+    const data = component?.serializeNode?.(textNode) ?? {};
+    const box = textNode.getClientRect();
+
+    return {
+      data: clonePlainData(data),
+      width: Number.isFinite(data.width) ? data.width : textNode.width?.(),
+      height: Number.isFinite(data.height) ? data.height : textNode.height?.(),
+      absolutePosition: {
+        x: box.x,
+        y: box.y,
+      },
+    };
+  }
+
+  getCanvasPointerPosition() {
+    const pointer = this.app.stage.getPointerPosition();
+    return pointer ? this.app.stageApi.screenToCanvas(pointer) : null;
+  }
+
+  isCardPointerOutsideRankingBox(rankingNode) {
+    const point = this.getCanvasPointerPosition();
+    if (!point) return false;
+    const background = rankingNode.findOne(".ranking-box-bg");
+    const box = background?.getClientRect?.() ?? rankingNode.getClientRect();
+    return !pointInRect(point, box);
+  }
+
+  async moveRankingItemOutToText(rankingNode, card) {
+    const itemId = card.getAttr("rankingItemId");
+    const dropPoint = this.getCanvasPointerPosition();
+    return this.moveRankingItemOut(rankingNode, itemId, dropPoint);
+  }
+
+  async moveRankingItemOut(rankingBoxRef, itemId, dropPoint) {
+    const rankingNode = typeof rankingBoxRef === "string"
+      ? this.findNodeById(rankingBoxRef)
+      : rankingBoxRef;
+    if (!isRankingBoxNode(rankingNode) || typeof itemId !== "string") return null;
+    if (!dropPoint) {
+      this.refreshRankingBox(rankingNode);
+      this.bindRankingBox(rankingNode);
+      rankingNode.getLayer()?.batchDraw();
+      this.app.events.emit("node:changed", { node: rankingNode });
+      return null;
+    }
+
+    const component = this.getRankingComponent();
+    const data = component.getData(rankingNode);
+    const item = data.items.find((entry) => entry.id === itemId);
+    if (!item) {
+      this.refreshRankingBox(rankingNode);
+      this.bindRankingBox(rankingNode);
+      rankingNode.getLayer()?.batchDraw();
+      this.app.events.emit("node:changed", { node: rankingNode });
+      return null;
+    }
+
+    const nextItems = data.items.filter((entry) => entry.id !== itemId);
+    component.setData(rankingNode, {
+      ...data,
+      items: resequenceItems(nextItems),
+    });
+    this.bindRankingBox(rankingNode);
+    rankingNode.getLayer()?.batchDraw();
+    this.app.events.emit("node:changed", { node: rankingNode });
+
+    const node = await this.createTextNodeFromRankingItem(item, dropPoint);
+    if (node) {
+      this.selectNode(node);
+    }
+    return node;
+  }
+
+  async createTextNodeFromRankingItem(item, dropPoint) {
+    const textComponent = this.app.components.get("text");
+    if (!textComponent) return null;
+
+    const textData = item.textData?.data && typeof item.textData.data === "object"
+      ? clonePlainData(item.textData.data)
+      : {};
+    const width = Number.isFinite(textData.width)
+      ? textData.width
+      : Number.isFinite(item.textData?.width)
+        ? item.textData.width
+        : 240;
+    const height = Number.isFinite(textData.height)
+      ? textData.height
+      : Number.isFinite(item.textData?.height)
+        ? item.textData.height
+        : 96;
+    const absolutePosition = {
+      x: dropPoint.x - width / 2,
+      y: dropPoint.y - height / 2,
+    };
+    const targetPage = this.findPageAtPoint(dropPoint);
+    const parentTransform = targetPage?.getAbsoluteTransform?.().copy().invert();
+    const localPosition = parentTransform
+      ? parentTransform.point(absolutePosition)
+      : absolutePosition;
+    const requestedId =
+      typeof item.sourceNodeId === "string" &&
+      item.sourceNodeId &&
+      !this.findNodeById(item.sourceNodeId)
+        ? item.sourceNodeId
+        : undefined;
+
+    const node = await textComponent.create({
+      id: requestedId,
+      x: localPosition.x,
+      y: localPosition.y,
+      ...textData,
+      width,
+      height,
+    });
+    if (!node) return null;
+
+    if (targetPage) {
+      targetPage.add(node);
+    } else {
+      this.layer.add(node);
+    }
+    node.moveToTop();
+    node.getLayer()?.batchDraw();
+    this.app.events.emit("node:added", { node });
+    return node;
   }
 
   getRankingData(rankingNode) {
@@ -593,7 +744,10 @@ export class RankingBoxPlugin extends BasePlugin {
     this.getRankingBoxes().forEach((rankingBox) => {
       const component = this.getRankingComponent();
       const data = component.getData(rankingBox);
-      const nextItems = data.items.filter((item) => isTextNode(this.findNodeById(item.sourceNodeId)));
+      const nextItems = data.items.filter((item) => (
+        isTextNode(this.findNodeById(item.sourceNodeId)) ||
+        Boolean(item.textData?.data?.text)
+      ));
       if (nextItems.length === data.items.length) return;
 
       if (recordHistory) {

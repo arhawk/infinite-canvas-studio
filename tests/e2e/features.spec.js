@@ -648,6 +648,13 @@ test("clamps text block font size in the editor without blocking submit", async 
 });
 
 test("edits text inline and resizes the box without scaling the font", async ({ page }) => {
+  const defaultText = await addComponent(page, "text", {
+    x: 120,
+    y: 120,
+  });
+  expect(defaultText.summary.width).toBeLessThan(150);
+  expect(defaultText.summary.height).toBeLessThan(70);
+
   const text = await addComponent(page, "text", {
     x: 220,
     y: 220,
@@ -656,9 +663,13 @@ test("edits text inline and resizes the box without scaling the font", async ({ 
     text: "Short text",
     fontSize: 24,
   });
-  const center = await getNodePageCenter(page, text.id);
+  const textBounds = (await getNode(page, text.id)).bounds;
+  const editPoint = await canvasPointToPage(page, {
+    x: textBounds.x + 28,
+    y: textBounds.y + 24,
+  });
 
-  await page.mouse.dblclick(center.x, center.y);
+  await page.mouse.dblclick(editPoint.x, editPoint.y);
   const inlineEditor = page.getByTestId("canvas-text-editor");
   await expect(inlineEditor).toBeVisible();
   await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
@@ -666,9 +677,9 @@ test("edits text inline and resizes the box without scaling the font", async ({ 
   await expect(inlineEditor).toHaveCSS("border-top-style", "dashed");
 
   const boundsDuringEdit = (await getNode(page, text.id)).bounds;
-  await page.mouse.move(center.x, center.y);
+  await page.mouse.move(editPoint.x, editPoint.y);
   await page.mouse.down();
-  await page.mouse.move(center.x + 60, center.y + 28, { steps: 4 });
+  await page.mouse.move(editPoint.x + 60, editPoint.y + 28, { steps: 4 });
   await page.mouse.up();
 
   await expect
@@ -922,12 +933,14 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
     .toBeLessThan(2);
 });
 
-test("keeps page ranking box items as duplicate text references", async ({ page }) => {
+test("moves text into and out of a page ranking box", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
   const textNode = await addComponent(page, "text", {
     x: 180,
     y: 210,
     text: "First ranked idea",
+    width: 180,
+    height: 80,
   });
 
   const rankingBox = await page.evaluate(
@@ -936,81 +949,135 @@ test("keeps page ranking box items as duplicate text references", async ({ page 
   );
   expect(rankingBox.componentType).toBe("rankingBox");
 
-  await page.evaluate(
-    ({ rankingBoxId, textId }) => {
-      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
-      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
-    },
-    { rankingBoxId: rankingBox.id, textId: textNode.id },
-  );
-
-  await expect.poll(async () => {
-    const node = await getNode(page, rankingBox.id);
-    return node.summary.items.map((item) => item.sourceNodeId);
-  }).toEqual([textNode.id, textNode.id]);
-
-  const originalTextBounds = (await getNode(page, textNode.id)).bounds;
-  const firstItemId = (await getNode(page, rankingBox.id)).summary.items[0].id;
-  await page.evaluate(
-    ({ rankingBoxId, itemId }) => (
-      window.__APP_TEST_API__.removeRankingBoxItem(rankingBoxId, itemId)
-    ),
-    {
-      rankingBoxId: rankingBox.id,
-      itemId: firstItemId,
-    },
-  );
-  await expect.poll(async () => {
-    const node = await getNode(page, rankingBox.id);
-    return node.summary.items.length;
-  }).toBe(1);
-
-  await page.evaluate(
+  const added = await page.evaluate(
     ({ rankingBoxId, textId }) => window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId),
     { rankingBoxId: rankingBox.id, textId: textNode.id },
   );
+  expect(added.item.sourceNodeId).toBe(textNode.id);
+
+  await expect.poll(async () => getNode(page, textNode.id)).toBeNull();
+  await expect
+    .poll(async () => {
+      const node = await getNode(page, rankingBox.id);
+      return node.summary.items.map((item) => item.textData?.data?.text);
+    })
+    .toEqual(["First ranked idea"]);
+
+  const secondText = await addComponent(page, "text", {
+    x: 180,
+    y: 310,
+    text: "Second ranked idea",
+  });
   await page.evaluate(
-    ({ rankingBoxId, itemId }) => (
-      window.__APP_TEST_API__.reorderRankingBoxItem(rankingBoxId, itemId, 0)
+    ({ rankingBoxId, textId }) => window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId),
+    { rankingBoxId: rankingBox.id, textId: secondText.id },
+  );
+
+  await expect
+    .poll(async () => {
+      const node = await getNode(page, rankingBox.id);
+      return node.summary.items.map((item) => ({
+        text: item.renderedText,
+        fill: item.renderedFill,
+        stroke: item.renderedStroke,
+      }));
+    })
+    .toEqual([
+      {
+        text: "First ranked idea",
+        fill: "rgba(255, 253, 248, 0.94)",
+        stroke: "rgba(95, 72, 40, 0.18)",
+      },
+      {
+        text: "Second ranked idea",
+        fill: "rgba(255, 253, 248, 0.94)",
+        stroke: "rgba(95, 72, 40, 0.18)",
+      },
+    ]);
+
+  const exportedWithRankedText = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exportedWithRankedText);
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => {
+      const ranking = (await page.evaluate(() => window.__APP_TEST_API__.listNodes()))
+        .find((node) => node.componentType === "rankingBox");
+      return ranking?.summary.items.map((item) => item.renderedText);
+    })
+    .toEqual(["First ranked idea", "Second ranked idea"]);
+
+  const restoredRankingBox = (await page.evaluate(() => window.__APP_TEST_API__.listNodes()))
+    .find((node) => node.componentType === "rankingBox");
+  const itemId = restoredRankingBox.summary.items[0].id;
+  const movedOut = await page.evaluate(
+    ({ rankingBoxId, rankingItemId }) => window.__APP_TEST_API__.moveRankingBoxItemOut(
+      rankingBoxId,
+      rankingItemId,
+      { x: 360, y: 360 },
     ),
+    { rankingBoxId: restoredRankingBox.id, rankingItemId: itemId },
+  );
+
+  expect(movedOut.textNode.id).toBe(textNode.id);
+  expect(movedOut.textNode.parentId).toBe(pageNode.id);
+  expect(movedOut.textNode.summary.text).toBe("First ranked idea");
+  expect(movedOut.textNode.summary.width).toBeCloseTo(180, 1);
+
+  await expect
+    .poll(async () => (await getNode(page, restoredRankingBox.id)).summary.items.map((item) => item.renderedText))
+    .toEqual(["Second ranked idea"]);
+});
+
+test("reorders ranking box items in view mode without switching to edit", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  const firstText = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    text: "First view item",
+  });
+  const secondText = await addComponent(page, "text", {
+    x: 180,
+    y: 310,
+    text: "Second view item",
+  });
+  const rankingBox = await page.evaluate(
+    (pageId) => window.__APP_TEST_API__.createRankingBox(pageId),
+    pageNode.id,
+  );
+
+  await page.evaluate(
+    ({ rankingBoxId, firstTextId, secondTextId }) => {
+      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, firstTextId);
+      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, secondTextId);
+    },
     {
       rankingBoxId: rankingBox.id,
-      itemId: (await getNode(page, rankingBox.id)).summary.items[1].id,
+      firstTextId: firstText.id,
+      secondTextId: secondText.id,
+    },
+  );
+
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+
+  const itemsBefore = (await getNode(page, rankingBox.id)).summary.items;
+  await page.evaluate(
+    ({ rankingBoxId, itemId }) => window.__APP_TEST_API__.reorderRankingBoxItem(rankingBoxId, itemId, 0),
+    {
+      rankingBoxId: rankingBox.id,
+      itemId: itemsBefore[1].id,
     },
   );
 
   await expect
-    .poll(async () => (await getNode(page, textNode.id)).bounds.x)
-    .toBeCloseTo(originalTextBounds.x, 1);
-
-  await page.evaluate((textId) => window.__APP_TEST_API__.deleteNode(textId), textNode.id);
-  await expect.poll(async () => {
-    const node = await getNode(page, rankingBox.id);
-    return node.summary.items;
-  }).toEqual([]);
-
-  const replacementText = await addComponent(page, "text", {
-    x: 180,
-    y: 210,
-    text: "First ranked idea",
-  });
-  await page.evaluate(
-    ({ rankingBoxId, textId }) => {
-      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
-      window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId);
-    },
-    { rankingBoxId: rankingBox.id, textId: replacementText.id },
+    .poll(async () => (await getNode(page, rankingBox.id)).summary.items.map((item) => item.renderedText))
+    .toEqual(["Second view item", "First view item"]);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
   );
-
-  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
-  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
-  await waitForPaint(page);
-
-  await expect.poll(async () => {
-    const ranking = (await page.evaluate(() => window.__APP_TEST_API__.listNodes()))
-      .find((node) => node.componentType === "rankingBox");
-    return ranking?.summary.items.map((item) => item.renderedText);
-  }).toEqual(["First ranked idea", "First ranked idea"]);
 });
 
 test("undoes and redoes a node move", async ({ page }) => {

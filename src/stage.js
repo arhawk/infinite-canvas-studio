@@ -9,6 +9,10 @@ const GRID_MAJOR_COLOR = "rgba(84, 64, 43, 0.14)";
 const GRID_MAJOR_EVERY = 4;
 const PAN_CLICK_THRESHOLD = 4;
 
+function isRankingItemInteractionTarget(target) {
+  return Boolean(target?.findAncestor?.(".ranking-item-card", true));
+}
+
 export class StageController {
   constructor(container, { onZoomChange, onViewportChange } = {}) {
     this.container = container;
@@ -257,8 +261,10 @@ export class StageController {
     const hasSelectableTarget = Boolean(
       target?.hasName?.("selectable") || target?.findAncestor?.(".selectable", true),
     );
+    const isRankingItemTarget = isRankingItemInteractionTarget(target);
     const isInteractiveTarget =
       hasSelectableTarget ||
+      isRankingItemTarget ||
       Boolean(target?.draggable?.()) ||
       (target !== this.stage && target?.getLayer?.() === app?.uiLayer);
     const canPrimaryPanInArrangeMode =
@@ -268,7 +274,7 @@ export class StageController {
     const shouldPan =
       isMiddleButton ||
       this.isSpacePressed ||
-      (app?.isReadOnly?.() && isPrimaryPointer) ||
+      (app?.isReadOnly?.() && isPrimaryPointer && !isRankingItemTarget) ||
       canPrimaryPanInArrangeMode;
     if (!shouldPan) return;
 

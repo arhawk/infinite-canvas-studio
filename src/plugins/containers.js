@@ -54,6 +54,8 @@ export class ContainersPlugin extends BasePlugin {
     if (
       this.app.isReplayingHistory ||
       this.app.isRestoringDocument ||
+      !node?.getStage?.() ||
+      node?.getAttr?.("rankingBoxConsumedDrop") ||
       !node?.hasName?.("selectable") ||
       isContainerNode(node) ||
       isRankingNode(node) ||

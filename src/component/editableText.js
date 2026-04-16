@@ -1,6 +1,6 @@
 export class EditableTextBehavior {
   static attach(textNode, { fallbackText = "Text" } = {}) {
-    textNode.on("dblclick dbltap", (event) => {
+    const openInlineEditor = (event = {}) => {
       if (textNode.getAttr("inlineEditing")) return;
 
       const stage = textNode.getStage();
@@ -105,6 +105,9 @@ export class EditableTextBehavior {
       });
 
       area.addEventListener("blur", commit, { once: true });
-    });
+    };
+
+    textNode.openInlineEditor = openInlineEditor;
+    textNode.on("dblclick dbltap", openInlineEditor);
   }
 }

@@ -15,6 +15,17 @@ function getConnectionLine(node) {
   return node?.findOne?.(".connection-line") ?? null;
 }
 
+function serializeRect(rect) {
+  return rect
+    ? {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      }
+    : null;
+}
+
 function getNodeResizeBox(node) {
   return node?.findOne?.(".button-bg")
     ?? node?.findOne?.(".sticky-bg")
@@ -89,6 +100,19 @@ function getNodeSummary(node) {
               .find((card) => card.getAttr("rankingItemId") === item.id)
               ?.findOne?.(".ranking-item-text")
               ?.text?.() ?? "",
+            renderedFill: cards
+              .find((card) => card.getAttr("rankingItemId") === item.id)
+              ?.findOne?.(".ranking-item-bg")
+              ?.fill?.() ?? "",
+            renderedStroke: cards
+              .find((card) => card.getAttr("rankingItemId") === item.id)
+              ?.findOne?.(".ranking-item-bg")
+              ?.stroke?.() ?? "",
+            renderedBounds: serializeRect(
+              cards
+                .find((card) => card.getAttr("rankingItemId") === item.id)
+                ?.getClientRect?.({ relativeTo: node.getStage?.() }),
+            ),
           }))
         : [],
     };
@@ -285,6 +309,7 @@ export function setupAppTestApi(app) {
       const node = await app.addComponent(type, payload);
       return node ? serializeNode(app, node) : null;
     },
+    canvasToPage: (point) => canvasToPage(app, point),
     ensureCatalogNode: async () => {
       const existing = getCatalogNode(app);
       if (existing) return true;
@@ -304,7 +329,7 @@ export function setupAppTestApi(app) {
     },
     addTextToRankingBox: (rankingBoxId, textId, options = {}) => {
       const rankingPlugin = getPlugin(app, "ranking");
-      const item = rankingPlugin?.addTextToRankingBox?.(rankingBoxId, textId, options);
+      const item = rankingPlugin?.moveTextToRankingBox?.(rankingBoxId, textId, options);
       const node = getNodeById(app, rankingBoxId);
       return {
         item,
@@ -327,6 +352,15 @@ export function setupAppTestApi(app) {
       return {
         ok,
         rankingBox: node ? serializeNode(app, node) : null,
+      };
+    },
+    moveRankingBoxItemOut: async (rankingBoxId, itemId, dropPoint) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const node = await rankingPlugin?.moveRankingItemOut?.(rankingBoxId, itemId, dropPoint);
+      const rankingBox = getNodeById(app, rankingBoxId);
+      return {
+        textNode: node ? serializeNode(app, node) : null,
+        rankingBox: rankingBox ? serializeNode(app, rankingBox) : null,
       };
     },
     moveNode: (id, position) => {

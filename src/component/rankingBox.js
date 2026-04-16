@@ -61,15 +61,19 @@ function normalizeRankingItem(item = {}, index = 0) {
   return {
     id,
     sourceNodeId,
+    textData: item.textData && typeof item.textData === "object"
+      ? clonePlainData(item.textData)
+      : null,
     order: Number.isFinite(item.order) ? item.order : index,
   };
 }
 
-export function createRankingItem(sourceNodeId) {
+export function createRankingItem(sourceNodeId, textData = null) {
   if (typeof sourceNodeId !== "string" || !sourceNodeId) return null;
   return {
     id: nextRankingItemId(),
     sourceNodeId,
+    textData: textData && typeof textData === "object" ? clonePlainData(textData) : null,
   };
 }
 
@@ -81,6 +85,9 @@ export function normalizeRankingItems(items = []) {
       .map((item, index) => ({
         id: item.id,
         sourceNodeId: item.sourceNodeId,
+        textData: item.textData && typeof item.textData === "object"
+          ? clonePlainData(item.textData)
+          : null,
         order: index,
       }))
     : [];
@@ -145,8 +152,14 @@ function renderCard({
   y,
 }) {
   const sourceNode = findSourceTextNode(app, item.sourceNodeId);
-  const sourceText = sourceNode?.text?.() || "Missing text";
-  const sourceFill = sourceNode?.fill?.() || "#1d1b16";
+  const itemTextData = item.textData && typeof item.textData === "object" ? item.textData : {};
+  const snapshotData = itemTextData.data && typeof itemTextData.data === "object"
+    ? itemTextData.data
+    : itemTextData;
+  const hasSnapshotText = typeof snapshotData.text === "string" && snapshotData.text.length > 0;
+  const hasRenderableText = Boolean(sourceNode || hasSnapshotText);
+  const sourceText = sourceNode?.text?.() || snapshotData.text || "Missing text";
+  const sourceFill = sourceNode?.fill?.() || snapshotData.fill || "#1d1b16";
   const cardWidth = Math.max(80, width - PADDING * 2);
 
   const card = new Konva.Group({
@@ -168,8 +181,8 @@ function renderCard({
   const background = new Konva.Rect({
     width: cardWidth,
     height: CARD_HEIGHT,
-    fill: sourceNode ? "rgba(255, 253, 248, 0.94)" : "rgba(255, 245, 242, 0.94)",
-    stroke: sourceNode ? "rgba(95, 72, 40, 0.18)" : "rgba(165, 61, 47, 0.28)",
+    fill: hasRenderableText ? "rgba(255, 253, 248, 0.94)" : "rgba(255, 245, 242, 0.94)",
+    stroke: hasRenderableText ? "rgba(95, 72, 40, 0.18)" : "rgba(165, 61, 47, 0.28)",
     strokeWidth: 1,
     cornerRadius: 8,
     shadowColor: "rgba(54, 41, 25, 0.1)",
@@ -196,7 +209,7 @@ function renderCard({
   const label = new Konva.Text({
     x: 42,
     y: 9,
-    width: Math.max(40, cardWidth - 88),
+    width: Math.max(40, cardWidth - 56),
     height: CARD_HEIGHT - 16,
     text: sourceText,
     fontSize: 13,
@@ -208,40 +221,7 @@ function renderCard({
     name: "ranking-item-text",
   });
 
-  const deleteButton = new Konva.Group({
-    x: Math.max(48, cardWidth - 34),
-    y: 10,
-    width: 24,
-    height: 24,
-    name: "ranking-item-delete",
-    rankingItemId: item.id,
-  });
-
-  const deleteBackground = new Konva.Rect({
-    width: 24,
-    height: 24,
-    fill: "rgba(95, 72, 40, 0.08)",
-    cornerRadius: 6,
-    name: "ranking-item-delete-bg",
-  });
-
-  const deleteLabel = new Konva.Text({
-    x: 0,
-    y: 3,
-    width: 24,
-    height: 18,
-    text: "x",
-    fontSize: 13,
-    fontFamily: UI_FONT_FAMILY,
-    fontStyle: "700",
-    fill: "#8d2f1e",
-    align: "center",
-    listening: false,
-    name: "ranking-item-delete-label",
-  });
-
-  deleteButton.add(deleteBackground, deleteLabel);
-  card.add(background, rank, label, deleteButton);
+  card.add(background, rank, label);
   return card;
 }
 

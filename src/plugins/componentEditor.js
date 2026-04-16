@@ -89,7 +89,17 @@ export class ComponentEditorPlugin extends BasePlugin {
       if (button != null && button !== 0) return;
       const selectable = event.target?.findAncestor?.(".selectable", true)
         ?? (event.target?.hasName?.("selectable") ? event.target : null);
-      if (selectable?.getAttr?.("componentType") === "text") return;
+      if (selectable?.getAttr?.("componentType") === "text") {
+        selectable.openInlineEditor?.(event);
+        return;
+      }
+
+      const selectedText = this.findSelectedTextAtPointer();
+      if (selectedText) {
+        selectedText.openInlineEditor?.(event);
+        return;
+      }
+
       this.open(event.target);
     });
 
@@ -188,6 +198,29 @@ export class ComponentEditorPlugin extends BasePlugin {
   openForSelection() {
     if (this.selectedNodes.length !== 1) return;
     this.open(this.selectedNodes[0]);
+  }
+
+  findSelectedTextAtPointer() {
+    const pointer = this.app.stage.getPointerPosition();
+    const textNode = this.selectedNodes.length === 1 &&
+      this.selectedNodes[0]?.getAttr?.("componentType") === "text"
+      ? this.selectedNodes[0]
+      : null;
+    if (!pointer || !textNode?.getStage?.()) return null;
+
+    const point = this.app.stageApi.screenToCanvas(pointer);
+    const box = textNode.getClientRect({
+      relativeTo: this.app.stage,
+      skipShadow: true,
+      skipStroke: true,
+    });
+    const inside =
+      point.x >= box.x &&
+      point.x <= box.x + box.width &&
+      point.y >= box.y &&
+      point.y <= box.y + box.height;
+
+    return inside ? textNode : null;
   }
 
   open(node) {

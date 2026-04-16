@@ -31,6 +31,10 @@ function isRankingItemInteractionTarget(target) {
   );
 }
 
+function isTextNode(node) {
+  return node?.getAttr?.("componentType") === "text";
+}
+
 export class SelectionPlugin extends BasePlugin {
   static pluginId = "selection";
   static modes = {
@@ -83,6 +87,7 @@ export class SelectionPlugin extends BasePlugin {
     });
 
     this.selectedNodes = [];
+    this.lastTextClick = null;
 
     this.layer.find(".selectable").forEach((node) => {
       this.syncNodeInteractivity(node);
@@ -165,6 +170,69 @@ export class SelectionPlugin extends BasePlugin {
 
   getSelectedNodes() {
     return this.selectedNodes;
+  }
+
+  isPointerInsideNode(node) {
+    const pointer = this.stage.getPointerPosition();
+    if (!pointer || !node?.getStage?.()) return false;
+
+    const point = this.app.stageApi.screenToCanvas(pointer);
+    const box = node.getClientRect({
+      relativeTo: this.stage,
+      skipShadow: true,
+      skipStroke: true,
+    });
+
+    return (
+      point.x >= box.x &&
+      point.x <= box.x + box.width &&
+      point.y >= box.y &&
+      point.y <= box.y + box.height
+    );
+  }
+
+  getTextClickTarget(target) {
+    const selectable = this.getSelectable(target);
+    if (isTextNode(selectable)) return selectable;
+
+    const selectedText = this.selectedNodes.length === 1 && isTextNode(this.selectedNodes[0])
+      ? this.selectedNodes[0]
+      : null;
+    return selectedText && this.isPointerInsideNode(selectedText) ? selectedText : null;
+  }
+
+  maybeOpenInlineTextEditor(event, textNode) {
+    if (!isTextNode(textNode)) {
+      this.lastTextClick = null;
+      return false;
+    }
+
+    const pointer = this.stage.getPointerPosition();
+    const now = window.performance?.now?.() ?? Date.now();
+    const previous = this.lastTextClick;
+    const distance = previous && pointer
+      ? Math.hypot(pointer.x - previous.pointer.x, pointer.y - previous.pointer.y)
+      : Number.POSITIVE_INFINITY;
+    const isRepeatedClick =
+      previous?.id === textNode.id() &&
+      now - previous.time < 500 &&
+      distance < 8;
+    const isBrowserDoubleClick = (event.evt?.detail ?? 0) >= 2;
+
+    if (isRepeatedClick || isBrowserDoubleClick) {
+      textNode.openInlineEditor?.(event);
+      this.lastTextClick = null;
+      return true;
+    }
+
+    this.lastTextClick = pointer
+      ? {
+          id: textNode.id(),
+          time: now,
+          pointer: { x: pointer.x, y: pointer.y },
+        }
+      : null;
+    return false;
   }
 
   getTransformableNodes(nodes) {
@@ -384,6 +452,11 @@ export class SelectionPlugin extends BasePlugin {
       return;
     }
     if (event.evt && event.evt.button === 2) {
+      return;
+    }
+
+    const textTarget = this.getTextClickTarget(event.target);
+    if (textTarget && this.maybeOpenInlineTextEditor(event, textTarget)) {
       return;
     }
 
