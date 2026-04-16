@@ -164,6 +164,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     this.descriptionEl = this.overlay.querySelector(".component-editor-modal__description");
     this.fieldsEl = this.overlay.querySelector(".component-editor-modal__fields");
     this.formEl = this.overlay.querySelector(".component-editor-modal__form");
+    this.formEl.noValidate = true;
 
     this.listenDom(this.overlay, "click", (event) => {
       if (event.target instanceof HTMLElement && event.target.dataset.closeEditor != null) {

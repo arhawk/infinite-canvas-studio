@@ -626,6 +626,27 @@ test("opens the component editor and applies sticky text changes", async ({ page
     .toBe("Updated from Playwright");
 });
 
+test("clamps text block font size in the editor without blocking submit", async ({ page }) => {
+  const text = await addComponent(page, "text", {
+    x: 220,
+    y: 220,
+    text: "Editor check",
+    fontSize: 24,
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), text.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+
+  const fontSizeInput = page.getByTestId("component-editor-input-fontSize");
+  await fontSizeInput.fill("5");
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.fontSize ?? null)
+    .toBe(12);
+});
+
 test("edits text inline and resizes the box without scaling the font", async ({ page }) => {
   const text = await addComponent(page, "text", {
     x: 220,
@@ -719,6 +740,59 @@ test("resizes a text box after it is captured by a page", async ({ page }) => {
   expect(after.summary.fontSize).toBe(24);
   expect(after.summary.scaleX).toBeCloseTo(1, 4);
   expect(after.summary.scaleY).toBeCloseTo(1, 4);
+});
+
+test("resizes sticky notes without scaling their font", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", {
+    x: 220,
+    y: 220,
+    width: 180,
+    height: 130,
+    text: "Sticky text should stay readable while the card changes size.",
+  });
+
+  const before = await getNode(page, sticky.id);
+  const resized = await page.evaluate(
+    ({ id, size }) => window.__APP_TEST_API__.resizeNodeBox(id, size),
+    { id: sticky.id, size: { width: 280, height: 180 } },
+  );
+
+  expect(resized.summary.width).toBeCloseTo(280, 1);
+  expect(resized.summary.height).toBeCloseTo(180, 1);
+  expect(resized.summary.fontSize).toBe(before.summary.fontSize);
+  expect(resized.summary.scaleX).toBeCloseTo(1, 4);
+  expect(resized.summary.scaleY).toBeCloseTo(1, 4);
+});
+
+test("resizes pages and deletes them from the toolbar", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 140, y: 120 });
+  const center = await getNodePageCenter(page, pageNode.id);
+
+  await page.mouse.click(center.x, center.y);
+  await waitForPaint(page);
+
+  const before = await getNode(page, pageNode.id);
+  const resized = await page.evaluate(
+    ({ id, size }) => window.__APP_TEST_API__.resizeNodeBox(id, size),
+    {
+      id: pageNode.id,
+      size: {
+        width: before.summary.width + 120,
+        height: before.summary.height + 80,
+      },
+    },
+  );
+
+  await expect(page.getByTestId("delete-selection")).toBeVisible();
+  expect(resized.summary.width).toBeGreaterThan(before.summary.width + 100);
+  expect(resized.summary.height).toBeGreaterThan(before.summary.height + 60);
+  expect(resized.summary.scaleX).toBeCloseTo(1, 4);
+  expect(resized.summary.scaleY).toBeCloseTo(1, 4);
+
+  await page.getByTestId("delete-selection").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.listNodes().length))
+    .toBe(0);
 });
 
 test("asks for confirmation before loading over current content", async ({ page }) => {

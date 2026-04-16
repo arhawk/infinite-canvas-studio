@@ -5,6 +5,8 @@ import { ContainerComponent } from "./container.js";
 const PAGE_WIDTH = 960;
 const PAGE_HEIGHT = 540;
 const PAGE_VIEW_PADDING = 24;
+const MIN_PAGE_WIDTH = 320;
+const MIN_PAGE_HEIGHT = 220;
 
 function getDefaultPageScale(app, width, height) {
   const screen = app.stageApi.getScreenSize();
@@ -80,6 +82,20 @@ export class PageComponent extends ContainerComponent {
     });
 
     group.add(rect, headerLine, text);
+    group.on("transform.pageResize", () => {
+      const scaleX = Math.abs(group.scaleX());
+      const scaleY = Math.abs(group.scaleY());
+      group.scale({ x: 1, y: 1 });
+
+      const nextWidth = Math.max(MIN_PAGE_WIDTH, rect.width() * scaleX);
+      const nextHeight = Math.max(MIN_PAGE_HEIGHT, rect.height() * scaleY);
+
+      rect.width(nextWidth);
+      rect.height(nextHeight);
+      headerLine.points([0, 56, nextWidth, 56]);
+      group.width(nextWidth);
+      group.height(nextHeight);
+    });
     return group;
   }
 
@@ -88,7 +104,7 @@ export class PageComponent extends ContainerComponent {
     const height = Number.isFinite(payload.height) ? payload.height : PAGE_HEIGHT;
 
     node.setAttrs({
-      transformLocked: true,
+      transformLocked: false,
       focusPositionMode: "relative",
       savedFocus: {
         positionMode: "relative",

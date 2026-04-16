@@ -62,6 +62,7 @@ export class ToolbarPlugin extends BasePlugin {
       arrangeControlsEl,
       brushControlsEl,
       connectSelectionEl,
+      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -80,6 +81,7 @@ export class ToolbarPlugin extends BasePlugin {
       arrangeControlsEl,
       brushControlsEl,
       connectSelectionEl,
+      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -102,6 +104,9 @@ export class ToolbarPlugin extends BasePlugin {
     this.listenDom(connectSelectionEl, "click", () => {
       if (!this.focusState.selectedNodeId) return;
       this.app.commands.execute("connection:connect", this.focusState.selectedNodeId);
+    });
+    this.listenDom(deleteSelectionEl, "click", () => {
+      this.app.commands.execute("selection:delete");
     });
     this.listenDom(saveFocusEl, "click", () => {
       this.app.commands.execute("focus:save-selection");
@@ -359,6 +364,7 @@ export class ToolbarPlugin extends BasePlugin {
       arrangeControlsEl,
       brushControlsEl,
       connectSelectionEl,
+      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -436,12 +442,17 @@ export class ToolbarPlugin extends BasePlugin {
     }
 
     connectSelectionEl.hidden = !hasSelectedArrangeNode;
+    deleteSelectionEl.hidden = !hasSelectedArrangeNode;
     saveFocusEl.hidden = true;
     focusPositionModeEl.hidden = true;
     connectSelectionEl.disabled =
       !connectCommand?.isEnabled?.() || !this.focusState.selectedNodeId;
+    deleteSelectionEl.disabled = !hasSelectedArrangeNode;
     connectSelectionEl.title = this.focusState.selectedNodeId
       ? "Select another component on the canvas to create a connection"
+      : "Select a component first";
+    deleteSelectionEl.title = hasSelectedArrangeNode
+      ? "Delete the selected component"
       : "Select a component first";
     saveFocusEl.disabled = true;
     focusPositionModeEl.disabled = true;

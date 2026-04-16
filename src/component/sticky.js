@@ -1,10 +1,74 @@
 import {
   BaseComponent,
   ColorEditorField,
+  NumberEditorField,
   TextareaEditorField,
 } from "../core/baseClasses.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+
+const DEFAULT_WIDTH = 180;
+const DEFAULT_HEIGHT = 130;
+const DEFAULT_FONT_SIZE = 20;
+const MIN_WIDTH = 96;
+const MIN_HEIGHT = 84;
+const MIN_TEXT_WIDTH = 60;
+const MIN_TEXT_HEIGHT = 40;
+
+function normalizeDimension(value, fallback, minimum) {
+  return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
+}
+
+function syncStickyVisuals(node, data = {}) {
+  const width = normalizeDimension(data.width, DEFAULT_WIDTH, MIN_WIDTH);
+  const height = normalizeDimension(data.height, DEFAULT_HEIGHT, MIN_HEIGHT);
+  const text = typeof data.text === "string" && data.text ? data.text : "Sticky note";
+  const fill = typeof data.fill === "string" && data.fill ? data.fill : "#ffe082";
+  const textColor = typeof data.textColor === "string" && data.textColor ? data.textColor : "#47361c";
+  const fontSize = normalizeDimension(data.fontSize, DEFAULT_FONT_SIZE, 12);
+  const rect = node.findOne(".sticky-bg");
+  const textNode = node.findOne(".sticky-text");
+
+  node.width(width);
+  node.height(height);
+
+  if (rect) {
+    rect.width(width);
+    rect.height(height);
+    rect.fill(fill);
+  }
+
+  if (textNode) {
+    textNode.text(text);
+    textNode.width(Math.max(width - 28, MIN_TEXT_WIDTH));
+    textNode.height(Math.max(height - 28, MIN_TEXT_HEIGHT));
+    textNode.fontSize(fontSize);
+    textNode.fill(textColor);
+    textNode.wrap("word");
+    textNode.verticalAlign("top");
+  }
+}
+
+function installStickyResize(group) {
+  group.on("transform.stickyResize", () => {
+    const rect = group.findOne(".sticky-bg");
+    const textNode = group.findOne(".sticky-text");
+    const scaleX = Math.abs(group.scaleX());
+    const scaleY = Math.abs(group.scaleY());
+    const currentWidth = rect?.width() ?? group.width() ?? DEFAULT_WIDTH;
+    const currentHeight = rect?.height() ?? group.height() ?? DEFAULT_HEIGHT;
+
+    group.scale({ x: 1, y: 1 });
+    syncStickyVisuals(group, {
+      width: currentWidth * scaleX,
+      height: currentHeight * scaleY,
+      text: textNode?.text() ?? "Sticky note",
+      fill: rect?.fill() ?? "#ffe082",
+      textColor: textNode?.fill() ?? "#47361c",
+      fontSize: textNode?.fontSize() ?? DEFAULT_FONT_SIZE,
+    });
+  });
+}
 
 export class StickyComponent extends BaseComponent {
   static type = "sticky";
@@ -23,7 +87,22 @@ export class StickyComponent extends BaseComponent {
         rows: 6,
         getValue: (node) => node.findOne(".sticky-text")?.text() ?? "",
         setValue: (node, value) => {
-          node.findOne(".sticky-text")?.text(value || "Sticky note");
+          syncStickyVisuals(node, {
+            ...this.serializeNode(node),
+            text: value || "Sticky note",
+          });
+        },
+      }),
+      new NumberEditorField({
+        id: "fontSize",
+        label: "Font Size",
+        input: { min: 12, max: 72, step: 1 },
+        getValue: (node) => node.findOne(".sticky-text")?.fontSize() ?? DEFAULT_FONT_SIZE,
+        setValue: (node, value) => {
+          syncStickyVisuals(node, {
+            ...this.serializeNode(node),
+            fontSize: value,
+          });
         },
       }),
       new ColorEditorField({
@@ -31,7 +110,10 @@ export class StickyComponent extends BaseComponent {
         label: "Card Color",
         getValue: (node) => node.findOne(".sticky-bg")?.fill() ?? "#ffe082",
         setValue: (node, value) => {
-          node.findOne(".sticky-bg")?.fill(value);
+          syncStickyVisuals(node, {
+            ...this.serializeNode(node),
+            fill: value,
+          });
         },
       }),
       new ColorEditorField({
@@ -39,7 +121,10 @@ export class StickyComponent extends BaseComponent {
         label: "Text Color",
         getValue: (node) => node.findOne(".sticky-text")?.fill() ?? "#47361c",
         setValue: (node, value) => {
-          node.findOne(".sticky-text")?.fill(value);
+          syncStickyVisuals(node, {
+            ...this.serializeNode(node),
+            textColor: value,
+          });
         },
       }),
     ];
@@ -48,11 +133,12 @@ export class StickyComponent extends BaseComponent {
   async createNode({
     x,
     y,
-    width = 180,
-    height = 130,
+    width = DEFAULT_WIDTH,
+    height = DEFAULT_HEIGHT,
     text = "Sticky note",
     fill = "#ffe082",
     textColor = "#47361c",
+    fontSize = DEFAULT_FONT_SIZE,
   }) {
     const group = new Konva.Group({
       x,
@@ -77,16 +163,28 @@ export class StickyComponent extends BaseComponent {
     const textNode = new Konva.Text({
       x: 14,
       y: 14,
-      width: Math.max(width - 28, 60),
+      width: Math.max(width - 28, MIN_TEXT_WIDTH),
+      height: Math.max(height - 28, MIN_TEXT_HEIGHT),
       text,
-      fontSize: 20,
+      fontSize,
       lineHeight: 1.35,
       fontFamily: UI_FONT_FAMILY,
       fill: textColor,
       name: "sticky-text",
+      wrap: "word",
+      verticalAlign: "top",
     });
 
     group.add(rect, textNode);
+    installStickyResize(group);
+    syncStickyVisuals(group, {
+      width,
+      height,
+      text,
+      fill,
+      textColor,
+      fontSize,
+    });
 
     return group;
   }
@@ -96,35 +194,16 @@ export class StickyComponent extends BaseComponent {
     const textNode = node.findOne(".sticky-text");
 
     return {
-      width: rect?.width() ?? node.width() ?? 180,
-      height: rect?.height() ?? node.height() ?? 130,
+      width: rect?.width() ?? node.width() ?? DEFAULT_WIDTH,
+      height: rect?.height() ?? node.height() ?? DEFAULT_HEIGHT,
       text: textNode?.text() ?? "Sticky note",
       fill: rect?.fill() ?? "#ffe082",
       textColor: textNode?.fill() ?? "#47361c",
+      fontSize: textNode?.fontSize() ?? DEFAULT_FONT_SIZE,
     };
   }
 
   async applySerializedData(node, data = {}) {
-    const rect = node.findOne(".sticky-bg");
-    const textNode = node.findOne(".sticky-text");
-
-    if (rect) {
-      if (Number.isFinite(data.width)) rect.width(data.width);
-      if (Number.isFinite(data.height)) rect.height(data.height);
-      if (typeof data.fill === "string" && data.fill) rect.fill(data.fill);
-    }
-
-    node.width(Number.isFinite(data.width) ? data.width : node.width());
-    node.height(Number.isFinite(data.height) ? data.height : node.height());
-
-    if (textNode) {
-      textNode.text(data.text || "Sticky note");
-      textNode.width(
-        Number.isFinite(data.width) ? Math.max(data.width - 28, 60) : textNode.width(),
-      );
-      if (typeof data.textColor === "string" && data.textColor) {
-        textNode.fill(data.textColor);
-      }
-    }
+    syncStickyVisuals(node, data);
   }
 }

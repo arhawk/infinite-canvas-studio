@@ -14,6 +14,7 @@ import {
   Redo2,
   Route,
   Timer,
+  Trash2,
   Undo2,
   Upload,
   createIcons,
@@ -35,6 +36,7 @@ const PROJECT_ICONS = {
   Redo2,
   Route,
   Timer,
+  Trash2,
   Undo2,
   Upload,
 };

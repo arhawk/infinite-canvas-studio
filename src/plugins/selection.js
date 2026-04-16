@@ -176,7 +176,13 @@ export class SelectionPlugin extends BasePlugin {
     const primaryNode = transformableNodes[0] ?? null;
     const transformLocked = Boolean(primaryNode?.getAttr("transformLocked"));
     const primaryType = primaryNode?.getAttr("componentType");
-    const isFreeResizeNode = primaryType === "rankingBox" || primaryType === "text" || primaryType === "button";
+    const isFreeResizeNode = (
+      primaryType === "rankingBox" ||
+      primaryType === "text" ||
+      primaryType === "button" ||
+      primaryType === "sticky" ||
+      primaryType === "page"
+    );
     const isMultiSelection = transformableNodes.length > 1;
 
     this.transformer.rotateEnabled(!transformLocked && !isMultiSelection);
@@ -253,7 +259,9 @@ export class SelectionPlugin extends BasePlugin {
         (
           node.getAttr("componentType") === "rankingBox" ||
           node.getAttr("componentType") === "text" ||
-          node.getAttr("componentType") === "button"
+          node.getAttr("componentType") === "button" ||
+          node.getAttr("componentType") === "sticky" ||
+          node.getAttr("componentType") === "page"
         )
       ) {
         this.transformer.forceUpdate();

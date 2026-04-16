@@ -15,14 +15,29 @@ function getConnectionLine(node) {
   return node?.findOne?.(".connection-line") ?? null;
 }
 
+function getNodeResizeBox(node) {
+  return node?.findOne?.(".button-bg")
+    ?? node?.findOne?.(".sticky-bg")
+    ?? node?.findOne?.(".container-bg")
+    ?? node
+    ?? null;
+}
+
 function getNodeSummary(node) {
   const componentType = node.getAttr("componentType");
 
   if (componentType === "sticky") {
+    const background = node.findOne(".sticky-bg");
+    const textNode = node.findOne(".sticky-text");
     return {
-      text: node.findOne(".sticky-text")?.text() ?? "",
-      fill: node.findOne(".sticky-bg")?.fill() ?? null,
-      textColor: node.findOne(".sticky-text")?.fill() ?? null,
+      text: textNode?.text() ?? "",
+      fill: background?.fill() ?? null,
+      textColor: textNode?.fill() ?? null,
+      fontSize: textNode?.fontSize() ?? null,
+      width: background?.width() ?? node.width?.() ?? null,
+      height: background?.height() ?? node.height?.() ?? null,
+      scaleX: node.scaleX?.() ?? null,
+      scaleY: node.scaleY?.() ?? null,
     };
   }
 
@@ -39,9 +54,14 @@ function getNodeSummary(node) {
   }
 
   if (componentType === "container" || componentType === "page") {
+    const background = node.findOne(".container-bg");
     return {
       label: node.findOne(".container-label")?.text() ?? "",
-      stroke: node.findOne(".container-bg")?.stroke() ?? null,
+      stroke: background?.stroke() ?? null,
+      width: background?.width() ?? node.width?.() ?? null,
+      height: background?.height() ?? node.height?.() ?? null,
+      scaleX: node.scaleX?.() ?? null,
+      scaleY: node.scaleY?.() ?? null,
     };
   }
 
@@ -344,28 +364,34 @@ export function setupAppTestApi(app) {
       app.events.emit("node:changed", { node });
       return serializeNode(app, node);
     },
-    resizeButton: (id, size) => {
+    resizeNodeBox: (id, size) => {
       const node = getNodeById(app, id);
-      const background = node?.findOne?.(".button-bg");
+      const resizeBox = getNodeResizeBox(node);
       if (
-        node?.getAttr?.("componentType") !== "button" ||
+        !node ||
         !Number.isFinite(size?.width) ||
         !Number.isFinite(size?.height) ||
-        !Number.isFinite(background?.width?.()) ||
-        !Number.isFinite(background?.height?.())
+        !Number.isFinite(resizeBox?.width?.()) ||
+        !Number.isFinite(resizeBox?.height?.())
       ) {
         return null;
       }
 
       app.events.emit("node:change:start", { node });
       node.scale({
-        x: size.width / background.width(),
-        y: size.height / background.height(),
+        x: size.width / resizeBox.width(),
+        y: size.height / resizeBox.height(),
       });
       node.fire("transform", { type: "transform" });
       node.getLayer()?.batchDraw();
       app.events.emit("node:changed", { node });
       return serializeNode(app, node);
+    },
+    resizeButton: (id, size) => {
+      if (getNodeById(app, id)?.getAttr?.("componentType") !== "button") {
+        return null;
+      }
+      return testApi.resizeNodeBox(id, size);
     },
     deleteNode: (id) => {
       const node = getNodeById(app, id);
