@@ -55,8 +55,10 @@ function getNodeSummary(node) {
 
   if (componentType === "container" || componentType === "page") {
     const background = node.findOne(".container-bg");
+    const labelNode = node.findOne(".container-label");
     return {
-      label: node.findOne(".container-label")?.text() ?? "",
+      label: labelNode?.text() ?? "",
+      renderedLabel: labelNode?.textArr?.[0]?.text ?? labelNode?.text?.() ?? "",
       stroke: background?.stroke() ?? null,
       width: background?.width() ?? node.width?.() ?? null,
       height: background?.height() ?? node.height?.() ?? null,

@@ -795,6 +795,26 @@ test("resizes pages and deletes them from the toolbar", async ({ page }) => {
     .toBe(0);
 });
 
+test("truncates long page titles inside the header", async ({ page }) => {
+  const longLabel = "This is an intentionally very long page title that should truncate instead of spilling outside the page header";
+  const pageNode = await addComponent(page, "page", {
+    x: 140,
+    y: 120,
+    width: 320,
+    label: longLabel,
+  });
+
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => (await getNode(page, pageNode.id))?.summary?.renderedLabel ?? "")
+    .toMatch(/(\.\.\.|…)$/);
+
+  const snapshot = await getNode(page, pageNode.id);
+  expect(snapshot.summary.label).toBe(longLabel);
+  expect(snapshot.summary.renderedLabel.length).toBeLessThan(longLabel.length);
+});
+
 test("asks for confirmation before loading over current content", async ({ page }) => {
   await addComponent(page, "sticky", { x: 180, y: 180 });
   const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());

@@ -7,6 +7,33 @@ const PAGE_HEIGHT = 540;
 const PAGE_VIEW_PADDING = 24;
 const MIN_PAGE_WIDTH = 320;
 const MIN_PAGE_HEIGHT = 220;
+const PAGE_HEADER_HEIGHT = 56;
+const DEFAULT_PAGE_LABEL = "New Page";
+
+function syncPageHeader(node, {
+  width,
+  label,
+  headerLineStroke,
+} = {}) {
+  const headerLine = node.findOne(".page-header-line");
+  const labelNode = node.findOne(".page-label");
+  const resolvedWidth = Number.isFinite(width) ? Math.max(MIN_PAGE_WIDTH, width) : PAGE_WIDTH;
+
+  if (headerLine) {
+    headerLine.points([0, PAGE_HEADER_HEIGHT, resolvedWidth, PAGE_HEADER_HEIGHT]);
+    if (typeof headerLineStroke === "string" && headerLineStroke) {
+      headerLine.stroke(headerLineStroke);
+    }
+  }
+
+  if (labelNode) {
+    labelNode.width(resolvedWidth);
+    labelNode.height(PAGE_HEADER_HEIGHT);
+    labelNode.wrap("none");
+    labelNode.ellipsis(true);
+    labelNode.text(typeof label === "string" && label ? label : DEFAULT_PAGE_LABEL);
+  }
+}
 
 function getDefaultPageScale(app, width, height) {
   const screen = app.stageApi.getScreenSize();
@@ -35,7 +62,7 @@ export class PageComponent extends ContainerComponent {
     y,
     width = PAGE_WIDTH,
     height = PAGE_HEIGHT,
-    label = "New Page",
+    label = DEFAULT_PAGE_LABEL,
   }) {
     const group = new Konva.Group({
       x,
@@ -61,7 +88,7 @@ export class PageComponent extends ContainerComponent {
     });
 
     const headerLine = new Konva.Line({
-      points: [0, 56, width, 56],
+      points: [0, PAGE_HEADER_HEIGHT, width, PAGE_HEADER_HEIGHT],
       stroke: "rgba(171, 79, 40, 0.12)",
       strokeWidth: 1,
       listening: false,
@@ -72,16 +99,21 @@ export class PageComponent extends ContainerComponent {
       x: 0,
       y: 0,
       text: label,
+      width,
+      height: PAGE_HEADER_HEIGHT,
       fontSize: 16,
       fontFamily: DISPLAY_FONT_FAMILY,
       fontStyle: "700",
       fill: "#ab4f28",
       padding: 16,
+      wrap: "none",
+      ellipsis: true,
       name: "container-label page-label",
       listening: true,
     });
 
     group.add(rect, headerLine, text);
+    syncPageHeader(group, { width, label });
     group.on("transform.pageResize", () => {
       const scaleX = Math.abs(group.scaleX());
       const scaleY = Math.abs(group.scaleY());
@@ -92,9 +124,13 @@ export class PageComponent extends ContainerComponent {
 
       rect.width(nextWidth);
       rect.height(nextHeight);
-      headerLine.points([0, 56, nextWidth, 56]);
       group.width(nextWidth);
       group.height(nextHeight);
+      syncPageHeader(group, {
+        width: nextWidth,
+        label: text.text(),
+        headerLineStroke: headerLine.stroke(),
+      });
     });
     return group;
   }
@@ -127,13 +163,11 @@ export class PageComponent extends ContainerComponent {
   async applySerializedData(node, data = {}) {
     await super.applySerializedData(node, data);
 
-    const headerLine = node.findOne(".page-header-line");
     const width = Number.isFinite(data.width) ? data.width : PAGE_WIDTH;
-    if (headerLine) {
-      headerLine.points([0, 56, width, 56]);
-      if (typeof data.headerLineStroke === "string" && data.headerLineStroke) {
-        headerLine.stroke(data.headerLineStroke);
-      }
-    }
+    syncPageHeader(node, {
+      width,
+      label: data.label,
+      headerLineStroke: data.headerLineStroke,
+    });
   }
 }
