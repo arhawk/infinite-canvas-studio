@@ -1,4 +1,4 @@
-import { BaseContextMenuItem, BasePlugin } from "../core/baseClasses.js";
+import { BasePlugin } from "../core/baseClasses.js";
 import {
   appendAttachmentEntries,
   createEmptyAttachmentState,
@@ -108,26 +108,6 @@ async function collectDirectoryEntries(directoryHandle, parentPath = "") {
   return entries.sort((left, right) => left.path.localeCompare(right.path));
 }
 
-class OpenAttachmentsMenuItem extends BaseContextMenuItem {
-  static itemId = "attachments:open-menu";
-  static label = "Attachments...";
-  static modes = {
-    edit: {
-      tools: {
-        arrange: {},
-      },
-    },
-  };
-
-  condition(node) {
-    return !!this.plugin.resolveAttachmentNode(node);
-  }
-
-  execute(node) {
-    this.plugin.openPanelFor(node);
-  }
-}
-
 export class AttachmentsPlugin extends BasePlugin {
   static pluginId = "attachments";
   static modes = {
@@ -138,10 +118,6 @@ export class AttachmentsPlugin extends BasePlugin {
       },
     },
   };
-
-  menuItems() {
-    return [OpenAttachmentsMenuItem];
-  }
 
   onSetup() {
     this.selectedNode = null;
@@ -174,6 +150,12 @@ export class AttachmentsPlugin extends BasePlugin {
       if (!node || node !== this.activeNode) {
         this.closePanel();
       }
+    });
+    this.app.stage.on("dblclick.attachments dbltap.attachments", (event) => {
+      if (!this.isEnabled()) return;
+      const button = event.evt?.button;
+      if (button != null && button !== 0) return;
+      this.openPanelFor(event.target);
     });
     this.listenDom(document, "mousedown", (event) => {
       if (this.panelEl?.hidden) return;

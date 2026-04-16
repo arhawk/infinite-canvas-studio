@@ -48,6 +48,10 @@ function getRequiredElement(selector) {
   return element;
 }
 
+function getOptionalElement(selector) {
+  return document.querySelector(selector);
+}
+
 const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
   sidebarBrand: getRequiredElement("#sidebar-brand"),
@@ -55,12 +59,12 @@ const ui = {
   drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
   historyControls: getRequiredElement("#history-controls"),
-  documentControls: getRequiredElement("#document-controls"),
+  documentControls: getOptionalElement("#document-controls"),
   undoAction: getRequiredElement("#undo-action"),
   redoAction: getRequiredElement("#redo-action"),
-  saveDocumentAction: getRequiredElement("#save-document-action"),
-  loadDocumentAction: getRequiredElement("#load-document-action"),
-  loadDocumentInput: getRequiredElement("#load-document-input"),
+  saveDocumentAction: getOptionalElement("#save-document-action"),
+  loadDocumentAction: getOptionalElement("#load-document-action"),
+  loadDocumentInput: getOptionalElement("#load-document-input"),
   catalogToggle: getRequiredElement("#catalog-toggle"),
   calculatorToggle: getRequiredElement("#calculator-toggle"),
   calculatorWidget: getRequiredElement("#calculator-widget"),

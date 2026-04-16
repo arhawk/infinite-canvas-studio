@@ -18,6 +18,13 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function stripDocumentControls(html) {
+  return html.replace(
+    /\s*<div\b[^>]*\bid=["']document-controls["'][^>]*>[\s\S]*?<\/div>(?=\s*<div\b[^>]*\bid=["']arrange-controls["'])/i,
+    "",
+  );
+}
+
 export function captureRuntimeHtmlTemplate(doc = document) {
   if (!doc?.documentElement) return "";
 
@@ -50,7 +57,7 @@ export function buildRuntimeExportHtml(template, snapshot, { title = "Mind Map I
   const snapshotJson = escapeScriptJson(stringifyDocumentSnapshot(normalized));
   const safeTitle = escapeHtml(title);
 
-  let html = template;
+  let html = stripDocumentControls(template);
   const snapshotTagPattern = new RegExp(
     `<script[^>]*id=["']${SNAPSHOT_SCRIPT_ID}["'][^>]*>[\\s\\S]*?<\\/script>`,
     "i",

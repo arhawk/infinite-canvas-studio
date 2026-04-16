@@ -13,7 +13,7 @@ function inlineSingleFileBuild() {
         return;
       }
 
-      let html = String(htmlAsset.source);
+      let html = stripDocumentControls(String(htmlAsset.source));
 
       html = html.replace(/<link rel="modulepreload"[^>]*>/g, "");
 
@@ -46,6 +46,13 @@ function inlineSingleFileBuild() {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripDocumentControls(html) {
+  return html.replace(
+    /\s*<div\b[^>]*\bid=["']document-controls["'][^>]*>[\s\S]*?<\/div>(?=\s*<div\b[^>]*\bid=["']arrange-controls["'])/i,
+    "",
+  );
 }
 
 export default defineConfig(() => {

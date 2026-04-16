@@ -33,4 +33,38 @@ describe("buildRuntimeExportHtml", () => {
     expect(html).toContain('"documentId": "doc-1"');
     expect(html).toContain('id="app-snapshot"');
   });
+
+  it("removes document import and export controls from runtime html exports", () => {
+    const template = `<!doctype html>
+<html lang="en">
+  <head>
+    <title>Old Title</title>
+  </head>
+  <body>
+    <div id="document-controls">
+      <button id="save-document-action">Save</button>
+      <button id="load-document-action">Load</button>
+    </div>
+    <div id="arrange-controls"></div>
+  </body>
+</html>`;
+
+    const html = buildRuntimeExportHtml(template, {
+      documentId: "doc-1",
+      revision: 2,
+      meta: { title: "Deck Demo" },
+      savedAt: "2026-04-05T10:00:00.000Z",
+      view: {
+        scale: 1,
+        position: { x: 0, y: 0 },
+      },
+      nodes: [],
+      drawings: [],
+    });
+
+    expect(html).not.toContain('id="document-controls"');
+    expect(html).not.toContain('id="save-document-action"');
+    expect(html).not.toContain('id="load-document-action"');
+    expect(html).toContain('id="arrange-controls"');
+  });
 });
