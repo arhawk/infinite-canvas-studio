@@ -21,6 +21,7 @@ import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
+import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { TermDefinitionLinkPlugin } from "./plugins/termDefinitionLink.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import {
@@ -123,6 +124,7 @@ const app = new App({
 app.use(SelectionPlugin);
 app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
+app.use(AnnotatorPlugin);
 app.use(ComponentEditorPlugin);
 app.use(PageComparePlugin);
 app.use(ToolbarPlugin, {

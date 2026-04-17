@@ -7,6 +7,10 @@ import {
 import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import {
+  serializeNodeTextAnnotations,
+  setNodeTextAnnotations,
+} from "../lib/textAnnotations.js";
 
 const MIN_WIDTH = 48;
 const MIN_HEIGHT = 32;
@@ -119,6 +123,7 @@ export class TextComponent extends BaseComponent {
       width: node.width(),
       height: node.height(),
       lineHeight: node.lineHeight(),
+      annotations: serializeNodeTextAnnotations(node),
       termDefinition: peerId || pairId || required
         ? {
           peerId: typeof peerId === "string" ? peerId : null,
@@ -139,6 +144,7 @@ export class TextComponent extends BaseComponent {
     node.lineHeight(Number.isFinite(data.lineHeight) ? data.lineHeight : 1.25);
     node.wrap("word");
     node.verticalAlign("top");
+    setNodeTextAnnotations(node, data.annotations);
 
     const td = data.termDefinition;
     if (td && typeof td === "object") {

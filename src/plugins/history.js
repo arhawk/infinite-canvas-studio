@@ -113,6 +113,7 @@ class UndoCommand extends BaseCommand {
         pencil: {},
         highlighter: {},
         eraser: {},
+        annotate: {},
       },
     },
   };
@@ -133,6 +134,7 @@ class RedoCommand extends BaseCommand {
         pencil: {},
         highlighter: {},
         eraser: {},
+        annotate: {},
       },
     },
   };

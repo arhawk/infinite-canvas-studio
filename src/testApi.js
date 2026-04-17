@@ -1,3 +1,8 @@
+import {
+  buildAnnotatableTextLayout,
+  getAnnotatableTextTargets,
+} from "./lib/textAnnotations.js";
+
 function getContainerRect(app) {
   return app.stage.container().getBoundingClientRect();
 }
@@ -13,6 +18,62 @@ function getNodeBounds(app, node) {
 
 function getConnectionLine(node) {
   return node?.findOne?.(".connection-line") ?? null;
+}
+
+function clonePlainData(value) {
+  if (value == null) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getTextAnnotationRects(app, ownerNode) {
+  const annotatorPlugin = getPlugin(app, "annotator");
+  if (!annotatorPlugin) return [];
+
+  return annotatorPlugin.renderGroup.find(".text-annotation-highlight")
+    .filter((shape) => shape.getAttr("textAnnotationOwnerId") === ownerNode.id())
+    .map((shape) => serializeRect(shape.getClientRect({ relativeTo: app.stage })))
+    .filter(Boolean);
+}
+
+function getTextAnnotationPagePoint(app, ownerNode, offset, {
+  targetKey = null,
+  bias = "center",
+} = {}) {
+  const target = getAnnotatableTextTargets(ownerNode).find((entry) => (
+    targetKey ? entry.targetKey === targetKey : true
+  ));
+  const textNode = target?.textNode ?? null;
+  if (!textNode) return null;
+
+  const layout = buildAnnotatableTextLayout(textNode);
+  const textLength = layout.text.length;
+  const targetOffset = Math.max(0, Math.min(Math.floor(offset), textLength));
+  const line = layout.lines.find((entry) => (
+    targetOffset >= entry.rawStart && targetOffset <= entry.rawEnd
+  )) ?? layout.lines.at(-1) ?? null;
+
+  if (!line) return null;
+
+  const lineOffset = Math.max(0, Math.min(targetOffset - line.rawStart, line.text.length));
+  const prefix = line.text.slice(0, lineOffset);
+  const prefixWidth = textNode.measureSize(prefix)?.width ?? 0;
+  const localPoint = {
+    x: line.x + prefixWidth,
+    y: line.y + line.lineHeight / 2,
+  };
+
+  if (bias === "inside-end") {
+    const char = line.text[lineOffset] ?? "";
+    const charWidth = textNode.measureSize(char)?.width ?? 0;
+    localPoint.x += Math.max(3, Math.min(charWidth - 1, 10));
+  } else if (bias === "inside-start" && lineOffset > 0) {
+    const char = line.text[lineOffset - 1] ?? "";
+    const charWidth = textNode.measureSize(char)?.width ?? 0;
+    localPoint.x -= Math.max(3, Math.min(charWidth - 1, 10));
+  }
+
+  const absolutePoint = textNode.getAbsoluteTransform(app.stage).point(localPoint);
+  return canvasToPage(app, absolutePoint);
 }
 
 function serializeRect(rect) {
@@ -49,6 +110,7 @@ function getNodeSummary(node) {
       height: background?.height() ?? node.height?.() ?? null,
       scaleX: node.scaleX?.() ?? null,
       scaleY: node.scaleY?.() ?? null,
+      annotations: clonePlainData(node.getAttr?.("textAnnotations") ?? []),
     };
   }
 
@@ -61,6 +123,7 @@ function getNodeSummary(node) {
       height: node.height?.() ?? null,
       scaleX: node.scaleX?.() ?? null,
       scaleY: node.scaleY?.() ?? null,
+      annotations: clonePlainData(node.getAttr?.("textAnnotations") ?? []),
     };
   }
 
@@ -281,6 +344,14 @@ export function setupAppTestApi(app) {
       return canvasToPage(app, canvasPoint);
     },
     getViewportState: () => getViewportState(app),
+    getTextAnnotationRects: (id) => {
+      const node = getNodeById(app, id);
+      return node ? getTextAnnotationRects(app, node) : [];
+    },
+    getTextAnnotationPagePoint: (id, offset, options = {}) => {
+      const node = getNodeById(app, id);
+      return node ? getTextAnnotationPagePoint(app, node, offset, options) : null;
+    },
     centerOnNode: (id, options = {}) => {
       const node = getNodeById(app, id);
       const center = node ? getNodeCanvasCenter(app, node) : null;

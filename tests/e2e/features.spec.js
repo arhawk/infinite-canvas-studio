@@ -51,6 +51,14 @@ async function waitForPaint(page) {
   }));
 }
 
+async function dragBetweenPagePoints(page, start, end, steps = 8) {
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps });
+  await page.mouse.up();
+  await waitForPaint(page);
+}
+
 async function drawStroke(page, { xRatio = 0.45, yRatio = 0.45, dx = 80, dy = 36 } = {}) {
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   const start = {
@@ -645,6 +653,166 @@ test("clamps text block font size in the editor without blocking submit", async 
   await expect
     .poll(async () => (await getNode(page, text.id))?.summary?.fontSize ?? null)
     .toBe(12);
+});
+
+test("creates a real text-range highlight and preserves it through undo redo and document load", async ({ page }) => {
+  const text = await addComponent(page, "text", {
+    x: 220,
+    y: 220,
+    width: 260,
+    height: 90,
+    text: "alpha beta gamma",
+    fontSize: 24,
+  });
+
+  await page.getByTestId("tool-button-annotate").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "annotate",
+  );
+
+  const [startPoint, endPoint] = await Promise.all([
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 6), text.id),
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 10), text.id),
+  ]);
+
+  await dragBetweenPagePoints(page, startPoint, endPoint);
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "text",
+        start: 6,
+        end: 10,
+      }),
+    ]);
+
+  await expect
+    .poll(async () => page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationRects(nodeId), text.id))
+    .toHaveLength(1);
+
+  const [secondStartPoint, secondEndPoint] = await Promise.all([
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 8), text.id),
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 14), text.id),
+  ]);
+
+  await dragBetweenPagePoints(page, secondStartPoint, secondEndPoint);
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "text",
+        start: 6,
+        end: 14,
+      }),
+    ]);
+
+  await expect
+    .poll(async () => page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationRects(nodeId), text.id))
+    .toHaveLength(1);
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "text",
+        start: 6,
+        end: 10,
+      }),
+    ]);
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "text",
+        start: 6,
+        end: 14,
+      }),
+    ]);
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "text",
+        start: 6,
+        end: 14,
+      }),
+    ]);
+
+  await expect
+    .poll(async () => page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationRects(nodeId), text.id))
+    .toHaveLength(1);
+});
+
+test("highlights and erases a sticky note text range", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", {
+    x: 220,
+    y: 220,
+    width: 260,
+    height: 150,
+    text: "sticky beta marker",
+    fontSize: 24,
+  });
+
+  await page.getByTestId("tool-button-annotate").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "annotate",
+  );
+
+  const [startPoint, endPoint] = await Promise.all([
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 7, {
+      targetKey: "sticky-text",
+    }), sticky.id),
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 11, {
+      targetKey: "sticky-text",
+    }), sticky.id),
+  ]);
+
+  await dragBetweenPagePoints(page, startPoint, endPoint);
+
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "sticky-text",
+        start: 7,
+        end: 11,
+      }),
+    ]);
+
+  await page.getByTestId("tool-button-eraser").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "eraser",
+  );
+
+  const highlightRect = await page.evaluate((nodeId) => {
+    const [rect] = window.__APP_TEST_API__.getTextAnnotationRects(nodeId);
+    return rect ?? null;
+  }, sticky.id);
+  const highlightCenter = await canvasPointToPage(page, {
+    x: highlightRect.x + highlightRect.width / 2,
+    y: highlightRect.y + highlightRect.height / 2,
+  });
+
+  await page.mouse.click(
+    highlightCenter.x,
+    highlightCenter.y,
+  );
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary?.annotations?.length ?? 0)
+    .toBe(0);
 });
 
 test("edits text inline and resizes the box without scaling the font", async ({ page }) => {

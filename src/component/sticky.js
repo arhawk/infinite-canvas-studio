@@ -6,6 +6,10 @@ import {
 } from "../core/baseClasses.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import {
+  serializeNodeTextAnnotations,
+  setNodeTextAnnotations,
+} from "../lib/textAnnotations.js";
 
 const DEFAULT_WIDTH = 180;
 const DEFAULT_HEIGHT = 130;
@@ -200,10 +204,12 @@ export class StickyComponent extends BaseComponent {
       fill: rect?.fill() ?? "#ffe082",
       textColor: textNode?.fill() ?? "#47361c",
       fontSize: textNode?.fontSize() ?? DEFAULT_FONT_SIZE,
+      annotations: serializeNodeTextAnnotations(node),
     };
   }
 
   async applySerializedData(node, data = {}) {
     syncStickyVisuals(node, data);
+    setNodeTextAnnotations(node, data.annotations);
   }
 }
