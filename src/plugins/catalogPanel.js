@@ -186,9 +186,9 @@ export class CatalogPanelPlugin extends BasePlugin {
   static pluginId = "catalog-panel";
 
   onSetup() {
-    const { panelEl = null, toggleEl = null } = this.options;
+    const { panelEl = null } = this.options;
     this.panelEl = panelEl;
-    this.toggleEl = toggleEl;
+    this.toggleEl = null;
     this.selectedNodeId = null;
     this.selectedItemId = null;
     this.isCollapsed = false;
@@ -258,18 +258,23 @@ export class CatalogPanelPlugin extends BasePlugin {
     this.countEl.className = "catalog-sidebar__count";
     this.countEl.textContent = "0 items";
 
+    this.toggleEl = document.createElement("button");
+    this.toggleEl.type = "button";
+    this.toggleEl.className = "catalog-sidebar__toggle";
+    this.toggleEl.dataset.testid = "catalog-toggle";
+    this.toggleEl.setAttribute("aria-label", "Collapse outline");
+    this.toggleEl.innerHTML =
+      '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    this.listenDom(this.toggleEl, "click", () => {
+      this.isCollapsed = !this.isCollapsed;
+      this.syncCollapsedState();
+    });
+
     const headerMeta = document.createElement("div");
     headerMeta.className = "catalog-sidebar__header-meta";
-    headerMeta.append(this.countEl);
+    headerMeta.append(this.countEl, this.toggleEl);
 
     header.append(brand, headerMeta);
-
-    if (this.toggleEl) {
-      this.listenDom(this.toggleEl, "click", () => {
-        this.isCollapsed = !this.isCollapsed;
-        this.syncCollapsedState();
-      });
-    }
 
     this.addSelectedEl = document.createElement("button");
     this.addSelectedEl.type = "button";
@@ -307,7 +312,6 @@ export class CatalogPanelPlugin extends BasePlugin {
       this.isCollapsed ? "Expand outline" : "Collapse outline",
     );
     this.toggleEl.title = this.isCollapsed ? "Expand outline" : "Collapse outline";
-    this.toggleEl.textContent = this.isCollapsed ? "<<" : ">>";
   }
 
   renderLoadingState() {
@@ -401,23 +405,29 @@ export class CatalogPanelPlugin extends BasePlugin {
     title.className = "catalog-item__title";
     title.dataset.testid = `catalog-item-title-${item.id}`;
     title.textContent = getRenderedItemTitle(item, node);
-    title.contentEditable = isEditable ? "true" : "false";
+    title.contentEditable = "false";
     title.spellcheck = false;
-    this.listenDom(title, "click", (event) => {
+
+    const beginTitleEdit = () => {
       if (!isEditable) return;
-      event.stopPropagation();
+      title.contentEditable = "true";
       title.focus();
-    });
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(title);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    };
+
     this.listenDom(title, "dblclick", (event) => {
       if (!isEditable) return;
       event.preventDefault();
       event.stopPropagation();
-      title.blur();
-      this.selectedItemId = item.id;
-      row.focus({ preventScroll: true });
+      beginTitleEdit();
     });
     this.listenDom(title, "keydown", (event) => {
-      if (!isEditable) return;
+      if (!isEditable || title.contentEditable !== "true") return;
       event.stopPropagation();
 
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -461,7 +471,8 @@ export class CatalogPanelPlugin extends BasePlugin {
       }
     });
     this.listenDom(title, "blur", () => {
-      if (!isEditable) return;
+      if (!isEditable || title.contentEditable !== "true") return;
+      title.contentEditable = "false";
       const nextTitle = title.textContent?.trim() || item.title;
       this.renameItemAndCanvasNode(item, node, nextTitle);
     });
@@ -478,9 +489,14 @@ export class CatalogPanelPlugin extends BasePlugin {
 
     row.append(topLine);
 
-    this.listenDom(row, "click", (event) => {
-      if (event.target === title && isEditable) return;
+    this.listenDom(row, "click", () => {
       this.focusCatalogItem(item);
+    });
+    this.listenDom(row, "dblclick", (event) => {
+      if (!isEditable || event.target?.closest?.(".catalog-item__toggle")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      beginTitleEdit();
     });
     this.listenDom(row, "keydown", (event) => this.handleItemKeydown(event, item, allItems));
     this.listenDom(row, "dragstart", (event) => {

@@ -65,7 +65,6 @@ const ui = {
   saveDocumentAction: getOptionalElement("#save-document-action"),
   loadDocumentAction: getOptionalElement("#load-document-action"),
   loadDocumentInput: getOptionalElement("#load-document-input"),
-  catalogToggle: getRequiredElement("#catalog-toggle"),
   calculatorToggle: getRequiredElement("#calculator-toggle"),
   calculatorWidget: getRequiredElement("#calculator-widget"),
   timerToggle: getRequiredElement("#timer-toggle"),
@@ -153,7 +152,6 @@ app.use(SidebarPlugin, {
 });
 app.use(CatalogPanelPlugin, {
   panelEl: ui.catalogPanel,
-  toggleEl: ui.catalogToggle,
 });
 app.use(RankingBoxPlugin);
 app.use(MindMapBranchPlugin);
