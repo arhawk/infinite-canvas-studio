@@ -10,6 +10,8 @@ export class TimerPlugin extends BasePlugin {
     const {
       toggleEl,
       widgetEl,
+      headerEl,
+      closeEl,
       displayEl,
       startPauseEl,
       resetEl,
@@ -21,6 +23,8 @@ export class TimerPlugin extends BasePlugin {
     this.ui = {
       toggleEl,
       widgetEl,
+      headerEl,
+      closeEl,
       displayEl,
       startPauseEl,
       resetEl,
@@ -32,18 +36,20 @@ export class TimerPlugin extends BasePlugin {
 
     renderIcons(toggleEl, { width: 18, height: 18, "stroke-width": 2 });
 
+    const initialDuration = this._readDurationMs();
     this.state = {
-      mode: "stopwatch",
+      mode: "timer",
       running: false,
       elapsed: 0,
-      remaining: 0,
-      timerDuration: this._readDurationMs(),
+      remaining: initialDuration,
+      timerDuration: initialDuration,
       intervalId: null,
       finished: false,
       lastTick: null,
     };
 
     this.listenDom(toggleEl, "click", () => this._handleToggle());
+    this.listenDom(closeEl, "click", () => this._hide());
 
     for (const tab of this.ui.tabs) {
       this.listenDom(tab, "click", () => this._switchMode(tab.dataset.mode));
@@ -62,6 +68,7 @@ export class TimerPlugin extends BasePlugin {
       if (e.key === "Enter") ssInputEl.blur();
     });
 
+    this._setupDrag(headerEl);
     this._syncUi();
   }
 
@@ -86,6 +93,58 @@ export class TimerPlugin extends BasePlugin {
     const isHidden = widgetEl.hidden;
     widgetEl.hidden = !isHidden;
     toggleEl.setAttribute("aria-pressed", String(isHidden));
+  }
+
+  _hide() {
+    this.ui.widgetEl.hidden = true;
+    this.ui.toggleEl.setAttribute("aria-pressed", "false");
+  }
+
+  _setupDrag(header) {
+    let dragging = false;
+    let startX, startY, startLeft, startTop;
+
+    this.listenDom(header, "mousedown", (e) => {
+      if (e.target.closest(".timer-widget__close")) return;
+      e.preventDefault();
+
+      const parentEl = this.ui.widgetEl.offsetParent ?? document.body;
+      const rect = this.ui.widgetEl.getBoundingClientRect();
+      const parentRect = parentEl.getBoundingClientRect();
+
+      startLeft = rect.left - parentRect.left;
+      startTop  = rect.top  - parentRect.top;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      this.ui.widgetEl.style.left   = startLeft + "px";
+      this.ui.widgetEl.style.top    = startTop  + "px";
+      this.ui.widgetEl.style.bottom = "auto";
+      this.ui.widgetEl.style.right  = "auto";
+
+      header.style.cursor = "grabbing";
+      dragging = true;
+    });
+
+    this.listenDom(document, "mousemove", (e) => {
+      if (!dragging) return;
+
+      const parentEl = this.ui.widgetEl.offsetParent ?? document.body;
+      const maxLeft = parentEl.clientWidth  - this.ui.widgetEl.offsetWidth;
+      const maxTop  = parentEl.clientHeight - this.ui.widgetEl.offsetHeight;
+
+      const newLeft = Math.max(0, Math.min(maxLeft, startLeft + (e.clientX - startX)));
+      const newTop  = Math.max(0, Math.min(maxTop,  startTop  + (e.clientY - startY)));
+
+      this.ui.widgetEl.style.left = newLeft + "px";
+      this.ui.widgetEl.style.top  = newTop  + "px";
+    });
+
+    this.listenDom(document, "mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      header.style.cursor = "";
+    });
   }
 
   _switchMode(newMode) {

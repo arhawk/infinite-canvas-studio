@@ -261,23 +261,32 @@
             aria-label="Timer / Stopwatch"
             data-testid="timer-widget"
           >
-            <div class="timer-widget__tabs" role="tablist">
+            <div class="timer-widget__header" id="timer-header">
+              <div class="timer-widget__tabs" role="tablist">
+                <button
+                  class="timer-widget__tab is-active"
+                  role="tab"
+                  aria-selected="true"
+                  data-mode="timer"
+                  type="button"
+                  data-testid="timer-tab-timer"
+                >Timer</button>
+                <button
+                  class="timer-widget__tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-mode="stopwatch"
+                  type="button"
+                  data-testid="timer-tab-stopwatch"
+                >Stopwatch</button>
+              </div>
               <button
-                class="timer-widget__tab is-active"
-                role="tab"
-                aria-selected="true"
-                data-mode="stopwatch"
+                id="timer-close"
+                class="timer-widget__close"
                 type="button"
-                data-testid="timer-tab-stopwatch"
-              >Stopwatch</button>
-              <button
-                class="timer-widget__tab"
-                role="tab"
-                aria-selected="false"
-                data-mode="timer"
-                type="button"
-                data-testid="timer-tab-timer"
-              >Timer</button>
+                aria-label="Close timer"
+                data-testid="timer-close"
+              >✕</button>
             </div>
 
             <div

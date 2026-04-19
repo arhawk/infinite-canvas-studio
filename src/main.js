@@ -76,6 +76,8 @@ const ui = {
   timerMm: getRequiredElement("#timer-mm"),
   timerSs: getRequiredElement("#timer-ss"),
   timerDurationRow: getRequiredElement("#timer-duration-row"),
+  timerClose: getRequiredElement("#timer-close"),
+  timerHeader: getRequiredElement("#timer-header"),
   arrangeControls: getRequiredElement("#arrange-controls"),
   brushControls: getRequiredElement("#brush-controls"),
   connectSelection: getRequiredElement("#connect-selection"),
@@ -179,6 +181,8 @@ app.use(MinimapPlugin);
 app.use(TimerPlugin, {
   toggleEl: ui.timerToggle,
   widgetEl: ui.timerWidget,
+  headerEl: ui.timerHeader,
+  closeEl: ui.timerClose,
   displayEl: ui.timerDisplay,
   startPauseEl: ui.timerStartPause,
   resetEl: ui.timerReset,
