@@ -12,6 +12,7 @@ const TOOL_ICONS = {
 
 const DRAWING_TOOL_IDS = ["pen", "pencil", "highlighter"];
 const BRUSH_CONTROL_TOOL_IDS = [...DRAWING_TOOL_IDS, "eraser"];
+const HIDDEN_MAIN_TOOL_BUTTON_IDS = new Set(["pencil", "highlighter"]);
 
 const DEFAULT_ERASER_STATE = {
   radius: 12,
@@ -62,6 +63,7 @@ export class ToolbarPlugin extends BasePlugin {
       historyControlsEl,
       arrangeControlsEl,
       brushControlsEl,
+      brushTypeControlsEl,
       connectSelectionEl,
       deleteSelectionEl,
       saveFocusEl,
@@ -81,6 +83,7 @@ export class ToolbarPlugin extends BasePlugin {
       historyControlsEl,
       arrangeControlsEl,
       brushControlsEl,
+      brushTypeControlsEl,
       connectSelectionEl,
       deleteSelectionEl,
       saveFocusEl,
@@ -98,6 +101,7 @@ export class ToolbarPlugin extends BasePlugin {
       canTogglePositionMode: false,
       selectedNodeId: null,
     };
+    this.brushPanelPositionFrame = null;
 
     this.drawingToolState = cloneDrawingToolState();
     this.eraserState = { ...DEFAULT_ERASER_STATE };
@@ -116,6 +120,14 @@ export class ToolbarPlugin extends BasePlugin {
       const nextMode = this.focusState.positionMode === "relative" ? "absolute" : "relative";
       this.app.commands.execute("focus:position-mode:set", nextMode);
     });
+    for (const button of brushTypeControlsEl.querySelectorAll("[data-brush-tool-id]")) {
+      this.listenDom(button, "click", () => {
+        const { brushToolId } = button.dataset;
+        if (!brushToolId) return;
+        this.app.setEditorTool(brushToolId);
+      });
+    }
+    this.listenDom(window, "resize", () => this.queueBrushPanelPositionSync());
     this.listenDom(strokeColorEl, "input", () => this.emitStrokeChange());
     this.listenDom(strokeWidthEl, "input", () => this.emitStrokeChange());
     this.listenDom(clearStrokesEl, "click", () => {
@@ -158,14 +170,33 @@ export class ToolbarPlugin extends BasePlugin {
 
     this.emitStrokeChange();
     this.syncUi();
+
+    this.cleanups.push(() => {
+      if (this.brushPanelPositionFrame != null) {
+        window.cancelAnimationFrame(this.brushPanelPositionFrame);
+        this.brushPanelPositionFrame = null;
+      }
+    });
   }
 
   isDrawingTool(toolId) {
     return DRAWING_TOOL_IDS.includes(toolId);
   }
 
+  isBrushFamilyActive(toolId = this.app.getEditorTool()) {
+    return this.isDrawingTool(toolId);
+  }
+
   showsBrushControls(toolId) {
     return BRUSH_CONTROL_TOOL_IDS.includes(toolId);
+  }
+
+  isMainToolButtonActive(buttonToolId, activeToolId) {
+    if (buttonToolId === "pen") {
+      return this.isBrushFamilyActive(activeToolId);
+    }
+
+    return buttonToolId === activeToolId;
   }
 
   getDrawingPlugin() {
@@ -187,6 +218,8 @@ export class ToolbarPlugin extends BasePlugin {
 
     if (toolId === "eraser") {
       strokeWidthLabelEl.textContent = "Radius";
+      strokeWidthEl.setAttribute("aria-label", "Radius");
+      strokeColorEl.setAttribute("aria-label", "Brush color");
       strokeWidthEl.min = "4";
       strokeWidthEl.max = "48";
       strokeWidthEl.value = String(this.eraserState.radius);
@@ -197,7 +230,9 @@ export class ToolbarPlugin extends BasePlugin {
     const toolState = this.getDrawingToolState(toolId);
     if (!toolState) return;
 
-    strokeWidthLabelEl.textContent = "Stroke";
+    strokeWidthLabelEl.textContent = `${toolId} width`;
+    strokeWidthEl.setAttribute("aria-label", `${toolId} width`);
+    strokeColorEl.setAttribute("aria-label", `${toolId} color`);
     strokeWidthEl.min = "1";
     strokeWidthEl.max = "24";
     strokeColorEl.value = toolState.color;
@@ -293,14 +328,23 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   renderToolButtons() {
-    const { toolButtonsEl, historyControlsEl, arrangeControlsEl } = this.ui;
+    const {
+      toolButtonsEl,
+      historyControlsEl,
+      arrangeControlsEl,
+      brushTypeControlsEl,
+    } = this.ui;
     toolButtonsEl.innerHTML = "";
 
     for (const tool of this.app.tools.list()) {
+      if (HIDDEN_MAIN_TOOL_BUTTON_IDS.has(tool.id)) continue;
+
       const button = document.createElement("button");
       button.type = "button";
       button.className = "tool-button";
-      button.title = tool.label;
+      const buttonLabel = tool.id === "pen" ? "Brush tools" : tool.label;
+      button.title = buttonLabel;
+      button.setAttribute("aria-label", buttonLabel);
       button.dataset.toolId = tool.id;
       button.dataset.testid = `tool-button-${tool.id}`;
 
@@ -326,11 +370,46 @@ export class ToolbarPlugin extends BasePlugin {
       height: 16,
       "stroke-width": 2,
     });
+    renderIcons(brushTypeControlsEl, {
+      width: 16,
+      height: 16,
+      "stroke-width": 2,
+    });
     renderIcons(historyControlsEl, {
       width: 16,
       height: 16,
       "stroke-width": 2,
     });
+
+    this.queueBrushPanelPositionSync();
+  }
+
+  queueBrushPanelPositionSync() {
+    if (this.brushPanelPositionFrame != null) return;
+
+    this.brushPanelPositionFrame = window.requestAnimationFrame(() => {
+      this.brushPanelPositionFrame = null;
+      this.syncBrushPanelPosition();
+    });
+  }
+
+  syncBrushPanelPosition() {
+    const { brushControlsEl, toolButtonsEl } = this.ui;
+    if (!brushControlsEl || brushControlsEl.hidden) return;
+
+    const anchorButton = toolButtonsEl?.querySelector?.('[data-tool-id="pen"]');
+    const toolbarRect = brushControlsEl.parentElement?.getBoundingClientRect?.();
+    const buttonRect = anchorButton?.getBoundingClientRect?.();
+    const panelWidth = brushControlsEl.offsetWidth;
+
+    if (!toolbarRect || !buttonRect || !panelWidth) return;
+
+    const horizontalPadding = 16;
+    const anchorCenter = buttonRect.left - toolbarRect.left + buttonRect.width / 2;
+    let left = anchorCenter - panelWidth / 2;
+    left = Math.max(horizontalPadding, Math.min(left, toolbarRect.width - panelWidth - horizontalPadding));
+
+    brushControlsEl.style.left = `${left}px`;
   }
 
   emitStrokeChange() {
@@ -364,6 +443,7 @@ export class ToolbarPlugin extends BasePlugin {
       toolButtonsEl,
       arrangeControlsEl,
       brushControlsEl,
+      brushTypeControlsEl,
       connectSelectionEl,
       deleteSelectionEl,
       saveFocusEl,
@@ -381,6 +461,7 @@ export class ToolbarPlugin extends BasePlugin {
     const isEdit = this.app.getMode() === "edit";
     const activeToolId = isEdit ? this.app.getEditorTool() : null;
     const isEraser = activeToolId === "eraser";
+    const isBrushFamilyActive = this.isBrushFamilyActive(activeToolId);
     const hasSelectedArrangeNode = Boolean(this.focusState.selectedNodeId);
     const showArrangeControls =
       activeToolId === "arrange"
@@ -402,8 +483,16 @@ export class ToolbarPlugin extends BasePlugin {
     }
 
     for (const button of toolButtonsEl.querySelectorAll("[data-tool-id]")) {
-      button.setAttribute("aria-pressed", String(button.dataset.toolId === this.app.tools.getActive()));
+      button.setAttribute(
+        "aria-pressed",
+        String(this.isMainToolButtonActive(button.dataset.toolId, activeToolId)),
+      );
       button.disabled = !isEdit;
+    }
+    for (const button of brushTypeControlsEl.querySelectorAll("[data-brush-tool-id]")) {
+      const { brushToolId } = button.dataset;
+      button.setAttribute("aria-pressed", String(brushToolId === activeToolId));
+      button.disabled = !isEdit || isEraser;
     }
 
     if (drawingVisibilityToggleEl) {
@@ -430,12 +519,15 @@ export class ToolbarPlugin extends BasePlugin {
     if (brushControlsEl) {
       brushControlsEl.hidden = !showBrushControls;
     }
+    if (brushTypeControlsEl) {
+      brushTypeControlsEl.hidden = !isBrushFamilyActive;
+    }
     const colorFieldEl = strokeColorEl.closest(".toolbar__field");
     if (colorFieldEl) {
-      colorFieldEl.hidden = isEraser;
+      colorFieldEl.hidden = !isBrushFamilyActive;
     }
     if (recentColorsEl) {
-      recentColorsEl.hidden = isEraser;
+      recentColorsEl.hidden = !isBrushFamilyActive;
     }
     if (clearStrokesEl) {
       clearStrokesEl.hidden = !isEraser;
@@ -464,5 +556,9 @@ export class ToolbarPlugin extends BasePlugin {
     strokeColorEl.disabled = !brushControlsEnabled || isEraser;
     strokeWidthEl.disabled = !brushControlsEnabled;
     strokeWidthValueEl.disabled = !brushControlsEnabled;
+
+    if (showBrushControls) {
+      this.queueBrushPanelPositionSync();
+    }
   }
 }

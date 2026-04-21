@@ -54,7 +54,9 @@ function getOptionalElement(selector) {
 
 const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
+  componentsSidebar: getRequiredElement("[data-testid='sidebar']"),
   sidebarBrand: getRequiredElement("#sidebar-brand"),
+  sidebarToggle: getRequiredElement("#sidebar-toggle"),
   modeToggle: getRequiredElement("#mode-toggle"),
   drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
   toolButtons: getRequiredElement("#tool-buttons"),
@@ -79,6 +81,7 @@ const ui = {
   timerHeader: getRequiredElement("#timer-header"),
   arrangeControls: getRequiredElement("#arrange-controls"),
   brushControls: getRequiredElement("#brush-controls"),
+  brushTypeControls: getRequiredElement("#brush-type-controls"),
   connectSelection: getRequiredElement("#connect-selection"),
   deleteSelection: getRequiredElement("#delete-selection"),
   saveFocus: getRequiredElement("#save-focus"),
@@ -135,6 +138,7 @@ app.use(ToolbarPlugin, {
   historyControlsEl: ui.historyControls,
   arrangeControlsEl: ui.arrangeControls,
   brushControlsEl: ui.brushControls,
+  brushTypeControlsEl: ui.brushTypeControls,
   connectSelectionEl: ui.connectSelection,
   deleteSelectionEl: ui.deleteSelection,
   saveFocusEl: ui.saveFocus,
@@ -147,8 +151,10 @@ app.use(ToolbarPlugin, {
   clearStrokesEl: ui.clearStrokes,
 });
 app.use(SidebarPlugin, {
+  sidebarEl: ui.componentsSidebar,
   paletteEl: ui.componentPalette,
   canvasEl: ui.canvasContainer,
+  toggleEl: ui.sidebarToggle,
 });
 app.use(CatalogPanelPlugin, {
   panelEl: ui.catalogPanel,

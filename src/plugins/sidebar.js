@@ -54,20 +54,46 @@ export class SidebarPlugin extends BasePlugin {
   };
 
   onSetup() {
-    const { paletteEl, canvasEl } = this.options;
-    this.ui = { paletteEl, canvasEl };
+    const {
+      paletteEl,
+      canvasEl,
+      sidebarEl = paletteEl?.closest?.(".sidebar") ?? null,
+      toggleEl = null,
+    } = this.options;
+    this.ui = { paletteEl, canvasEl, sidebarEl, toggleEl };
     this.paletteCards = [];
+    this.isCollapsed = false;
 
     this.listen("interaction:change", () => this.syncInteractivity());
     this.listenDom(canvasEl, "dragover", (event) => this.handleDragOver(event));
     this.listenDom(canvasEl, "dragleave", () => canvasEl.classList.remove("is-drop-target"));
     this.listenDom(canvasEl, "drop", (event) => this.handleDrop(event));
+    if (toggleEl) {
+      this.listenDom(toggleEl, "click", () => {
+        this.isCollapsed = !this.isCollapsed;
+        this.syncCollapsedState();
+      });
+    }
 
+    this.syncCollapsedState();
     this.renderPalette();
   }
 
   onModeChange() {
     this.syncInteractivity();
+  }
+
+  syncCollapsedState() {
+    const { sidebarEl, paletteEl, toggleEl } = this.ui;
+    if (!sidebarEl || !toggleEl) return;
+
+    sidebarEl.classList.toggle("is-collapsed", this.isCollapsed);
+    paletteEl?.setAttribute("aria-hidden", String(this.isCollapsed));
+    toggleEl.setAttribute(
+      "aria-label",
+      this.isCollapsed ? "Expand components" : "Collapse components",
+    );
+    toggleEl.title = this.isCollapsed ? "Expand components" : "Collapse components";
   }
 
   syncInteractivity() {

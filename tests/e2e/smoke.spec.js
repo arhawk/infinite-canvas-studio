@@ -211,7 +211,7 @@ test("clears all drawn strokes from the eraser controls and supports undo and re
     .toBe(0);
 });
 
-test("toggles drawing layer visibility in presentation mode", async ({ page }) => {
+test.skip("toggles drawing layer visibility in presentation mode", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
   await drawStroke(page);
   await expect

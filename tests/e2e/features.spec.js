@@ -1459,7 +1459,7 @@ test("keeps drawing tool settings separate and restores recent colors per tool",
   await strokeColor.fill("#0000ff");
   await drawStroke(page, { xRatio: 0.52, yRatio: 0.5, dx: 70, dy: -30 });
 
-  await page.getByTestId("tool-button-pencil").click();
+  await page.getByTestId("brush-type-pencil").click();
   await expect(strokeColor).toHaveValue("#4a4a4a");
   await expect(strokeWidth).toHaveValue("3");
 
@@ -1476,7 +1476,7 @@ test("keeps drawing tool settings separate and restores recent colors per tool",
   await expect(page.getByTestId("recent-color-00ff00")).toHaveCount(0);
   await expect(page.getByTestId("recent-color-ff0000")).toBeVisible();
 
-  await page.getByTestId("tool-button-pencil").click();
+  await page.getByTestId("brush-type-pencil").click();
   await expect(strokeColor).toHaveValue("#123456");
   await expect(strokeWidth).toHaveValue("2");
 
