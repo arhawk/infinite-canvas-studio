@@ -83,6 +83,14 @@ test("adds a sticky note from the palette and deletes it with the keyboard", asy
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 });
 
+test("adds a ranking box from the palette", async ({ page }) => {
+  await page.getByTestId("palette-card-rankingBox").click();
+
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+  const [node] = await listNodes(page);
+  expect(node.componentType).toBe("rankingBox");
+});
+
 test("undoes and redoes adding a sticky note", async ({ page }) => {
   await expect(page.getByTestId("undo-action")).toBeDisabled();
   await expect(page.getByTestId("redo-action")).toBeDisabled();

@@ -1273,6 +1273,102 @@ test("moves text into and out of a page ranking box", async ({ page }) => {
     .toEqual(["Second ranked idea"]);
 });
 
+test("moves text into a ranking box across pages", async ({ page }) => {
+  const firstPage = await addComponent(page, "page", { x: 120, y: 120 });
+  const secondPage = await addComponent(page, "page", { x: 1300, y: 120 });
+  const textNode = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    text: "Cross page idea",
+    width: 200,
+    height: 80,
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, textNode.id))?.parentId ?? null)
+    .toBe(firstPage.id);
+
+  const rankingBox = await page.evaluate(
+    (pageId) => window.__APP_TEST_API__.createRankingBox(pageId),
+    secondPage.id,
+  );
+  expect(rankingBox.componentType).toBe("rankingBox");
+
+  const added = await page.evaluate(
+    ({ rankingBoxId, textId }) => window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId),
+    { rankingBoxId: rankingBox.id, textId: textNode.id },
+  );
+  expect(added.item.sourceNodeId).toBe(textNode.id);
+
+  await expect.poll(async () => getNode(page, textNode.id)).toBeNull();
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id)).summary.items.map((item) => item.renderedText))
+    .toEqual(["Cross page idea"]);
+});
+
+test("keeps ranking items sortable when dragging down without fully leaving the box", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  const textNode = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    text: "Drag sorting should stay inside",
+    width: 220,
+    height: 80,
+  });
+
+  const rankingBox = await page.evaluate(
+    (pageId) => window.__APP_TEST_API__.createRankingBox(pageId),
+    pageNode.id,
+  );
+  await page.evaluate(
+    ({ rankingBoxId, textId }) => window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId),
+    { rankingBoxId: rankingBox.id, textId: textNode.id },
+  );
+
+  const rankingSnapshot = await getNode(page, rankingBox.id);
+  const boxBounds = rankingSnapshot.bounds;
+  const firstItemBounds = rankingSnapshot.summary.items[0].renderedBounds;
+  expect(boxBounds).toBeTruthy();
+  expect(firstItemBounds).toBeTruthy();
+
+  const startCanvas = {
+    x: firstItemBounds.x + firstItemBounds.width / 2,
+    y: firstItemBounds.y + firstItemBounds.height - 4,
+  };
+  const endCanvas = {
+    x: startCanvas.x,
+    y: boxBounds.y + boxBounds.height + 33,
+  };
+  const [start, end] = await Promise.all([
+    canvasPointToPage(page, startCanvas),
+    canvasPointToPage(page, endCanvas),
+  ]);
+
+  await dragBetweenPagePoints(page, start, end, 12);
+
+  await expect.poll(async () => getNode(page, textNode.id)).toBeNull();
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id)).summary.items.length)
+    .toBe(1);
+});
+
+test("captures a ranking box into a page by dragging", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 520, y: 120 });
+  const rankingBox = await addComponent(page, "rankingBox", { x: 40, y: 220 });
+
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.parentId ?? null)
+    .toBeNull();
+
+  const start = await getNodePageCenter(page, rankingBox.id);
+  const end = await getNodePageCenter(page, pageNode.id);
+  await dragBetweenPagePoints(page, start, end, 10);
+
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.parentId ?? null)
+    .toBe(pageNode.id);
+});
+
 test("reorders ranking box items in view mode without switching to edit", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
   const firstText = await addComponent(page, "text", {

@@ -42,6 +42,15 @@ function pointInRect(point, rect) {
   );
 }
 
+function rectsIntersect(left, right) {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
+}
+
 function expandRect(rect, margin) {
   return {
     x: rect.x - margin,
@@ -292,7 +301,7 @@ export class RankingBoxPlugin extends BasePlugin {
 
       card.on("dragmove.rankingItem", (event) => {
         event.cancelBubble = true;
-        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode, {
+        if (!this.app.isReadOnly() && this.isRankingCardOutsideRankingBox(rankingNode, card, {
           margin: MOVE_OUT_THRESHOLD,
         })) {
           rankingNode.getLayer()?.batchDraw();
@@ -307,7 +316,7 @@ export class RankingBoxPlugin extends BasePlugin {
       card.on("dragend.rankingItem", (event) => {
         event.cancelBubble = true;
         card.setAttr("isRankingItemDragging", false);
-        if (!this.app.isReadOnly() && this.isCardPointerOutsideRankingBox(rankingNode, {
+        if (!this.app.isReadOnly() && this.isRankingCardOutsideRankingBox(rankingNode, card, {
           margin: MOVE_OUT_THRESHOLD,
         })) {
           void this.moveRankingItemOutToText(rankingNode, card);
@@ -369,10 +378,7 @@ export class RankingBoxPlugin extends BasePlugin {
   }
 
   canAddTextToRankingBox(textNode, rankingBox) {
-    if (!isTextNode(textNode) || !isRankingBoxNode(rankingBox)) return false;
-    const textPage = this.getOwningPage(textNode);
-    const rankingPage = this.getOwningPage(rankingBox);
-    return Boolean(textPage && rankingPage && textPage === rankingPage);
+    return isTextNode(textNode) && isRankingBoxNode(rankingBox);
   }
 
   addTextToRankingBox(rankingBoxRef, textRef, { dropPoint = null, insertIndex = null } = {}) {
@@ -517,12 +523,23 @@ export class RankingBoxPlugin extends BasePlugin {
     return pointer ? this.app.stageApi.screenToCanvas(pointer) : null;
   }
 
-  isCardPointerOutsideRankingBox(rankingNode, { margin = 0 } = {}) {
-    const point = this.getCanvasPointerPosition();
-    if (!point) return false;
+  getRankingBoxStageRect(rankingNode) {
     const background = rankingNode.findOne(".ranking-box-bg");
-    const box = background?.getClientRect?.() ?? rankingNode.getClientRect();
-    return !pointInRect(point, margin > 0 ? expandRect(box, margin) : box);
+    return background?.getClientRect?.({ relativeTo: this.app.stage }) ??
+      rankingNode.getClientRect({ relativeTo: this.app.stage });
+  }
+
+  getRankingCardStageRect(card) {
+    return card?.getClientRect?.({ relativeTo: this.app.stage }) ?? null;
+  }
+
+  isRankingCardOutsideRankingBox(rankingNode, card, { margin = 0 } = {}) {
+    const cardRect = this.getRankingCardStageRect(card);
+    if (!cardRect) return false;
+
+    const boxRect = this.getRankingBoxStageRect(rankingNode);
+    const expanded = margin > 0 ? expandRect(boxRect, margin) : boxRect;
+    return !rectsIntersect(cardRect, expanded);
   }
 
   async moveRankingItemOutToText(rankingNode, card) {

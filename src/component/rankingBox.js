@@ -329,8 +329,7 @@ function installRankingBoxClientRect(node) {
 export class RankingBoxComponent extends BaseComponent {
   static type = "rankingBox";
   static label = "Ranking Box";
-  static description = "Page-only box for sorting references to text blocks";
-  static palette = false;
+  static description = "Sortable box for collecting references to text blocks";
 
   getEditorTitle() {
     return "Ranking Box";

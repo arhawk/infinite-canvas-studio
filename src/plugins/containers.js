@@ -1,5 +1,11 @@
 import { BasePlugin } from "../core/baseClasses.js";
 
+function resolveSelectable(node) {
+  if (!node) return null;
+  if (node.hasName?.("selectable")) return node;
+  return node.findAncestor?.(".selectable", true) ?? null;
+}
+
 function isContainerNode(node) {
   return node?.hasName?.("container-root") || node?.getAttr?.("componentType") === "container";
 }
@@ -8,12 +14,12 @@ function isConnectionNode(node) {
   return node?.getAttr?.("componentType") === "connection";
 }
 
-function isRankingNode(node) {
-  return node?.getAttr?.("componentType") === "rankingBox";
-}
-
 function isInsideRankingNode(node) {
   return Boolean(node?.findAncestor?.(".ranking-box-root"));
+}
+
+function isInsideRankingItem(node) {
+  return Boolean(node?.hasName?.("ranking-item-card") || node?.findAncestor?.(".ranking-item-card", true));
 }
 
 export class ContainersPlugin extends BasePlugin {
@@ -47,24 +53,24 @@ export class ContainersPlugin extends BasePlugin {
   }
 
   handleDragEnd(event) {
+    if (isInsideRankingItem(event.target)) return;
     this.handleCapture(event.target);
   }
 
   handleCapture(node) {
+    const selectable = resolveSelectable(node);
     if (
       this.app.isReplayingHistory ||
       this.app.isRestoringDocument ||
-      !node?.getStage?.() ||
-      node?.getAttr?.("rankingBoxConsumedDrop") ||
-      !node?.hasName?.("selectable") ||
-      isContainerNode(node) ||
-      isRankingNode(node) ||
-      isConnectionNode(node)
+      !selectable?.getStage?.() ||
+      selectable?.getAttr?.("rankingBoxConsumedDrop") ||
+      isContainerNode(selectable) ||
+      isConnectionNode(selectable)
     ) {
       return;
     }
 
-    const box = node.getClientRect();
+    const box = selectable.getClientRect();
     const center = {
       x: box.x + box.width / 2,
       y: box.y + box.height / 2,
@@ -88,25 +94,25 @@ export class ContainersPlugin extends BasePlugin {
       }
     }
 
-    const currentParent = node.getParent();
+    const currentParent = selectable.getParent();
 
     if (targetContainer) {
       if (currentParent !== targetContainer) {
-        const absolutePosition = node.getAbsolutePosition();
-        node.moveTo(targetContainer);
-        node.setAbsolutePosition(absolutePosition);
+        const absolutePosition = selectable.getAbsolutePosition();
+        selectable.moveTo(targetContainer);
+        selectable.setAbsolutePosition(absolutePosition);
         this.layer.batchDraw();
-        this.app.events.emit("node:changed", { node });
+        this.app.events.emit("node:changed", { node: selectable });
       }
       return;
     }
 
     if (currentParent !== this.layer && currentParent !== this.app.drawLayer) {
-      const absolutePosition = node.getAbsolutePosition();
-      node.moveTo(this.layer);
-      node.setAbsolutePosition(absolutePosition);
+      const absolutePosition = selectable.getAbsolutePosition();
+      selectable.moveTo(this.layer);
+      selectable.setAbsolutePosition(absolutePosition);
       this.layer.batchDraw();
-      this.app.events.emit("node:changed", { node });
+      this.app.events.emit("node:changed", { node: selectable });
     }
   }
 }
