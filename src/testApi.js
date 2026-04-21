@@ -25,12 +25,14 @@ function clonePlainData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function getTextAnnotationRects(app, ownerNode) {
-  const annotatorPlugin = getPlugin(app, "annotator");
-  if (!annotatorPlugin) return [];
+function getTextAnnotationRects(app, ownerNodeOrId) {
+  const ownerId = typeof ownerNodeOrId === "string"
+    ? ownerNodeOrId
+    : ownerNodeOrId?.id?.() ?? null;
+  if (!ownerId) return [];
 
-  return annotatorPlugin.renderGroup.find(".text-annotation-highlight")
-    .filter((shape) => shape.getAttr("textAnnotationOwnerId") === ownerNode.id())
+  return app.mainLayer.find(".text-annotation-highlight")
+    .filter((shape) => shape.getAttr("textAnnotationOwnerId") === ownerId)
     .map((shape) => serializeRect(shape.getClientRect({ relativeTo: app.stage })))
     .filter(Boolean);
 }
@@ -346,7 +348,7 @@ export function setupAppTestApi(app) {
     getViewportState: () => getViewportState(app),
     getTextAnnotationRects: (id) => {
       const node = getNodeById(app, id);
-      return node ? getTextAnnotationRects(app, node) : [];
+      return getTextAnnotationRects(app, node ?? id);
     },
     getTextAnnotationPagePoint: (id, offset, options = {}) => {
       const node = getNodeById(app, id);

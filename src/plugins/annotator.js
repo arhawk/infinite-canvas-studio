@@ -14,6 +14,8 @@ import { Konva } from "../lib/konva.js";
 const TEXT_MARK_OPACITY = 0.7;
 const TEXT_MARK_PREVIEW_OPACITY = 0.48;
 const TEXT_MARK_STROKE_WIDTH = 1.8;
+const DEFAULT_ERASER_RADIUS = 12;
+const TEXT_MARK_HIT_THICKNESS = 10;
 
 class AnnotateTool extends BaseTool {
   static toolId = "annotate";
@@ -24,8 +26,17 @@ function isTextAnnotationTarget(node) {
   return Boolean(node?.getAttr?.("textAnnotationId"));
 }
 
-function applyNodeTransformToGroup(group, textNode, stage) {
-  const transform = textNode.getAbsoluteTransform(stage).decompose();
+function pointInRect(point, rect) {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+function applyNodeTransformToGroup(group, textNode, relativeTo) {
+  const transform = textNode.getAbsoluteTransform(relativeTo).decompose();
   group.setAttrs({
     x: transform.x,
     y: transform.y,
@@ -34,7 +45,7 @@ function applyNodeTransformToGroup(group, textNode, stage) {
     scaleY: transform.scaleY,
     skewX: transform.skewX,
     skewY: transform.skewY,
-    opacity: textNode.getAbsoluteOpacity?.() ?? 1,
+    opacity: textNode.opacity?.() ?? 1,
     visible: textNode.isVisible?.() ?? true,
   });
 }
@@ -50,6 +61,18 @@ function getTextMarkLinePoints(rect) {
     rect.x + width - inset,
     baselineY,
   ];
+}
+
+function getTextMarkHitRect(rect, radius = 0) {
+  const baselineY = rect.y + rect.height - 2;
+  const hitHalfThickness = TEXT_MARK_HIT_THICKNESS / 2 + radius;
+
+  return {
+    x: rect.x - radius,
+    y: baselineY - hitHalfThickness,
+    width: rect.width + radius * 2,
+    height: hitHalfThickness * 2,
+  };
 }
 
 export class AnnotatorPlugin extends BasePlugin {
@@ -71,17 +94,20 @@ export class AnnotatorPlugin extends BasePlugin {
     this.stage = this.app.stage;
     this.layer = this.app.mainLayer;
     this.uiLayer = this.app.uiLayer;
-    this.annotationGroup = new Konva.Group({
-      listening: true,
-      name: "text-annotation-layer",
+    this.previewLayerGroup = new Konva.Group({
+      listening: false,
+      name: "text-annotation-preview-layer",
     });
-    this.renderGroup = new Konva.Group({ listening: true });
     this.previewGroup = new Konva.Group({ listening: false });
+    this.renderedGroups = [];
     this.activeSelection = null;
+    this.isErasing = false;
+    this.eraserRadius = DEFAULT_ERASER_RADIUS;
+    this.syncScheduled = false;
 
-    this.annotationGroup.add(this.renderGroup, this.previewGroup);
-    this.uiLayer.add(this.annotationGroup);
-    this.annotationGroup.zIndex(0);
+    this.previewLayerGroup.add(this.previewGroup);
+    this.uiLayer.add(this.previewLayerGroup);
+    this.previewLayerGroup.zIndex(0);
 
     this.listen("interaction:change", () => {
       this.syncCursor();
@@ -93,7 +119,7 @@ export class AnnotatorPlugin extends BasePlugin {
         this.syncAnnotations();
       }
     });
-    this.listen("node:removed", () => this.syncAnnotations());
+    this.listen("node:removed", () => this.scheduleSyncAnnotations());
     this.listen("node:changing", ({ node }) => {
       if (getAnnotatableTextTargets(node).length) {
         this.syncAnnotations();
@@ -104,14 +130,28 @@ export class AnnotatorPlugin extends BasePlugin {
         this.syncAnnotations();
       }
     });
+    this.listen("stroke:change", ({ toolId, radius }) => {
+      if (toolId !== "eraser" || !Number.isFinite(radius)) return;
+      this.eraserRadius = radius;
+      if (this.isEraseToolActive()) {
+        this.syncAnnotations();
+      }
+    });
+    this.listen("document:load:start", () => {
+      this.activeSelection = null;
+      this.isErasing = false;
+      this.clearPreview();
+      this.destroyRenderedGroups();
+    });
 
     this.stage.on("mousedown.annotator touchstart.annotator", (event) => this.handlePointerDown(event));
-    this.stage.on("mousemove.annotator touchmove.annotator", () => this.handlePointerMove());
+    this.stage.on("mousemove.annotator touchmove.annotator", (event) => this.handlePointerMove(event));
     this.stage.on("mouseup.annotator touchend.annotator touchcancel.annotator", () => this.handlePointerUp());
 
     this.cleanups.push(() => {
       this.stage.off(".annotator");
-      this.annotationGroup.destroy();
+      this.destroyRenderedGroups();
+      this.previewLayerGroup.destroy();
     });
 
     this.syncCursor();
@@ -130,6 +170,7 @@ export class AnnotatorPlugin extends BasePlugin {
 
   onModeExit() {
     this.activeSelection = null;
+    this.isErasing = false;
     this.clearPreview();
     this.app.clearCursorOverride();
     this.syncAnnotations();
@@ -154,6 +195,50 @@ export class AnnotatorPlugin extends BasePlugin {
 
   getPointerPosition() {
     return this.stage.getPointerPosition();
+  }
+
+  getActiveEraserRadius() {
+    return Number.isFinite(this.eraserRadius) ? this.eraserRadius : DEFAULT_ERASER_RADIUS;
+  }
+
+  scheduleSyncAnnotations() {
+    if (this.syncScheduled) return;
+    this.syncScheduled = true;
+    queueMicrotask(() => {
+      this.syncScheduled = false;
+      this.syncAnnotations();
+    });
+  }
+
+  destroyRenderedGroups() {
+    this.renderedGroups.forEach((group) => group.destroy());
+    this.renderedGroups = [];
+    this.layer.batchDraw();
+  }
+
+  syncRenderGroupOrder(group, textNode) {
+    const parent = textNode?.getParent?.();
+    if (!group || !parent || textNode.getParent() !== parent) return;
+    group.zIndex(textNode.zIndex() + 1);
+  }
+
+  findAnnotationTargetNearPoint(point) {
+    if (!point) return null;
+
+    const targets = this.layer.find(".text-annotation-highlight");
+    for (let index = targets.length - 1; index >= 0; index -= 1) {
+      const target = targets[index];
+      const box = target.getClientRect({
+        relativeTo: this.stage,
+        skipShadow: true,
+        skipStroke: true,
+      });
+      if (pointInRect(point, box)) {
+        return target;
+      }
+    }
+
+    return null;
   }
 
   toLocalPoint(textNode, pointer) {
@@ -208,10 +293,11 @@ export class AnnotatorPlugin extends BasePlugin {
   }
 
   syncAnnotations() {
-    this.renderGroup.destroyChildren();
-
     const allowHitTesting = this.isEraseToolActive();
+    const eraserRadius = allowHitTesting ? this.getActiveEraserRadius() : 0;
     const nodes = this.layer.find(".selectable");
+
+    this.destroyRenderedGroups();
 
     nodes.forEach((node) => {
       const annotations = getNodeTextAnnotations(node);
@@ -221,14 +307,15 @@ export class AnnotatorPlugin extends BasePlugin {
         const targetAnnotations = annotations.filter((annotation) => annotation.target === targetKey);
         if (!targetAnnotations.length) return;
 
+        const parent = textNode.getParent?.() ?? this.layer;
         const group = new Konva.Group({ listening: allowHitTesting });
-        applyNodeTransformToGroup(group, textNode, this.stage);
+        applyNodeTransformToGroup(group, textNode, parent);
 
         targetAnnotations.forEach((annotation) => {
           const rects = getHighlightRectsForRange(textNode, annotation.start, annotation.end);
           rects.forEach((rect) => {
             group.add(new Konva.Rect({
-              ...rect,
+              ...getTextMarkHitRect(rect, eraserRadius),
               fill: "#000000",
               opacity: 0.001,
               listening: allowHitTesting,
@@ -250,14 +337,16 @@ export class AnnotatorPlugin extends BasePlugin {
         });
 
         if (group.getChildren().length) {
-          this.renderGroup.add(group);
+          parent.add(group);
+          this.syncRenderGroupOrder(group, textNode);
+          this.renderedGroups.push(group);
         } else {
           group.destroy();
         }
       });
     });
 
-    this.uiLayer.batchDraw();
+    this.layer.batchDraw();
   }
 
   removeAnnotation(ownerNode, annotationId) {
@@ -288,18 +377,24 @@ export class AnnotatorPlugin extends BasePlugin {
     return annotation;
   }
 
+  eraseAtEventTarget(target) {
+    if (!isTextAnnotationTarget(target)) return false;
+
+    const ownerNode = this.layer.findOne(`#${target.getAttr("textAnnotationOwnerId")}`);
+    const annotationId = target.getAttr("textAnnotationId");
+    if (!ownerNode || typeof annotationId !== "string") return false;
+
+    return this.removeAnnotation(ownerNode, annotationId);
+  }
+
   handlePointerDown(event) {
     if (event.evt.button != null && event.evt.button !== 0) return;
 
     if (this.isEraseToolActive()) {
-      const target = event.target;
-      if (!isTextAnnotationTarget(target)) return;
-
-      const ownerNode = this.layer.findOne(`#${target.getAttr("textAnnotationOwnerId")}`);
-      const annotationId = target.getAttr("textAnnotationId");
-      if (!ownerNode || typeof annotationId !== "string") return;
-
-      this.removeAnnotation(ownerNode, annotationId);
+      this.isErasing = true;
+      const pointer = this.getPointerPosition();
+      const fallbackTarget = this.findAnnotationTargetNearPoint(pointer);
+      this.eraseAtEventTarget(event.target) || this.eraseAtEventTarget(fallbackTarget);
       event.cancelBubble = true;
       return;
     }
@@ -325,7 +420,14 @@ export class AnnotatorPlugin extends BasePlugin {
     event.cancelBubble = true;
   }
 
-  handlePointerMove() {
+  handlePointerMove(event) {
+    if (this.isEraseToolActive() && this.isErasing) {
+      const pointer = this.getPointerPosition();
+      const fallbackTarget = this.findAnnotationTargetNearPoint(pointer);
+      this.eraseAtEventTarget(event.target) || this.eraseAtEventTarget(fallbackTarget);
+      return;
+    }
+
     if (!this.activeSelection || !this.isHighlightToolActive()) return;
 
     const pointer = this.getPointerPosition();
@@ -337,6 +439,8 @@ export class AnnotatorPlugin extends BasePlugin {
   }
 
   handlePointerUp() {
+    this.isErasing = false;
+
     if (!this.activeSelection || !this.isHighlightToolActive()) return;
 
     const { ownerNode, targetKey, start, end } = this.activeSelection;

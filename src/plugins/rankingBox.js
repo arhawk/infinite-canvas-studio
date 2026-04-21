@@ -621,13 +621,15 @@ export class RankingBoxPlugin extends BasePlugin {
         ? item.sourceNodeId
         : undefined;
 
-    const node = await textComponent.create({
+    const node = await textComponent.restore({
       id: requestedId,
       x: localPosition.x,
       y: localPosition.y,
-      ...textData,
-      width,
-      height,
+      data: {
+        ...textData,
+        width,
+        height,
+      },
     });
     if (!node) return null;
 
