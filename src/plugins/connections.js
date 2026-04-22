@@ -5,7 +5,12 @@ import {
 } from "../core/baseClasses.js";
 import {
   DEFAULT_LINE_OPACITY,
+  CONNECTION_KIND_DIRECTED,
+  CONNECTION_KIND_TERMDEF,
+  TERMDEF_LINE_OPACITY,
+  applyConnectionKindStyle,
   getConnectionConfiguredStyle,
+  getConnectionKind,
   getConnectionLine,
 } from "../component/connection.js";
 import { Konva } from "../lib/konva.js";
@@ -29,6 +34,10 @@ function isRankingBoxNode(node) {
 
 function isButtonNode(node) {
   return node?.getAttr?.("componentType") === "button";
+}
+
+function isTextNode(node) {
+  return node?.getAttr?.("componentType") === "text";
 }
 
 function readOffset(offset) {
@@ -130,6 +139,7 @@ export class ConnectionsPlugin extends BasePlugin {
     this.connectingFromId = null;
     this.selectedConnection = null;
     this.selectedNodes = [];
+    this.termdefRemovingIds = new Set();
     this.transparentPulseConnectionIds = new Set();
     this.transparentPulseAnimation = null;
 
@@ -244,6 +254,10 @@ export class ConnectionsPlugin extends BasePlugin {
     return this.layer.find((node) => isConnectionNode(node));
   }
 
+  isTermdefConnection(connectionNode) {
+    return isConnectionNode(connectionNode) && getConnectionKind(connectionNode) === CONNECTION_KIND_TERMDEF;
+  }
+
   isPulseEligibleConnection(connectionNode) {
     return isConnectionNode(connectionNode) && connectionNode?.hasName?.("selectable");
   }
@@ -254,6 +268,78 @@ export class ConnectionsPlugin extends BasePlugin {
 
   findNodeById(id) {
     return id ? this.layer.findOne(`#${id}`) : null;
+  }
+
+  getTermdefPeerId(textNodeId) {
+    if (!textNodeId) return null;
+    const match = this.getConnections().find((connectionNode) => (
+      this.isTermdefConnection(connectionNode) &&
+      (
+        connectionNode.getAttr("sourceNodeId") === textNodeId ||
+        connectionNode.getAttr("targetNodeId") === textNodeId
+      )
+    )) ?? null;
+    if (!match) return null;
+
+    const sourceId = match.getAttr("sourceNodeId");
+    const targetId = match.getAttr("targetNodeId");
+    return sourceId === textNodeId ? targetId : sourceId;
+  }
+
+  removeOtherTermdefConnectionsForEndpoints(endpointIds = [], exceptConnectionId = null) {
+    const ids = new Set((endpointIds ?? []).filter(Boolean));
+    if (!ids.size) return;
+
+    this.getConnections().forEach((connectionNode) => {
+      if (!this.isTermdefConnection(connectionNode)) return;
+      if (exceptConnectionId && connectionNode.id() === exceptConnectionId) return;
+      const a = connectionNode.getAttr("sourceNodeId");
+      const b = connectionNode.getAttr("targetNodeId");
+      if (ids.has(a) || ids.has(b)) {
+        this.removeConnection(connectionNode);
+      }
+    });
+  }
+
+  setConnectionKind(connectionNode, nextKind, { fromEditor = false } = {}) {
+    if (!isConnectionNode(connectionNode) || !connectionNode.getStage?.()) return false;
+
+    const targetKind = nextKind === CONNECTION_KIND_TERMDEF
+      ? CONNECTION_KIND_TERMDEF
+      : CONNECTION_KIND_DIRECTED;
+
+    const sourceId = connectionNode.getAttr("sourceNodeId");
+    const targetId = connectionNode.getAttr("targetNodeId");
+    const source = this.findNodeById(sourceId);
+    const target = this.findNodeById(targetId);
+
+    if (targetKind === CONNECTION_KIND_TERMDEF) {
+      if (!isTextNode(source) || !isTextNode(target)) return false;
+      const ids = [sourceId, targetId].filter(Boolean).sort();
+      if (ids.length !== 2 || ids[0] === ids[1]) return false;
+
+      this.removeOtherTermdefConnectionsForEndpoints(ids, connectionNode.id());
+
+      if (!fromEditor) this.app.events.emit("node:change:start", { node: connectionNode });
+      connectionNode.setAttrs({
+        sourceNodeId: ids[0],
+        targetNodeId: ids[1],
+        connectionKind: CONNECTION_KIND_TERMDEF,
+      });
+      applyConnectionKindStyle(connectionNode, { kind: CONNECTION_KIND_TERMDEF });
+      this.updateConnection(connectionNode);
+      if (!fromEditor) this.app.events.emit("node:changed", { node: connectionNode });
+      this.syncConnectionAppearance();
+      return true;
+    }
+
+    if (!fromEditor) this.app.events.emit("node:change:start", { node: connectionNode });
+    connectionNode.setAttr("connectionKind", CONNECTION_KIND_DIRECTED);
+    applyConnectionKindStyle(connectionNode, { kind: CONNECTION_KIND_DIRECTED });
+    this.updateConnection(connectionNode);
+    if (!fromEditor) this.app.events.emit("node:changed", { node: connectionNode });
+    this.syncConnectionAppearance();
+    return true;
   }
 
   getAttachmentNode(node) {
@@ -341,6 +427,8 @@ export class ConnectionsPlugin extends BasePlugin {
       const line = getConnectionLine(connectionNode);
       if (!line) return;
 
+      const kind = getConnectionKind(connectionNode);
+
       const isSelected = connectionNode === this.selectedConnection;
       line.shadowBlur(isSelected ? 8 : 2);
       line.shadowOpacity(isSelected ? 0.22 : 0.08);
@@ -352,7 +440,13 @@ export class ConnectionsPlugin extends BasePlugin {
       const { stroke, hiddenUntilEndpointSelected } = getConnectionConfiguredStyle(connectionNode);
       line.stroke(stroke);
       line.fill(stroke);
-      line.opacity(hiddenUntilEndpointSelected ? 0 : (isSelected ? 1 : DEFAULT_LINE_OPACITY));
+      if (hiddenUntilEndpointSelected) {
+        line.opacity(0);
+      } else if (kind === CONNECTION_KIND_TERMDEF) {
+        line.opacity(isSelected ? 1 : TERMDEF_LINE_OPACITY);
+      } else {
+        line.opacity(isSelected ? 1 : DEFAULT_LINE_OPACITY);
+      }
     });
 
     this.layer.batchDraw();
@@ -481,6 +575,7 @@ export class ConnectionsPlugin extends BasePlugin {
 
   handleNodeAdded(node) {
     if (!isConnectionNode(node)) return;
+    applyConnectionKindStyle(node, { kind: getConnectionKind(node) });
     this.updateConnection(node);
     node.setAttr("transparentPulseActive", false);
     this.syncTransparentConnectionPulse();
@@ -502,6 +597,31 @@ export class ConnectionsPlugin extends BasePlugin {
       return;
     }
 
+    if (
+      isTextNode(selectable) &&
+      !this.app.isReplayingHistory &&
+      !this.app.isRestoringDocument &&
+      !this.termdefRemovingIds.has(selectable.id())
+    ) {
+      const peerId = this.getTermdefPeerId(selectable.id());
+      const peer = peerId ? this.findNodeById(peerId) : null;
+      const selectionNodes = this.app.getPlugin("selection")?.getSelectedNodes?.() ?? [];
+      const peerSelectedForDeletion = selectionNodes.some((entry) => entry?.id?.() === peerId);
+
+      if (isTextNode(peer) && !peerSelectedForDeletion) {
+        this.termdefRemovingIds.add(selectable.id());
+        this.termdefRemovingIds.add(peerId);
+
+        try {
+          this.app.events.emit("node:removed", { node: peer });
+          peer.destroy();
+        } finally {
+          this.termdefRemovingIds.delete(selectable.id());
+          this.termdefRemovingIds.delete(peerId);
+        }
+      }
+    }
+
     this.getConnections()
       .filter((connectionNode) => (
         connectionNode.getAttr("sourceNodeId") === selectable.id() ||
@@ -518,6 +638,7 @@ export class ConnectionsPlugin extends BasePlugin {
     if (!selectable) return;
 
     if (isConnectionNode(selectable)) {
+      applyConnectionKindStyle(selectable, { kind: getConnectionKind(selectable) });
       this.updateConnection(selectable);
       this.syncTransparentConnectionPulse();
       this.syncConnectionAppearance();

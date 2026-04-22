@@ -432,7 +432,11 @@ export class BaseComponentEditorField {
   }
 
   getInputAttributes() {
-    return this.input;
+    if (typeof this.input === "function") {
+      const resolved = this.input(...arguments);
+      return resolved && typeof resolved === "object" ? resolved : {};
+    }
+    return this.input && typeof this.input === "object" ? this.input : {};
   }
 }
 

@@ -188,10 +188,14 @@ function getNodeSummary(node) {
     return {
       sourceNodeId: node.getAttr("sourceNodeId"),
       targetNodeId: node.getAttr("targetNodeId"),
+      connectionKind: node.getAttr("connectionKind") ?? "directed",
       points: line?.points?.() ?? [],
       stroke: line?.stroke?.() ?? null,
       strokeWidth: line?.strokeWidth?.() ?? null,
       opacity: line?.opacity?.() ?? null,
+      dash: line?.dash?.() ?? [],
+      pointerLength: line?.pointerLength?.() ?? null,
+      pointerWidth: line?.pointerWidth?.() ?? null,
       hiddenUntilEndpointSelected:
         node.getAttr("connectionHiddenUntilEndpointSelected") === true,
       transparentPulseActive: node.getAttr("transparentPulseActive") === true,
@@ -515,6 +519,18 @@ export function setupAppTestApi(app) {
       const connectionsPlugin = getPlugin(app, "connections");
       const connection = await connectionsPlugin?.createConnection?.(sourceId, targetId);
       return connection ? serializeNode(app, connection) : null;
+    },
+    doubleClickConnectionLine: (id) => {
+      const node = getNodeById(app, id);
+      if (node?.getAttr?.("componentType") !== "connection") return false;
+      const line = getConnectionLine(node);
+      if (!line) return false;
+
+      line.fire("dblclick", {
+        cancelBubble: false,
+        evt: { button: 0, detail: 2 },
+      }, true);
+      return true;
     },
     openPageCompare: (pageIds = []) => {
       const pageComparePlugin = getPlugin(app, "page-compare");

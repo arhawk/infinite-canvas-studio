@@ -85,10 +85,29 @@ export class ComponentEditorPlugin extends BasePlugin {
 
     this.app.stage.on("dblclick.componentEditor dbltap.componentEditor", (event) => {
       if (!this.isEnabled()) return;
+      if (event?.evt && typeof this.app.stage?.setPointersPositions === "function") {
+        this.app.stage.setPointersPositions(event.evt);
+      }
       const button = event.evt?.button;
       if (button != null && button !== 0) return;
-      const selectable = event.target?.findAncestor?.(".selectable", true)
-        ?? (event.target?.hasName?.("selectable") ? event.target : null);
+      let target = event.target;
+      if (target === this.app.stage && typeof this.app.stage?.getIntersection === "function") {
+        const pointer = this.app.stage.getPointerPosition() ?? (() => {
+          const { clientX, clientY } = event.evt ?? {};
+          if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+          const rect = this.app.stage.container().getBoundingClientRect();
+          return { x: clientX - rect.left, y: clientY - rect.top };
+        })();
+        const intersection = pointer ? this.app.stage.getIntersection(pointer) : null;
+        const selectable = intersection?.findAncestor?.(".selectable", true)
+          ?? (intersection?.hasName?.("selectable") ? intersection : null);
+        if (selectable?.listening?.() !== false) {
+          target = intersection;
+        }
+      }
+
+      const selectable = target?.findAncestor?.(".selectable", true)
+        ?? (target?.hasName?.("selectable") ? target : null);
       if (selectable?.getAttr?.("componentType") === "text") {
         selectable.openInlineEditor?.(event);
         return;
@@ -100,7 +119,7 @@ export class ComponentEditorPlugin extends BasePlugin {
         return;
       }
 
-      this.open(event.target);
+      this.open(target);
     });
 
     this.cleanups.push(() => {

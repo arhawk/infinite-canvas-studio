@@ -447,7 +447,33 @@ export class SelectionPlugin extends BasePlugin {
 
   handleClick(event) {
     if (this.app.tools.getActive() !== "arrange") return;
-    if (isRankingItemInteractionTarget(event.target)) return;
+    let targetNode = event.target;
+    if (targetNode === this.stage && typeof this.stage?.getIntersection === "function") {
+      const pointer = this.stage.getPointerPosition() ?? (() => {
+        const { clientX, clientY } = event.evt ?? {};
+        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+        const rect = this.stage.container().getBoundingClientRect();
+        return { x: clientX - rect.left, y: clientY - rect.top };
+      })();
+      const intersection = pointer ? this.stage.getIntersection(pointer) : null;
+      if (intersection) {
+        const selectableCandidate = this.getSelectable(intersection);
+        const textCandidate = this.getTextClickTarget(intersection);
+        if (
+          selectableCandidate?.getAttr?.("componentType") === "connection" &&
+          selectableCandidate?.getAttr?.("connectionHiddenUntilEndpointSelected") === true
+        ) {
+          // Transparent/hidden connections should not be selectable via hit-test fallback.
+          return;
+        }
+        const listeningCandidate = selectableCandidate ?? textCandidate;
+        if ((selectableCandidate || textCandidate) && listeningCandidate?.listening?.() !== false) {
+          targetNode = intersection;
+        }
+      }
+    }
+
+    if (isRankingItemInteractionTarget(targetNode)) return;
     if (this.app.stageApi.consumePanClickSuppression()) {
       return;
     }
@@ -455,12 +481,12 @@ export class SelectionPlugin extends BasePlugin {
       return;
     }
 
-    const textTarget = this.getTextClickTarget(event.target);
+    const textTarget = this.getTextClickTarget(targetNode);
     if (textTarget && this.maybeOpenInlineTextEditor(event, textTarget)) {
       return;
     }
 
-    const target = this.getSelectable(event.target);
+    const target = this.getSelectable(targetNode);
     if (!target) {
       this.clearSelection();
       return;

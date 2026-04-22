@@ -312,6 +312,69 @@ test("does not let fully transparent connections capture mouse selection", async
     .toBe(false);
 });
 
+test("toggles a connection into termdef and cascades deletion on endpoints", async ({ page }) => {
+  const a = await addComponent(page, "text", { x: 200, y: 220, text: "term" });
+  const b = await addComponent(page, "text", { x: 560, y: 240, text: "def" });
+
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: a.id, targetId: b.id },
+  );
+  expect(connection?.id).toBeTruthy();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.connectionKind ?? null)
+    .toBe("directed");
+
+  await page.evaluate((connectionId) => (
+    window.__APP_TEST_API__.doubleClickConnectionLine(connectionId)
+  ), connection.id);
+
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-termdefKind").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.connectionKind ?? null)
+    .toBe("termdef");
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), a.id);
+  await waitForPaint(page);
+
+  const toggled = await getNode(page, connection.id);
+  expect(toggled.summary.pointerLength).toBe(0);
+  expect(toggled.summary.pointerWidth).toBe(0);
+  expect(toggled.summary.dash.length).toBeGreaterThan(0);
+  expect(toggled.summary.opacity).toBeCloseTo(0.35, 2);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.deleteNode(id), a.id);
+  await expect.poll(async () => Boolean(await getNode(page, b.id))).toBe(false);
+
+  await clearBoard(page);
+
+  const c = await addComponent(page, "text", { x: 240, y: 240, text: "a" });
+  const d = await addComponent(page, "text", { x: 620, y: 260, text: "b" });
+  const connection2 = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: c.id, targetId: d.id },
+  );
+
+  await page.evaluate((connectionId) => (
+    window.__APP_TEST_API__.doubleClickConnectionLine(connectionId)
+  ), connection2.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-termdefKind").check();
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, connection2.id))?.summary?.connectionKind ?? null)
+    .toBe("termdef");
+
+  await page.evaluate((id) => window.__APP_TEST_API__.deleteNode(id), connection2.id);
+  await expect.poll(async () => Boolean(await getNode(page, c.id))).toBe(true);
+  await expect.poll(async () => Boolean(await getNode(page, d.id))).toBe(true);
+});
+
 test("button components keep one hidden outgoing connection and jump to the target auto focus", async ({ page }) => {
   const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
   const firstTarget = await addComponent(page, "sticky", { x: 980, y: 180, text: "First" });

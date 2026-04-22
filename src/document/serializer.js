@@ -193,6 +193,73 @@ function redrawAllLayers(app) {
   app.uiLayer.batchDraw();
 }
 
+function isTextSnapshot(snapshot) {
+  return snapshot?.type === "text";
+}
+
+function readLegacyTermDefinition(snapshot) {
+  const td = snapshot?.data?.termDefinition;
+  if (!td || typeof td !== "object") return null;
+
+  return {
+    peerId: typeof td.peerId === "string" && td.peerId ? td.peerId : null,
+    required: td.required === true,
+  };
+}
+
+function getExistingTermdefPairs(app) {
+  const pairs = new Set();
+  app.mainLayer.find((node) => (
+    node?.hasName?.("selectable") &&
+    node.getAttr?.("componentType") === "connection" &&
+    node.getAttr?.("connectionKind") === "termdef"
+  )).forEach((connectionNode) => {
+    const sourceId = connectionNode.getAttr("sourceNodeId");
+    const targetId = connectionNode.getAttr("targetNodeId");
+    if (typeof sourceId !== "string" || typeof targetId !== "string") return;
+    const ids = [sourceId, targetId].sort();
+    if (ids[0] && ids[1] && ids[0] !== ids[1]) {
+      pairs.add(`${ids[0]}::${ids[1]}`);
+    }
+  });
+  return pairs;
+}
+
+async function migrateLegacyTermDefLinks(app, snapshots = []) {
+  const existingPairs = getExistingTermdefPairs(app);
+  const pendingPairs = new Set();
+
+  for (const snapshot of snapshots) {
+    if (!isTextSnapshot(snapshot)) continue;
+    const legacy = readLegacyTermDefinition(snapshot);
+    if (!legacy?.peerId || !legacy.required) continue;
+
+    const a = snapshot.id;
+    const b = legacy.peerId;
+    if (a === b) continue;
+
+    const ids = [a, b].sort();
+    const key = `${ids[0]}::${ids[1]}`;
+    if (existingPairs.has(key) || pendingPairs.has(key)) continue;
+    pendingPairs.add(key);
+
+    const left = app.mainLayer.findOne(`#${ids[0]}`);
+    const right = app.mainLayer.findOne(`#${ids[1]}`);
+    if (
+      left?.getAttr?.("componentType") !== "text" ||
+      right?.getAttr?.("componentType") !== "text"
+    ) {
+      continue;
+    }
+
+    await app.addComponent("connection", {
+      sourceNodeId: ids[0],
+      targetNodeId: ids[1],
+      connectionKind: "termdef",
+    });
+  }
+}
+
 export function exportDocumentSnapshot(app, {
   documentId,
   revision = 0,
@@ -221,6 +288,7 @@ export async function importDocumentSnapshot(app, snapshot, {
 
   clearDocumentContents(app);
   await restoreNodeSnapshots(app, documentSnapshot.nodes);
+  await migrateLegacyTermDefLinks(app, documentSnapshot.nodes);
   restoreDrawingSnapshots(app, documentSnapshot.drawings);
 
   if (includeView) {

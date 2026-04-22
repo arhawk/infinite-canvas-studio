@@ -112,9 +112,6 @@ export class TextComponent extends BaseComponent {
   }
 
   serializeNode(node) {
-    const peerId = node.getAttr("termDefPeerId");
-    const pairId = node.getAttr("termDefPairId");
-    const required = node.getAttr("termDefRequired");
     return {
       text: node.text(),
       fontSize: node.fontSize(),
@@ -124,13 +121,6 @@ export class TextComponent extends BaseComponent {
       height: node.height(),
       lineHeight: node.lineHeight(),
       annotations: serializeNodeTextAnnotations(node),
-      termDefinition: peerId || pairId || required
-        ? {
-          peerId: typeof peerId === "string" ? peerId : null,
-          pairId: typeof pairId === "string" ? pairId : null,
-          required: required === true,
-        }
-        : null,
     };
   }
 
@@ -145,12 +135,5 @@ export class TextComponent extends BaseComponent {
     node.wrap("word");
     node.verticalAlign("top");
     setNodeTextAnnotations(node, data.annotations);
-
-    const td = data.termDefinition;
-    if (td && typeof td === "object") {
-      if (typeof td.peerId === "string" && td.peerId) node.setAttr("termDefPeerId", td.peerId);
-      if (typeof td.pairId === "string" && td.pairId) node.setAttr("termDefPairId", td.pairId);
-      node.setAttr("termDefRequired", td.required === true);
-    }
   }
 }

@@ -149,6 +149,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.focusPositionMode = "relative";
     this.saveToastTimeout = null;
     this.navigationCorrectionTimeout = null;
+    this.navigationCorrectionTimeout2 = null;
 
     this.navButtonGroup = new Konva.Group({
       visible: false,
@@ -200,6 +201,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.cleanups.push(() => {
       window.clearTimeout(this.saveToastTimeout);
       window.clearTimeout(this.navigationCorrectionTimeout);
+      window.clearTimeout(this.navigationCorrectionTimeout2);
       this.saveToastEl?.remove();
       this.stage.off(".focusNavigation");
       this.navButtonGroup.destroy();
@@ -457,13 +459,16 @@ export class FocusNavigationPlugin extends BasePlugin {
       scale: savedFocus.scale,
     });
     window.clearTimeout(this.navigationCorrectionTimeout);
-    this.navigationCorrectionTimeout = window.setTimeout(() => {
+    window.clearTimeout(this.navigationCorrectionTimeout2);
+    const correct = () => {
       if (!node?.getStage?.()) return;
       this.app.stageApi.centerOn(savedFocus.center, {
         duration: 0,
         scale: savedFocus.scale,
       });
-    }, 420);
+    };
+    this.navigationCorrectionTimeout = window.setTimeout(correct, 420);
+    this.navigationCorrectionTimeout2 = window.setTimeout(correct, 900);
 
     return true;
   }

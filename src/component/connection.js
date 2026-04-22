@@ -8,9 +8,71 @@ import { Konva } from "../lib/konva.js";
 
 export const DEFAULT_STROKE = "#d7612f";
 export const DEFAULT_LINE_OPACITY = 0.9;
+export const CONNECTION_KIND_DIRECTED = "directed";
+export const CONNECTION_KIND_TERMDEF = "termdef";
+export const TERMDEF_LINE_OPACITY = 0.35;
 
 export function getConnectionLine(node) {
   return node.findOne(".connection-line");
+}
+
+function normalizeConnectionKind(value) {
+  return value === CONNECTION_KIND_TERMDEF ? CONNECTION_KIND_TERMDEF : CONNECTION_KIND_DIRECTED;
+}
+
+export function getConnectionKind(node) {
+  return normalizeConnectionKind(node?.getAttr?.("connectionKind"));
+}
+
+export function applyConnectionKindStyle(node, {
+  kind,
+  directedPointerLength,
+  directedPointerWidth,
+} = {}) {
+  if (!node?.setAttr) return null;
+  const line = getConnectionLine(node);
+  if (!line) return null;
+
+  const nextKind = normalizeConnectionKind(kind ?? getConnectionKind(node));
+  node.setAttr("connectionKind", nextKind);
+
+  if (nextKind === CONNECTION_KIND_TERMDEF) {
+    node.setAttrs({
+      directedPointerLength: Number.isFinite(directedPointerLength)
+        ? directedPointerLength
+        : (node.getAttr("directedPointerLength") ?? line.pointerLength?.() ?? 10),
+      directedPointerWidth: Number.isFinite(directedPointerWidth)
+        ? directedPointerWidth
+        : (node.getAttr("directedPointerWidth") ?? line.pointerWidth?.() ?? 10),
+    });
+
+    line.dash([8, 6]);
+    line.pointerLength(0);
+    line.pointerWidth(0);
+    return { kind: nextKind };
+  }
+
+  const restoredPointerLength = node.getAttr("directedPointerLength");
+  const restoredPointerWidth = node.getAttr("directedPointerWidth");
+  line.dash([]);
+  const currentPointerLength = line.pointerLength?.();
+  const currentPointerWidth = line.pointerWidth?.();
+
+  if (
+    (currentPointerLength === 0 || currentPointerWidth === 0) &&
+    Number.isFinite(restoredPointerLength) &&
+    Number.isFinite(restoredPointerWidth)
+  ) {
+    line.pointerLength(restoredPointerLength);
+    line.pointerWidth(restoredPointerWidth);
+  } else if (Number.isFinite(currentPointerLength) && Number.isFinite(currentPointerWidth)) {
+    node.setAttrs({
+      directedPointerLength: currentPointerLength,
+      directedPointerWidth: currentPointerWidth,
+    });
+  }
+
+  return { kind: nextKind };
 }
 
 function normalizeHiddenUntilEndpointSelected(value) {
@@ -29,6 +91,7 @@ export function getConnectionConfiguredStyle(node) {
       ?? line?.stroke?.()
       ?? DEFAULT_STROKE,
     hiddenUntilEndpointSelected,
+    kind: getConnectionKind(node),
   };
 }
 
@@ -76,6 +139,36 @@ export class ConnectionComponent extends BaseComponent {
 
   editorFields() {
     return [
+      new CheckboxEditorField({
+        id: "termdefKind",
+        label: "Term/Def (Dashed)",
+        description: "Makes this a dashed, symmetric 1:1 Text↔Text mapping. Deleting one endpoint deletes the other.",
+        input: (node) => {
+          const sourceId = node?.getAttr?.("sourceNodeId");
+          const targetId = node?.getAttr?.("targetNodeId");
+          const source = sourceId ? this.app.mainLayer.findOne(`#${sourceId}`) : null;
+          const target = targetId ? this.app.mainLayer.findOne(`#${targetId}`) : null;
+          const eligible =
+            source?.getAttr?.("componentType") === "text" &&
+            target?.getAttr?.("componentType") === "text";
+
+          return eligible
+            ? {}
+            : {
+                disabled: true,
+                title: "Only available for Text ↔ Text connections.",
+              };
+        },
+        getValue: (node) => getConnectionKind(node) === CONNECTION_KIND_TERMDEF,
+        setValue: (node, value) => {
+          const connections = this.app.getPlugin?.("connections");
+          connections?.setConnectionKind?.(
+            node,
+            value === true ? CONNECTION_KIND_TERMDEF : CONNECTION_KIND_DIRECTED,
+            { fromEditor: true },
+          );
+        },
+      }),
       new ColorEditorField({
         id: "stroke",
         label: "Line Color",
@@ -108,8 +201,21 @@ export class ConnectionComponent extends BaseComponent {
         id: "pointerLength",
         label: "Arrow Length",
         input: { min: 6, max: 36, step: 1 },
-        getValue: (node) => getConnectionLine(node)?.pointerLength() ?? 10,
+        getValue: (node) => {
+          const kind = getConnectionKind(node);
+          if (kind === CONNECTION_KIND_TERMDEF) {
+            const stored = node.getAttr("directedPointerLength");
+            return Number.isFinite(stored) ? stored : 10;
+          }
+          return getConnectionLine(node)?.pointerLength() ?? 10;
+        },
         setValue: (node, value) => {
+          const kind = getConnectionKind(node);
+          if (kind === CONNECTION_KIND_TERMDEF) {
+            node.setAttr("directedPointerLength", value);
+            return;
+          }
+          node.setAttr("directedPointerLength", value);
           getConnectionLine(node)?.pointerLength(value);
         },
       }),
@@ -117,8 +223,21 @@ export class ConnectionComponent extends BaseComponent {
         id: "pointerWidth",
         label: "Arrow Width",
         input: { min: 6, max: 36, step: 1 },
-        getValue: (node) => getConnectionLine(node)?.pointerWidth() ?? 10,
+        getValue: (node) => {
+          const kind = getConnectionKind(node);
+          if (kind === CONNECTION_KIND_TERMDEF) {
+            const stored = node.getAttr("directedPointerWidth");
+            return Number.isFinite(stored) ? stored : 10;
+          }
+          return getConnectionLine(node)?.pointerWidth() ?? 10;
+        },
         setValue: (node, value) => {
+          const kind = getConnectionKind(node);
+          if (kind === CONNECTION_KIND_TERMDEF) {
+            node.setAttr("directedPointerWidth", value);
+            return;
+          }
+          node.setAttr("directedPointerWidth", value);
           getConnectionLine(node)?.pointerWidth(value);
         },
       }),
@@ -131,6 +250,7 @@ export class ConnectionComponent extends BaseComponent {
     strokeWidth = 3,
     pointerLength = 10,
     pointerWidth = 10,
+    connectionKind = CONNECTION_KIND_DIRECTED,
   } = {}) {
     const group = new Konva.Group({
       draggable: false,
@@ -157,6 +277,8 @@ export class ConnectionComponent extends BaseComponent {
     });
 
     group.add(line);
+    group.setAttr("connectionKind", normalizeConnectionKind(connectionKind));
+    applyConnectionKindStyle(group, { kind: connectionKind });
     return group;
   }
 
@@ -166,12 +288,18 @@ export class ConnectionComponent extends BaseComponent {
       targetNodeId: payload.targetNodeId ?? null,
       controlOffsetStart: payload.controlOffsetStart ?? { x: 0, y: 0 },
       controlOffsetEnd: payload.controlOffsetEnd ?? { x: 0, y: 0 },
+      connectionKind: normalizeConnectionKind(payload.connectionKind),
     });
     setConnectionConfiguredStyle(node, {
       stroke: payload.stroke ?? DEFAULT_STROKE,
       hiddenUntilEndpointSelected:
         payload.hiddenUntilEndpointSelected === true ||
         payload.lineOpacity === 0,
+    });
+    applyConnectionKindStyle(node, {
+      kind: payload.connectionKind,
+      directedPointerLength: payload.directedPointerLength,
+      directedPointerWidth: payload.directedPointerWidth,
     });
   }
 
@@ -183,11 +311,14 @@ export class ConnectionComponent extends BaseComponent {
       targetNodeId: node.getAttr("targetNodeId") ?? null,
       controlOffsetStart: node.getAttr("controlOffsetStart") ?? { x: 0, y: 0 },
       controlOffsetEnd: node.getAttr("controlOffsetEnd") ?? { x: 0, y: 0 },
+      connectionKind: getConnectionKind(node),
       stroke: configured.stroke,
       hiddenUntilEndpointSelected: configured.hiddenUntilEndpointSelected,
       strokeWidth: line?.strokeWidth() ?? 3,
       pointerLength: line?.pointerLength() ?? 10,
       pointerWidth: line?.pointerWidth() ?? 10,
+      directedPointerLength: node.getAttr("directedPointerLength") ?? null,
+      directedPointerWidth: node.getAttr("directedPointerWidth") ?? null,
     };
   }
 
@@ -210,6 +341,15 @@ export class ConnectionComponent extends BaseComponent {
       targetNodeId: data.targetNodeId ?? null,
       controlOffsetStart: data.controlOffsetStart ?? { x: 0, y: 0 },
       controlOffsetEnd: data.controlOffsetEnd ?? { x: 0, y: 0 },
+      connectionKind: normalizeConnectionKind(data.connectionKind),
+      directedPointerLength: data.directedPointerLength ?? node.getAttr("directedPointerLength") ?? null,
+      directedPointerWidth: data.directedPointerWidth ?? node.getAttr("directedPointerWidth") ?? null,
+    });
+
+    applyConnectionKindStyle(node, {
+      kind: data.connectionKind,
+      directedPointerLength: data.directedPointerLength,
+      directedPointerWidth: data.directedPointerWidth,
     });
   }
 }
