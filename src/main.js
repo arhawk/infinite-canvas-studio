@@ -39,6 +39,7 @@ import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
 import { CatalogComponent } from "./component/catalog.js";
 import { RankingBoxComponent } from "./component/rankingBox.js";
+import { VideoComponent } from "./component/video.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -122,6 +123,7 @@ const app = new App({
   ConnectionComponent,
   CatalogComponent,
   RankingBoxComponent,
+  VideoComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register plugins (order matters: tools before toolbar so buttons render)
