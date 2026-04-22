@@ -2378,3 +2378,181 @@ body.is-edit-mode .mode-toggle__label {
     max-height: 50dvh;
   }
 }
+
+/* ── Code Runner Overlay ─────────────────────────────────────── */
+
+.code-runner-overlay {
+  position: fixed;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--panel-strong);
+  pointer-events: auto;
+}
+
+.code-runner-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.85rem;
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+  border-radius: 1.25rem 1.25rem 0 0;
+  flex-shrink: 0;
+  user-select: none;
+  cursor: grab;
+}
+
+.code-runner-overlay__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.code-runner-overlay__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0 0.2rem;
+  line-height: 1;
+  opacity: 0.55;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.code-runner-overlay__close:hover {
+  opacity: 1;
+}
+
+.code-runner-overlay__editor {
+  flex: 3;
+  min-height: 0;
+  position: relative;
+  background: #fff;
+}
+
+.code-runner-overlay .monaco-editor .minimap {
+  display: none !important;
+}
+
+.code-runner-overlay__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: "Courier New", monospace;
+  background: var(--panel-strong);
+}
+
+.code-runner-overlay__splitter {
+  height: 5px;
+  background: var(--line);
+  cursor: row-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.code-runner-overlay__splitter:hover {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+.code-runner-overlay__preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--panel-strong);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.code-runner-overlay__run-btn {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+}
+
+.code-runner-overlay__clear-btn {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.code-runner-overlay__clear-btn:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.code-runner-overlay__title-input {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--accent);
+  outline: none;
+  padding: 0 2px;
+  width: 140px;
+  font-family: inherit;
+}
+
+.code-runner-overlay__run-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.code-runner-overlay__run-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.code-runner-overlay__resize {
+  position: absolute;
+  z-index: 20;
+}
+.code-runner-overlay__resize--nw { top: -4px; left: -4px; width: 14px; height: 14px; cursor: nwse-resize; }
+.code-runner-overlay__resize--n  { top: -4px; left: 14px; right: 14px; height: 8px;  cursor: ns-resize;   }
+.code-runner-overlay__resize--ne { top: -4px; right: -4px; width: 14px; height: 14px; cursor: nesw-resize; }
+.code-runner-overlay__resize--w  { top: 14px; bottom: 14px; left: -4px; width: 8px;  cursor: ew-resize;   }
+.code-runner-overlay__resize--e  { top: 14px; bottom: 14px; right: -4px; width: 8px; cursor: ew-resize;   }
+.code-runner-overlay__resize--sw { bottom: -4px; left: -4px; width: 14px; height: 14px; cursor: nesw-resize; }
+.code-runner-overlay__resize--s  { bottom: -4px; left: 14px; right: 14px; height: 8px; cursor: ns-resize;  }
+.code-runner-overlay__resize--se { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: nwse-resize; }
+
+.code-runner-overlay__preview {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  display: block;
+  background: #fff;
+}
