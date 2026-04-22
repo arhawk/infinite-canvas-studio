@@ -147,6 +147,22 @@ export class ComponentEditorPlugin extends BasePlugin {
         </div>
         <form class="component-editor-modal__form" data-testid="component-editor-form">
           <div class="component-editor-modal__fields" data-testid="component-editor-fields"></div>
+          <div
+            class="component-editor-modal__attachments"
+            data-testid="component-editor-attachments"
+            hidden
+          >
+            <p
+              class="component-editor-modal__attachments-hint"
+              data-testid="component-editor-attachments-hint"
+            >
+              Attachments save immediately.
+            </p>
+            <div
+              class="component-editor-modal__attachments-body"
+              data-testid="component-editor-attachments-body"
+            ></div>
+          </div>
           <div class="component-editor-modal__actions">
             <button
               type="button"
@@ -173,6 +189,10 @@ export class ComponentEditorPlugin extends BasePlugin {
     this.titleEl = this.overlay.querySelector(".component-editor-modal__title");
     this.descriptionEl = this.overlay.querySelector(".component-editor-modal__description");
     this.fieldsEl = this.overlay.querySelector(".component-editor-modal__fields");
+    this.attachmentsEl = this.overlay.querySelector("[data-testid='component-editor-attachments']");
+    this.attachmentsBodyEl = this.overlay.querySelector(
+      "[data-testid='component-editor-attachments-body']",
+    );
     this.formEl = this.overlay.querySelector(".component-editor-modal__form");
     this.formEl.noValidate = true;
 
@@ -242,6 +262,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     this.currentEditor = null;
     this.overlay.hidden = true;
     this.fieldsEl.replaceChildren();
+    this.unmountAttachments();
   }
 
   renderEditor(editor) {
@@ -249,6 +270,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     this.descriptionEl.textContent = editor.description ?? "";
     this.descriptionEl.hidden = !editor.description;
     this.fieldsEl.replaceChildren();
+    this.unmountAttachments();
 
     editor.fields.forEach((field) => {
       const fieldEl = document.createElement("div");
@@ -272,6 +294,42 @@ export class ComponentEditorPlugin extends BasePlugin {
       fieldEl.append(inputEl);
       this.fieldsEl.append(fieldEl);
     });
+
+    this.mountAttachments(editor);
+  }
+
+  mountAttachments(editor) {
+    if (!this.attachmentsEl || !this.attachmentsBodyEl) return;
+
+    const component = editor?.component ?? null;
+    const node = editor?.node ?? null;
+    const supportsAttachments = !!component?.supportsAttachments?.(node);
+
+    if (!supportsAttachments) {
+      this.attachmentsEl.hidden = true;
+      this.attachmentsBodyEl.replaceChildren();
+      return;
+    }
+
+    const attachmentsPlugin = this.app.getPlugin("attachments");
+    if (!attachmentsPlugin?.mountInline) {
+      this.attachmentsEl.hidden = true;
+      this.attachmentsBodyEl.replaceChildren();
+      return;
+    }
+
+    this.attachmentsEl.hidden = false;
+    attachmentsPlugin.mountInline(this.attachmentsBodyEl, node);
+  }
+
+  unmountAttachments() {
+    if (this.attachmentsEl) {
+      this.attachmentsEl.hidden = true;
+    }
+    this.attachmentsBodyEl?.replaceChildren();
+
+    const attachmentsPlugin = this.app.getPlugin("attachments");
+    attachmentsPlugin?.unmountInline?.();
   }
 
   createInput(field, node) {

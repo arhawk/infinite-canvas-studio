@@ -634,6 +634,33 @@ test("opens the component editor and applies sticky text changes", async ({ page
     .toBe("Updated from Playwright");
 });
 
+test("embeds attachments inside the component editor for pages in edit mode", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), pageNode.id);
+
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await expect(page.getByTestId("component-editor-attachments")).toBeVisible();
+  await expect(page.getByTestId("component-editor-attachments-body")).toContainText("No attachments yet.");
+  await expect(page.getByTestId("attachments-panel")).toBeHidden();
+});
+
+test("opens the attachments panel on double click in presentation mode", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+
+  await page.getByTestId("mode-toggle").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  const center = await getNodePageCenter(page, pageNode.id);
+  await page.mouse.dblclick(center.x, center.y);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("attachments-panel")).toBeVisible();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+});
+
 test("clamps text block font size in the editor without blocking submit", async ({ page }) => {
   const text = await addComponent(page, "text", {
     x: 220,

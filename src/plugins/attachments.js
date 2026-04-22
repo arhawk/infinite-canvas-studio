@@ -122,12 +122,16 @@ export class AttachmentsPlugin extends BasePlugin {
   onSetup() {
     this.selectedNode = null;
     this.activeNode = null;
+    this.inlineHostEl = null;
+    this.inlineNode = null;
+    this.inlineCleanup = null;
     this.statusTimeout = null;
 
     this.buildPanel();
 
     this.listen("selection:change", ({ nodes }) => {
       this.selectedNode = nodes?.length === 1 ? nodes[0] : null;
+      if (this.inlineHostEl && this.inlineNode) return;
       if (!this.resolveAttachmentNode(this.selectedNode)) {
         this.closePanel();
       }
@@ -146,6 +150,7 @@ export class AttachmentsPlugin extends BasePlugin {
     });
 
     this.app.stage.on("click.attachments tap.attachments", (event) => {
+      if (this.inlineHostEl && this.inlineNode) return;
       const node = this.resolveAttachmentNode(event.target);
       if (!node || node !== this.activeNode) {
         this.closePanel();
@@ -153,6 +158,7 @@ export class AttachmentsPlugin extends BasePlugin {
     });
     this.app.stage.on("dblclick.attachments dbltap.attachments", (event) => {
       if (!this.isEnabled()) return;
+      if (this.app.getMode() === "edit") return;
       const button = event.evt?.button;
       if (button != null && button !== 0) return;
       this.openPanelFor(event.target);
@@ -177,6 +183,7 @@ export class AttachmentsPlugin extends BasePlugin {
 
     this.cleanups.push(() => {
       this.app.stage.off(".attachments");
+      this.unmountInline();
       window.clearTimeout(this.statusTimeout);
       this.fileInputEl?.remove();
       this.panelEl?.remove();
@@ -198,55 +205,57 @@ export class AttachmentsPlugin extends BasePlugin {
     this.fileInputEl.dataset.testid = "attachments-file-input";
     document.body.append(this.fileInputEl);
 
-    this.listenDom(this.panelEl, "click", (event) => {
-      const elementTarget =
-        event.target instanceof Element ? event.target : event.target?.parentElement ?? null;
-      const target = elementTarget?.closest?.("button") ?? null;
-      if (!target) return;
-
-      const attachmentId = target.getAttribute("data-attachment-id");
-      if (attachmentId) {
-        const state = this.getAttachmentState();
-        const entry = state.entries.find((candidate) => candidate.id === attachmentId);
-        if (!entry) return;
-        void this.openAttachment(entry, state);
-        return;
-      }
-
-      const deleteAttachmentId = target.getAttribute("data-delete-attachment-id");
-      if (deleteAttachmentId) {
-        this.deleteAttachment(deleteAttachmentId);
-        return;
-      }
-
-      if (target.getAttribute("data-action") === "pick-directory") {
-        void this.pickDirectoryForActiveNode();
-        return;
-      }
-
-      if (target.getAttribute("data-action") === "pick-files") {
-        this.openFilePicker();
-        return;
-      }
-
-      if (target.getAttribute("data-action") === "add-url") {
-        this.promptForUrl();
-        return;
-      }
-
-      if (target.getAttribute("data-action") === "disconnect-directory") {
-        this.disconnectDirectory();
-        return;
-      }
-
-      if (target.getAttribute("data-action") === "close-attachments") {
-        this.closePanel();
-      }
-    });
+    this.listenDom(this.panelEl, "click", (event) => this.handlePanelClick(event));
 
     this.listenDom(this.fileInputEl, "change", () => {
       void this.handleManualFileInputChange();
     });
+  }
+
+  handlePanelClick(event) {
+    const elementTarget =
+      event.target instanceof Element ? event.target : event.target?.parentElement ?? null;
+    const target = elementTarget?.closest?.("button") ?? null;
+    if (!target) return;
+
+    const attachmentId = target.getAttribute("data-attachment-id");
+    if (attachmentId) {
+      const state = this.getAttachmentState();
+      const entry = state.entries.find((candidate) => candidate.id === attachmentId);
+      if (!entry) return;
+      void this.openAttachment(entry, state);
+      return;
+    }
+
+    const deleteAttachmentId = target.getAttribute("data-delete-attachment-id");
+    if (deleteAttachmentId) {
+      this.deleteAttachment(deleteAttachmentId);
+      return;
+    }
+
+    if (target.getAttribute("data-action") === "pick-directory") {
+      void this.pickDirectoryForActiveNode();
+      return;
+    }
+
+    if (target.getAttribute("data-action") === "pick-files") {
+      this.openFilePicker();
+      return;
+    }
+
+    if (target.getAttribute("data-action") === "add-url") {
+      this.promptForUrl();
+      return;
+    }
+
+    if (target.getAttribute("data-action") === "disconnect-directory") {
+      this.disconnectDirectory();
+      return;
+    }
+
+    if (target.getAttribute("data-action") === "close-attachments") {
+      this.closePanel();
+    }
   }
 
   resolveAttachmentNode(target) {
@@ -300,10 +309,11 @@ export class AttachmentsPlugin extends BasePlugin {
   }
 
   showStatus(message, tone = "info") {
-    if (!this.panelEl) return;
+    if (!this.panelEl && !this.inlineHostEl) return;
 
     window.clearTimeout(this.statusTimeout);
-    const statusEl = this.panelEl.querySelector("[data-role='attachments-status']");
+    const root = this.inlineHostEl ?? this.panelEl;
+    const statusEl = root?.querySelector?.("[data-role='attachments-status']");
     if (!statusEl) return;
 
     statusEl.textContent = message;
@@ -324,25 +334,61 @@ export class AttachmentsPlugin extends BasePlugin {
     }
   }
 
+  mountInline(hostEl, node) {
+    if (!(hostEl instanceof Element)) return;
+
+    this.unmountInline();
+
+    const resolvedNode = this.resolveAttachmentNode(node);
+    if (!resolvedNode) {
+      hostEl.replaceChildren();
+      return;
+    }
+
+    this.inlineHostEl = hostEl;
+    this.inlineNode = resolvedNode;
+    this.activeNode = resolvedNode;
+
+    const onClick = (event) => this.handlePanelClick(event);
+    const onDragOver = (event) => this.handleDragOver(event);
+    const onDrop = (event) => {
+      void this.handleDrop(event);
+    };
+
+    hostEl.addEventListener("click", onClick);
+    hostEl.addEventListener("dragover", onDragOver);
+    hostEl.addEventListener("drop", onDrop);
+
+    this.inlineCleanup = () => {
+      hostEl.removeEventListener("click", onClick);
+      hostEl.removeEventListener("dragover", onDragOver);
+      hostEl.removeEventListener("drop", onDrop);
+    };
+
+    this.syncPanel();
+  }
+
+  unmountInline() {
+    if (typeof this.inlineCleanup === "function") {
+      this.inlineCleanup();
+    }
+
+    this.inlineCleanup = null;
+    this.inlineHostEl = null;
+    this.inlineNode = null;
+  }
+
   closePanel() {
     this.activeNode = null;
     this.hidePanel();
   }
 
-  syncPanel() {
-    const node = this.activeNode;
-    const component = this.getAttachmentComponent(node);
-    const editable = this.app.getMode() === "edit";
-
-    if (!this.isEnabled() || !node || !component) {
-      this.hidePanel();
-      return;
-    }
-
-    const state = this.getAttachmentState(node);
-    const supportsFsApi = isFileSystemAccessSupported();
-    const supportsUploads = supportsManualFileAttachments();
-
+  buildPanelMarkup(node, state, {
+    editable,
+    supportsFsApi,
+    supportsUploads,
+    includeClose = true,
+  } = {}) {
     const entryMarkup = state.entries.length
       ? state.entries
           .map((entry) => {
@@ -387,7 +433,7 @@ export class AttachmentsPlugin extends BasePlugin {
     const canDisconnect = editable && Boolean(state.directory);
     const canPickFiles = editable && supportsUploads;
 
-    this.panelEl.innerHTML = `
+    return `
       <div class="attachments-panel__header">
         <div>
           <p class="attachments-panel__eyebrow">Attachments</p>
@@ -430,13 +476,15 @@ export class AttachmentsPlugin extends BasePlugin {
               Add URL
             </button>
           ` : ""}
-          <button
-            type="button"
-            class="ghost-button attachments-panel__action"
-            data-action="close-attachments"
-          >
-            Close
-          </button>
+          ${includeClose ? `
+            <button
+              type="button"
+              class="ghost-button attachments-panel__action"
+              data-action="close-attachments"
+            >
+              Close
+            </button>
+          ` : ""}
         </div>
       </div>
       <p class="attachments-panel__hint">
@@ -464,7 +512,53 @@ export class AttachmentsPlugin extends BasePlugin {
       }
       <ul class="attachments-panel__list">${entryMarkup}</ul>
     `;
+  }
 
+  syncPanel() {
+    const node = this.activeNode;
+    const component = this.getAttachmentComponent(node);
+    const editable = this.app.getMode() === "edit";
+    const hasInline =
+      this.inlineHostEl &&
+      this.inlineNode &&
+      this.activeNode &&
+      this.inlineNode === this.activeNode;
+
+    if (editable && !hasInline) {
+      this.hidePanel();
+      return;
+    }
+
+    if (!this.isEnabled() || !node || !component) {
+      if (hasInline) {
+        this.inlineHostEl.replaceChildren();
+      }
+      this.hidePanel();
+      return;
+    }
+
+    const state = this.getAttachmentState(node);
+    const supportsFsApi = isFileSystemAccessSupported();
+    const supportsUploads = supportsManualFileAttachments();
+
+    const markup = this.buildPanelMarkup(node, state, {
+      editable,
+      supportsFsApi,
+      supportsUploads,
+      includeClose: !hasInline,
+    });
+
+    if (hasInline) {
+      this.inlineHostEl.innerHTML = `
+        <section class="attachments-panel attachments-panel--embedded" data-testid="attachments-panel-embedded">
+          ${markup}
+        </section>
+      `;
+      this.hidePanel();
+      return;
+    }
+
+    this.panelEl.innerHTML = markup;
     this.panelEl.hidden = false;
     this.panelEl.style.display = "";
   }
