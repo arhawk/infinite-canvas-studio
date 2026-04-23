@@ -350,7 +350,8 @@ export class SelectionPlugin extends BasePlugin {
       primaryType === "button" ||
       primaryType === "sticky" ||
       primaryType === "page" ||
-      primaryType === "iframe"
+      primaryType === "iframe" ||
+      primaryType === "javascriptEditor"
     );
     const isMultiSelection = transformableNodes.length > 1;
 
@@ -623,7 +624,8 @@ export class SelectionPlugin extends BasePlugin {
           node.getAttr("componentType") === "button" ||
           node.getAttr("componentType") === "sticky" ||
           node.getAttr("componentType") === "page" ||
-          node.getAttr("componentType") === "iframe"
+          node.getAttr("componentType") === "iframe" ||
+          node.getAttr("componentType") === "javascriptEditor"
         )
       ) {
         this.transformer.forceUpdate();

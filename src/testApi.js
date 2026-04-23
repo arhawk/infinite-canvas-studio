@@ -25,6 +25,17 @@ function clonePlainData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function collectionToArray(collection) {
+  if (!collection) return [];
+  if (Array.isArray(collection)) return collection;
+  if (typeof collection.toArray === "function") return collection.toArray();
+  try {
+    return Array.from(collection);
+  } catch {
+    return [];
+  }
+}
+
 function getTextAnnotationRects(app, ownerNodeOrId) {
   const ownerId = typeof ownerNodeOrId === "string"
     ? ownerNodeOrId
@@ -91,6 +102,7 @@ function serializeRect(rect) {
 
 function getNodeResizeBox(node) {
   return node?.findOne?.(".button-bg")
+    ?? node?.findOne?.(".javascript-editor-bg")
     ?? node?.findOne?.(".sticky-bg")
     ?? node?.findOne?.(".container-bg")
     ?? node
@@ -231,6 +243,29 @@ function getNodeSummary(node) {
     };
   }
 
+  if (componentType === "javascriptEditor") {
+    const overlay = node._javascriptEditorOverlayEl ?? null;
+    const overlayState = node._javascriptEditorOverlayState ?? null;
+
+    return {
+      title: node.getAttr("javascriptEditorTitle") ?? "",
+      code: node.getAttr("javascriptEditorCode") ?? "",
+      width: node.width?.() ?? null,
+      height: node.height?.() ?? null,
+      outputRatio: node.getAttr("javascriptEditorOutputRatio") ?? null,
+      hasOverlay: Boolean(overlay),
+      editorMode: overlayState?.editorMode ?? "textarea",
+      status: overlayState?.statusEl?.textContent?.trim?.() ?? "",
+      statusTone: overlayState?.statusEl?.dataset?.tone ?? "idle",
+      consoleLines: overlayState?.consoleEl?.childElementCount ?? 0,
+      activeTab: overlayState?.activeTab ?? "preview",
+      previewVisible: overlayState?.previewPanel?.hidden !== true,
+      consoleVisible: overlayState?.consolePanel?.hidden !== true,
+      unreadConsoleTone: overlayState?.consoleTab?.dataset?.unreadTone ?? null,
+      hasCloseButton: Boolean(overlayState?.closeButton),
+    };
+  }
+
   return {};
 }
 
@@ -295,6 +330,23 @@ function getViewportState(app) {
 
 function getPlugin(app, pluginId) {
   return app.plugins.find((plugin) => plugin.id === pluginId) ?? null;
+}
+
+function getContextMenuState(app) {
+  const contextMenuPlugin = getPlugin(app, "context-menu");
+  const labels = collectionToArray(contextMenuPlugin?.menuGroup?.getChildren?.())
+    .filter((child) => typeof child?.text === "function")
+    .map((child) => child.text())
+    .filter(Boolean);
+  const pagePoint = contextMenuPlugin?.menuCanvasPoint
+    ? canvasToPage(app, contextMenuPlugin.menuCanvasPoint)
+    : null;
+
+  return {
+    visible: contextMenuPlugin?.menuGroup?.visible?.() ?? false,
+    labels,
+    pagePoint,
+  };
 }
 
 function getCatalogNode(app) {
@@ -368,6 +420,7 @@ export function setupAppTestApi(app) {
       const selectionPlugin = getPlugin(app, "selection");
       return (selectionPlugin?.getSelectedNodes?.() ?? []).map((node) => node.id());
     },
+    getContextMenuState: () => getContextMenuState(app),
     createClipboardPayload: () => {
       const selectionPlugin = getPlugin(app, "selection");
       return selectionPlugin?.createClipboardPayload?.() ?? null;

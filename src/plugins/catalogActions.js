@@ -63,6 +63,9 @@ function getNodeDisplayTitle(node) {
   }
   if (componentType === "image") return "Image";
   if (componentType === "iframe") return "Iframe";
+  if (componentType === "javascriptEditor") {
+    return node.getAttr("javascriptEditorTitle")?.trim() || "JS Code Runner";
+  }
   if (componentType === "catalog") return "Catalog";
 
   return componentType || "Untitled";

@@ -78,6 +78,25 @@ function buildIframePageUrl({
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
+function buildJavascriptSnippet({
+  heading = "Hello sandbox",
+  paragraph = "Rendered from the JavaScript editor.",
+  logText = "snippet-ready",
+} = {}) {
+  return [
+    'const root = document.getElementById("app");',
+    "",
+    "root.innerHTML = `",
+    '  <section style="padding: 12px 16px; font-family: Arial, sans-serif;">',
+    `    <h1 data-testid="js-result" style="margin: 0 0 8px;">${heading}</h1>`,
+    `    <p style="margin: 0;">${paragraph}</p>`,
+    "  </section>",
+    "`;",
+    "",
+    `console.log(${JSON.stringify(logText)});`,
+  ].join("\n");
+}
+
 async function createNodeFromPalette(page, componentType) {
   const existingIds = await page.evaluate(() => (
     window.__APP_TEST_API__.listNodes().map((node) => node.id)
@@ -231,6 +250,41 @@ test("creates a connection from the toolbar and updates it when a node moves", a
       return JSON.stringify(current?.summary?.points ?? []);
     })
     .not.toBe(JSON.stringify(originalPoints));
+});
+
+test("connects another component to the JavaScript editor preview", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 160, y: 220 });
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 520,
+    y: 200,
+    code: buildJavascriptSnippet({
+      heading: "Runner target",
+      paragraph: "Clicking the preview should complete a connection.",
+      logText: "runner-target-ready",
+    }),
+  });
+
+  await page.getByTestId("javascript-editor-run").click();
+  const frame = page.frameLocator('[data-testid="javascript-editor-preview"]');
+  await expect(frame.getByTestId("js-result")).toHaveText("Runner target");
+
+  const sourceCenter = await getNodePageCenter(page, source.id);
+  await page.mouse.click(sourceCenter.x, sourceCenter.y);
+  await expect(page.getByTestId("connect-selection")).toBeEnabled();
+  await page.getByTestId("connect-selection").click();
+
+  const previewBox = await page.getByTestId("javascript-editor-output-preview").boundingBox();
+  await page.mouse.click(previewBox.x + 28, previewBox.y + 28);
+
+  await expect
+    .poll(async () => page.evaluate(({ sourceId, targetId }) => (
+      window.__APP_TEST_API__.listNodes().some((node) => (
+        node.componentType === "connection" &&
+        node.summary.sourceNodeId === sourceId &&
+        node.summary.targetNodeId === targetId
+      ))
+    ), { sourceId: source.id, targetId: editor.id }))
+    .toBe(true);
 });
 
 test("pulses transparent connections red when an endpoint or the line itself is selected", async ({ page }) => {
@@ -748,6 +802,415 @@ test("opens the component editor and applies sticky text changes", async ({ page
       return node?.summary?.text ?? "";
     })
     .toBe("Updated from Playwright");
+});
+
+test("runs JavaScript editor snippets and restores code edits through undo/redo", async ({ page }) => {
+  const firstCode = buildJavascriptSnippet({
+    heading: "First output",
+    paragraph: "Initial snippet",
+    logText: "first-log",
+  });
+  const secondCode = buildJavascriptSnippet({
+    heading: "Second output",
+    paragraph: "Updated snippet",
+    logText: "second-log",
+  });
+
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 120,
+    y: 220,
+    title: "Sandbox",
+    code: firstCode,
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Ready");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.consoleLines ?? 0)
+    .toBe(0);
+
+  const frame = page.frameLocator('[data-testid="javascript-editor-preview"]');
+  await page.getByTestId("javascript-editor-run").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Preview updated");
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.consoleLines ?? 0)
+    .toBeGreaterThan(0);
+
+  await expect(frame.getByTestId("js-result")).toHaveText("First output");
+
+  await page.getByTestId("javascript-editor-clear").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Preview cleared");
+  await page.getByTestId("javascript-editor-run").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Preview updated");
+  await expect(frame.getByTestId("js-result")).toHaveText("First output");
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), editor.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+
+  await page.getByTestId("component-editor-input-title").fill("Sandbox Updated");
+  await page.getByTestId("component-editor-input-code").fill(secondCode);
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.title ?? "")
+    .toBe("Sandbox Updated");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.code ?? "")
+    .toBe(secondCode);
+
+  await page.getByTestId("javascript-editor-run").click();
+  await expect(frame.getByTestId("js-result")).toHaveText("Second output");
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.title ?? "")
+    .toBe("Sandbox");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.code ?? "")
+    .toBe(firstCode);
+  await expect(frame.getByTestId("js-result")).toHaveText("First output");
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.title ?? "")
+    .toBe("Sandbox Updated");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.code ?? "")
+    .toBe(secondCode);
+  await expect(frame.getByTestId("js-result")).toHaveText("Second output");
+});
+
+test("keeps the JavaScript editor overlay aligned with arrange interactions", async ({ page }) => {
+  const code = buildJavascriptSnippet({
+    heading: "Context menu target",
+    paragraph: "Preview should keep canvas interactions.",
+    logText: "overlay-ready",
+  });
+
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 120,
+    y: 220,
+    title: "Overlay Checks",
+    code,
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Ready");
+  await page.getByTestId("javascript-editor-run").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Preview updated");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.statusTone ?? "")
+    .toBe("ready");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.unreadConsoleTone ?? null)
+    .toBe("warning");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.hasCloseButton ?? false)
+    .toBe(true);
+
+  await expect(page.getByTestId("javascript-editor-output-preview")).toBeVisible();
+  await expect(page.getByTestId("javascript-editor-output-console")).toBeHidden();
+
+  const overlayBox = await page.getByTestId("javascript-editor-overlay").boundingBox();
+  await page.getByTestId("javascript-editor-header").click({ button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
+    expect.objectContaining({
+      visible: true,
+      labels: expect.arrayContaining(["Edit...", "Connect to..."]),
+      pagePoint: expect.any(Object),
+    }),
+  );
+  const headerMenuState = await page.evaluate(() => window.__APP_TEST_API__.getContextMenuState());
+  expect(
+    headerMenuState.pagePoint.x < overlayBox.x ||
+      headerMenuState.pagePoint.x > overlayBox.x + overlayBox.width ||
+      headerMenuState.pagePoint.y < overlayBox.y ||
+      headerMenuState.pagePoint.y > overlayBox.y + overlayBox.height,
+  ).toBe(true);
+
+  const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  await page.mouse.click(rect.left + rect.width - 48, rect.top + rect.height / 2);
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
+    .toBe(false);
+
+  const frame = page.frameLocator('[data-testid="javascript-editor-preview"]');
+  await frame.getByTestId("js-result").click({ button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
+    expect.objectContaining({
+      visible: true,
+      labels: expect.arrayContaining(["Edit...", "Connect to..."]),
+      pagePoint: expect.any(Object),
+    }),
+  );
+
+  await page.mouse.click(rect.left + rect.width - 48, rect.top + rect.height / 2);
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
+    .toBe(false);
+
+  await page.getByTestId("javascript-editor-tab-console").click();
+  await expect(page.getByTestId("javascript-editor-output-console")).toBeVisible();
+  await expect(page.getByTestId("javascript-editor-output-preview")).toBeHidden();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.activeTab ?? "")
+    .toBe("console");
+  await expect
+    .poll(async () => {
+      const node = await getNode(page, editor.id);
+      return node ? node.summary.unreadConsoleTone : "missing";
+    })
+    .toBe(null);
+
+  await page.getByTestId("javascript-editor-run").click();
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
+    .toBe("Preview updated");
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.activeTab ?? "")
+    .toBe("console");
+  await expect(page.getByTestId("javascript-editor-output-console")).toBeVisible();
+
+  await page.getByTestId("javascript-editor-tab-preview").click();
+  await expect(page.getByTestId("javascript-editor-output-preview")).toBeVisible();
+
+  const outputPanel = page.getByTestId("javascript-editor-output-panel");
+  const beforeResize = await outputPanel.boundingBox();
+  expect(beforeResize?.height ?? 0).toBeGreaterThan(0);
+
+  const splitterBox = await page.getByTestId("javascript-editor-splitter").boundingBox();
+  await page.mouse.move(
+    splitterBox.x + splitterBox.width / 2,
+    splitterBox.y + splitterBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    splitterBox.x + splitterBox.width / 2,
+    splitterBox.y + splitterBox.height / 2 - 40,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  const afterResize = await outputPanel.boundingBox();
+  expect(afterResize?.height ?? 0).toBeGreaterThan((beforeResize?.height ?? 0) + 20);
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.outputRatio ?? 0)
+    .toBeGreaterThan(0.3);
+
+  await page.getByTestId("javascript-editor-close").click();
+  await expect
+    .poll(async () => await getNode(page, editor.id))
+    .toBe(null);
+});
+
+test("keeps the JavaScript editor read-only in presentation mode", async ({ page }) => {
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 140,
+    y: 240,
+    title: "Presentation Safe Runner",
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+
+  const before = await getNode(page, editor.id);
+  const beforeOutputRatio = before.summary.outputRatio;
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("javascript-editor-close")).toBeHidden();
+
+  const headerBox = await page.getByTestId("javascript-editor-header").boundingBox();
+  await dragBetweenPagePoints(
+    page,
+    { x: headerBox.x + headerBox.width / 2, y: headerBox.y + headerBox.height / 2 },
+    { x: headerBox.x + headerBox.width / 2 + 120, y: headerBox.y + headerBox.height / 2 + 80 },
+  );
+
+  const afterHeaderDrag = await getNode(page, editor.id);
+  expect(afterHeaderDrag.bounds.x).toBeCloseTo(before.bounds.x, 1);
+  expect(afterHeaderDrag.bounds.y).toBeCloseTo(before.bounds.y, 1);
+
+  const splitterBox = await page.getByTestId("javascript-editor-splitter").boundingBox();
+  await dragBetweenPagePoints(
+    page,
+    { x: splitterBox.x + splitterBox.width / 2, y: splitterBox.y + splitterBox.height / 2 },
+    { x: splitterBox.x + splitterBox.width / 2, y: splitterBox.y + splitterBox.height / 2 - 48 },
+  );
+
+  const afterSplitterDrag = await getNode(page, editor.id);
+  expect(afterSplitterDrag.summary.outputRatio).toBeCloseTo(beforeOutputRatio, 4);
+
+  await page.getByTestId("javascript-editor-header").dblclick();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+});
+
+test("keeps the JavaScript editor behind later overlapping components", async ({ page }) => {
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 220,
+    y: 220,
+    title: "Stacked Runner",
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+  await expect(page.getByTestId("javascript-editor-overlay")).toBeVisible();
+
+  const sticky = await addComponent(page, "sticky", {
+    x: 300,
+    y: 300,
+    text: "Newer component",
+    fill: "#171729",
+    textColor: "#ffffff",
+  });
+
+  const topSticky = await addComponent(page, "sticky", {
+    x: 340,
+    y: 330,
+    text: "Top component",
+    fill: "#fffdf8",
+    textColor: "#4a3828",
+  });
+
+  await expect(page.getByTestId("javascript-editor-overlay")).toBeVisible();
+  await expect
+    .poll(async () => page.getByTestId("javascript-editor-overlay").evaluate((el) => ({
+      clipPath: getComputedStyle(el).clipPath,
+      isOccluded: el.classList.contains("is-stack-occluded"),
+    })))
+    .toMatchObject({
+      isOccluded: true,
+    });
+
+  const overlapPoint = await getNodePageCenter(page, topSticky.id);
+  await expect
+    .poll(async () => page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y);
+      return Boolean(element?.closest?.('[data-testid="javascript-editor-overlay"]'));
+    }, overlapPoint))
+    .toBe(false);
+
+  const headerBox = await page.getByTestId("javascript-editor-header").boundingBox();
+  await page.mouse.click(headerBox.x + headerBox.width / 2, headerBox.y + headerBox.height / 2);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
+    editor.id,
+  ]);
+
+  await page.mouse.click(overlapPoint.x, overlapPoint.y);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
+    topSticky.id,
+  ]);
+
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    { id: sticky.id, position: { x: 980, y: 300 } },
+  );
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    { id: topSticky.id, position: { x: 980, y: 500 } },
+  );
+
+  await expect(page.getByTestId("javascript-editor-overlay")).toBeVisible();
+  await expect
+    .poll(async () => page.getByTestId("javascript-editor-overlay").evaluate((el) => ({
+      clipPath: getComputedStyle(el).clipPath,
+      isOccluded: el.classList.contains("is-stack-occluded"),
+    })))
+    .toMatchObject({
+      clipPath: "none",
+      isOccluded: false,
+    });
+});
+
+test("lets the JavaScript editor participate in catalog drag and activation flows", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 120,
+    y: 220,
+    title: "Cataloged Sandbox",
+  });
+
+  const headerBox = await page.getByTestId("javascript-editor-header").boundingBox();
+  const start = {
+    x: headerBox.x + headerBox.width / 2,
+    y: headerBox.y + headerBox.height / 2,
+  };
+  const catalogPanelBox = await page.getByTestId("catalog-panel-list").boundingBox();
+  const end = {
+    x: catalogPanelBox.x + Math.min(80, catalogPanelBox.width / 2),
+    y: catalogPanelBox.y + 32,
+  };
+
+  await dragBetweenPagePoints(page, start, end, 10);
+
+  await expect(page.getByTestId("catalog-panel")).toContainText("Cataloged Sandbox");
+
+  const catalogRow = page.locator('[data-testid^="catalog-item-"]').filter({
+    hasText: "Cataloged Sandbox",
+  }).first();
+  await catalogRow.click();
+
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
+    editor.id,
+  ]);
+});
+
+test("captures the JavaScript editor into a page and keeps it aligned when the page moves", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 0.6,
+    position: { x: 0, y: 0 },
+  }));
+
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 220,
+    y: 760,
+    title: "Embedded Sandbox",
+  });
+
+  const headerBox = await page.getByTestId("javascript-editor-header").boundingBox();
+  const start = {
+    x: headerBox.x + headerBox.width / 2,
+    y: headerBox.y + headerBox.height / 2,
+  };
+  const end = await getNodePageCenter(page, pageNode.id);
+
+  await dragBetweenPagePoints(page, start, end, 12);
+
+  await expect.poll(async () => (await getNode(page, editor.id))?.parentId ?? null).toBe(pageNode.id);
+
+  const beforeMove = await getNode(page, editor.id);
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    {
+      id: pageNode.id,
+      position: { x: 300, y: 260 },
+    },
+  );
+  await waitForPaint(page);
+
+  const afterMove = await getNode(page, editor.id);
+  expect(afterMove.bounds.x - beforeMove.bounds.x).toBeCloseTo(180, 1);
+  expect(afterMove.bounds.y - beforeMove.bounds.y).toBeCloseTo(140, 1);
 });
 
 test("shows iframe in the palette and creates it through the component editor workflow", async ({ page }) => {

@@ -134,6 +134,9 @@ function getNodeDisplayTitle(node, fallback = "Untitled") {
 
   if (componentType === "image") return "Image";
   if (componentType === "iframe") return "Iframe";
+  if (componentType === "javascriptEditor") {
+    return node.getAttr("javascriptEditorTitle")?.trim() || "JS Code Runner";
+  }
   return componentType || fallback;
 }
 
@@ -859,6 +862,12 @@ export class CatalogPanelPlugin extends BasePlugin {
     if (!center) return false;
 
     this.app.stageApi.centerOn(center, { duration: 0.35 });
+    if (!this.app.isReadOnly()) {
+      if (this.app.getEditorTool?.() !== "arrange") {
+        this.app.setEditorTool?.("arrange");
+      }
+      this.app.getPlugin?.("selection")?.setSelected?.([node]);
+    }
     this.selectedNodeId = item.nodeId;
     this.selectedItemId = item.id;
     this.syncSelectionState();

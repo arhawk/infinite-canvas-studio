@@ -39,6 +39,7 @@ import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
 import { CatalogComponent } from "./component/catalog.js";
 import { RankingBoxComponent } from "./component/rankingBox.js";
+import { JavaScriptEditorComponent } from "./component/javascriptEditor.js";
 import { VideoComponent } from "./component/video.js";
 
 function getRequiredElement(selector) {
@@ -124,6 +125,7 @@ const app = new App({
   ConnectionComponent,
   CatalogComponent,
   RankingBoxComponent,
+  JavaScriptEditorComponent,
   VideoComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 

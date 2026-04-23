@@ -765,34 +765,47 @@ export class ConnectionsPlugin extends BasePlugin {
     this.cancelConnecting();
     this.connectingFromId = sourceId;
     this.app.setCursorOverride("crosshair");
+    this.app.events.emit("connection:pick:start", { sourceId });
 
     this.app.stage.on("click.connectionCreate tap.connectionCreate", async (event) => {
       const target = resolveSelectable(event.target);
-
-      if (!target) {
-        this.cancelConnecting();
-        return;
-      }
-
-      if (!this.isConnectable(target)) {
-        this.cancelConnecting();
-        return;
-      }
-
-      if (target.id() === this.connectingFromId) {
-        return;
-      }
-
-      await this.createConnection(this.connectingFromId, target.id());
-      this.cancelConnecting();
+      await this.completeConnectingTo(target);
     });
+  }
+
+  async completeConnectingTo(target) {
+    if (!this.connectingFromId) return false;
+
+    const targetNode = typeof target === "string"
+      ? this.findNodeById(target)
+      : resolveSelectable(target);
+
+    if (!targetNode) {
+      this.cancelConnecting();
+      return false;
+    }
+
+    if (!this.isConnectable(targetNode)) {
+      this.cancelConnecting();
+      return false;
+    }
+
+    if (targetNode.id() === this.connectingFromId) {
+      return true;
+    }
+
+    await this.createConnection(this.connectingFromId, targetNode.id());
+    this.cancelConnecting();
+    return true;
   }
 
   cancelConnecting() {
     if (!this.connectingFromId) return;
+    const sourceId = this.connectingFromId;
     this.connectingFromId = null;
     this.app.stage.off(".connectionCreate");
     this.app.clearCursorOverride();
+    this.app.events.emit("connection:pick:end", { sourceId });
   }
 
   removeConnection(connectionNode) {
