@@ -2,6 +2,10 @@ import { BaseCommand, BasePlugin, BaseTool } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
 
 const GUIDE_TOLERANCE = 6;
+const MARQUEE_THRESHOLD = 4;
+const CLIPBOARD_KIND = "mind-map-selection";
+const CLIPBOARD_VERSION = 1;
+const PASTE_OFFSET = 32;
 
 class ArrangeTool extends BaseTool {
   static toolId = "arrange";
@@ -24,6 +28,43 @@ class DeleteSelectionCommand extends BaseCommand {
   }
 }
 
+class CopySelectionCommand extends BaseCommand {
+  static commandId = "selection:copy";
+  static label = "Copy Selected";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute() {
+    return this.plugin.copySelectionToClipboard();
+  }
+}
+
+class PasteSelectionCommand extends BaseCommand {
+  static commandId = "selection:paste";
+  static label = "Paste Components";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute() {
+    return this.plugin.pasteSelectionFromClipboard();
+  }
+}
+
+function clonePlainData(value) {
+  if (value == null) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
 function isRankingItemInteractionTarget(target) {
   return Boolean(
     target?.findAncestor?.(".ranking-item-card", true) ||
@@ -33,6 +74,39 @@ function isRankingItemInteractionTarget(target) {
 
 function isTextNode(node) {
   return node?.getAttr?.("componentType") === "text";
+}
+
+function isSelectableNode(node) {
+  return !!node?.hasName?.("selectable");
+}
+
+function isConnectionSnapshot(snapshot) {
+  return snapshot?.type === "connection";
+}
+
+function normalizePoint(value = {}, fallback = { x: 0, y: 0 }) {
+  return {
+    x: Number.isFinite(value.x) ? value.x : fallback.x,
+    y: Number.isFinite(value.y) ? value.y : fallback.y,
+  };
+}
+
+function rectsIntersect(a, b) {
+  return (
+    a.x <= b.x + b.width &&
+    a.x + a.width >= b.x &&
+    a.y <= b.y + b.height &&
+    a.y + a.height >= b.y
+  );
+}
+
+function hasSelectedAncestor(node, selectedSet) {
+  let parent = node?.getParent?.();
+  while (parent) {
+    if (selectedSet.has(parent)) return true;
+    parent = parent.getParent?.();
+  }
+  return false;
 }
 
 export class SelectionPlugin extends BasePlugin {
@@ -50,7 +124,7 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   commands() {
-    return [DeleteSelectionCommand];
+    return [DeleteSelectionCommand, CopySelectionCommand, PasteSelectionCommand];
   }
 
   onSetup() {
@@ -88,6 +162,23 @@ export class SelectionPlugin extends BasePlugin {
 
     this.selectedNodes = [];
     this.lastTextClick = null;
+    this.marquee = {
+      active: false,
+      selecting: false,
+      start: null,
+      rect: null,
+      additive: false,
+    };
+    this.suppressNextSelectionClick = false;
+
+    this.marqueeRect = new Konva.Rect({
+      fill: "rgba(31, 111, 235, 0.08)",
+      stroke: "#1f6feb",
+      strokeWidth: 1,
+      dash: [6, 4],
+      visible: false,
+      listening: false,
+    });
 
     this.layer.find(".selectable").forEach((node) => {
       this.syncNodeInteractivity(node);
@@ -98,12 +189,17 @@ export class SelectionPlugin extends BasePlugin {
     overlayLayer.add(
       this.guideLineVertical,
       this.guideLineHorizontal,
+      this.marqueeRect,
     );
 
     this.app.keybindings.register("Delete", "selection:delete");
     this.app.keybindings.register("Backspace", "selection:delete");
+    this.app.keybindings.register("Mod+C", "selection:copy");
+    this.app.keybindings.register("Mod+V", "selection:paste");
     this.cleanups.push(() => this.app.keybindings.unregister("Delete"));
     this.cleanups.push(() => this.app.keybindings.unregister("Backspace"));
+    this.cleanups.push(() => this.app.keybindings.unregister("Mod+C"));
+    this.cleanups.push(() => this.app.keybindings.unregister("Mod+V"));
 
     this.listen("node:added", ({ node }) => {
       this.syncNodeInteractivity(node);
@@ -140,6 +236,9 @@ export class SelectionPlugin extends BasePlugin {
     this.listen("interaction:change", () => this.syncMode());
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
+    stage.on("mousedown.selection touchstart.selection", (event) => this.handlePointerDown(event));
+    stage.on("mousemove.selection touchmove.selection", () => this.handlePointerMove());
+    stage.on("mouseup.selection touchend.selection mouseleave.selection", () => this.handlePointerUp());
     stage.on("dragmove.snapGuides transform.snapGuides", (event) => this.handleSnapMove(event));
     stage.on("dragend.snapGuides transformend.snapGuides", () => this.hideGuides());
 
@@ -156,6 +255,7 @@ export class SelectionPlugin extends BasePlugin {
     }
     if (!enabled) {
       this.hideGuides();
+      this.cancelMarquee();
       this.overlayLayer.batchDraw();
     }
     this.layer.find(".selectable").forEach((node) => this.syncNodeInteractivity(node));
@@ -308,6 +408,198 @@ export class SelectionPlugin extends BasePlugin {
     this.layer.batchDraw();
   }
 
+  getSelectableParentId(node) {
+    const parent = node?.getParent?.();
+    return isSelectableNode(parent) ? parent.id() : null;
+  }
+
+  snapshotNode(node, parentId = this.getSelectableParentId(node)) {
+    if (!isSelectableNode(node)) return null;
+    const component = this.app.components.getByNode(node);
+    return component?.serialize?.(node, { parentId }) ?? null;
+  }
+
+  getSelectedRootNodes() {
+    const selectedSet = new Set(this.selectedNodes);
+    return this.selectedNodes.filter((node) => !hasSelectedAncestor(node, selectedSet));
+  }
+
+  createClipboardPayload(nodes = this.selectedNodes) {
+    const selectedSet = new Set(nodes);
+    const roots = nodes.filter((node) => !hasSelectedAncestor(node, selectedSet));
+    const snapshots = [];
+    const copiedIds = new Set();
+
+    const visit = (node, parentId = this.getSelectableParentId(node)) => {
+      if (!isSelectableNode(node)) return;
+      if (copiedIds.has(node.id())) return;
+      const snapshot = this.snapshotNode(node, parentId);
+      if (snapshot) {
+        snapshots.push(snapshot);
+        copiedIds.add(snapshot.id);
+      }
+
+      if (typeof node.getChildren !== "function") return;
+      node.getChildren().forEach((child) => {
+        if (isSelectableNode(child)) {
+          visit(child, node.id());
+        }
+      });
+    };
+
+    roots.forEach((node) => {
+      visit(node, selectedSet.has(node.getParent?.()) ? this.getSelectableParentId(node) : null);
+    });
+
+    const filteredSnapshots = snapshots.filter((snapshot) => {
+      if (!isConnectionSnapshot(snapshot)) return true;
+      const sourceId = snapshot.data?.sourceNodeId;
+      const targetId = snapshot.data?.targetNodeId;
+      return copiedIds.has(sourceId) && copiedIds.has(targetId);
+    });
+
+    return {
+      kind: CLIPBOARD_KIND,
+      version: CLIPBOARD_VERSION,
+      nodes: filteredSnapshots.map((snapshot) => clonePlainData(snapshot)),
+    };
+  }
+
+  async copySelectionToClipboard() {
+    if (!this.isEnabled() || !this.selectedNodes.length) return false;
+    const payload = this.createClipboardPayload();
+    if (!payload.nodes.length) return false;
+    const text = JSON.stringify(payload, null, 2);
+    this.internalClipboardText = text;
+    if (!navigator.clipboard?.writeText) return true;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      return true;
+    }
+    return true;
+  }
+
+  normalizeClipboardPayload(value) {
+    let parsed = value;
+    if (typeof value === "string") {
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        return [];
+      }
+    }
+    const nodes = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.nodes)
+        ? parsed.nodes
+        : [];
+    return nodes
+      .filter((snapshot) => snapshot && typeof snapshot.type === "string")
+      .map((snapshot) => clonePlainData(snapshot));
+  }
+
+  prepareSnapshotsForPaste(snapshots = []) {
+    const sourceIds = new Set(snapshots.map((snapshot) => snapshot.id).filter(Boolean));
+    const idMap = new Map();
+    sourceIds.forEach((id) => {
+      const type = snapshots.find((snapshot) => snapshot.id === id)?.type ?? "node";
+      idMap.set(id, `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+    });
+
+    return snapshots
+      .filter((snapshot) => {
+        if (!isConnectionSnapshot(snapshot)) return true;
+        return sourceIds.has(snapshot.data?.sourceNodeId) && sourceIds.has(snapshot.data?.targetNodeId);
+      })
+      .map((snapshot) => {
+        const next = clonePlainData(snapshot);
+        next.id = idMap.get(snapshot.id) ?? undefined;
+        next.parentId = sourceIds.has(snapshot.parentId) ? idMap.get(snapshot.parentId) : null;
+        next.x = (Number.isFinite(snapshot.x) ? snapshot.x : 0) + PASTE_OFFSET;
+        next.y = (Number.isFinite(snapshot.y) ? snapshot.y : 0) + PASTE_OFFSET;
+
+        if (isConnectionSnapshot(next)) {
+          next.data = {
+            ...(next.data ?? {}),
+            sourceNodeId: idMap.get(snapshot.data?.sourceNodeId),
+            targetNodeId: idMap.get(snapshot.data?.targetNodeId),
+          };
+        }
+
+        return next;
+      });
+  }
+
+  async pasteSnapshots(snapshots = []) {
+    if (!this.isEnabled()) return [];
+    const prepared = this.prepareSnapshotsForPaste(snapshots);
+    if (!prepared.length) return [];
+
+    const regularSnapshots = prepared.filter((snapshot) => !isConnectionSnapshot(snapshot));
+    const connectionSnapshots = prepared.filter((snapshot) => isConnectionSnapshot(snapshot));
+    const restoredNodes = new Map();
+    const pastedNodes = [];
+
+    for (const snapshot of regularSnapshots) {
+      const node = await this.restoreNodeSnapshot(snapshot);
+      if (node) {
+        restoredNodes.set(snapshot.id, node);
+        pastedNodes.push(node);
+      }
+    }
+
+    regularSnapshots.forEach((snapshot) => {
+      if (!snapshot.parentId) return;
+
+      const node = restoredNodes.get(snapshot.id);
+      const parentNode = restoredNodes.get(snapshot.parentId) ?? this.app.mainLayer.findOne(`#${snapshot.parentId}`);
+      if (!node || !parentNode) return;
+
+      node.moveTo(parentNode);
+      node.position(normalizePoint(snapshot));
+    });
+
+    for (const snapshot of connectionSnapshots) {
+      const node = await this.restoreNodeSnapshot(snapshot);
+      if (node) {
+        restoredNodes.set(snapshot.id, node);
+        pastedNodes.push(node);
+      }
+    }
+
+    this.setSelected(pastedNodes.filter((node) => node.getAttr("componentType") !== "connection"));
+    this.app.mainLayer.batchDraw();
+    return pastedNodes;
+  }
+
+  async pasteSelectionFromClipboard() {
+    if (!this.isEnabled()) return false;
+    let text = this.internalClipboardText;
+    if (navigator.clipboard?.readText) {
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        text = this.internalClipboardText;
+      }
+    }
+    const snapshots = this.normalizeClipboardPayload(text || this.internalClipboardText || "");
+    const pastedNodes = await this.pasteSnapshots(snapshots);
+    return pastedNodes.length > 0;
+  }
+
+  async restoreNodeSnapshot(snapshot = {}) {
+    const component = this.app.components.get(snapshot.type);
+    if (!component?.restore) return null;
+
+    const node = await component.restore(clonePlainData(snapshot));
+    if (!node) return null;
+
+    this.app.mainLayer.add(node);
+    this.app.events.emit("node:added", { node });
+    return node;
+  }
+
   syncNodeInteractivity(node) {
     if (!node?.hasName?.("selectable")) return;
     node.draggable(Boolean(node.getAttr("baseDraggable")) && this.isEnabled());
@@ -348,6 +640,95 @@ export class SelectionPlugin extends BasePlugin {
     this.guideLineVertical.visible(false);
     this.guideLineHorizontal.visible(false);
     this.overlayLayer.batchDraw();
+  }
+
+  getMarqueeBounds() {
+    const { start, rect } = this.marquee;
+    if (!start || !rect) return null;
+    return {
+      x: Math.min(start.x, rect.x),
+      y: Math.min(start.y, rect.y),
+      width: Math.abs(rect.x - start.x),
+      height: Math.abs(rect.y - start.y),
+    };
+  }
+
+  cancelMarquee() {
+    this.marquee.active = false;
+    this.marquee.selecting = false;
+    this.marquee.start = null;
+    this.marquee.rect = null;
+    this.marquee.additive = false;
+    this.marqueeRect.visible(false);
+    this.overlayLayer.batchDraw();
+  }
+
+  handlePointerDown(event) {
+    if (!this.isEnabled() || this.app.tools.getActive() !== "arrange") return;
+    if (event.evt?.button != null && event.evt.button !== 0) return;
+    if (this.app.stageApi.isSpacePressed) return;
+    if (this.getSelectable(event.target)) return;
+    if (event.target !== this.stage && event.target?.getLayer?.() === this.app.uiLayer) return;
+
+    const pointer = this.stage.getPointerPosition();
+    if (!pointer) return;
+
+    const canvasPoint = this.app.stageApi.screenToCanvas(pointer);
+    this.marquee = {
+      active: true,
+      selecting: false,
+      start: canvasPoint,
+      rect: canvasPoint,
+      additive: Boolean(event.evt?.metaKey || event.evt?.ctrlKey),
+    };
+  }
+
+  handlePointerMove() {
+    if (!this.marquee.active) return;
+    const pointer = this.stage.getPointerPosition();
+    if (!pointer) return;
+
+    const canvasPoint = this.app.stageApi.screenToCanvas(pointer);
+    this.marquee.rect = canvasPoint;
+    const bounds = this.getMarqueeBounds();
+    if (!bounds) return;
+
+    if (
+      !this.marquee.selecting &&
+      Math.hypot(canvasPoint.x - this.marquee.start.x, canvasPoint.y - this.marquee.start.y) < MARQUEE_THRESHOLD
+    ) {
+      return;
+    }
+
+    this.marquee.selecting = true;
+    this.marqueeRect.setAttrs({
+      ...bounds,
+      visible: true,
+    });
+    this.marqueeRect.moveToTop();
+    this.overlayLayer.batchDraw();
+  }
+
+  handlePointerUp() {
+    if (!this.marquee.active) return;
+    const wasSelecting = this.marquee.selecting;
+    const bounds = this.getMarqueeBounds();
+    const addToSelection = this.marquee.additive;
+
+    this.cancelMarquee();
+    if (!wasSelecting || !bounds) return;
+    this.suppressNextSelectionClick = true;
+
+    const intersecting = this.layer.find(".selectable")
+      .filter((node) => (
+        node.isVisible() &&
+        node.getAttr("componentType") !== "connection" &&
+        rectsIntersect(bounds, node.getClientRect({ skipShadow: true }))
+      ));
+    const selectedSet = new Set(intersecting);
+    const selected = intersecting.filter((node) => !hasSelectedAncestor(node, selectedSet));
+
+    this.setSelected(addToSelection ? [...this.selectedNodes, ...selected] : selected);
   }
 
   getGuideStops(skipNode) {
@@ -477,6 +858,10 @@ export class SelectionPlugin extends BasePlugin {
 
     if (isRankingItemInteractionTarget(targetNode)) return;
     if (this.app.stageApi.consumePanClickSuppression()) {
+      return;
+    }
+    if (this.suppressNextSelectionClick) {
+      this.suppressNextSelectionClick = false;
       return;
     }
     if (event.evt && event.evt.button === 2) {

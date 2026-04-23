@@ -105,6 +105,41 @@ test("undoes and redoes adding a sticky note", async ({ page }) => {
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
 });
 
+test("marquee selects multiple components and supports JSON clipboard paste", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(page.url()).origin,
+  });
+  const nodes = await page.evaluate(async () => Promise.all([
+    window.__APP_TEST_API__.addComponent("sticky", { x: 80, y: 80 }),
+    window.__APP_TEST_API__.addComponent("text", { x: 300, y: 120 }),
+  ]));
+
+  const start = await page.evaluate(() => window.__APP_TEST_API__.canvasToPagePoint({ x: 40, y: 40 }));
+  const end = await page.evaluate(() => window.__APP_TEST_API__.canvasToPagePoint({ x: 520, y: 260 }));
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual(expect.arrayContaining(nodes.map((node) => node.id)));
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+C" : "Control+C");
+  const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+  const payload = JSON.parse(clipboardText);
+  expect(payload.kind).toBe("mind-map-selection");
+  expect(payload.nodes).toHaveLength(2);
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+V" : "Control+V");
+  await expect.poll(async () => (await listNodes(page)).length).toBe(4);
+
+  const selectedIds = await page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds());
+  expect(selectedIds).toHaveLength(2);
+  expect(selectedIds).not.toEqual(expect.arrayContaining(nodes.map((node) => node.id)));
+});
+
 test("draws a brush stroke on the canvas", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());

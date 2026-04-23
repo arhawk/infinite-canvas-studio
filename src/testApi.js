@@ -354,9 +354,29 @@ export function setupAppTestApi(app) {
       selectionPlugin.setSelected([node]);
       return true;
     },
+    selectNodes: (ids = []) => {
+      const selectionPlugin = getPlugin(app, "selection");
+      if (!selectionPlugin || !Array.isArray(ids)) return false;
+
+      const nodes = ids
+        .map((id) => getNodeById(app, id))
+        .filter(Boolean);
+      selectionPlugin.setSelected(nodes);
+      return true;
+    },
     getSelectedNodeIds: () => {
       const selectionPlugin = getPlugin(app, "selection");
       return (selectionPlugin?.getSelectedNodes?.() ?? []).map((node) => node.id());
+    },
+    createClipboardPayload: () => {
+      const selectionPlugin = getPlugin(app, "selection");
+      return selectionPlugin?.createClipboardPayload?.() ?? null;
+    },
+    pasteClipboardPayload: async (payload) => {
+      const selectionPlugin = getPlugin(app, "selection");
+      const snapshots = selectionPlugin?.normalizeClipboardPayload?.(payload) ?? [];
+      const pastedNodes = await selectionPlugin?.pasteSnapshots?.(snapshots);
+      return (pastedNodes ?? []).map((node) => serializeNode(app, node));
     },
     getNodePageCenter: (id) => {
       const node = getNodeById(app, id);
