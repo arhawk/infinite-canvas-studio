@@ -67,6 +67,7 @@ class ClearStrokesCommand extends BaseCommand {
   static commandId = "drawing:clear-strokes";
   static label = "Clear All Strokes";
   static modes = {
+    presentation: {},
     edit: {
       tools: {
         eraser: {},
@@ -82,6 +83,7 @@ class ClearStrokesCommand extends BaseCommand {
 export class DrawingPlugin extends BasePlugin {
   static pluginId = "drawing";
   static modes = {
+    presentation: {},
     edit: {
       tools: {
         pen: {},
@@ -147,6 +149,11 @@ export class DrawingPlugin extends BasePlugin {
         opacity: Number.isFinite(stroke.opacity) ? stroke.opacity : this.toolStyles[toolId].opacity,
       };
     });
+    this.listen("interaction:change", () => {
+      this.syncCursorOverride();
+      this.syncEraserPreviewVisibility();
+      this.updateEraserPreview();
+    });
 
     this.stage.on("mousedown.drawing touchstart.drawing", (event) => this.handlePointerDown(event));
     this.stage.on("mousemove.drawing touchmove.drawing", (event) => this.handlePointerMove(event));
@@ -168,13 +175,13 @@ export class DrawingPlugin extends BasePlugin {
   }
 
   onModeEnter() {
-    this.app.setCursorOverride("crosshair");
+    this.syncCursorOverride();
     this.syncEraserPreviewVisibility();
     this.updateEraserPreview();
   }
 
   onModeChange() {
-    this.app.setCursorOverride("crosshair");
+    this.syncCursorOverride();
     this.syncEraserPreviewVisibility();
     this.updateEraserPreview();
   }
@@ -188,6 +195,18 @@ export class DrawingPlugin extends BasePlugin {
       this.app.overlayLayer.batchDraw();
     }
     this.app.clearCursorOverride();
+  }
+
+  syncCursorOverride() {
+    const shouldUseCrosshair = this.isDrawingActive() || this.isEraserActive();
+    if (shouldUseCrosshair) {
+      this.app.setCursorOverride("crosshair");
+      return;
+    }
+
+    if (this.app.cursorOverride === "crosshair") {
+      this.app.clearCursorOverride();
+    }
   }
 
   pointerToCanvas() {

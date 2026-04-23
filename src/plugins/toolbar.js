@@ -191,12 +191,35 @@ export class ToolbarPlugin extends BasePlugin {
     return BRUSH_CONTROL_TOOL_IDS.includes(toolId);
   }
 
+  isToolAvailableInPresentation(toolId) {
+    return toolId === "arrange" || this.showsBrushControls(toolId);
+  }
+
   isMainToolButtonActive(buttonToolId, activeToolId) {
+    if (this.app.getMode() === "presentation" && buttonToolId === "arrange") {
+      return false;
+    }
+
     if (buttonToolId === "pen") {
       return this.isBrushFamilyActive(activeToolId);
     }
 
     return buttonToolId === activeToolId;
+  }
+
+  handleMainToolButtonClick(toolId) {
+    if (this.app.getMode() === "presentation") {
+      const activeToolId = this.app.getEditorTool();
+      const isPenFamilyButton = toolId === "pen" && this.isBrushFamilyActive(activeToolId);
+      const isSameStandaloneTool = toolId !== "pen" && activeToolId === toolId;
+
+      if (isPenFamilyButton || isSameStandaloneTool) {
+        this.app.setEditorTool("arrange");
+        return;
+      }
+    }
+
+    this.app.setEditorTool(toolId);
   }
 
   getDrawingPlugin() {
@@ -356,7 +379,7 @@ export class ToolbarPlugin extends BasePlugin {
         button.textContent = tool.label;
       }
 
-      this.listenDom(button, "click", () => this.app.setEditorTool(tool.id));
+      this.listenDom(button, "click", () => this.handleMainToolButtonClick(tool.id));
       toolButtonsEl.append(button);
     }
 
@@ -459,14 +482,18 @@ export class ToolbarPlugin extends BasePlugin {
     } = this.ui;
 
     const isEdit = this.app.getMode() === "edit";
-    const activeToolId = isEdit ? this.app.getEditorTool() : null;
+    const activeToolId = this.app.getEditorTool();
     const isEraser = activeToolId === "eraser";
     const isBrushFamilyActive = this.isBrushFamilyActive(activeToolId);
     const hasSelectedArrangeNode = Boolean(this.focusState.selectedNodeId);
     const showArrangeControls =
-      activeToolId === "arrange"
+      isEdit
+      && activeToolId === "arrange"
       && hasSelectedArrangeNode;
     const showBrushControls = this.showsBrushControls(activeToolId);
+    const showBrushTypeControls = isBrushFamilyActive;
+    const canUseSelectedToolInCurrentMode =
+      isEdit || this.isToolAvailableInPresentation(activeToolId);
     const connectCommand = this.app.commands.get("connection:connect");
     const drawingPlugin = this.getDrawingPlugin();
     const isPresentation = !isEdit;
@@ -487,12 +514,12 @@ export class ToolbarPlugin extends BasePlugin {
         "aria-pressed",
         String(this.isMainToolButtonActive(button.dataset.toolId, activeToolId)),
       );
-      button.disabled = !isEdit;
+      button.disabled = !isEdit && !this.isToolAvailableInPresentation(button.dataset.toolId);
     }
     for (const button of brushTypeControlsEl.querySelectorAll("[data-brush-tool-id]")) {
       const { brushToolId } = button.dataset;
       button.setAttribute("aria-pressed", String(brushToolId === activeToolId));
-      button.disabled = !isEdit || isEraser;
+      button.disabled = !canUseSelectedToolInCurrentMode || isEraser;
     }
 
     if (drawingVisibilityToggleEl) {
@@ -520,7 +547,7 @@ export class ToolbarPlugin extends BasePlugin {
       brushControlsEl.hidden = !showBrushControls;
     }
     if (brushTypeControlsEl) {
-      brushTypeControlsEl.hidden = !isBrushFamilyActive;
+      brushTypeControlsEl.hidden = !showBrushTypeControls;
     }
     const colorFieldEl = strokeColorEl.closest(".toolbar__field");
     if (colorFieldEl) {
@@ -551,7 +578,7 @@ export class ToolbarPlugin extends BasePlugin {
     focusPositionModeEl.disabled = true;
 
     const brushControlsEnabled =
-      isEdit && this.showsBrushControls(activeToolId);
+      canUseSelectedToolInCurrentMode && this.showsBrushControls(activeToolId);
 
     strokeColorEl.disabled = !brushControlsEnabled || isEraser;
     strokeWidthEl.disabled = !brushControlsEnabled;

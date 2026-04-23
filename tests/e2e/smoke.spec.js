@@ -246,6 +246,100 @@ test("clears all drawn strokes from the eraser controls and supports undo and re
     .toBe(0);
 });
 
+test("draws and erases strokes in presentation mode", async ({ page }) => {
+  await page.getByTestId("mode-toggle").click();
+  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+
+  await page.getByTestId("tool-button-pen").click();
+  await expect(page.getByTestId("stroke-width")).toBeEnabled();
+
+  const { start, end } = await drawStroke(page, {
+    xRatio: 0.38,
+    yRatio: 0.42,
+    dx: 140,
+    dy: 72,
+    steps: 12,
+  });
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBeGreaterThan(0);
+
+  await page.getByTestId("tool-button-eraser").click();
+  await expect(page.getByTestId("stroke-width")).toBeEnabled();
+  await expect(page.getByTestId("clear-strokes")).toBeVisible();
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+});
+
+test("toggles pen and eraser on and off in presentation mode", async ({ page }) => {
+  await page.getByTestId("mode-toggle").click();
+  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+
+  const canvas = page.getByTestId("canvas-container");
+  const penButton = page.getByTestId("tool-button-pen");
+  const eraserButton = page.getByTestId("tool-button-eraser");
+
+  await expect(penButton).toHaveAttribute("aria-pressed", "false");
+  await penButton.click();
+  await expect(penButton).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    "crosshair",
+  );
+
+  const firstStroke = await drawStroke(page, {
+    xRatio: 0.34,
+    yRatio: 0.4,
+    dx: 110,
+    dy: 58,
+    steps: 10,
+  });
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(1);
+
+  await penButton.click();
+  await expect(penButton).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    "grab",
+  );
+
+  await page.mouse.move(firstStroke.start.x, firstStroke.start.y);
+  await page.mouse.down();
+  await page.mouse.move(firstStroke.end.x, firstStroke.end.y, { steps: 10 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(1);
+
+  await eraserButton.click();
+  await expect(eraserButton).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    "crosshair",
+  );
+
+  await page.mouse.move(firstStroke.start.x, firstStroke.start.y);
+  await page.mouse.down();
+  await page.mouse.move(firstStroke.end.x, firstStroke.end.y, { steps: 10 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
+    .toBe(0);
+
+  await eraserButton.click();
+  await expect(eraserButton).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    "grab",
+  );
+});
+
 test.skip("toggles drawing layer visibility in presentation mode", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
   await drawStroke(page);

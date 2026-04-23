@@ -123,9 +123,15 @@ export class App {
 
   syncCursor() {
     const container = this.stage.container();
+    const activeToolId = this.modeManager.getEditorTool();
     
     if (this.cursorOverride) {
       container.style.cursor = this.cursorOverride;
+      return;
+    }
+
+    if (["pen", "pencil", "highlighter", "eraser"].includes(activeToolId)) {
+      container.style.cursor = "crosshair";
       return;
     }
 

@@ -271,6 +271,10 @@ export class StageController {
     const isMiddleButton = event.evt.button === 1;
     const app = this.stage.getAttr("app");
     const isPrimaryPointer = event.evt.button == null || event.evt.button === 0;
+    const activeToolId = app?.getEditorTool?.() ?? null;
+    const isReadOnlyDrawingTool =
+      app?.isReadOnly?.()
+      && ["pen", "pencil", "highlighter", "eraser"].includes(activeToolId);
     const target = event.target;
     const hasSelectableTarget = Boolean(
       target?.hasName?.("selectable") || target?.findAncestor?.(".selectable", true),
@@ -284,7 +288,7 @@ export class StageController {
     const shouldPan =
       isMiddleButton ||
       this.isSpacePressed ||
-      (app?.isReadOnly?.() && isPrimaryPointer && !isRankingItemTarget);
+      (app?.isReadOnly?.() && isPrimaryPointer && !isRankingItemTarget && !isReadOnlyDrawingTool);
     if (!shouldPan) return;
 
     this.isPanning = true;
