@@ -1000,7 +1000,8 @@ test("creates a real text-range highlight and preserves it through undo redo and
     fontSize: 24,
   });
 
-  await page.getByTestId("tool-button-annotate").click();
+  await expect(page.getByTestId("tool-button-annotate")).toHaveCount(0);
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("annotate"));
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
     "annotate",
   );
@@ -1099,7 +1100,7 @@ test("highlights and erases a sticky note text range", async ({ page }) => {
     fontSize: 24,
   });
 
-  await page.getByTestId("tool-button-annotate").click();
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("annotate"));
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
     "annotate",
   );
@@ -1150,6 +1151,44 @@ test("highlights and erases a sticky note text range", async ({ page }) => {
     .toBe(0);
 });
 
+test("maps text marking to the correct range after viewport zoom changes", async ({ page }) => {
+  const text = await addComponent(page, "text", {
+    x: 240,
+    y: 220,
+    width: 240,
+    height: 80,
+    text: "zoomed beta marker",
+    fontSize: 24,
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1.8,
+    position: { x: -220, y: -170 },
+  }));
+  await waitForPaint(page);
+
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("annotate"));
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "annotate",
+  );
+
+  const [startPoint, endPoint] = await Promise.all([
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 7), text.id),
+    page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 11), text.id),
+  ]);
+
+  await dragBetweenPagePoints(page, startPoint, endPoint);
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary?.annotations ?? [])
+    .toEqual([
+      expect.objectContaining({
+        target: "text",
+        start: 7,
+        end: 11,
+      }),
+    ]);
+});
 test("keeps text annotations attached when a containing page moves", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
   const text = await addComponent(page, "text", {
@@ -1163,7 +1202,7 @@ test("keeps text annotations attached when a containing page moves", async ({ pa
 
   await expect.poll(async () => (await getNode(page, text.id))?.parentId ?? null).toBe(pageNode.id);
 
-  await page.getByTestId("tool-button-annotate").click();
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("annotate"));
   const [startPoint, endPoint] = await Promise.all([
     page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 5), text.id),
     page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 11), text.id),
@@ -1568,7 +1607,7 @@ test("moves text into and out of a page ranking box", async ({ page }) => {
     height: 80,
   });
 
-  await page.getByTestId("tool-button-annotate").click();
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("annotate"));
   const [markStart, markEnd] = await Promise.all([
     page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 6), textNode.id),
     page.evaluate((nodeId) => window.__APP_TEST_API__.getTextAnnotationPagePoint(nodeId, 12), textNode.id),

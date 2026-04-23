@@ -194,7 +194,52 @@ export class AnnotatorPlugin extends BasePlugin {
   }
 
   getPointerPosition() {
-    return this.stage.getPointerPosition();
+    const pointer = this.stage.getPointerPosition();
+    return pointer ? this.app.stageApi.screenToCanvas(pointer) : null;
+  }
+
+  getActiveEraserRadius() {
+    return Number.isFinite(this.eraserRadius) ? this.eraserRadius : DEFAULT_ERASER_RADIUS;
+  }
+
+  scheduleSyncAnnotations() {
+    if (this.syncScheduled) return;
+    this.syncScheduled = true;
+    queueMicrotask(() => {
+      this.syncScheduled = false;
+      this.syncAnnotations();
+    });
+  }
+
+  destroyRenderedGroups() {
+    this.renderedGroups.forEach((group) => group.destroy());
+    this.renderedGroups = [];
+    this.layer.batchDraw();
+  }
+
+  syncRenderGroupOrder(group, textNode) {
+    const parent = textNode?.getParent?.();
+    if (!group || !parent || textNode.getParent() !== parent) return;
+    group.zIndex(textNode.zIndex() + 1);
+  }
+
+  findAnnotationTargetNearPoint(point) {
+    if (!point) return null;
+
+    const targets = this.layer.find(".text-annotation-highlight");
+    for (let index = targets.length - 1; index >= 0; index -= 1) {
+      const target = targets[index];
+      const box = target.getClientRect({
+        relativeTo: this.stage,
+        skipShadow: true,
+        skipStroke: true,
+      });
+      if (pointInRect(point, box)) {
+        return target;
+      }
+    }
+
+    return null;
   }
 
   getActiveEraserRadius() {

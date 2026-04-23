@@ -12,7 +12,7 @@ const TOOL_ICONS = {
 
 const DRAWING_TOOL_IDS = ["pen", "pencil", "highlighter"];
 const BRUSH_CONTROL_TOOL_IDS = [...DRAWING_TOOL_IDS, "eraser"];
-const HIDDEN_MAIN_TOOL_BUTTON_IDS = new Set(["pencil", "highlighter"]);
+const HIDDEN_MAIN_TOOL_BUTTON_IDS = new Set(["pencil", "highlighter", "annotate"]);
 
 const DEFAULT_ERASER_STATE = {
   radius: 12,
