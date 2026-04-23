@@ -1302,6 +1302,104 @@ h2 {
   border-color: rgba(191, 110, 88, 0.4);
 }
 
+.video-component__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  overflow: hidden;
+  border: 1.5px solid rgba(201, 179, 147, 0.95);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(252, 247, 239, 0.98));
+  box-shadow: 0 0.8rem 1.8rem rgba(54, 41, 25, 0.12);
+  transform-origin: 0 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.video-component__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0 0.62rem;
+  border-bottom: 1px solid rgba(171, 79, 40, 0.14);
+  background: rgba(255, 250, 242, 0.96);
+  cursor: grab;
+  user-select: none;
+}
+
+.video-component__topbar.is-dragging {
+  cursor: grabbing;
+}
+
+.video-component__title {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.video-component__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.video-component__icon-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #b38a5e;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.video-component__icon-button:hover {
+  background: rgba(236, 220, 200, 0.85);
+  color: var(--ink);
+}
+
+.video-component__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #000000;
+}
+
+.video-component__video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.video-component__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a68b6d;
+  font-size: 0.88rem;
+  font-family: sans-serif;
+  background: #1a1a2e;
+}
+
 .tool-button svg {
   width: 1.15rem;
   height: 1.15rem;
