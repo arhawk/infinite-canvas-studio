@@ -69,6 +69,41 @@ export class IframeCodeBlocksComponent extends BaseComponent {
 
   getEditorTitle() { return "Code Runner"; }
 
+  renderPalettePreview(el) {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "width:86%;height:86%;display:flex;flex-direction:column;background:#fff;border-radius:0.55rem;overflow:hidden;border:1px solid rgba(61,47,32,0.1);";
+
+    const header = document.createElement("div");
+    header.style.cssText = "background:#fffdf8;padding:2px 7px;display:flex;align-items:center;gap:4px;flex-shrink:0;border-bottom:1px solid rgba(61,47,32,0.08);";
+    header.innerHTML = `<span style="width:5px;height:5px;border-radius:50%;background:#d7612f;display:inline-block;"></span><span style="font-family:sans-serif;font-size:6px;color:#6e6558;letter-spacing:.03em;">Code Runner</span>`;
+
+    const body = document.createElement("div");
+    body.style.cssText = "padding:6px 8px;flex:1;display:flex;flex-direction:column;gap:4px;justify-content:center;";
+    body.innerHTML = `
+      <div style="display:flex;gap:4px;">
+        <div style="height:3px;border-radius:2px;width:28px;background:rgba(61,47,32,0.25);"></div>
+        <div style="height:3px;border-radius:2px;width:44px;background:rgba(215,97,47,0.45);"></div>
+      </div>
+      <div style="display:flex;gap:4px;padding-left:10px;">
+        <div style="height:3px;border-radius:2px;width:18px;background:rgba(61,47,32,0.18);"></div>
+        <div style="height:3px;border-radius:2px;width:36px;background:rgba(215,97,47,0.3);"></div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <div style="height:3px;border-radius:2px;width:52px;background:rgba(61,47,32,0.2);"></div>
+      </div>
+      <div style="display:flex;gap:4px;padding-left:10px;">
+        <div style="height:3px;border-radius:2px;width:22px;background:rgba(215,97,47,0.35);"></div>
+        <div style="height:3px;border-radius:2px;width:28px;background:rgba(61,47,32,0.15);"></div>
+      </div>`;
+
+    const footer = document.createElement("div");
+    footer.style.cssText = "background:#fffdf8;flex:0 0 26%;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;border-top:1px solid rgba(61,47,32,0.08);";
+    footer.innerHTML = `<span style="width:14px;height:14px;border-radius:50%;background:#d7612f;display:inline-flex;align-items:center;justify-content:center;line-height:1;"><svg width="5" height="6" viewBox="0 0 5 6" fill="none" style="display:block;margin-left:1px;"><path d="M1 0.5l3.5 2.5L1 5.5V0.5z" fill="#fff"/></svg></span>`;
+
+    wrap.append(header, body, footer);
+    el.appendChild(wrap);
+  }
+
   editorFields() {
     return [
       new TextareaEditorField({
@@ -89,7 +124,7 @@ export class IframeCodeBlocksComponent extends BaseComponent {
     width = DEFAULT_WIDTH,
     height = DEFAULT_HEIGHT,
     code = DEFAULT_CODE,
-    title = "{ }  JS Runner",
+    title = "Code Runner",
   } = {}) {
     const app = this.app;
     const stage = app.stage;
@@ -408,7 +443,7 @@ export class IframeCodeBlocksComponent extends BaseComponent {
     const bg = node.findOne(".code-runner-bg");
     return {
       code: node.getAttr("crCode") ?? DEFAULT_CODE,
-      title: node.getAttr("crTitle") ?? "{ }  JS Runner",
+      title: node.getAttr("crTitle") ?? "Code Runner",
       width: bg?.width() ?? DEFAULT_WIDTH,
       height: bg?.height() ?? DEFAULT_HEIGHT,
     };

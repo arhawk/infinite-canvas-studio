@@ -143,14 +143,18 @@ export class SidebarPlugin extends BasePlugin {
         buildIframePreview(previewDiv);
       } else {
         const component = this.app.components.get(item.type);
-        const node = component ? await component.createNode({ x: 0, y: 0 }) : null;
-        const dataUrl = node ? generatePreviewDataUrl(node, 200, 120) : null;
-        if (dataUrl) {
-          const img = document.createElement("img");
-          img.src = dataUrl;
-          img.alt = item.label;
-          img.draggable = false;
-          previewDiv.append(img);
+        if (component?.renderPalettePreview) {
+          component.renderPalettePreview(previewDiv);
+        } else {
+          const node = component ? await component.createNode({ x: 0, y: 0 }) : null;
+          const dataUrl = node ? generatePreviewDataUrl(node, 200, 120) : null;
+          if (dataUrl) {
+            const img = document.createElement("img");
+            img.src = dataUrl;
+            img.alt = item.label;
+            img.draggable = false;
+            previewDiv.append(img);
+          }
         }
       }
 

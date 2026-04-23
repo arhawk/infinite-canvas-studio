@@ -2637,7 +2637,7 @@ body.is-edit-mode .mode-toggle__label {
 }
 
 .code-runner-overlay__editor {
-  flex: 3;
+  flex: 2;
   min-height: 0;
   position: relative;
   background: #fff;
