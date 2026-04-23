@@ -157,11 +157,12 @@ export class ComponentEditorPlugin extends BasePlugin {
           </div>
           <button
             type="button"
-            class="component-editor-modal__close ghost-button"
+            class="component-editor-modal__close"
             data-close-editor
             data-testid="component-editor-close"
+            aria-label="Close component editor"
           >
-            Close
+            ✕
           </button>
         </div>
         <form class="component-editor-modal__form" data-testid="component-editor-form">

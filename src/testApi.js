@@ -209,6 +209,28 @@ function getNodeSummary(node) {
     };
   }
 
+  if (componentType === "iframe") {
+    const overlay = node._iframeOverlayEl ?? null;
+    const urlLabel = overlay?.querySelector?.(".iframe-component__url") ?? null;
+    const modeButton = overlay?.querySelector?.(".iframe-component__mode") ?? null;
+    const closeButton = overlay?.querySelector?.(".iframe-component__close") ?? null;
+    const frame = overlay?.querySelector?.(".iframe-component__frame") ?? null;
+
+    return {
+      url: node.getAttr("iframeUrl") ?? "",
+      zoom: Number(node.getAttr("iframeZoom")) || 1,
+      panX: Number(node.getAttr("iframePanX")) || 0,
+      panY: Number(node.getAttr("iframePanY")) || 0,
+      interactive: node.getAttr("iframeInteractive") === true,
+      hasOverlay: Boolean(overlay),
+      hasTopbar: Boolean(overlay?.querySelector?.(".iframe-component__topbar")),
+      hasCloseButton: Boolean(closeButton),
+      displayedUrl: urlLabel?.textContent?.trim() ?? "",
+      modeLabel: modeButton?.textContent?.trim() ?? "",
+      frameSrc: frame?.getAttribute?.("src") ?? "",
+    };
+  }
+
   return {};
 }
 

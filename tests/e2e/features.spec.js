@@ -45,6 +45,59 @@ async function listCatalogItems(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listCatalogItems());
 }
 
+function buildIframePageUrl({
+  title = "Iframe Test Page",
+  buttonLabel = "Increment",
+  clickedText = "clicked",
+} = {}) {
+  const html = `
+    <!doctype html>
+    <html lang="en">
+      <body style="margin:0;padding:24px;font-family:system-ui;background:#f8f4ec;color:#2f2419;">
+        <main>
+          <h1 style="margin:0 0 16px;">${title}</h1>
+          <button
+            data-testid="iframe-action"
+            style="padding:10px 14px;border-radius:10px;border:1px solid #caa887;background:#fffaf3;"
+          >
+            ${buttonLabel}
+          </button>
+          <p data-testid="click-status" style="margin-top:16px;">idle</p>
+        </main>
+        <script>
+          const action = document.querySelector('[data-testid="iframe-action"]');
+          const status = document.querySelector('[data-testid="click-status"]');
+          action?.addEventListener('click', () => {
+            status.textContent = ${JSON.stringify(clickedText)};
+          });
+        </script>
+      </body>
+    </html>
+  `;
+
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+async function createNodeFromPalette(page, componentType) {
+  const existingIds = await page.evaluate(() => (
+    window.__APP_TEST_API__.listNodes().map((node) => node.id)
+  ));
+
+  await page.getByTestId(`palette-card-${componentType}`).click();
+
+  const handle = await page.waitForFunction(
+    ({ type, previousIds }) => {
+      const created = window.__APP_TEST_API__
+        .listNodes()
+        .find((node) => node.componentType === type && !previousIds.includes(node.id));
+      return created?.id ?? null;
+    },
+    { type: componentType, previousIds: existingIds },
+  );
+
+  return handle.jsonValue();
+}
+
 async function waitForPaint(page) {
   await page.evaluate(() => new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
@@ -695,6 +748,198 @@ test("opens the component editor and applies sticky text changes", async ({ page
       return node?.summary?.text ?? "";
     })
     .toBe("Updated from Playwright");
+});
+
+test("shows iframe in the palette and creates it through the component editor workflow", async ({ page }) => {
+  const firstUrl = buildIframePageUrl({ title: "Initial iframe page" });
+  const iframeCard = page.getByTestId("palette-card-iframe");
+
+  await expect(iframeCard).toBeVisible();
+  await expect(iframeCard).toContainText("Iframe");
+  await expect(iframeCard).toContainText("https://");
+
+  const iframeId = await createNodeFromPalette(page, "iframe");
+  expect(iframeId).toBeTruthy();
+
+  await expect
+    .poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null)
+    .toBe("");
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), iframeId);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await expect(page.getByTestId("component-editor-title")).toHaveText("Iframe");
+  await expect(page.getByTestId("component-editor-input-url")).toBeVisible();
+  await expect(page.getByTestId("component-editor-cancel")).toBeVisible();
+  await expect(page.getByTestId("component-editor-apply")).toBeVisible();
+
+  await page.getByTestId("component-editor-input-url").fill(firstUrl);
+  await page.getByTestId("component-editor-cancel").click();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await expect
+    .poll(async () => (await getNode(page, iframeId))?.summary ?? null)
+    .toMatchObject({
+      url: "",
+      hasOverlay: false,
+    });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), iframeId);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.getByTestId("component-editor-input-url").fill(firstUrl);
+  await page.getByTestId("component-editor-apply").click();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await expect
+    .poll(async () => (await getNode(page, iframeId))?.summary ?? null)
+    .toMatchObject({
+      url: firstUrl,
+      hasOverlay: true,
+      hasTopbar: true,
+      hasCloseButton: true,
+      frameSrc: firstUrl,
+    });
+
+  await expect(page.locator(".iframe-component__overlay")).toBeVisible();
+  await expect(page.locator(".iframe-component__topbar")).toBeVisible();
+  await expect(page.locator(".iframe-component__url")).toContainText("data:text/html");
+  await expect(page.locator(".iframe-component__close")).toBeVisible();
+});
+
+test("supports inline iframe URL editing, interaction mode, and closing the iframe", async ({ page }) => {
+  const firstUrl = buildIframePageUrl({ title: "Interactive iframe page", clickedText: "first-click" });
+  const secondUrl = buildIframePageUrl({ title: "Updated iframe page", clickedText: "updated-click" });
+  const iframe = await addComponent(page, "iframe", {
+    x: 220,
+    y: 220,
+    url: firstUrl,
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+
+  await expect(page.locator(".iframe-component__url")).toBeVisible();
+  await page.locator(".iframe-component__url").dblclick();
+
+  const inlineInput = page.locator(".iframe-component__url-input");
+  await expect(inlineInput).toBeVisible();
+  await inlineInput.fill(secondUrl);
+  await inlineInput.press("Enter");
+
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary ?? null)
+    .toMatchObject({
+      url: secondUrl,
+      frameSrc: secondUrl,
+      interactive: false,
+      modeLabel: "Interact",
+    });
+
+  await page.locator(".iframe-component__mode").click();
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary?.interactive ?? false)
+    .toBe(true);
+  await expect(page.locator(".iframe-component__mode")).toHaveText("Done");
+
+  const frame = page.frameLocator(".iframe-component__frame");
+  await frame.getByTestId("iframe-action").click();
+  await expect(frame.getByTestId("click-status")).toHaveText("updated-click");
+
+  await page.locator(".iframe-component__mode").click();
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary?.interactive ?? true)
+    .toBe(false);
+
+  await page.locator(".iframe-component__close").click();
+  await expect.poll(async () => await getNode(page, iframe.id)).toBeNull();
+  await expect(page.locator(".iframe-component__overlay")).toHaveCount(0);
+});
+
+test("keeps iframe draggable and clamps zoom back to the fit-to-view minimum after resize", async ({ page }) => {
+  const iframe = await addComponent(page, "iframe", {
+    x: 240,
+    y: 240,
+    url: buildIframePageUrl({ title: "Zoom and drag iframe page" }),
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+
+  const original = await getNode(page, iframe.id);
+  await page.evaluate(
+    ({ id, size }) => window.__APP_TEST_API__.resizeNodeBox(id, size),
+    {
+      id: iframe.id,
+      size: { width: 560, height: 360 },
+    },
+  );
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => {
+      const node = await getNode(page, iframe.id);
+      return {
+        width: node?.bounds?.width ?? 0,
+        height: node?.bounds?.height ?? 0,
+      };
+    })
+    .toMatchObject({
+      width: expect.any(Number),
+      height: expect.any(Number),
+    });
+
+  const resized = await getNode(page, iframe.id);
+  expect(resized.bounds.width).toBeGreaterThan(original.bounds.width);
+  expect(resized.bounds.height).toBeGreaterThan(original.bounds.height);
+
+  const shieldBox = await page.locator(".iframe-component__shield").boundingBox();
+  const dragStart = {
+    x: shieldBox.x + shieldBox.width / 2,
+    y: shieldBox.y + shieldBox.height / 2,
+  };
+  const dragEnd = {
+    x: dragStart.x + 110,
+    y: dragStart.y + 70,
+  };
+
+  const centerBeforeDrag = await getNodePageCenter(page, iframe.id);
+  await dragBetweenPagePoints(page, dragStart, dragEnd);
+  const centerAfterDrag = await getNodePageCenter(page, iframe.id);
+
+  expect(centerAfterDrag.x).toBeGreaterThan(centerBeforeDrag.x + 50);
+  expect(centerAfterDrag.y).toBeGreaterThan(centerBeforeDrag.y + 30);
+
+  const zoomPointer = {
+    x: shieldBox.x + shieldBox.width * 0.82,
+    y: shieldBox.y + shieldBox.height * 0.68,
+  };
+  await page.mouse.move(zoomPointer.x, zoomPointer.y);
+  for (let index = 0; index < 6; index += 1) {
+    await page.mouse.wheel(0, -120);
+  }
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary?.zoom ?? 1)
+    .toBeGreaterThan(1);
+
+  const zoomed = await getNode(page, iframe.id);
+  expect(Math.abs(zoomed.summary.panX) + Math.abs(zoomed.summary.panY)).toBeGreaterThan(0);
+
+  for (let index = 0; index < 20; index += 1) {
+    await page.mouse.wheel(0, 120);
+  }
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary ?? null)
+    .toMatchObject({
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      interactive: false,
+    });
 });
 
 test("embeds attachments inside the component editor for pages in edit mode", async ({ page }) => {

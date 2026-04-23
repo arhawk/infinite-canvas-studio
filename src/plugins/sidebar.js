@@ -4,6 +4,15 @@ import { Konva } from "../lib/konva.js";
 
 const IMAGE_PLACEHOLDER_ICON = "image";
 
+function buildIframePreview(previewDiv) {
+  previewDiv.classList.add("component-preview--iframe");
+
+  const tag = document.createElement("span");
+  tag.className = "component-preview__iframe-tag";
+  tag.textContent = "https://";
+  previewDiv.append(tag);
+}
+
 function generatePreviewDataUrl(node, width, height) {
   const container = document.createElement("div");
   container.style.cssText = "position:absolute;left:-9999px;top:-9999px;";
@@ -130,6 +139,8 @@ export class SidebarPlugin extends BasePlugin {
         const icon = document.createElement("i");
         icon.dataset.lucide = IMAGE_PLACEHOLDER_ICON;
         previewDiv.append(icon);
+      } else if (item.type === "iframe") {
+        buildIframePreview(previewDiv);
       } else {
         const component = this.app.components.get(item.type);
         const node = component ? await component.createNode({ x: 0, y: 0 }) : null;

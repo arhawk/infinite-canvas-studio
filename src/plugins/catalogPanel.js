@@ -133,6 +133,7 @@ function getNodeDisplayTitle(node, fallback = "Untitled") {
   }
 
   if (componentType === "image") return "Image";
+  if (componentType === "iframe") return "Iframe";
   return componentType || fallback;
 }
 

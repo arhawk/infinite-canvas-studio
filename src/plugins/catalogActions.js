@@ -62,6 +62,7 @@ function getNodeDisplayTitle(node) {
     return node.findOne(".button-label")?.text()?.trim() || "Button";
   }
   if (componentType === "image") return "Image";
+  if (componentType === "iframe") return "Iframe";
   if (componentType === "catalog") return "Catalog";
 
   return componentType || "Untitled";
