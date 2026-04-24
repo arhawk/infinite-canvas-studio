@@ -13,13 +13,15 @@ The app includes:
 
 - Infinite canvas pan and zoom
 - Drag-and-drop component palette
-- Editable text and sticky notes
-- Single-select and transform
-- Freehand brush drawing and whole-stroke erasing
+- Canvas-native nodes plus DOM-overlay components such as `iframe`, `video`, and `javascriptEditor`
+- Editable text, sticky notes, buttons, ranking boxes, and hidden catalog data nodes
+- Single-select, multi-select, marquee selection, copy/paste, and clipboard image paste
+- Pen, pencil, highlighter, text annotation, and whole-stroke erasing
 - Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
-- Local JSON save/load with icon-only toolbar controls, keyboard shortcuts, and viewport restoration
+- Local JSON save/load plus single-file HTML export with embedded snapshots
 - Container system with parent-child grouping and arbitrary component-to-component connections
-- Per-component saved focus views for presentation jumps
+- Catalog outline, branch collapse, minimap, page compare, attachments, timer, and calculator helpers
+- Per-page and per-node focus attributes used by presentation jumps
 - Persistent mode toggle (Edit/View) with animated UI transitions
 - Icon-based tool interface using Lucide Icons
 - Class-based extension points for secondary development
@@ -103,7 +105,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 - [src/core/app.js](src/core/app.js): `App` class with lifecycle, stage wiring, registries, plugin mounting, and public API
 - [src/core/baseClasses.js](src/core/baseClasses.js): Core extension base classes: `BasePlugin`, `BaseTool`, `BaseCommand`, `BaseContextMenuItem`, `BaseComponent`
-- [src/core/modeManager.js](src/core/modeManager.js): Central mode state machine for `presentation`, `edit.arrange`, and `edit.brush`
+- [src/core/modeManager.js](src/core/modeManager.js): Central mode state machine for primary app mode (`presentation` / `edit`) plus editor-tool-scoped feature gating
 - [src/core/eventBus.js](src/core/eventBus.js): `EventBus` class for decoupled app events
 - [src/core/commandRegistry.js](src/core/commandRegistry.js): `CommandRegistry` for class-based commands
 - [src/core/toolRegistry.js](src/core/toolRegistry.js): `ToolRegistry` for class-based tools
@@ -118,24 +120,36 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 ### Plugins (`src/plugins/`)
 
-- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, icon-only undo/redo controls, persistent mode toggle, and contextual per-tool control groups for connection, focus, and brush settings
-- [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and image upload using Lucide placeholders
-- [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, single-node transformer, snap guides, delete command, and mode-based interactivity management
-- [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with brush and eraser tools
+- [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, mode toggle, history/document controls, drawing controls, center-map controls, and floating utility toggles
+- [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and generated Konva previews
+- [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, multi-select, marquee select, copy/paste, image paste, snap guides, and mode-based interactivity management
+- [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with pen, pencil, highlighter, eraser, draw-layer visibility, and whole-stroke clear support
+- [src/plugins/annotator.js](src/plugins/annotator.js): Text annotation plugin for underline-style marking and erasing annotations on `text` and `sticky` content
 - [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
 - [src/plugins/document.js](src/plugins/document.js): Local document plugin with JSON export/import commands, file input handling, status toasts, and restore transactions that reset the history baseline
 - [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
-- [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js): Focus and presentation navigation plugin with per-component saved camera views, per-component absolute/relative focus mode state, bidirectional edge jump buttons, toolbar/context-menu `Save Focus`, and presentation double-click navigation
+- [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js): Focus and presentation navigation plugin with page defaults, relative focus snapshots, button target jumps, connection edge jump buttons, and presentation double-click navigation
+- [src/plugins/catalogActions.js](src/plugins/catalogActions.js): Command plugin for adding selected nodes into the catalog data node
+- [src/plugins/catalogPanel.js](src/plugins/catalogPanel.js): Right-side outline panel for rendering, renaming, reordering, and reparenting catalog items
+- [src/plugins/mindMapBranch.js](src/plugins/mindMapBranch.js): Catalog-driven branch visibility plugin that hides descendant nodes under collapsed outline branches
+- [src/plugins/attachments.js](src/plugins/attachments.js): Attachment browser for attachment-capable components, including URLs, uploads, and File System Access directory handles
+- [src/plugins/pageCompare.js](src/plugins/pageCompare.js): Presentation-only page compare overlay with side-by-side snapshots
+- [src/plugins/minimap.js](src/plugins/minimap.js): Bottom-right minimap with viewport rectangle and selection laser marker
+- [src/plugins/centerMap.js](src/plugins/centerMap.js): Fit-all panorama toggle and zoom controls
+- [src/plugins/timer.js](src/plugins/timer.js): Floating timer/stopwatch widget
+- [src/plugins/binaryCalculator.js](src/plugins/binaryCalculator.js): Floating binary calculator widget
 - [src/plugins/contextMenu.js](src/plugins/contextMenu.js): Canvas context menu plugin rendering Konva-based menus
 
 ### Tests (`tests/`)
 
 - [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
-- [tests/unit/document/](tests/unit/document/): Vitest coverage for document schema normalization and validation
+- [tests/unit/document/](tests/unit/document/): Vitest coverage for document schema normalization, catalog serialization, and related helpers
+- [tests/unit/component/](tests/unit/component/): Unit coverage for complex overlay-driven components such as `iframe` and `javascriptEditor`
+- [tests/unit/mindMapBranch/](tests/unit/mindMapBranch/): Unit coverage for catalog-driven branch visibility
 - [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, brush drawing undo/redo, and whole-stroke erase undo/redo
-- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connection creation/update, toolbar `Save Focus`, presentation navigation buttons, component editor editing, document roundtrip load, and undo/redo of node movement
+- [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connections, button navigation, focus API, component editor editing, document roundtrip load, and undo/redo of node movement
 
 ## Testing
 
@@ -163,10 +177,16 @@ Testability conventions:
 - [src/component/editableText.js](src/component/editableText.js): `EditableTextBehavior` for inline text editing
 - [src/component/text.js](src/component/text.js): `TextComponent`
 - [src/component/sticky.js](src/component/sticky.js): `StickyComponent`
+- [src/component/button.js](src/component/button.js): `ButtonComponent`
 - [src/component/image.js](src/component/image.js): `ImageComponent`
+- [src/component/iframe.js](src/component/iframe.js): `IframeComponent`
+- [src/component/video.js](src/component/video.js): `VideoComponent`
 - [src/component/page.js](src/component/page.js): `PageComponent`
+- [src/component/rankingBox.js](src/component/rankingBox.js): `RankingBoxComponent`
+- [src/component/javascriptEditor.js](src/component/javascriptEditor.js): `JavaScriptEditorComponent`
+- [src/component/catalog.js](src/component/catalog.js): hidden `CatalogComponent` data node
 - [src/component/connection.js](src/component/connection.js): `ConnectionComponent`
-- [src/component/container.js](src/component/container.js): `ContainerComponent` for grouping nodes
+- [src/component/container.js](src/component/container.js): legacy `ContainerComponent` for grouping nodes and attachments
 
 ## Architecture
 
@@ -228,12 +248,19 @@ This separation is deliberate:
 
 ### Mode System
 
-The entire app is organized around these interaction states:
+The app has two primary modes and a tool-specific editor state:
 
 - `presentation`
-- `edit.arrange`
-- `edit.brush`
-- `edit.eraser`
+- `edit`
+
+While in `edit`, the active editor tool is one of:
+
+- `arrange`
+- `pen`
+- `pencil`
+- `highlighter`
+- `annotate`
+- `eraser`
 
 Modes are managed by `ModeManager`. Each plugin, command, tool, or menu item can declare static `modes` and automatically opt into lifecycle callbacks:
 
@@ -331,6 +358,8 @@ The app is split into three main regions:
 - Left sidebar: draggable component palette
 - Top toolbar: tools plus contextual helper controls for the active tool
 - Main board: Konva infinite canvas
+- Right sidebar: catalog / outline panel
+- Floating helpers: minimap, calculator, timer, compare overlays, and attachment/editor modals
 
 ## Implemented Features
 
@@ -377,18 +406,23 @@ Implemented in [src/plugins/sidebar.js](src/plugins/sidebar.js).
 Available component types:
 
 - Page
+- Button
 - Text
 - Sticky Note
 - Image
-- Container
+- Iframe
+- Ranking Box
+- JS Code Runner
+- Local Video
 
 Behavior:
 
 - Non-image components are draggable from the sidebar onto the canvas
 - `Page` appears first in the palette and creates a fixed-size landscape page surface
 - Image icon in the sidebar is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
+- `Iframe`, `JS Code Runner`, and `Local Video` use DOM overlays at runtime, but still participate in the same component registration and serialization flow as canvas-native nodes.
 - Drop coordinates are converted from screen space to canvas space.
-- Internal-only components such as `connection` are hidden from the palette via component metadata and are created programmatically by plugins.
+- Internal-only components such as `catalog`, `connection`, and legacy `container` are hidden from the palette via component metadata and are created programmatically or kept for compatibility.
 
 ### 4. Component System
 
@@ -404,9 +438,15 @@ Structure:
 Current component classes:
 
 - `page`
+- `button`
 - `text`
 - `sticky`
 - `image`
+- `iframe`
+- `video`
+- `rankingBox`
+- `javascriptEditor`
+- `catalog`
 - `container`
 - `connection`
 
@@ -431,37 +471,45 @@ Implemented in [src/plugins/selection.js](src/plugins/selection.js).
 Supported interactions:
 
 - Click to select a single node
+- Cmd/Ctrl-click to build a multi-selection
+- Shift-drag on empty canvas to marquee-select nodes
 - Drag a selected node to move it
 - Drag on empty canvas to pan the viewport in `edit.arrange`
 - Drag and transform show Konva alignment guides and snap to nearby edges or centers
-- Fixed-size components such as `page` remain draggable and selectable but do not expose resize or rotation controls
+- Copy/paste duplicates selected node trees and reconnects copied internal connections
+- Native clipboard image paste creates new image components near the viewport center
 - `Delete` or `Backspace` removes selected nodes (via `selection:delete` command)
 
 Transformer rules:
 
-- Rotation is enabled
-- Scaling is ratio-locked
-- Only corner anchors are enabled
-- Side anchors are disabled
+- Single-node transforms allow rotation unless the node is transform-locked
+- `text`, `sticky`, `button`, `page`, `iframe`, `javascriptEditor`, and `rankingBox` opt into free-resize handles
+- Other transformable nodes stay corner-only and ratio-locked
+- Multi-selection acts as grouped selection state and does not expose resize / rotate handles
 - Flip is disabled
 
-This means the selected transformable node can only be scaled proportionally.
+### 6. Drawing And Annotation
 
-### 6. Freehand Drawing
-
-Implemented in [src/plugins/drawing.js](src/plugins/drawing.js).
+Implemented in [src/plugins/drawing.js](src/plugins/drawing.js) and [src/plugins/annotator.js](src/plugins/annotator.js).
 
 Supported tools:
 
-- `brush`
+- `pen`
+- `pencil`
+- `highlighter`
+- `annotate`
 - `eraser`
 
 Behavior:
 
-- Brush creates Konva lines with rounded caps and joins
+- Pen, pencil, and highlighter create Konva lines with tool-specific width and opacity presets
+- Pencil applies a small jitter for a rougher hand-drawn look
 - Eraser deletes a whole Konva line as soon as the pointer hits that stroke
+- Annotate marks text ranges on `text` and `sticky` components using underline-style overlays backed by serialized annotation data
+- Eraser also removes text annotations while the annotate/eraser feature branch is active
 - Drawing happens only on empty stage area
 - Drawing coordinates respect current pan and zoom
+- Presentation mode can hide or show the entire draw layer without deleting it
 
 ### 7. Local History (Undo / Redo)
 
@@ -475,7 +523,7 @@ Behavior:
 - Undo / redo now also shows a small toast describing the action that was undone or redone.
 - The plugin batches related mutations that happen in the same event loop into a single history entry.
 - History replay restores component nodes by calling per-component serialization / restoration hooks on `BaseComponent`.
-- History currently tracks component add, delete, move, transform, editor changes, focus save, focus mode toggle, connection control-point updates, container reparenting, completed brush strokes, and erased strokes.
+- History currently tracks component add, delete, move, transform, editor changes, attachment updates, annotation updates, focus attribute updates, connection control-point updates, container reparenting, completed brush strokes, and erased strokes.
 - Starter seed nodes are created first and then treated as the initial baseline by calling `history.resetHistory()`.
 
 Implementation notes:
@@ -495,10 +543,10 @@ Behavior:
 - Documents can be exported as JSON from the toolbar or with `Mod+S`.
 - Documents can be imported from JSON from the toolbar or with `Mod+O`.
 - Import asks for confirmation before replacing the current board when the board already contains content.
-- The saved document includes component snapshots, parent-child container structure, connections, saved focus data, completed brush strokes, and current stage position / scale.
+- The saved document includes component snapshots, parent-child container structure, catalog data, annotations, connections, saved focus attributes, completed brush strokes, attachment metadata, and current stage position / scale.
 - Import runs through a dedicated restore transaction so plugins can suspend side effects such as history capture, auto-selection, container recapture, and stale editor UI.
 - After a document is loaded, `history.resetHistory()` is called so the loaded state becomes the new undo / redo baseline.
-- Image components serialize their inline data URL source, so exported documents remain self-contained.
+- Image and video components serialize inline data URL sources, so exported documents remain self-contained.
 
 Implementation notes:
 
@@ -539,10 +587,15 @@ Controls:
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
 - Icon-only undo / redo buttons rendered with Lucide icons
 - Icon-only save / load document buttons rendered with Lucide icons
-- In `edit.arrange`, a helper control group appears only when a focusable node is selected
-- That arrange group contains `Connect to...`, `Save Focus`, and the `Focus: Absolute / Relative` toggle for the selected component
-- In `edit.brush`, a brush control group appears with the color picker and stroke width slider
-- In `edit.eraser`, no extra controls are shown; dragging over a stroke deletes the whole stroke
+- Center-map and zoom controls are always available in the main toolbar row
+- Calculator and timer widgets are toggled from toolbar buttons
+- In `edit` + `arrange`, the helper control group currently exposes `Connect to...` and `Delete` for the selected node
+- In drawing tools, a floating brush panel provides tool switching, color, width, recent colors, and eraser radius / clear controls
+- In `presentation`, a drawing visibility toggle can hide or show the draw layer
+
+Note:
+
+- The `save-focus` and `focus-position-mode` DOM controls still exist in `index.html`, but the current `ToolbarPlugin` keeps them hidden.
 
 ### 10. Context Menu
 
@@ -553,7 +606,7 @@ Behavior:
 - Right-click a selectable component to see available actions
 - Menu items are dynamically gathered from `app.contextMenu.getItems(target)`
 - The menu is rendered as a Konva overlay on the UI layer
-- In `edit.arrange`, non-connection components expose both connection actions and the `Save Focus` action supplied by feature plugins
+- In `edit.arrange`, menu items currently come from feature plugins such as connection actions and component editing
 
 ### 11. Containers and Connections
 
@@ -574,13 +627,10 @@ Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) 
 
 Saved focus behavior:
 
-- In `edit.arrange`, you can save focus either from the top toolbar or by right-clicking any non-connection component and choosing **Save Focus**.
-- Every focusable component owns a `focusPositionMode` state. Regular components default to `absolute` as soon as they are created, even before any focus view is saved.
-- `Page` components are created with a fixed landscape size, a default `focusPositionMode` of `relative`, and a built-in saved focus centered on the page.
-- The toolbar `Focus: Absolute / Relative` toggle always reflects the currently selected component's mode and updates that component directly.
-- `Save Focus` stores the current camera center and zoom on the node in a `savedFocus` attribute. Absolute focus is saved as `{ positionMode: "absolute", center: { x, y }, scale }`.
-- Relative focus stores the same framing relative to the component's current anchor, shaped like `{ positionMode: "relative", offset: { x, y }, scale }`, so moving the component also moves the destination framing.
-- Saving focus emits `node:changed`, shows a small success toast, and keeps dependent presentation affordances in sync without a dedicated persistence subsystem.
+- `Page` components are created with a relative focus baseline and a built-in default view sized to the page bounds.
+- `saveFocus()` still stores a relative `savedFocus` snapshot on the node and emits `node:changed`.
+- The current plugin normalizes focus behavior to relative node-based views; the old absolute/relative toolbar toggle is not exposed in the current UI.
+- Presentation jumps mostly derive their destination from the live node bounds rather than relying exclusively on the stored `savedFocus` payload.
 
 Presentation navigation rules:
 
@@ -595,6 +645,7 @@ Presentation navigation rules:
 - When eligible, the plugin samples the rendered Bezier curve, finds where that directional curve exits the viewport, and places a floating edge button slightly inside the boundary.
 - Clicking the button restores both the saved camera center and the saved zoom through `stageApi.centerOn(..., { scale })`.
 - Because the check is directional, a single connection can surface one button, two buttons, or none depending on the current viewport and which endpoints have saved focus views.
+- Button components are special-cased: if a button owns a hidden outgoing connection, presentation clicks and double-clicks jump to the button's target node instead of the button itself.
 
 ## Application Bootstrap
 
@@ -649,7 +700,10 @@ Responsive behavior:
 - Unknown component types and future schema changes do not yet have a robust compatibility / migration strategy
 - Undo / redo depends on the mutation event contract; new features that skip `node:change:start` / `node:changed` will not be tracked
 - Images are embedded as inline data URLs inside exported JSON, which keeps documents portable but can make files large
+- Video nodes also embed inline data URLs, which can make exported documents even larger
 - Text editor placement is basic and not fully transformed-aware under all zoom/rotation cases
+- `Iframe`, `Video`, and `JavaScript Editor` rely on DOM overlays, so future edits must keep overlay lifecycle, transform sync, and restore cleanup in sync
+- Focus save exists internally and through the test API, but the arrange-toolbar focus controls are currently hidden by `ToolbarPlugin`
 - Right-click anchor naming uses `window.prompt`
 - Alignment guide snapping currently focuses on nearby bounds and viewport center lines, not full smart-layout constraints
 - Konva and Lucide are imported from package dependencies through shared module wrappers in `src/lib/`
@@ -930,9 +984,7 @@ Mode declarations are static metadata on plugins, commands, and menu items.
 Available states:
 
 - `presentation`
-- `edit.arrange`
-- `edit.brush`
-- `edit.eraser`
+- `edit` with tool branches such as `arrange`, `pen`, `pencil`, `highlighter`, `annotate`, and `eraser`
 
 Example:
 
@@ -944,7 +996,7 @@ static modes = {
       arrange: {
         config: { snap: true },
       },
-      brush: {
+      pen: {
         config: { snap: false },
       },
       eraser: {
@@ -971,8 +1023,9 @@ Use the stage controller directly:
 this.app.stageApi.screenToCanvas(point)
 this.app.stageApi.canvasToScreen(point)
 this.app.stageApi.centerOn(point, { duration, scale })
-this.app.stageApi.fitNodes(nodes)
-this.app.stageApi.resetZoom()
+this.app.stageApi.setViewport({ scale, position })
+this.app.stageApi.setScale(scale, pointer)
+this.app.stageApi.getScale()
 this.app.stageApi.getViewportBounds()
 this.app.stageApi.getScreenSize()
 ```
