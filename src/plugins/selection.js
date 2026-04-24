@@ -6,6 +6,8 @@ const MARQUEE_THRESHOLD = 4;
 const CLIPBOARD_KIND = "mind-map-selection";
 const CLIPBOARD_VERSION = 1;
 const PASTE_OFFSET = 32;
+const IMAGE_PASTE_WIDTH = 220;
+const IMAGE_PASTE_HEIGHT = 150;
 
 class ArrangeTool extends BaseTool {
   static toolId = "arrange";
@@ -65,6 +67,15 @@ function clonePlainData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function readBlobAsDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read clipboard image."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function isRankingItemInteractionTarget(target) {
   return Boolean(
     target?.findAncestor?.(".ranking-item-card", true) ||
@@ -107,6 +118,32 @@ function hasSelectedAncestor(node, selectedSet) {
     parent = parent.getParent?.();
   }
   return false;
+}
+
+function getEditablePasteElement(target) {
+  if (target instanceof Element) return target;
+  if (target?.parentElement instanceof Element) return target.parentElement;
+  return null;
+}
+
+function isEditablePasteTarget(target) {
+  const element = getEditablePasteElement(target);
+  if (!element) return false;
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) return true;
+  if (element instanceof HTMLSelectElement) return true;
+  if (element.closest("input, textarea, select")) return true;
+  return element.isContentEditable || Boolean(element.closest("[contenteditable=''], [contenteditable='true'], [contenteditable='plaintext-only']"));
+}
+
+function getImageFileFromClipboardData(clipboardData) {
+  const item = Array.from(clipboardData?.items ?? []).find((entry) => (
+    entry.kind === "file" && typeof entry.type === "string" && entry.type.startsWith("image/")
+  ));
+  const file = item?.getAsFile?.() ?? null;
+  if (file instanceof File || file instanceof Blob) return file;
+  return Array.from(clipboardData?.files ?? []).find((entry) => (
+    entry instanceof File && entry.type.startsWith("image/")
+  )) ?? null;
 }
 
 export class SelectionPlugin extends BasePlugin {
@@ -237,6 +274,9 @@ export class SelectionPlugin extends BasePlugin {
     });
 
     this.listen("interaction:change", () => this.syncMode());
+    this.listenDom(window, "paste", (event) => {
+      void this.handleNativePaste(event);
+    });
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
     stage.on("mousedown.selection touchstart.selection", (event) => this.handlePointerDown(event));
@@ -456,6 +496,23 @@ export class SelectionPlugin extends BasePlugin {
       visit(node, selectedSet.has(node.getParent?.()) ? this.getSelectableParentId(node) : null);
     });
 
+    this.layer.find(".selectable")
+      .filter((node) => node.getAttr("componentType") === "connection")
+      .forEach((node) => {
+        if (copiedIds.has(node.id())) return;
+
+        const sourceId = node.getAttr("sourceNodeId");
+        const targetId = node.getAttr("targetNodeId");
+        if (!copiedIds.has(sourceId) || !copiedIds.has(targetId)) {
+          return;
+        }
+
+        const snapshot = this.snapshotNode(node, this.getSelectableParentId(node));
+        if (!snapshot) return;
+        snapshots.push(snapshot);
+        copiedIds.add(snapshot.id);
+      });
+
     const filteredSnapshots = snapshots.filter((snapshot) => {
       if (!isConnectionSnapshot(snapshot)) return true;
       const sourceId = snapshot.data?.sourceNodeId;
@@ -521,15 +578,18 @@ export class SelectionPlugin extends BasePlugin {
         const next = clonePlainData(snapshot);
         next.id = idMap.get(snapshot.id) ?? undefined;
         next.parentId = sourceIds.has(snapshot.parentId) ? idMap.get(snapshot.parentId) : null;
-        next.x = (Number.isFinite(snapshot.x) ? snapshot.x : 0) + PASTE_OFFSET;
-        next.y = (Number.isFinite(snapshot.y) ? snapshot.y : 0) + PASTE_OFFSET;
 
         if (isConnectionSnapshot(next)) {
+          next.x = Number.isFinite(snapshot.x) ? snapshot.x : 0;
+          next.y = Number.isFinite(snapshot.y) ? snapshot.y : 0;
           next.data = {
             ...(next.data ?? {}),
             sourceNodeId: idMap.get(snapshot.data?.sourceNodeId),
             targetNodeId: idMap.get(snapshot.data?.targetNodeId),
           };
+        } else {
+          next.x = (Number.isFinite(snapshot.x) ? snapshot.x : 0) + PASTE_OFFSET;
+          next.y = (Number.isFinite(snapshot.y) ? snapshot.y : 0) + PASTE_OFFSET;
         }
 
         return next;
@@ -580,6 +640,10 @@ export class SelectionPlugin extends BasePlugin {
 
   async pasteSelectionFromClipboard() {
     if (!this.isEnabled()) return false;
+    if (await this.pasteImageFromNavigatorClipboard()) {
+      return true;
+    }
+
     let text = this.internalClipboardText;
     if (navigator.clipboard?.readText) {
       try {
@@ -591,6 +655,60 @@ export class SelectionPlugin extends BasePlugin {
     const snapshots = this.normalizeClipboardPayload(text || this.internalClipboardText || "");
     const pastedNodes = await this.pasteSnapshots(snapshots);
     return pastedNodes.length > 0;
+  }
+
+  getViewportPastePosition() {
+    const viewport = this.app.stageApi.getViewportBounds();
+    return {
+      x: viewport.x + viewport.width / 2 - IMAGE_PASTE_WIDTH / 2,
+      y: viewport.y + viewport.height / 2 - IMAGE_PASTE_HEIGHT / 2,
+    };
+  }
+
+  async createImageFromSource(src) {
+    if (typeof src !== "string" || !src) return null;
+    const position = this.getViewportPastePosition();
+    return this.app.addComponent("image", {
+      ...position,
+      src,
+    });
+  }
+
+  async pasteImageBlob(blob) {
+    if (!(blob instanceof Blob)) return null;
+    const src = await readBlobAsDataUrl(blob);
+    return this.createImageFromSource(src);
+  }
+
+  async pasteImageFromNavigatorClipboard() {
+    if (!navigator.clipboard?.read) return false;
+
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find((type) => type.startsWith("image/"));
+        if (!imageType) continue;
+
+        const blob = await item.getType(imageType);
+        const node = await this.pasteImageBlob(blob);
+        if (node) return true;
+      }
+    } catch {
+      return false;
+    }
+
+    return false;
+  }
+
+  async handleNativePaste(event) {
+    if (!this.isEnabled()) return;
+    if (isEditablePasteTarget(event.target)) return;
+
+    const imageFile = getImageFileFromClipboardData(event.clipboardData);
+    if (!imageFile) return;
+
+    event.preventDefault();
+    await this.pasteImageBlob(imageFile);
   }
 
   async restoreNodeSnapshot(snapshot = {}) {

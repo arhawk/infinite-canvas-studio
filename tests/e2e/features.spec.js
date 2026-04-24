@@ -156,6 +156,52 @@ async function drawStroke(page, { xRatio = 0.45, yRatio = 0.45, dx = 80, dy = 36
   await waitForPaint(page);
 }
 
+async function dispatchClipboardImagePaste(page, {
+  targetSelector = null,
+  label = "Pasted image",
+} = {}) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="96" viewBox="0 0 160 96">
+      <rect width="160" height="96" rx="14" fill="#f4efe7" />
+      <rect x="10" y="10" width="140" height="76" rx="12" fill="#d7612f" opacity="0.2" />
+      <text
+        x="80"
+        y="54"
+        text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="16"
+        fill="#4b341f"
+      >${label}</text>
+    </svg>
+  `;
+
+  await page.evaluate(({ selector, markup }) => {
+    const file = new File([markup], "pasted-image.svg", {
+      type: "image/svg+xml",
+    });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    const event = new Event("paste", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    Object.defineProperty(event, "clipboardData", {
+      value: dataTransfer,
+    });
+
+    const target = selector
+      ? document.querySelector(selector)
+      : window;
+    target?.dispatchEvent(event);
+  }, {
+    selector: targetSelector,
+    markup: svg,
+  });
+  await waitForPaint(page);
+}
+
 async function listRecentColors(page) {
   return page.getByTestId("recent-colors").locator(".recent-color-swatch").evaluateAll(
     (items) => items.map((item) => item.dataset.color),
@@ -221,6 +267,61 @@ test("undoes and redoes an outline add action", async ({ page }) => {
     .toEqual(["Sticky note"]);
 });
 
+test("pastes a clipboard image directly into the canvas", async ({ page }) => {
+  const existingIds = await page.evaluate(() => (
+    window.__APP_TEST_API__.listNodes().map((node) => node.id)
+  ));
+  const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+
+  await dispatchClipboardImagePaste(page, {
+    label: "Canvas paste",
+  });
+
+  const handle = await page.waitForFunction((previousIds) => {
+    const created = window.__APP_TEST_API__
+      .listNodes()
+      .find((node) => node.componentType === "image" && !previousIds.includes(node.id));
+    return created?.id ?? null;
+  }, existingIds);
+
+  const imageId = await handle.jsonValue();
+  const image = await getNode(page, imageId);
+
+  expect(image?.componentType).toBe("image");
+  expect(image?.summary?.hasImageNode).toBe(true);
+  expect(image?.summary?.hasPlaceholder).toBe(false);
+  expect(Math.abs((image?.bounds?.x ?? 0) + (image?.bounds?.width ?? 0) / 2 - viewport.center.x))
+    .toBeLessThan(24);
+  expect(Math.abs((image?.bounds?.y ?? 0) + (image?.bounds?.height ?? 0) / 2 - viewport.center.y))
+    .toBeLessThan(24);
+});
+
+test("does not create an image component when image paste targets an input", async ({ page }) => {
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 120,
+    y: 220,
+    title: "Paste Guard",
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), editor.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+
+  const beforeImageCount = await page.evaluate(() => (
+    window.__APP_TEST_API__.listNodes().filter((node) => node.componentType === "image").length
+  ));
+
+  await dispatchClipboardImagePaste(page, {
+    targetSelector: '[data-testid="component-editor-input-title"]',
+    label: "Ignored paste",
+  });
+
+  await expect
+    .poll(async () => page.evaluate(() => (
+      window.__APP_TEST_API__.listNodes().filter((node) => node.componentType === "image").length
+    )))
+    .toBe(beforeImageCount);
+});
+
 test("creates a connection from the toolbar and updates it when a node moves", async ({ page }) => {
   const source = await addComponent(page, "sticky", { x: 180, y: 180 });
   const target = await addComponent(page, "sticky", { x: 560, y: 220 });
@@ -261,6 +362,62 @@ test("creates a connection from the toolbar and updates it when a node moves", a
       return JSON.stringify(current?.summary?.points ?? []);
     })
     .not.toBe(JSON.stringify(originalPoints));
+});
+
+test("copies connections along with their selected endpoints", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 520, y: 220 });
+
+  const sourceCenter = await getNodePageCenter(page, source.id);
+  await page.mouse.click(sourceCenter.x, sourceCenter.y);
+  await page.getByTestId("connect-selection").click();
+
+  const targetCenter = await getNodePageCenter(page, target.id);
+  await page.mouse.click(targetCenter.x, targetCenter.y);
+
+  await expect
+    .poll(async () => page.evaluate(({ sourceId, targetId }) => (
+      window.__APP_TEST_API__.listNodes().find((node) => (
+        node.componentType === "connection" &&
+        node.summary.sourceNodeId === sourceId &&
+        node.summary.targetNodeId === targetId
+      )) ?? null
+    ), { sourceId: source.id, targetId: target.id }))
+    .not.toBeNull();
+
+  const originalConnection = await page.evaluate(({ sourceId, targetId }) => (
+    window.__APP_TEST_API__.listNodes().find((node) => (
+      node.componentType === "connection" &&
+      node.summary.sourceNodeId === sourceId &&
+      node.summary.targetNodeId === targetId
+    )) ?? null
+  ), { sourceId: source.id, targetId: target.id });
+
+  await page.evaluate(({ sourceId, targetId }) => {
+    window.__APP_TEST_API__.selectNodes([sourceId, targetId]);
+  }, { sourceId: source.id, targetId: target.id });
+
+  const payload = await page.evaluate(() => window.__APP_TEST_API__.createClipboardPayload());
+  expect(payload?.nodes?.filter((snapshot) => snapshot.type === "connection")).toHaveLength(1);
+
+  const pasted = await page.evaluate((clipboardPayload) => (
+    window.__APP_TEST_API__.pasteClipboardPayload(clipboardPayload)
+  ), payload);
+
+  expect(pasted).toHaveLength(3);
+  expect(pasted.filter((node) => node.componentType === "connection")).toHaveLength(1);
+
+  const pastedConnection = pasted.find((node) => node.componentType === "connection");
+  const pastedNodes = pasted.filter((node) => node.componentType !== "connection");
+  const pastedIds = new Set(pastedNodes.map((node) => node.id));
+  expect(pastedConnection.summary.sourceNodeId).not.toBe(source.id);
+  expect(pastedConnection.summary.targetNodeId).not.toBe(target.id);
+  expect(pastedIds.has(pastedConnection.summary.sourceNodeId)).toBe(true);
+  expect(pastedIds.has(pastedConnection.summary.targetNodeId)).toBe(true);
+  expect(pastedConnection.bounds.x - originalConnection.bounds.x).toBeGreaterThan(20);
+  expect(pastedConnection.bounds.x - originalConnection.bounds.x).toBeLessThan(48);
+  expect(pastedConnection.bounds.y - originalConnection.bounds.y).toBeGreaterThan(20);
+  expect(pastedConnection.bounds.y - originalConnection.bounds.y).toBeLessThan(48);
 });
 
 test("connects another component to the JavaScript editor preview", async ({ page }) => {

@@ -543,6 +543,12 @@ export class ConnectionsPlugin extends BasePlugin {
     const line = connectionNode.findOne(".connection-line");
     if (!line) return false;
 
+    // Connection groups render their curve in stage coordinates, so any
+    // residual group position becomes an extra visual offset.
+    if (connectionNode.x() !== 0 || connectionNode.y() !== 0) {
+      connectionNode.position({ x: 0, y: 0 });
+    }
+
     line.points([
       geometry.start.x,
       geometry.start.y,
