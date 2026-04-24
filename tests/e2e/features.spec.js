@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const MARQUEE_MODIFIER_KEY = "Shift";
+
 async function waitForTestApi(page) {
   await page.waitForFunction(() => Boolean(window.__APP_TEST_API__));
 }
@@ -129,6 +131,15 @@ async function dragBetweenPagePoints(page, start, end, steps = 8) {
   await page.mouse.move(end.x, end.y, { steps });
   await page.mouse.up();
   await waitForPaint(page);
+}
+
+async function marqueeBetweenPagePoints(page, start, end, steps = 8) {
+  await page.keyboard.down(MARQUEE_MODIFIER_KEY);
+  try {
+    await dragBetweenPagePoints(page, start, end, steps);
+  } finally {
+    await page.keyboard.up(MARQUEE_MODIFIER_KEY);
+  }
 }
 
 async function drawStroke(page, { xRatio = 0.45, yRatio = 0.45, dx = 80, dy = 36 } = {}) {
@@ -1172,6 +1183,264 @@ test("lets the JavaScript editor participate in catalog drag and activation flow
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
     editor.id,
   ]);
+});
+
+test("keeps marquee selection active across video and javascript editor overlays", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 0.8,
+    position: { x: 0, y: 0 },
+  }));
+
+  const video = await addComponent(page, "video", {
+    x: 160,
+    y: 220,
+  });
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 620,
+    y: 220,
+    title: "Marquee Sandbox",
+  });
+
+  await expect(page.getByTestId("javascript-editor-overlay")).toBeVisible();
+
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const start = {
+    x: canvasRect.left + 56,
+    y: canvasRect.top + 84,
+  };
+  const end = {
+    x: canvasRect.left + canvasRect.width - 96,
+    y: canvasRect.top + canvasRect.height - 96,
+  };
+
+  await marqueeBetweenPagePoints(page, start, end, 20);
+
+  await expect
+    .poll(async () => page.evaluate(() => (
+      [...window.__APP_TEST_API__.getSelectedNodeIds()].sort()
+    )))
+    .toEqual([editor.id, video.id].sort());
+});
+
+test("does not marquee-select a moved video from its previous position", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+
+  const video = await addComponent(page, "video", {
+    x: 180,
+    y: 220,
+  });
+
+  const beforeMove = await getNode(page, video.id);
+  expect(beforeMove?.bounds).toBeTruthy();
+
+  const topbar = page.locator(".video-component__topbar").first();
+  const topbarBox = await topbar.boundingBox();
+  await page.mouse.move(topbarBox.x + topbarBox.width / 2, topbarBox.y + topbarBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(topbarBox.x + topbarBox.width / 2 + 560, topbarBox.y + topbarBox.height / 2, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  await waitForPaint(page);
+
+  const afterMove = await getNode(page, video.id);
+  expect(afterMove?.bounds?.x).toBeGreaterThan(
+    (beforeMove?.bounds?.x ?? 0) + (beforeMove?.bounds?.width ?? 0) + 120,
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.selectNodes([]));
+
+  const oldStart = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x - 16,
+    y: beforeMove.bounds.y - 16,
+  });
+  const oldEnd = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x + beforeMove.bounds.width + 16,
+    y: beforeMove.bounds.y + beforeMove.bounds.height + 16,
+  });
+  await marqueeBetweenPagePoints(page, oldStart, oldEnd, 12);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([]);
+
+  const newStart = await canvasPointToPage(page, {
+    x: afterMove.bounds.x - 16,
+    y: afterMove.bounds.y - 16,
+  });
+  const newEnd = await canvasPointToPage(page, {
+    x: afterMove.bounds.x + afterMove.bounds.width + 16,
+    y: afterMove.bounds.y + afterMove.bounds.height + 16,
+  });
+  await marqueeBetweenPagePoints(page, newStart, newEnd, 12);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([video.id]);
+});
+
+test("does not marquee-select a moved video from its previous position after viewport changes", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 0.8,
+    position: { x: 120, y: 64 },
+  }));
+
+  const video = await addComponent(page, "video", {
+    x: 220,
+    y: 240,
+  });
+
+  const beforeMove = await getNode(page, video.id);
+  expect(beforeMove?.bounds).toBeTruthy();
+
+  const topbar = page.locator(".video-component__topbar").first();
+  const topbarBox = await topbar.boundingBox();
+  await page.mouse.move(topbarBox.x + topbarBox.width / 2, topbarBox.y + topbarBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(topbarBox.x + topbarBox.width / 2 + 560, topbarBox.y + topbarBox.height / 2, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  await waitForPaint(page);
+
+  const afterMove = await getNode(page, video.id);
+  expect(afterMove?.bounds?.x).toBeGreaterThan(
+    (beforeMove?.bounds?.x ?? 0) + (beforeMove?.bounds?.width ?? 0) + 120,
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.selectNodes([]));
+
+  const oldStart = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x - 16,
+    y: beforeMove.bounds.y - 16,
+  });
+  const oldEnd = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x + beforeMove.bounds.width + 16,
+    y: beforeMove.bounds.y + beforeMove.bounds.height + 16,
+  });
+  await marqueeBetweenPagePoints(page, oldStart, oldEnd, 12);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([]);
+});
+
+test("does not marquee-select a moved javascript editor from its previous position", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 180,
+    y: 220,
+    title: "Marquee Dragged Editor",
+  });
+
+  const beforeMove = await getNode(page, editor.id);
+  expect(beforeMove?.bounds).toBeTruthy();
+
+  const headerBox = await page.getByTestId("javascript-editor-header").boundingBox();
+  await page.mouse.move(headerBox.x + headerBox.width / 2, headerBox.y + headerBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(headerBox.x + headerBox.width / 2 + 820, headerBox.y + headerBox.height / 2, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  await waitForPaint(page);
+
+  const afterMove = await getNode(page, editor.id);
+  expect(afterMove?.bounds?.x).toBeGreaterThan(
+    (beforeMove?.bounds?.x ?? 0) + (beforeMove?.bounds?.width ?? 0) + 80,
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.selectNodes([]));
+
+  const oldStart = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x - 16,
+    y: beforeMove.bounds.y - 16,
+  });
+  const oldEnd = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x + beforeMove.bounds.width + 16,
+    y: beforeMove.bounds.y + beforeMove.bounds.height + 16,
+  });
+  await marqueeBetweenPagePoints(page, oldStart, oldEnd, 12);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([]);
+});
+
+test("replaces the current selection when marqueeing a moved component's previous position", async ({ page }) => {
+  const video = await addComponent(page, "video", {
+    x: 180,
+    y: 220,
+  });
+
+  const beforeMove = await getNode(page, video.id);
+  const topbar = page.locator(".video-component__topbar").first();
+  const topbarBox = await topbar.boundingBox();
+  await page.mouse.move(topbarBox.x + topbarBox.width / 2, topbarBox.y + topbarBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(topbarBox.x + topbarBox.width / 2 + 560, topbarBox.y + topbarBox.height / 2, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([video.id]);
+
+  const oldStart = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x - 16,
+    y: beforeMove.bounds.y - 16,
+  });
+  const oldEnd = await canvasPointToPage(page, {
+    x: beforeMove.bounds.x + beforeMove.bounds.width + 16,
+    y: beforeMove.bounds.y + beforeMove.bounds.height + 16,
+  });
+  await marqueeBetweenPagePoints(page, oldStart, oldEnd, 12);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([]);
+});
+
+test("pans the viewport when dragging empty canvas without shift pressed", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+
+  const before = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const start = {
+    x: canvasRect.left + canvasRect.width * 0.3,
+    y: canvasRect.top + canvasRect.height * 0.3,
+  };
+  const end = {
+    x: start.x + 180,
+    y: start.y + 110,
+  };
+
+  await dragBetweenPagePoints(page, start, end, 16);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getViewportState()))
+    .toEqual(expect.objectContaining({
+      position: expect.objectContaining({
+        x: before.position.x + (end.x - start.x),
+        y: before.position.y + (end.y - start.y),
+      }),
+    }));
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([]);
 });
 
 test("captures the JavaScript editor into a page and keeps it aligned when the page moves", async ({ page }) => {

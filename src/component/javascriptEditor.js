@@ -1602,6 +1602,9 @@ export class JavaScriptEditorComponent extends BaseComponent {
       closeButton.hidden = !editable;
       closeButton.disabled = !editable;
       splitter.disabled = !editable;
+      if (iframe) {
+        iframe.style.pointerEvents = editable ? "none" : "auto";
+      }
       monacoEditor?.updateOptions?.({
         readOnly: !editable,
         domReadOnly: !editable,
@@ -1715,6 +1718,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
       if (node._javascriptEditorOverlayState) {
         node._javascriptEditorOverlayState.iframe = nextIframe;
       }
+      nextIframe.style.pointerEvents = isEditableInteraction() ? "none" : "auto";
       syncPreviewViewport();
       refreshPreviewViewport();
       syncConnectionTargetMode();

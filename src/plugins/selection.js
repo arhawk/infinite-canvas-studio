@@ -162,6 +162,7 @@ export class SelectionPlugin extends BasePlugin {
 
     this.selectedNodes = [];
     this.lastTextClick = null;
+    this.documentMarqueeListenersBound = false;
     this.marquee = {
       active: false,
       selecting: false,
@@ -170,6 +171,8 @@ export class SelectionPlugin extends BasePlugin {
       additive: false,
     };
     this.suppressNextSelectionClick = false;
+    this.handleDocumentPointerMove = (event) => this.forwardDocumentPointerMove(event);
+    this.handleDocumentPointerUp = (event) => this.forwardDocumentPointerUp(event);
 
     this.marqueeRect = new Konva.Rect({
       fill: "rgba(31, 111, 235, 0.08)",
@@ -238,13 +241,14 @@ export class SelectionPlugin extends BasePlugin {
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
     stage.on("mousedown.selection touchstart.selection", (event) => this.handlePointerDown(event));
     stage.on("mousemove.selection touchmove.selection", () => this.handlePointerMove());
-    stage.on("mouseup.selection touchend.selection mouseleave.selection", () => this.handlePointerUp());
+    stage.on("mouseup.selection touchend.selection", () => this.handlePointerUp());
     stage.on("dragmove.snapGuides transform.snapGuides", (event) => this.handleSnapMove(event));
     stage.on("dragend.snapGuides transformend.snapGuides", () => this.hideGuides());
 
     this.cleanups.push(() => {
       stage.off(".selection");
       stage.off(".snapGuides");
+      this.unbindDocumentMarqueeListeners();
     });
   }
 
@@ -656,6 +660,7 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   cancelMarquee() {
+    this.unbindDocumentMarqueeListeners();
     this.marquee.active = false;
     this.marquee.selecting = false;
     this.marquee.start = null;
@@ -665,39 +670,93 @@ export class SelectionPlugin extends BasePlugin {
     this.overlayLayer.batchDraw();
   }
 
+  bindDocumentMarqueeListeners() {
+    if (this.documentMarqueeListenersBound) return;
+    this.documentMarqueeListenersBound = true;
+    document.addEventListener("mousemove", this.handleDocumentPointerMove, true);
+    document.addEventListener("mouseup", this.handleDocumentPointerUp, true);
+    document.addEventListener("touchmove", this.handleDocumentPointerMove, true);
+    document.addEventListener("touchend", this.handleDocumentPointerUp, true);
+    document.addEventListener("touchcancel", this.handleDocumentPointerUp, true);
+  }
+
+  unbindDocumentMarqueeListeners() {
+    if (!this.documentMarqueeListenersBound) return;
+    this.documentMarqueeListenersBound = false;
+    document.removeEventListener("mousemove", this.handleDocumentPointerMove, true);
+    document.removeEventListener("mouseup", this.handleDocumentPointerUp, true);
+    document.removeEventListener("touchmove", this.handleDocumentPointerMove, true);
+    document.removeEventListener("touchend", this.handleDocumentPointerUp, true);
+    document.removeEventListener("touchcancel", this.handleDocumentPointerUp, true);
+  }
+
+  getCanvasPointFromEvent(event = null) {
+    const nativeEvent = event?.evt ?? event;
+    const touchPoint = nativeEvent?.touches?.[0] ?? nativeEvent?.changedTouches?.[0] ?? null;
+    const clientX = touchPoint?.clientX ?? nativeEvent?.clientX;
+    const clientY = touchPoint?.clientY ?? nativeEvent?.clientY;
+
+    if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+      const rect = this.stage.container().getBoundingClientRect();
+      return this.app.stageApi.screenToCanvas({
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+      });
+    }
+
+    const pointer = this.stage.getPointerPosition();
+    return pointer ? this.app.stageApi.screenToCanvas(pointer) : null;
+  }
+
+  forwardDocumentPointerMove(event) {
+    if (!this.marquee.active) return;
+    this.handlePointerMove(this.getCanvasPointFromEvent(event));
+  }
+
+  forwardDocumentPointerUp(event) {
+    if (!this.marquee.active) return;
+    const canvasPoint = this.getCanvasPointFromEvent(event);
+    if (canvasPoint) {
+      this.marquee.rect = canvasPoint;
+    }
+    this.handlePointerUp();
+  }
+
   handlePointerDown(event) {
     if (!this.isEnabled() || this.app.tools.getActive() !== "arrange") return;
     if (event.evt?.button != null && event.evt.button !== 0) return;
     if (this.app.stageApi.isSpacePressed) return;
     if (this.getSelectable(event.target)) return;
     if (event.target !== this.stage && event.target?.getLayer?.() === this.app.uiLayer) return;
+    if (event.evt?.shiftKey !== true) return;
 
-    const pointer = this.stage.getPointerPosition();
-    if (!pointer) return;
-
-    const canvasPoint = this.app.stageApi.screenToCanvas(pointer);
+    const canvasPoint = this.getCanvasPointFromEvent(event);
+    if (!canvasPoint) return;
     this.marquee = {
       active: true,
       selecting: false,
       start: canvasPoint,
       rect: canvasPoint,
-      additive: Boolean(event.evt?.metaKey || event.evt?.ctrlKey),
+      additive: false,
     };
+    this.bindDocumentMarqueeListeners();
   }
 
-  handlePointerMove() {
+  handlePointerMove(canvasPoint = null) {
     if (!this.marquee.active) return;
-    const pointer = this.stage.getPointerPosition();
-    if (!pointer) return;
+    const nextCanvasPoint = canvasPoint ?? this.getCanvasPointFromEvent();
+    if (!nextCanvasPoint) return;
 
-    const canvasPoint = this.app.stageApi.screenToCanvas(pointer);
-    this.marquee.rect = canvasPoint;
+    this.marquee.rect = nextCanvasPoint;
     const bounds = this.getMarqueeBounds();
     if (!bounds) return;
 
     if (
       !this.marquee.selecting &&
-      Math.hypot(canvasPoint.x - this.marquee.start.x, canvasPoint.y - this.marquee.start.y) < MARQUEE_THRESHOLD
+      Math.hypot(
+        nextCanvasPoint.x - this.marquee.start.x,
+        nextCanvasPoint.y - this.marquee.start.y,
+      ) < MARQUEE_THRESHOLD
     ) {
       return;
     }
@@ -725,7 +784,10 @@ export class SelectionPlugin extends BasePlugin {
       .filter((node) => (
         node.isVisible() &&
         node.getAttr("componentType") !== "connection" &&
-        rectsIntersect(bounds, node.getClientRect({ skipShadow: true }))
+        rectsIntersect(bounds, node.getClientRect({
+          relativeTo: this.stage,
+          skipShadow: true,
+        }))
       ));
     const selectedSet = new Set(intersecting);
     const selected = intersecting.filter((node) => !hasSelectedAncestor(node, selectedSet));

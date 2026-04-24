@@ -285,10 +285,16 @@ export class StageController {
       isRankingItemTarget ||
       Boolean(target?.draggable?.()) ||
       (target !== this.stage && target?.getLayer?.() === app?.uiLayer);
+    const isArrangeViewportPan =
+      app?.modeManager?.matches?.({ mode: "edit", editorTool: "arrange" }) === true &&
+      isPrimaryPointer &&
+      !event.evt?.shiftKey &&
+      !isInteractiveTarget;
     const shouldPan =
       isMiddleButton ||
       this.isSpacePressed ||
-      (app?.isReadOnly?.() && isPrimaryPointer && !isRankingItemTarget && !isReadOnlyDrawingTool);
+      (app?.isReadOnly?.() && isPrimaryPointer && !isRankingItemTarget && !isReadOnlyDrawingTool) ||
+      isArrangeViewportPan;
     if (!shouldPan) return;
 
     this.isPanning = true;
