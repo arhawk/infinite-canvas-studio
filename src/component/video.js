@@ -52,7 +52,6 @@ export class VideoComponent extends BaseComponent {
       new FileEditorField({
         id: "video",
         label: "Change Video",
-        description: "Select a video file (mp4, webm)",
         input: { accept: "video/mp4,video/webm,video/ogg" },
         getValue: () => null,
         setValue: async (node, file) => {
