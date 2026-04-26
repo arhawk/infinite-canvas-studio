@@ -59,6 +59,7 @@ function summarizeUpdateDescription(before = {}, after = {}, componentLabel = "i
   const focusChanged =
     before.focusPositionMode !== after.focusPositionMode ||
     !snapshotsEqual(before.savedFocus ?? null, after.savedFocus ?? null);
+  const layerChanged = before.zIndex !== after.zIndex;
   const dataChanged = !snapshotsEqual(beforeData, afterData);
 
   if (type === "connection") {
@@ -83,19 +84,23 @@ function summarizeUpdateDescription(before = {}, after = {}, componentLabel = "i
     return `moving ${componentLabel} between containers`;
   }
 
-  if (focusChanged && !dataChanged && !positionChanged && !transformChanged) {
+  if (focusChanged && !dataChanged && !positionChanged && !transformChanged && !layerChanged) {
     return `updating focus for ${componentLabel}`;
   }
 
-  if (dataChanged && !positionChanged && !transformChanged && !focusChanged) {
+  if (layerChanged && !dataChanged && !positionChanged && !transformChanged && !focusChanged) {
+    return `reordering ${componentLabel}`;
+  }
+
+  if (dataChanged && !positionChanged && !transformChanged && !focusChanged && !layerChanged) {
     return `editing ${componentLabel}`;
   }
 
-  if (positionChanged && !transformChanged && !dataChanged && !focusChanged) {
+  if (positionChanged && !transformChanged && !dataChanged && !focusChanged && !layerChanged) {
     return `moving ${componentLabel}`;
   }
 
-  if (transformChanged && !dataChanged && !focusChanged) {
+  if (transformChanged && !dataChanged && !focusChanged && !layerChanged) {
     return `transforming ${componentLabel}`;
   }
 
@@ -741,8 +746,17 @@ export class HistoryPlugin extends BasePlugin {
       node.position(normalizePoint(snapshot));
     });
 
+    regularSnapshots.forEach((snapshot) => {
+      const node = restoredNodes.get(snapshot.id);
+      if (!node) return;
+      this.app.setSelectableIndex(node, snapshot.zIndex ?? 0);
+    });
+
     for (const snapshot of connectionSnapshots) {
-      await this.restoreNodeSnapshot(snapshot);
+      const node = await this.restoreNodeSnapshot(snapshot);
+      if (node) {
+        this.app.setSelectableIndex(node, snapshot.zIndex ?? 0);
+      }
     }
   }
 

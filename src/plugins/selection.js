@@ -1,4 +1,9 @@
-import { BaseCommand, BasePlugin, BaseTool } from "../core/baseClasses.js";
+import {
+  BaseCommand,
+  BaseContextMenuItem,
+  BasePlugin,
+  BaseTool,
+} from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
 
 const GUIDE_TOLERANCE = 6;
@@ -62,6 +67,70 @@ class PasteSelectionCommand extends BaseCommand {
   }
 }
 
+class BringForwardCommand extends BaseCommand {
+  static commandId = "selection:bring-forward";
+  static label = "Bring Forward";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute(target = null) {
+    return this.plugin.bringForward(target);
+  }
+}
+
+class BringToFrontCommand extends BaseCommand {
+  static commandId = "selection:bring-to-front";
+  static label = "Bring to Front";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute(target = null) {
+    return this.plugin.bringToFront(target);
+  }
+}
+
+class SendBackwardCommand extends BaseCommand {
+  static commandId = "selection:send-backward";
+  static label = "Send Backward";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute(target = null) {
+    return this.plugin.sendBackward(target);
+  }
+}
+
+class SendToBackCommand extends BaseCommand {
+  static commandId = "selection:send-to-back";
+  static label = "Send to Back";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  execute(target = null) {
+    return this.plugin.sendToBack(target);
+  }
+}
+
 function clonePlainData(value) {
   if (value == null) return value;
   return JSON.parse(JSON.stringify(value));
@@ -89,6 +158,90 @@ function isTextNode(node) {
 
 function isSelectableNode(node) {
   return !!node?.hasName?.("selectable");
+}
+
+function resolveSelectableNode(target) {
+  if (!target) return null;
+  return target.findAncestor?.(".selectable", true) ?? (target.hasName?.("selectable") ? target : null);
+}
+
+function buildLayerAccessory(label, iconText, disabled, execute) {
+  return {
+    label,
+    iconText,
+    disabled,
+    execute,
+  };
+}
+
+class BringForwardMenuItem extends BaseContextMenuItem {
+  static itemId = "selection:bring-forward-menu";
+  static label = "Bring Forward";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  condition(node) {
+    return this.plugin.canAdjustLayer(node);
+  }
+
+  isDisabled(node) {
+    return !this.plugin.canBringForward(node);
+  }
+
+  getAccessories(node) {
+    return [
+      buildLayerAccessory(
+        "Bring to Front",
+        "↑",
+        !this.plugin.canBringToFront(node),
+        () => this.app.commands.execute("selection:bring-to-front", node),
+      ),
+    ];
+  }
+
+  execute(node) {
+    this.app.commands.execute("selection:bring-forward", node);
+  }
+}
+
+class SendBackwardMenuItem extends BaseContextMenuItem {
+  static itemId = "selection:send-backward-menu";
+  static label = "Send Backward";
+  static modes = {
+    edit: {
+      tools: {
+        arrange: {},
+      },
+    },
+  };
+
+  condition(node) {
+    return this.plugin.canAdjustLayer(node);
+  }
+
+  isDisabled(node) {
+    return !this.plugin.canSendBackward(node);
+  }
+
+  getAccessories(node) {
+    return [
+      buildLayerAccessory(
+        "Send to Back",
+        "↓",
+        !this.plugin.canSendToBack(node),
+        () => this.app.commands.execute("selection:send-to-back", node),
+      ),
+    ];
+  }
+
+  execute(node) {
+    this.app.commands.execute("selection:send-backward", node);
+  }
 }
 
 function isConnectionSnapshot(snapshot) {
@@ -161,7 +314,19 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   commands() {
-    return [DeleteSelectionCommand, CopySelectionCommand, PasteSelectionCommand];
+    return [
+      DeleteSelectionCommand,
+      CopySelectionCommand,
+      PasteSelectionCommand,
+      BringForwardCommand,
+      BringToFrontCommand,
+      SendBackwardCommand,
+      SendToBackCommand,
+    ];
+  }
+
+  menuItems() {
+    return [BringForwardMenuItem, SendBackwardMenuItem];
   }
 
   onSetup() {
@@ -439,6 +604,71 @@ export class SelectionPlugin extends BasePlugin {
 
   clearSelection() {
     this.setSelected([]);
+  }
+
+  resolveLayerTarget(target = null) {
+    const selectable = typeof target === "string"
+      ? this.layer.findOne(`#${target}`)
+      : resolveSelectableNode(target);
+    if (isSelectableNode(selectable)) {
+      return selectable;
+    }
+    return this.selectedNodes.length === 1 ? this.selectedNodes[0] : null;
+  }
+
+  canAdjustLayer(target = null) {
+    return isSelectableNode(this.resolveLayerTarget(target));
+  }
+
+  canBringForward(target = null) {
+    const node = this.resolveLayerTarget(target);
+    if (!node) return false;
+    return this.app.getSelectableIndex(node) < this.app.getSelectableSiblingCount(node) - 1;
+  }
+
+  canBringToFront(target = null) {
+    return this.canBringForward(target);
+  }
+
+  canSendBackward(target = null) {
+    const node = this.resolveLayerTarget(target);
+    if (!node) return false;
+    return this.app.getSelectableIndex(node) > 0;
+  }
+
+  canSendToBack(target = null) {
+    return this.canSendBackward(target);
+  }
+
+  reorderLayer(target, canReorder, applyReorder) {
+    const node = this.resolveLayerTarget(target);
+    if (!node || !canReorder.call(this, node)) return false;
+
+    this.app.events.emit("node:change:start", { node });
+    const changed = applyReorder.call(this.app, node);
+    if (!changed) {
+      return false;
+    }
+
+    this.app.events.emit("node:changed", { node });
+    this.layer.batchDraw();
+    return true;
+  }
+
+  bringForward(target = null) {
+    return this.reorderLayer(target, this.canBringForward, this.app.bringNodeForward);
+  }
+
+  bringToFront(target = null) {
+    return this.reorderLayer(target, this.canBringToFront, this.app.bringNodeToFront);
+  }
+
+  sendBackward(target = null) {
+    return this.reorderLayer(target, this.canSendBackward, this.app.sendNodeBackward);
+  }
+
+  sendToBack(target = null) {
+    return this.reorderLayer(target, this.canSendToBack, this.app.sendNodeToBack);
   }
 
   deleteSelection() {

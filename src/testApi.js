@@ -277,6 +277,7 @@ function serializeNode(app, node) {
     id: node.id(),
     componentType: node.getAttr("componentType"),
     parentId: parent?.hasName?.("selectable") ? parent.id() : null,
+    zIndex: app.getSelectableIndex(node),
     focusPositionMode: node.getAttr("focusPositionMode") ?? null,
     savedFocus: node.getAttr("savedFocus") ?? null,
     bounds: bounds
@@ -335,7 +336,7 @@ function getPlugin(app, pluginId) {
 function getContextMenuState(app) {
   const contextMenuPlugin = getPlugin(app, "context-menu");
   const labels = collectionToArray(contextMenuPlugin?.menuGroup?.getChildren?.())
-    .filter((child) => typeof child?.text === "function")
+    .filter((child) => child?.name?.() === "context-menu-item-label")
     .map((child) => child.text())
     .filter(Boolean);
   const pagePoint = contextMenuPlugin?.menuCanvasPoint
@@ -345,6 +346,8 @@ function getContextMenuState(app) {
   return {
     visible: contextMenuPlugin?.menuGroup?.visible?.() ?? false,
     labels,
+    items: clonePlainData(contextMenuPlugin?.menuState ?? []),
+    tooltip: contextMenuPlugin?.activeTooltipLabel ?? null,
     pagePoint,
   };
 }
@@ -386,6 +389,10 @@ export function setupAppTestApi(app) {
     canRedo: () => app.history?.canRedo?.() ?? false,
     undo: () => app.history?.undo?.() ?? false,
     redo: () => app.history?.redo?.() ?? false,
+    bringNodeForward: (id) => app.commands.execute("selection:bring-forward", id),
+    bringNodeToFront: (id) => app.commands.execute("selection:bring-to-front", id),
+    sendNodeBackward: (id) => app.commands.execute("selection:send-backward", id),
+    sendNodeToBack: (id) => app.commands.execute("selection:send-to-back", id),
     resetHistory: () => {
       app.history?.resetHistory?.();
       return {

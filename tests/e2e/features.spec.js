@@ -27,6 +27,16 @@ async function getNode(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNode(nodeId), id);
 }
 
+async function getNodeOrder(page, ids) {
+  return page.evaluate((nodeIds) => (
+    window.__APP_TEST_API__
+      .listNodes()
+      .filter((node) => nodeIds.includes(node.id))
+      .sort((a, b) => a.zIndex - b.zIndex)
+      .map((node) => node.id)
+  ), ids);
+}
+
 async function getNodePageCenter(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNodePageCenter(nodeId), id);
 }
@@ -247,6 +257,91 @@ test("adds the selected node to the outline panel", async ({ page }) => {
     .toEqual(["Sticky note"]);
 
   await expect(page.getByTestId("catalog-panel")).toContainText("Sticky note");
+});
+
+test("reorders component layers and preserves them through undo and document roundtrip", async ({ page }) => {
+  const first = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const second = await addComponent(page, "sticky", { x: 360, y: 180 });
+  const third = await addComponent(page, "sticky", { x: 540, y: 180 });
+
+  const targetCenter = await getNodePageCenter(page, first.id);
+  await page.mouse.click(targetCenter.x, targetCenter.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
+    expect.objectContaining({
+      visible: true,
+      labels: expect.arrayContaining(["Bring Forward", "Send Backward"]),
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          label: "Bring Forward",
+          accessories: [expect.objectContaining({ label: "Bring to Front" })],
+        }),
+        expect.objectContaining({
+          label: "Send Backward",
+          accessories: [expect.objectContaining({ label: "Send to Back" })],
+        }),
+      ]),
+      pagePoint: expect.any(Object),
+    }),
+  );
+
+  await page.evaluate((id) => window.__APP_TEST_API__.bringNodeForward(id), first.id);
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    second.id,
+    first.id,
+    third.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.bringNodeToFront(id), first.id);
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    second.id,
+    third.id,
+    first.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeBackward(id), first.id);
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    second.id,
+    first.id,
+    third.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeToBack(id), first.id);
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    first.id,
+    second.id,
+    third.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.bringNodeToFront(id), first.id);
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    second.id,
+    third.id,
+    first.id,
+  ]);
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    first.id,
+    second.id,
+    third.id,
+  ]);
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    second.id,
+    third.id,
+    first.id,
+  ]);
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
+    second.id,
+    third.id,
+    first.id,
+  ]);
 });
 
 test("undoes and redoes an outline add action", async ({ page }) => {

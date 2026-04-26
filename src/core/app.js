@@ -7,6 +7,10 @@ import { KeybindingRegistry } from "./keybindingRegistry.js";
 import { ContextMenuRegistry } from "./contextMenuRegistry.js";
 import { ComponentRegistry } from "./componentRegistry.js";
 
+function isSelectableNode(node) {
+  return !!node?.hasName?.("selectable");
+}
+
 export class App {
   constructor({ container }) {
     this.events = new EventBus();
@@ -143,5 +147,77 @@ export class App {
     if (this.modeManager.matches({ mode: "edit", editorTool: "arrange" })) {
       container.style.cursor = "default";
     }
+  }
+
+  getSelectableParent(node) {
+    const parent = node?.getParent?.();
+    return isSelectableNode(parent) ? parent : this.mainLayer;
+  }
+
+  getSelectableSiblings(node) {
+    const parent = this.getSelectableParent(node);
+    return parent?.getChildren ? Array.from(parent.getChildren()).filter((child) => isSelectableNode(child)) : [];
+  }
+
+  getSelectableIndex(node) {
+    return this.getSelectableSiblings(node).findIndex((child) => child === node);
+  }
+
+  getSelectableSiblingCount(node) {
+    return this.getSelectableSiblings(node).length;
+  }
+
+  applySelectableOrder(parent, orderedSelectableChildren = []) {
+    if (!parent?.getChildren) return false;
+
+    const allChildren = Array.from(parent.getChildren());
+    const selectableChildren = allChildren.filter((child) => isSelectableNode(child));
+    if (!selectableChildren.length) return false;
+
+    const sameMembers =
+      selectableChildren.length === orderedSelectableChildren.length &&
+      orderedSelectableChildren.every((child) => selectableChildren.includes(child));
+    if (!sameMembers) return false;
+
+    let selectableIndex = 0;
+    const finalOrder = allChildren.map((child) => (
+      isSelectableNode(child) ? orderedSelectableChildren[selectableIndex++] : child
+    ));
+
+    // Rebuild the sibling order without disturbing non-selectable children such as the transformer.
+    finalOrder.forEach((child) => child.moveToTop());
+    return true;
+  }
+
+  setSelectableIndex(node, nextIndex) {
+    if (!isSelectableNode(node)) return false;
+
+    const siblings = this.getSelectableSiblings(node);
+    const currentIndex = siblings.findIndex((child) => child === node);
+    if (currentIndex < 0) return false;
+
+    const clampedIndex = Math.max(0, Math.min(siblings.length - 1, Math.floor(nextIndex)));
+    if (clampedIndex === currentIndex) return false;
+
+    const reordered = [...siblings];
+    reordered.splice(currentIndex, 1);
+    reordered.splice(clampedIndex, 0, node);
+    return this.applySelectableOrder(this.getSelectableParent(node), reordered);
+  }
+
+  bringNodeForward(node) {
+    return this.setSelectableIndex(node, this.getSelectableIndex(node) + 1);
+  }
+
+  bringNodeToFront(node) {
+    return this.setSelectableIndex(node, this.getSelectableSiblingCount(node) - 1);
+  }
+
+  sendNodeBackward(node) {
+    return this.setSelectableIndex(node, this.getSelectableIndex(node) - 1);
+  }
+
+  sendNodeToBack(node) {
+    return this.setSelectableIndex(node, 0);
   }
 }

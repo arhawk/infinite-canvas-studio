@@ -137,8 +137,17 @@ async function restoreNodeSnapshots(app, snapshots = []) {
     node.position(normalizePoint(snapshot));
   });
 
+  regularSnapshots.forEach((snapshot) => {
+    const node = restoredNodes.get(snapshot.id);
+    if (!node) return;
+    app.setSelectableIndex(node, snapshot.zIndex ?? 0);
+  });
+
   for (const snapshot of connectionSnapshots) {
-    await restoreNodeSnapshot(app, snapshot);
+    const node = await restoreNodeSnapshot(app, snapshot);
+    if (node) {
+      app.setSelectableIndex(node, snapshot.zIndex ?? 0);
+    }
   }
 }
 

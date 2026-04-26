@@ -37,6 +37,7 @@ describe("document schema", () => {
     expect(normalized.nodes[0]).toMatchObject({
       id: "sticky-1",
       type: "sticky",
+      zIndex: 0,
       x: 0,
       y: 0,
       rotation: 0,

@@ -39,6 +39,7 @@ function normalizeNodeSnapshot(snapshot = {}) {
       typeof snapshot.parentId === "string" && snapshot.parentId
         ? snapshot.parentId
         : null,
+    zIndex: Number.isFinite(snapshot.zIndex) ? Math.max(0, Math.floor(snapshot.zIndex)) : 0,
     x: Number.isFinite(snapshot.x) ? snapshot.x : 0,
     y: Number.isFinite(snapshot.y) ? snapshot.y : 0,
     rotation: Number.isFinite(snapshot.rotation) ? snapshot.rotation : 0,
