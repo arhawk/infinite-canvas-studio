@@ -57,15 +57,12 @@ export class ToolbarPlugin extends BasePlugin {
 
   onSetup() {
     const {
-      modeToggleEl,
+      modeCapsuleEditEl,
+      modeCapsulePresentEl,
       drawingVisibilityToggleEl,
-      toolButtonsEl,
-      historyControlsEl,
       arrangeControlsEl,
       brushControlsEl,
       brushTypeControlsEl,
-      connectSelectionEl,
-      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -77,15 +74,12 @@ export class ToolbarPlugin extends BasePlugin {
     } = this.options;
 
     this.ui = {
-      modeToggleEl,
+      modeCapsuleEditEl,
+      modeCapsulePresentEl,
       drawingVisibilityToggleEl,
-      toolButtonsEl,
-      historyControlsEl,
       arrangeControlsEl,
       brushControlsEl,
       brushTypeControlsEl,
-      connectSelectionEl,
-      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -106,13 +100,6 @@ export class ToolbarPlugin extends BasePlugin {
     this.drawingToolState = cloneDrawingToolState();
     this.eraserState = { ...DEFAULT_ERASER_STATE };
 
-    this.listenDom(connectSelectionEl, "click", () => {
-      if (!this.focusState.selectedNodeId) return;
-      this.app.commands.execute("connection:connect", this.focusState.selectedNodeId);
-    });
-    this.listenDom(deleteSelectionEl, "click", () => {
-      this.app.commands.execute("selection:delete");
-    });
     this.listenDom(saveFocusEl, "click", () => {
       this.app.commands.execute("focus:save-selection");
     });
@@ -340,69 +327,35 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   setupModeToggle() {
-    const { modeToggleEl } = this.ui;
-    const checkbox = modeToggleEl.querySelector("input");
-    this.ui.modeCheckbox = checkbox;
-    this.ui.modeLabel = modeToggleEl.querySelector(".mode-toggle__label");
-
-    this.listenDom(checkbox, "change", () => {
-      this.app.setMode(checkbox.checked ? "edit" : "presentation");
-    });
+    const { modeCapsuleEditEl, modeCapsulePresentEl } = this.ui;
+    if (modeCapsuleEditEl) {
+      this.listenDom(modeCapsuleEditEl, "click", () => this.app.setMode("edit"));
+    }
+    if (modeCapsulePresentEl) {
+      this.listenDom(modeCapsulePresentEl, "click", () => this.app.setMode("presentation"));
+    }
   }
 
   renderToolButtons() {
     const {
-      toolButtonsEl,
-      historyControlsEl,
       arrangeControlsEl,
       brushTypeControlsEl,
     } = this.ui;
-    toolButtonsEl.innerHTML = "";
 
-    for (const tool of this.app.tools.list()) {
-      if (HIDDEN_MAIN_TOOL_BUTTON_IDS.has(tool.id)) continue;
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "tool-button";
-      const buttonLabel = tool.id === "pen" ? "Brush tools" : tool.label;
-      button.title = buttonLabel;
-      button.setAttribute("aria-label", buttonLabel);
-      button.dataset.toolId = tool.id;
-      button.dataset.testid = `tool-button-${tool.id}`;
-
-      if (TOOL_ICONS[tool.id]) {
-        const icon = document.createElement("i");
-        icon.dataset.lucide = TOOL_ICONS[tool.id];
-        button.append(icon);
-      } else {
-        button.textContent = tool.label;
-      }
-
-      this.listenDom(button, "click", () => this.handleMainToolButtonClick(tool.id));
-      toolButtonsEl.append(button);
+    if (arrangeControlsEl) {
+      renderIcons(arrangeControlsEl, {
+        width: 16,
+        height: 16,
+        "stroke-width": 2,
+      });
     }
-
-    renderIcons(toolButtonsEl, {
-      width: 18,
-      height: 18,
-      "stroke-width": 2,
-    });
-    renderIcons(arrangeControlsEl, {
-      width: 16,
-      height: 16,
-      "stroke-width": 2,
-    });
-    renderIcons(brushTypeControlsEl, {
-      width: 16,
-      height: 16,
-      "stroke-width": 2,
-    });
-    renderIcons(historyControlsEl, {
-      width: 16,
-      height: 16,
-      "stroke-width": 2,
-    });
+    if (brushTypeControlsEl) {
+      renderIcons(brushTypeControlsEl, {
+        width: 16,
+        height: 16,
+        "stroke-width": 2,
+      });
+    }
 
     this.queueBrushPanelPositionSync();
   }
@@ -463,12 +416,9 @@ export class ToolbarPlugin extends BasePlugin {
 
   syncUi() {
     const {
-      toolButtonsEl,
       arrangeControlsEl,
       brushControlsEl,
       brushTypeControlsEl,
-      connectSelectionEl,
-      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -477,8 +427,8 @@ export class ToolbarPlugin extends BasePlugin {
       strokeWidthValueEl,
       clearStrokesEl,
       drawingVisibilityToggleEl,
-      modeCheckbox,
-      modeLabel,
+      modeCapsuleEditEl,
+      modeCapsulePresentEl,
     } = this.ui;
 
     const isEdit = this.app.getMode() === "edit";
@@ -494,7 +444,6 @@ export class ToolbarPlugin extends BasePlugin {
     const showBrushTypeControls = isBrushFamilyActive;
     const canUseSelectedToolInCurrentMode =
       isEdit || this.isToolAvailableInPresentation(activeToolId);
-    const connectCommand = this.app.commands.get("connection:connect");
     const drawingPlugin = this.getDrawingPlugin();
     const isPresentation = !isEdit;
     const drawLayerVisible = drawingPlugin?.isDrawLayerVisible?.() !== false;
@@ -502,21 +451,14 @@ export class ToolbarPlugin extends BasePlugin {
     document.body.classList.toggle("is-edit-mode", isEdit);
     document.body.classList.toggle("is-presentation-mode", !isEdit);
 
-    if (modeCheckbox) {
-      modeCheckbox.checked = isEdit;
+    if (modeCapsuleEditEl) {
+      modeCapsuleEditEl.setAttribute("aria-pressed", String(isEdit));
     }
-    if (modeLabel) {
-      modeLabel.textContent = isEdit ? "Edit" : "View";
+    if (modeCapsulePresentEl) {
+      modeCapsulePresentEl.setAttribute("aria-pressed", String(!isEdit));
     }
 
-    for (const button of toolButtonsEl.querySelectorAll("[data-tool-id]")) {
-      button.setAttribute(
-        "aria-pressed",
-        String(this.isMainToolButtonActive(button.dataset.toolId, activeToolId)),
-      );
-      button.disabled = !isEdit && !this.isToolAvailableInPresentation(button.dataset.toolId);
-    }
-    for (const button of brushTypeControlsEl.querySelectorAll("[data-brush-tool-id]")) {
+    for (const button of (brushTypeControlsEl?.querySelectorAll("[data-brush-tool-id]") ?? [])) {
       const { brushToolId } = button.dataset;
       button.setAttribute("aria-pressed", String(brushToolId === activeToolId));
       button.disabled = !canUseSelectedToolInCurrentMode || isEraser;
@@ -561,21 +503,14 @@ export class ToolbarPlugin extends BasePlugin {
       clearStrokesEl.disabled = !isEraser || !drawingPlugin?.hasDrawings?.();
     }
 
-    connectSelectionEl.hidden = !hasSelectedArrangeNode;
-    deleteSelectionEl.hidden = !hasSelectedArrangeNode;
-    saveFocusEl.hidden = true;
-    focusPositionModeEl.hidden = true;
-    connectSelectionEl.disabled =
-      !connectCommand?.isEnabled?.() || !this.focusState.selectedNodeId;
-    deleteSelectionEl.disabled = !hasSelectedArrangeNode;
-    connectSelectionEl.title = this.focusState.selectedNodeId
-      ? "Select another component on the canvas to create a connection"
-      : "Select a component first";
-    deleteSelectionEl.title = hasSelectedArrangeNode
-      ? "Delete the selected component"
-      : "Select a component first";
-    saveFocusEl.disabled = true;
-    focusPositionModeEl.disabled = true;
+    if (saveFocusEl) {
+      saveFocusEl.hidden = true;
+      saveFocusEl.disabled = true;
+    }
+    if (focusPositionModeEl) {
+      focusPositionModeEl.hidden = true;
+      focusPositionModeEl.disabled = true;
+    }
 
     const brushControlsEnabled =
       canUseSelectedToolInCurrentMode && this.showsBrushControls(activeToolId);

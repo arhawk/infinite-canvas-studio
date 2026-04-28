@@ -7,6 +7,7 @@ import {
   EyeOff,
   Highlighter,
   Image,
+  Layers,
   Link2,
   MousePointer2,
   Pen,
@@ -18,6 +19,8 @@ import {
   Trash2,
   Undo2,
   Upload,
+  ZoomIn,
+  ZoomOut,
   createIcons,
 } from "lucide";
 
@@ -30,6 +33,7 @@ const PROJECT_ICONS = {
   EyeOff,
   Highlighter,
   Image,
+  Layers,
   Link2,
   MousePointer2,
   Pen,
@@ -41,6 +45,8 @@ const PROJECT_ICONS = {
   Trash2,
   Undo2,
   Upload,
+  ZoomIn,
+  ZoomOut,
 };
 
 export function renderIcons(root, attrs = {}) {

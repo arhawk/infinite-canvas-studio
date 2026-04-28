@@ -1,8 +1,8 @@
 import "./styles.css";
 import { App } from "./core/app.js";
-import { renderIcons } from "./lib/icons.js";
+import { LeftToolbarPlugin } from "./component/LeftToolbar/index.js";
+import { ComponentsDropdownPlugin } from "./component/ComponentsDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
-import { SidebarPlugin } from "./plugins/sidebar.js";
 import { SelectionPlugin } from "./plugins/selection.js";
 import { DrawingPlugin } from "./plugins/drawing.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
@@ -56,22 +56,9 @@ function getOptionalElement(selector) {
 
 const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
-  componentsSidebar: getRequiredElement("[data-testid='sidebar']"),
-  sidebarBrand: getRequiredElement("#sidebar-brand"),
-  sidebarToggle: getRequiredElement("#sidebar-toggle"),
-  modeToggle: getRequiredElement("#mode-toggle"),
   drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
-  toolButtons: getRequiredElement("#tool-buttons"),
-  historyControls: getRequiredElement("#history-controls"),
-  documentControls: getOptionalElement("#document-controls"),
-  undoAction: getRequiredElement("#undo-action"),
-  redoAction: getRequiredElement("#redo-action"),
-  saveDocumentAction: getOptionalElement("#save-document-action"),
-  loadDocumentAction: getOptionalElement("#load-document-action"),
   loadDocumentInput: getOptionalElement("#load-document-input"),
-  calculatorToggle: getRequiredElement("#calculator-toggle"),
   calculatorWidget: getRequiredElement("#calculator-widget"),
-  timerToggle: getRequiredElement("#timer-toggle"),
   timerWidget: getRequiredElement("#timer-widget"),
   timerDisplay: getRequiredElement("#timer-display"),
   timerStartPause: getRequiredElement("#timer-start-pause"),
@@ -84,8 +71,6 @@ const ui = {
   arrangeControls: getRequiredElement("#arrange-controls"),
   brushControls: getRequiredElement("#brush-controls"),
   brushTypeControls: getRequiredElement("#brush-type-controls"),
-  connectSelection: getRequiredElement("#connect-selection"),
-  deleteSelection: getRequiredElement("#delete-selection"),
   saveFocus: getRequiredElement("#save-focus"),
   focusPositionMode: getRequiredElement("#focus-position-mode"),
   strokeColor: getRequiredElement("#stroke-color"),
@@ -94,18 +79,10 @@ const ui = {
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   clearStrokes: getRequiredElement("#clear-strokes"),
-  componentPalette: getRequiredElement("#component-palette"),
   catalogPanel: getRequiredElement("#catalog-panel"),
-  centerMapBtn: getRequiredElement("#center-map-btn"),
-  zoomInBtn: document.getElementById("zoom-in-btn"),
-  zoomOutBtn: document.getElementById("zoom-out-btn"),
+  modeCapsuleEdit: getRequiredElement("#mode-capsule-edit"),
+  modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
 };
-
-renderIcons(ui.sidebarBrand, {
-  width: 20,
-  height: 20,
-  "stroke-width": 2.2,
-});
 
 captureRuntimeHtmlTemplate();
 
@@ -129,6 +106,9 @@ const app = new App({
   VideoComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
+// Register LeftToolbarPlugin first so its button elements can be passed to other plugins
+const leftToolbar = app.use(LeftToolbarPlugin);
+
 // Register plugins (order matters: tools before toolbar so buttons render)
 app.use(SelectionPlugin);
 app.use(CatalogActionsPlugin);
@@ -137,15 +117,12 @@ app.use(AnnotatorPlugin);
 app.use(ComponentEditorPlugin);
 app.use(PageComparePlugin);
 app.use(ToolbarPlugin, {
-  modeToggleEl: ui.modeToggle,
+  modeCapsuleEditEl: ui.modeCapsuleEdit,
+  modeCapsulePresentEl: ui.modeCapsulePresent,
   drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
-  toolButtonsEl: ui.toolButtons,
-  historyControlsEl: ui.historyControls,
   arrangeControlsEl: ui.arrangeControls,
   brushControlsEl: ui.brushControls,
   brushTypeControlsEl: ui.brushTypeControls,
-  connectSelectionEl: ui.connectSelection,
-  deleteSelectionEl: ui.deleteSelection,
   saveFocusEl: ui.saveFocus,
   focusPositionModeEl: ui.focusPositionMode,
   strokeColorEl: ui.strokeColor,
@@ -155,12 +132,11 @@ app.use(ToolbarPlugin, {
   strokeWidthValueEl: ui.strokeWidthValue,
   clearStrokesEl: ui.clearStrokes,
 });
-app.use(SidebarPlugin, {
-  sidebarEl: ui.componentsSidebar,
-  paletteEl: ui.componentPalette,
-  canvasEl: ui.canvasContainer,
-  toggleEl: ui.sidebarToggle,
-});
+
+// Components dropdown — replaces the old sidebar palette
+const componentsDropdown = app.use(ComponentsDropdownPlugin);
+componentsDropdown.wireTrigger(leftToolbar.componentsBtn);
+
 app.use(CatalogPanelPlugin, {
   panelEl: ui.catalogPanel,
 });
@@ -172,22 +148,21 @@ app.use(AttachmentsPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 const historyPlugin = app.use(HistoryPlugin, {
-  undoEl: ui.undoAction,
-  redoEl: ui.redoAction,
+  undoEl: leftToolbar.undoBtn,
+  redoEl: leftToolbar.redoBtn,
 });
 app.use(DocumentPlugin, {
-  documentControlsEl: ui.documentControls,
-  exportEl: ui.saveDocumentAction,
-  importEl: ui.loadDocumentAction,
+  exportEl: leftToolbar.saveBtn,
+  importEl: leftToolbar.loadBtn,
   importInputEl: ui.loadDocumentInput,
 });
 app.use(BinaryCalculatorPlugin, {
-  toggleEl: ui.calculatorToggle,
+  toggleEl: leftToolbar.calculatorBtn,
   widgetEl: ui.calculatorWidget,
 });
 app.use(MinimapPlugin);
 app.use(TimerPlugin, {
-  toggleEl: ui.timerToggle,
+  toggleEl: leftToolbar.timerBtn,
   widgetEl: ui.timerWidget,
   headerEl: ui.timerHeader,
   closeEl: ui.timerClose,
@@ -199,9 +174,9 @@ app.use(TimerPlugin, {
   durationRowEl: ui.timerDurationRow,
 });
 app.use(CenterMapPlugin, {
-  centerMapEl: ui.centerMapBtn,
-  zoomInEl: ui.zoomInBtn,
-  zoomOutEl: ui.zoomOutBtn,
+  centerMapEl: leftToolbar.centerMapBtn,
+  zoomInEl: leftToolbar.zoomInBtn,
+  zoomOutEl: leftToolbar.zoomOutBtn,
 });
 
 app.start();

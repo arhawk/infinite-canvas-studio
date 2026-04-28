@@ -53,16 +53,16 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("switches between edit and presentation mode", async ({ page }) => {
-  await expect(page.getByTestId("mode-toggle-label")).toHaveText("Edit");
+  await expect(page.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByTestId("mode-toggle").click();
-  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
 
-  await page.getByTestId("mode-toggle").click();
-  await expect(page.getByTestId("mode-toggle-label")).toHaveText("Edit");
+  await page.getByTestId("mode-capsule-edit").click();
+  await expect(page.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "edit",
   );
@@ -247,8 +247,8 @@ test("clears all drawn strokes from the eraser controls and supports undo and re
 });
 
 test("draws and erases strokes in presentation mode", async ({ page }) => {
-  await page.getByTestId("mode-toggle").click();
-  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
 
   await page.getByTestId("tool-button-pen").click();
   await expect(page.getByTestId("stroke-width")).toBeEnabled();
@@ -280,8 +280,8 @@ test("draws and erases strokes in presentation mode", async ({ page }) => {
 });
 
 test("toggles pen and eraser on and off in presentation mode", async ({ page }) => {
-  await page.getByTestId("mode-toggle").click();
-  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
 
   const canvas = page.getByTestId("canvas-container");
   const penButton = page.getByTestId("tool-button-pen");
@@ -347,8 +347,8 @@ test.skip("toggles drawing layer visibility in presentation mode", async ({ page
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBe(1);
 
-  await page.getByTestId("mode-toggle").click();
-  await expect(page.getByTestId("mode-toggle-label")).toHaveText("View");
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("drawing-visibility-toggle")).toBeVisible();
   await expect(page.getByTestId("drawing-visibility-toggle")).toHaveAttribute("aria-pressed", "true");
   await expect

@@ -11,187 +11,53 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" data-testid="sidebar">
-        <div class="sidebar__header">
-          <div id="sidebar-brand" class="sidebar__brand" aria-label="Components">
-            <span class="sidebar__brand-mark" aria-hidden="true">
-              <i data-lucide="route"></i>
-            </span>
-            <h1>Components</h1>
-          </div>
-          <button
-            id="sidebar-toggle"
-            class="sidebar__toggle"
-            type="button"
-            aria-label="Collapse components"
-            title="Collapse components"
-            data-testid="sidebar-toggle"
-          >
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M2 3.5L5 6.5L8 3.5"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-        </div>
-        <div id="component-palette" class="component-palette" data-testid="component-palette"></div>
-      </aside>
-
-      <main class="workspace" data-testid="workspace">
+<main class="workspace" data-testid="workspace">
         <header class="toolbar" data-testid="toolbar">
-          <div class="toolbar__main-row" data-testid="toolbar-main-row">
-            <div id="tool-buttons" class="toolbar__cluster" data-testid="tool-buttons"></div>
-            <div id="calculator-controls" class="toolbar__cluster" data-testid="calculator-controls">
-              <button
-                id="calculator-toggle"
-                class="tool-button"
-                type="button"
-                aria-label="Binary Calculator"
-                title="Binary Calculator"
-                aria-pressed="false"
-                data-testid="calculator-toggle"
-              >
-                <i data-lucide="calculator" aria-hidden="true"></i>
-              </button>
+          <!-- Left: project title -->
+          <div class="toolbar__title-area">
+            <span class="toolbar__project-title" id="project-title">Untitled</span>
+          </div>
+
+          <!-- Center: Edit / Present capsule -->
+          <div class="toolbar__center">
+            <div class="mode-capsule" id="mode-capsule" role="group" aria-label="Editing mode" data-testid="mode-capsule">
+              <button type="button" class="mode-capsule__btn" data-mode="edit" id="mode-capsule-edit" data-testid="mode-capsule-edit" aria-pressed="true">Edit</button>
+              <button type="button" class="mode-capsule__btn" data-mode="present" id="mode-capsule-present" data-testid="mode-capsule-present" aria-pressed="false">Present</button>
             </div>
-            <div id="timer-controls" class="toolbar__cluster" data-testid="timer-controls">
-              <button
-                id="timer-toggle"
-                class="tool-button"
-                type="button"
-                aria-label="Timer / Stopwatch"
-                title="Timer / Stopwatch"
-                aria-pressed="false"
-                data-testid="timer-toggle"
-              >
-                <i data-lucide="timer" aria-hidden="true"></i>
-              </button>
-            </div>
-            <div
-              id="history-controls"
-              class="toolbar__cluster"
-              data-testid="history-controls"
+          </div>
+
+          <!-- Right: share / exit -->
+          <div class="toolbar__actions">
+            <button type="button" class="toolbar__share-btn" id="share-btn" data-testid="share-btn">Share</button>
+          </div>
+
+<input
+            id="load-document-input"
+            type="file"
+            accept="application/json,.json"
+            hidden
+            data-testid="load-document-input"
+          />
+
+          <!-- Floating panels (absolutely positioned below toolbar) -->
+          <div
+            id="arrange-controls"
+            class="toolbar__floating-panel toolbar__cluster"
+            data-testid="arrange-controls"
+            hidden
+          >
+            <button id="save-focus" class="ghost-button" type="button" data-testid="save-focus">
+              Save Focus
+            </button>
+            <button
+              id="focus-position-mode"
+              class="ghost-button"
+              type="button"
+              aria-pressed="false"
+              data-testid="focus-position-mode"
             >
-              <button
-                id="undo-action"
-                class="ghost-button ghost-button--icon-only"
-                type="button"
-                aria-label="Undo"
-                title="Undo"
-                data-testid="undo-action"
-              >
-                <i data-lucide="undo-2" aria-hidden="true"></i>
-              </button>
-              <button
-                id="redo-action"
-                class="ghost-button ghost-button--icon-only"
-                type="button"
-                aria-label="Redo"
-                title="Redo"
-                data-testid="redo-action"
-              >
-                <i data-lucide="redo-2" aria-hidden="true"></i>
-              </button>
-            </div>
-            <div
-              id="center-map-controls"
-              class="toolbar__cluster"
-              data-testid="center-map-controls"
-            >
-              <button
-                id="center-map-btn"
-                class="ghost-button ghost-button--icon-only"
-                type="button"
-                aria-label="Center view"
-                title="Center view (Home)"
-                data-testid="center-map-btn"
-              >
-                <i data-lucide="crosshair" aria-hidden="true"></i>
-              </button>
-              <button id="zoom-in-btn" class="ghost-button ghost-button--icon-only" type="button" title="Zoom In" aria-label="Zoom In">＋</button>
-              <button id="zoom-out-btn" class="ghost-button ghost-button--icon-only" type="button" title="Zoom Out" aria-label="Zoom Out">－</button>
-            </div>
-            <div
-              id="document-controls"
-              class="toolbar__cluster"
-              data-testid="document-controls"
-            >
-              <button
-                id="save-document-action"
-                class="ghost-button ghost-button--icon-only"
-                type="button"
-                aria-label="Save document as JSON"
-                title="Save JSON (Mod+S)"
-                data-testid="save-document-action"
-              >
-                <i data-lucide="download" aria-hidden="true"></i>
-              </button>
-              <button
-                id="load-document-action"
-                class="ghost-button ghost-button--icon-only"
-                type="button"
-                aria-label="Load document from JSON"
-                title="Load JSON (Mod+O)"
-                data-testid="load-document-action"
-              >
-                <i data-lucide="upload" aria-hidden="true"></i>
-              </button>
-              <input
-                id="load-document-input"
-                type="file"
-                accept="application/json,.json"
-                hidden
-                data-testid="load-document-input"
-              />
-            </div>
-            <div
-              id="arrange-controls"
-              class="toolbar__cluster"
-              data-testid="arrange-controls"
-              hidden
-            >
-              <button
-                id="connect-selection"
-                class="ghost-button ghost-button--icon"
-                type="button"
-                data-testid="connect-selection"
-              >
-                <i data-lucide="link-2" aria-hidden="true"></i>
-                <span>Connect to...</span>
-              </button>
-              <button
-                id="delete-selection"
-                class="ghost-button ghost-button--icon"
-                type="button"
-                data-testid="delete-selection"
-              >
-                <i data-lucide="trash-2" aria-hidden="true"></i>
-                <span>Delete</span>
-              </button>
-              <button id="save-focus" class="ghost-button" type="button" data-testid="save-focus">
-                Save Focus
-              </button>
-              <button
-                id="focus-position-mode"
-                class="ghost-button"
-                type="button"
-                aria-pressed="false"
-                data-testid="focus-position-mode"
-              >
-                Focus: Absolute
-              </button>
-            </div>
+              Focus: Absolute
+            </button>
           </div>
 
           <div
@@ -276,14 +142,7 @@
         <div class="workspace__content">
           <section class="board-shell" data-testid="board-shell">
             <div id="canvas-container" class="canvas-container" data-testid="canvas-container"></div>
-            <label class="mode-toggle" id="mode-toggle" data-testid="mode-toggle">
-              <input type="checkbox" checked data-testid="mode-toggle-input" />
-              <span class="mode-toggle__track">
-                <span class="mode-toggle__thumb"></span>
-              </span>
-              <span class="mode-toggle__label" data-testid="mode-toggle-label">Edit</span>
-            </label>
-            <button
+<button
               id="drawing-visibility-toggle"
               class="view-overlay-toggle"
               type="button"

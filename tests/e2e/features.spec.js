@@ -782,7 +782,7 @@ test("button components keep one hidden outgoing connection and jump to the targ
   await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
   const beforeClickViewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
 
-  await page.getByTestId("mode-toggle").click();
+  await page.getByTestId("mode-capsule-present").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
@@ -867,7 +867,7 @@ test("double-clicking a button follows its connected target instead of its own f
   expect(Math.abs(targetFocus.center.x - buttonFocus.center.x)).toBeGreaterThan(200);
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
-  await page.getByTestId("mode-toggle").click();
+  await page.getByTestId("mode-capsule-present").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
@@ -942,7 +942,7 @@ test("follows a presentation navigation button toward an auto focus", async ({ p
   await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
   const beforeNavigation = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
 
-  await page.getByTestId("mode-toggle").click();
+  await page.getByTestId("mode-capsule-present").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
@@ -1018,7 +1018,7 @@ test("does not show presentation navigation buttons for hidden connections", asy
     .toBe(true);
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
-  await page.getByTestId("mode-toggle").click();
+  await page.getByTestId("mode-capsule-present").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
@@ -1939,7 +1939,7 @@ test("embeds attachments inside the component editor for pages in edit mode", as
 test("opens the attachments panel on double click in presentation mode", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
 
-  await page.getByTestId("mode-toggle").click();
+  await page.getByTestId("mode-capsule-present").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );
@@ -2833,7 +2833,7 @@ test("reorders ranking box items in view mode without switching to edit", async 
     },
   );
 
-  await page.getByTestId("mode-toggle").click();
+  await page.getByTestId("mode-capsule-present").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
     "presentation",
   );

@@ -330,7 +330,7 @@ export class BaseComponent {
       id: node.id(),
       type: this.type,
       parentId,
-      zIndex: this.app.getSelectableIndex(node),
+      zIndex: this.app?.getSelectableIndex?.(node) ?? -1,
       x: node.x(),
       y: node.y(),
       rotation: node.rotation(),
@@ -395,7 +395,7 @@ export class BaseComponent {
     node.visible(snapshot.visible !== false);
     node.opacity(Number.isFinite(snapshot.opacity) ? snapshot.opacity : 1);
     if (Number.isFinite(snapshot.zIndex)) {
-      this.app.setSelectableIndex(node, snapshot.zIndex);
+      this.app?.setSelectableIndex?.(node, snapshot.zIndex);
     }
 
     if (snapshot.focusPositionMode != null) {
