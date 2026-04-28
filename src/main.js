@@ -41,6 +41,7 @@ import { CatalogComponent } from "./component/catalog.js";
 import { RankingBoxComponent } from "./component/rankingBox.js";
 import { JavaScriptEditorComponent } from "./component/javascriptEditor.js";
 import { VideoComponent } from "./component/video.js";
+import { registerLeftToolbar } from "./component/LeftToolbar/index.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -53,6 +54,8 @@ function getRequiredElement(selector) {
 function getOptionalElement(selector) {
   return document.querySelector(selector);
 }
+
+registerLeftToolbar(getRequiredElement(".workspace__content"));
 
 const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),

@@ -503,6 +503,117 @@ body.is-presentation-mode .sidebar.is-collapsed {
   min-height: 0;
 }
 
+.has-left-toolbar .sidebar {
+  display: none;
+}
+
+.left-toolbar {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  flex-shrink: 0;
+  min-height: 0;
+  padding: 10px 0;
+  gap: 4px;
+  background: #fffdf7;
+  border-right: 1px solid rgba(61, 47, 32, 0.12);
+}
+
+body.is-edit-mode .left-toolbar {
+  display: flex;
+}
+
+body.is-presentation-mode .left-toolbar {
+  display: none;
+}
+
+.left-toolbar__logo {
+  margin-bottom: 8px;
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: #ba7517;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.left-toolbar__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.left-toolbar__group--tools {
+  min-height: 0;
+}
+
+.left-toolbar__divider {
+  width: 24px;
+  height: 1px;
+  background: rgba(61, 47, 32, 0.12);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+.left-toolbar__spacer {
+  flex: 1;
+  min-height: 12px;
+}
+
+.left-toolbar .tool-button,
+.left-toolbar .ghost-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #5f5e5a;
+  box-shadow: none;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+.left-toolbar .tool-button svg,
+.left-toolbar .ghost-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.left-toolbar .tool-button:hover:not(:disabled),
+.left-toolbar .ghost-button:hover:not(:disabled) {
+  background: #faf6ee;
+  color: #854f0b;
+  transform: translateY(-1px);
+}
+
+.left-toolbar .tool-button:active:not(:disabled),
+.left-toolbar .ghost-button:active:not(:disabled) {
+  background: #faeeda;
+  color: #854f0b;
+  transform: none;
+}
+
+.left-toolbar .tool-button[aria-pressed="true"],
+.left-toolbar .ghost-button[aria-pressed="true"] {
+  background: #faeeda;
+  color: #854f0b;
+}
+
+.left-toolbar .tool-button:disabled,
+.left-toolbar .ghost-button:disabled {
+  opacity: 0.4;
+}
+
 .eyebrow {
   margin: 0 0 0.35rem;
   font-size: 0.75rem;
