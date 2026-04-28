@@ -365,12 +365,7 @@ export class ToolbarPlugin extends BasePlugin {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "tool-button";
-      const buttonLabel =
-        tool.id === "pen"
-          ? "Brush tools"
-          : tool.id === "arrange"
-            ? "Select"
-            : tool.label;
+      const buttonLabel = tool.id === "pen" ? "Brush tools" : tool.label;
       button.title = buttonLabel;
       button.setAttribute("aria-label", buttonLabel);
       button.dataset.toolId = tool.id;
