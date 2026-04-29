@@ -160,7 +160,8 @@ app.use(BinaryCalculatorPlugin, {
   toggleEl: leftToolbar.calculatorBtn,
   widgetEl: ui.calculatorWidget,
 });
-app.use(MinimapPlugin);
+const minimapPlugin = app.use(MinimapPlugin);
+minimapPlugin.attachHeaderAction(leftToolbar.centerMapBtn);
 app.use(TimerPlugin, {
   toggleEl: leftToolbar.timerBtn,
   widgetEl: ui.timerWidget,

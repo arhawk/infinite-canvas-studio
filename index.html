@@ -20,6 +20,18 @@
 
           <!-- Center: Edit / Present capsule -->
           <div class="toolbar__center">
+            <button
+              id="drawing-visibility-toggle"
+              class="toolbar__icon-button toolbar__present-tool"
+              type="button"
+              aria-label="Hide drawings"
+              title="Hide drawings"
+              aria-pressed="true"
+              data-testid="drawing-visibility-toggle"
+              hidden
+            >
+              <i data-lucide="eye" aria-hidden="true"></i>
+            </button>
             <div class="mode-capsule" id="mode-capsule" role="group" aria-label="Editing mode" data-testid="mode-capsule">
               <button type="button" class="mode-capsule__btn" data-mode="edit" id="mode-capsule-edit" data-testid="mode-capsule-edit" aria-pressed="true">Edit</button>
               <button type="button" class="mode-capsule__btn" data-mode="present" id="mode-capsule-present" data-testid="mode-capsule-present" aria-pressed="false">Present</button>
@@ -142,18 +154,6 @@
         <div class="workspace__content">
           <section class="board-shell" data-testid="board-shell">
             <div id="canvas-container" class="canvas-container" data-testid="canvas-container"></div>
-<button
-              id="drawing-visibility-toggle"
-              class="view-overlay-toggle"
-              type="button"
-              aria-label="Hide drawings"
-              title="Hide drawings"
-              aria-pressed="true"
-              data-testid="drawing-visibility-toggle"
-              hidden
-            >
-              <i data-lucide="eye" aria-hidden="true"></i>
-            </button>
 
           <div
             id="calculator-widget"

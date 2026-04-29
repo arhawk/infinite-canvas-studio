@@ -14,6 +14,7 @@ export class MinimapPlugin extends BasePlugin {
     this.minimapTransform = null;
     this.laserTimeout = null;
     this.collapsed = false;
+    this.pendingHeaderActions ??= [];
 
     this.buildPanel();
 
@@ -37,7 +38,7 @@ export class MinimapPlugin extends BasePlugin {
     this.panelEl.className = "minimap";
     this.panelEl.dataset.testid = "minimap";
 
-    // Header row (label + toggle button)
+    // Header row (label + action buttons)
     const headerRow = document.createElement("div");
     headerRow.className = "minimap__header-row";
 
@@ -46,13 +47,21 @@ export class MinimapPlugin extends BasePlugin {
     header.textContent = "Overview";
     headerRow.appendChild(header);
 
+    this.headerActionsEl = document.createElement("div");
+    this.headerActionsEl.className = "minimap__header-actions";
+
     this.toggleBtn = document.createElement("button");
     this.toggleBtn.className = "minimap__toggle-btn";
     this.toggleBtn.setAttribute("aria-label", "Collapse minimap");
     this.toggleBtn.innerHTML =
       '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     this.listenDom(this.toggleBtn, "click", () => this.toggleCollapse());
-    headerRow.appendChild(this.toggleBtn);
+    for (const actionEl of this.pendingHeaderActions) {
+      this.attachHeaderAction(actionEl);
+    }
+    this.pendingHeaderActions = [];
+    this.headerActionsEl.appendChild(this.toggleBtn);
+    headerRow.appendChild(this.headerActionsEl);
 
     this.panelEl.appendChild(headerRow);
 
@@ -79,6 +88,18 @@ export class MinimapPlugin extends BasePlugin {
     // Append to .board-shell (parent of the Konva canvas container)
     const boardShell = this.stage.container().parentElement;
     boardShell.appendChild(this.panelEl);
+  }
+
+  attachHeaderAction(actionEl) {
+    if (!actionEl) return;
+    if (!this.headerActionsEl) {
+      this.pendingHeaderActions ??= [];
+      this.pendingHeaderActions.push(actionEl);
+      return;
+    }
+    actionEl.classList.remove("left-toolbar__btn");
+    actionEl.classList.add("minimap__action-btn");
+    this.headerActionsEl.prepend(actionEl);
   }
 
   // ── Collapse / expand ────────────────────────────────────────────────────
