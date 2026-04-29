@@ -259,6 +259,59 @@ test("adds the selected node to the outline panel", async ({ page }) => {
   await expect(page.getByTestId("catalog-panel")).toContainText("Sticky note");
 });
 
+test("presentation page shows attachment bookmarks and does not open attachments panel", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 180, y: 180, label: "Attachment Page" });
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  const enriched = await page.evaluate(({ snapshot, pageId }) => {
+    const clone = JSON.parse(JSON.stringify(snapshot));
+    const target = clone?.nodes?.find?.((node) => node?.id === pageId);
+    if (!target) return clone;
+    target.data = target.data || {};
+    target.data.attachments = {
+      directory: null,
+      entries: [
+        {
+          id: "att-url",
+          kind: "url",
+          sourceKind: "url",
+          label: "RFC",
+          url: "https://example.com/rfc",
+        },
+        {
+          id: "att-doc",
+          kind: "local-file",
+          sourceKind: "upload",
+          label: "slides.pdf",
+          fileName: "slides.pdf",
+          path: "slides.pdf",
+          mimeType: "application/pdf",
+          size: 1024,
+        },
+      ],
+    };
+    return clone;
+  }, { snapshot: exported, pageId: pageNode.id });
+
+  await page.evaluate((snapshot) => {
+    window.__APP_TEST_API__.loadDocument(snapshot);
+  }, enriched);
+
+  await page.evaluate(() => {
+    window.__APP_TEST_API__.setMode("presentation");
+  });
+  await waitForPaint(page);
+
+  const center = await getNodePageCenter(page, pageNode.id);
+  await page.mouse.dblclick(center.x, center.y);
+
+  await expect.poll(async () => page.evaluate(() => (
+    window.__APP_TEST_API__.getAttachmentsBookmarksState()
+  ))).toEqual(expect.objectContaining({ visible: true, count: 2 }));
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await expect(page.getByTestId("attachments-panel")).toHaveCount(0);
+});
+
 test("reorders component layers and preserves them through undo and document roundtrip", async ({ page }) => {
   const first = await addComponent(page, "sticky", { x: 180, y: 180 });
   const second = await addComponent(page, "sticky", { x: 360, y: 180 });
@@ -1933,24 +1986,6 @@ test("embeds attachments inside the component editor for pages in edit mode", as
   await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
   await expect(page.getByTestId("component-editor-attachments")).toBeVisible();
   await expect(page.getByTestId("component-editor-attachments-body")).toContainText("No attachments yet.");
-  await expect(page.getByTestId("attachments-panel")).toBeHidden();
-});
-
-test("opens the attachments panel on double click in presentation mode", async ({ page }) => {
-  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
-
-  await page.getByTestId("mode-capsule-present").click();
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
-    "presentation",
-  );
-  await page.waitForTimeout(450);
-
-  const center = await getNodePageCenter(page, pageNode.id);
-  await page.mouse.dblclick(center.x, center.y);
-  await waitForPaint(page);
-
-  await expect(page.getByTestId("attachments-panel")).toBeVisible();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 });
 
 test("clamps text block font size in the editor without blocking submit", async ({ page }) => {

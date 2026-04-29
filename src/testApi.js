@@ -697,6 +697,18 @@ export function setupAppTestApi(app) {
         y: point.y,
       }));
     },
+    getAttachmentsBookmarksState: () => {
+      const bookmarkPlugin = getPlugin(app, "attachments-bookmarks");
+      const group = bookmarkPlugin?.bookmarkGroup;
+      if (!group) {
+        return { visible: false, count: 0, scale: app.stageApi.getScale() };
+      }
+      return {
+        visible: group.visible(),
+        count: group.getChildren().length,
+        scale: app.stageApi.getScale(),
+      };
+    },
     clickNavigationButton: (index = 0) => {
       const focusPlugin = getPlugin(app, "focus-navigation");
       const navButtons = focusPlugin?.navButtonGroup?.getChildren?.() ?? [];

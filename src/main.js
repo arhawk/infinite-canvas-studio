@@ -14,7 +14,7 @@ import { RankingBoxPlugin } from "./plugins/rankingBox.js";
 import { PageComparePlugin } from "./plugins/pageCompare.js";
 import { FocusNavigationPlugin } from "./plugins/focusNavigation.js";
 import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
-import { AttachmentsPlugin } from "./plugins/attachments.js";
+import { AttachmentsBookmarksPlugin } from "./plugins/attachmentsBookmarks.js";
 import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
 import { TimerPlugin } from "./plugins/timer.js";
@@ -144,7 +144,7 @@ app.use(RankingBoxPlugin);
 app.use(MindMapBranchPlugin);
 app.use(ConnectionsPlugin);
 app.use(FocusNavigationPlugin);
-app.use(AttachmentsPlugin);
+app.use(AttachmentsBookmarksPlugin);
 app.use(ContextMenuPlugin);
 app.use(ContainersPlugin);
 const historyPlugin = app.use(HistoryPlugin, {

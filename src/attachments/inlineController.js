@@ -1,15 +1,14 @@
-import { BasePlugin } from "../core/baseClasses.js";
 import {
   appendAttachmentEntries,
   createEmptyAttachmentState,
   normalizeAttachmentEntry,
   replaceDirectoryEntries,
-} from "../attachments/model.js";
+} from "./model.js";
 import {
-  loadHandleRecord,
   saveHandleRecord,
   supportsHandlePersistence,
-} from "../attachments/handleStore.js";
+} from "./handleStore.js";
+import { openAttachmentEntry } from "./openAttachment.js";
 
 function createHandleKey(prefix = "attachment-handle") {
   if (typeof crypto?.randomUUID === "function") {
@@ -50,35 +49,6 @@ function getComponentLabel(node) {
   return node?.findOne?.(".container-label")?.text?.() ?? "Attachments";
 }
 
-async function ensureReadPermission(handle) {
-  if (!handle?.queryPermission || !handle?.requestPermission) return true;
-
-  const query = await handle.queryPermission({ mode: "read" });
-  if (query === "granted") return true;
-
-  const next = await handle.requestPermission({ mode: "read" });
-  return next === "granted";
-}
-
-async function getEntryFileHandle(handle, relativePath) {
-  if (!handle) return null;
-  if (handle.kind === "file") return handle;
-
-  const segments = String(relativePath ?? "")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (!segments.length) return null;
-
-  let current = handle;
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    current = await current.getDirectoryHandle(segments[index]);
-  }
-
-  return current.getFileHandle(segments[segments.length - 1]);
-}
-
 async function collectDirectoryEntries(directoryHandle, parentPath = "") {
   const entries = [];
 
@@ -108,95 +78,13 @@ async function collectDirectoryEntries(directoryHandle, parentPath = "") {
   return entries.sort((left, right) => left.path.localeCompare(right.path));
 }
 
-export class AttachmentsPlugin extends BasePlugin {
-  static pluginId = "attachments";
-  static modes = {
-    presentation: {},
-    edit: {
-      tools: {
-        arrange: {},
-      },
-    },
-  };
-
-  onSetup() {
-    this.selectedNode = null;
+export class AttachmentsInlineController {
+  constructor(app) {
+    this.app = app;
     this.activeNode = null;
     this.inlineHostEl = null;
-    this.inlineNode = null;
     this.inlineCleanup = null;
     this.statusTimeout = null;
-
-    this.buildPanel();
-
-    this.listen("selection:change", ({ nodes }) => {
-      this.selectedNode = nodes?.length === 1 ? nodes[0] : null;
-      if (this.inlineHostEl && this.inlineNode) return;
-      if (!this.resolveAttachmentNode(this.selectedNode)) {
-        this.closePanel();
-      }
-    });
-
-    this.listen("document:load:start", () => {
-      this.closePanel();
-    });
-
-    this.listen("interaction:change", () => {
-      if (!this.isEnabled()) {
-        this.closePanel();
-        return;
-      }
-      this.syncPanel();
-    });
-
-    this.app.stage.on("click.attachments tap.attachments", (event) => {
-      if (this.inlineHostEl && this.inlineNode) return;
-      const node = this.resolveAttachmentNode(event.target);
-      if (!node || node !== this.activeNode) {
-        this.closePanel();
-      }
-    });
-    this.app.stage.on("dblclick.attachments dbltap.attachments", (event) => {
-      if (!this.isEnabled()) return;
-      if (this.app.getMode() === "edit") return;
-      const button = event.evt?.button;
-      if (button != null && button !== 0) return;
-      this.openPanelFor(event.target);
-    });
-    this.listenDom(document, "mousedown", (event) => {
-      if (this.panelEl?.hidden) return;
-      if (this.panelEl?.contains(event.target)) return;
-      this.closePanel();
-    });
-
-    const stageContainer = this.app.stage.container();
-    this.listenDom(stageContainer, "dragover", (event) => this.handleDragOver(event));
-    this.listenDom(stageContainer, "drop", (event) => {
-      void this.handleDrop(event);
-    });
-    this.listenDom(this.panelEl, "dragover", (event) => this.handleDragOver(event));
-    this.listenDom(this.panelEl, "drop", (event) => {
-      void this.handleDrop(event);
-    });
-    this.listenDom(window, "dragover", (event) => this.handleGlobalDragOver(event));
-    this.listenDom(window, "drop", (event) => this.handleGlobalDrop(event));
-
-    this.cleanups.push(() => {
-      this.app.stage.off(".attachments");
-      this.unmountInline();
-      window.clearTimeout(this.statusTimeout);
-      this.fileInputEl?.remove();
-      this.panelEl?.remove();
-    });
-  }
-
-  buildPanel() {
-    this.panelEl = document.createElement("aside");
-    this.panelEl.className = "attachments-panel";
-    this.panelEl.hidden = true;
-    this.panelEl.style.display = "none";
-    this.panelEl.dataset.testid = "attachments-panel";
-    document.body.append(this.panelEl);
 
     this.fileInputEl = document.createElement("input");
     this.fileInputEl.type = "file";
@@ -205,11 +93,109 @@ export class AttachmentsPlugin extends BasePlugin {
     this.fileInputEl.dataset.testid = "attachments-file-input";
     document.body.append(this.fileInputEl);
 
-    this.listenDom(this.panelEl, "click", (event) => this.handlePanelClick(event));
-
-    this.listenDom(this.fileInputEl, "change", () => {
+    this.fileInputEl.addEventListener("change", () => {
       void this.handleManualFileInputChange();
     });
+  }
+
+  destroy() {
+    this.unmountInline();
+    window.clearTimeout(this.statusTimeout);
+    this.fileInputEl?.remove();
+  }
+
+  resolveAttachmentNode(target) {
+    const selectable =
+      target?.findAncestor?.(".selectable", true) ?? (target?.hasName?.("selectable") ? target : null);
+    if (!selectable) return null;
+
+    const component = this.app.components.getByNode(selectable);
+    if (!component?.supportsAttachments?.(selectable)) return null;
+    return selectable;
+  }
+
+  getAttachmentComponent(node = this.activeNode) {
+    if (!node) return null;
+    const component = this.app.components.getByNode(node);
+    if (!component?.supportsAttachments?.(node)) return null;
+    return component;
+  }
+
+  getAttachmentState(node = this.activeNode) {
+    const component = this.getAttachmentComponent(node);
+    return component?.getAttachmentState?.(node) ?? createEmptyAttachmentState();
+  }
+
+  updateAttachmentState(node, nextState) {
+    const component = this.getAttachmentComponent(node);
+    if (!component) return;
+
+    this.app.events.emit("node:change:start", { node });
+    component.setAttachmentState(node, nextState);
+    this.app.events.emit("node:changed", { node });
+    node.getLayer()?.batchDraw();
+    this.syncInlinePanel();
+  }
+
+  mountInline(hostEl, node) {
+    if (!(hostEl instanceof Element)) return;
+
+    this.unmountInline();
+
+    const resolvedNode = this.resolveAttachmentNode(node);
+    if (!resolvedNode) {
+      hostEl.replaceChildren();
+      return;
+    }
+
+    this.inlineHostEl = hostEl;
+    this.activeNode = resolvedNode;
+
+    const onClick = (event) => this.handlePanelClick(event);
+    const onDragOver = (event) => this.handleDragOver(event);
+    const onDrop = (event) => {
+      void this.handleDrop(event);
+    };
+
+    hostEl.addEventListener("click", onClick);
+    hostEl.addEventListener("dragover", onDragOver);
+    hostEl.addEventListener("drop", onDrop);
+
+    this.inlineCleanup = () => {
+      hostEl.removeEventListener("click", onClick);
+      hostEl.removeEventListener("dragover", onDragOver);
+      hostEl.removeEventListener("drop", onDrop);
+    };
+
+    this.syncInlinePanel();
+  }
+
+  unmountInline() {
+    if (typeof this.inlineCleanup === "function") {
+      this.inlineCleanup();
+    }
+
+    this.inlineCleanup = null;
+    this.inlineHostEl = null;
+    this.activeNode = null;
+  }
+
+  showStatus(message, tone = "info") {
+    if (!this.inlineHostEl) return;
+
+    window.clearTimeout(this.statusTimeout);
+    const statusEl = this.inlineHostEl.querySelector("[data-role='attachments-status']");
+    if (!statusEl) return;
+
+    statusEl.textContent = message;
+    statusEl.dataset.tone = tone;
+    statusEl.hidden = false;
+
+    this.statusTimeout = window.setTimeout(() => {
+      statusEl.hidden = true;
+      statusEl.textContent = "";
+      statusEl.dataset.tone = "info";
+    }, 2200);
   }
 
   handlePanelClick(event) {
@@ -250,144 +236,13 @@ export class AttachmentsPlugin extends BasePlugin {
 
     if (target.getAttribute("data-action") === "disconnect-directory") {
       this.disconnectDirectory();
-      return;
     }
-
-    if (target.getAttribute("data-action") === "close-attachments") {
-      this.closePanel();
-    }
-  }
-
-  resolveAttachmentNode(target) {
-    const selectable =
-      target?.findAncestor?.(".selectable", true) ?? (target?.hasName?.("selectable") ? target : null);
-    if (!selectable) return null;
-
-    const component = this.app.components.getByNode(selectable);
-    if (!component?.supportsAttachments?.(selectable)) return null;
-    return selectable;
-  }
-
-  setActiveNode(node) {
-    const nextNode = this.resolveAttachmentNode(node);
-    this.activeNode = nextNode;
-    this.syncPanel();
-  }
-
-  openPanelFor(node) {
-    const nextNode = this.resolveAttachmentNode(node);
-    if (!nextNode) {
-      this.closePanel();
-      return;
-    }
-
-    this.activeNode = nextNode;
-    this.syncPanel();
-  }
-
-  getAttachmentComponent(node = this.activeNode) {
-    if (!node) return null;
-    const component = this.app.components.getByNode(node);
-    if (!component?.supportsAttachments?.(node)) return null;
-    return component;
-  }
-
-  getAttachmentState(node = this.activeNode) {
-    const component = this.getAttachmentComponent(node);
-    return component?.getAttachmentState?.(node) ?? createEmptyAttachmentState();
-  }
-
-  updateAttachmentState(node, nextState) {
-    const component = this.getAttachmentComponent(node);
-    if (!component) return;
-
-    this.app.events.emit("node:change:start", { node });
-    component.setAttachmentState(node, nextState);
-    this.app.events.emit("node:changed", { node });
-    node.getLayer()?.batchDraw();
-    this.syncPanel();
-  }
-
-  showStatus(message, tone = "info") {
-    if (!this.panelEl && !this.inlineHostEl) return;
-
-    window.clearTimeout(this.statusTimeout);
-    const root = this.inlineHostEl ?? this.panelEl;
-    const statusEl = root?.querySelector?.("[data-role='attachments-status']");
-    if (!statusEl) return;
-
-    statusEl.textContent = message;
-    statusEl.dataset.tone = tone;
-    statusEl.hidden = false;
-
-    this.statusTimeout = window.setTimeout(() => {
-      statusEl.hidden = true;
-      statusEl.textContent = "";
-      statusEl.dataset.tone = "info";
-    }, 2200);
-  }
-
-  hidePanel() {
-    if (this.panelEl) {
-      this.panelEl.hidden = true;
-      this.panelEl.style.display = "none";
-    }
-  }
-
-  mountInline(hostEl, node) {
-    if (!(hostEl instanceof Element)) return;
-
-    this.unmountInline();
-
-    const resolvedNode = this.resolveAttachmentNode(node);
-    if (!resolvedNode) {
-      hostEl.replaceChildren();
-      return;
-    }
-
-    this.inlineHostEl = hostEl;
-    this.inlineNode = resolvedNode;
-    this.activeNode = resolvedNode;
-
-    const onClick = (event) => this.handlePanelClick(event);
-    const onDragOver = (event) => this.handleDragOver(event);
-    const onDrop = (event) => {
-      void this.handleDrop(event);
-    };
-
-    hostEl.addEventListener("click", onClick);
-    hostEl.addEventListener("dragover", onDragOver);
-    hostEl.addEventListener("drop", onDrop);
-
-    this.inlineCleanup = () => {
-      hostEl.removeEventListener("click", onClick);
-      hostEl.removeEventListener("dragover", onDragOver);
-      hostEl.removeEventListener("drop", onDrop);
-    };
-
-    this.syncPanel();
-  }
-
-  unmountInline() {
-    if (typeof this.inlineCleanup === "function") {
-      this.inlineCleanup();
-    }
-
-    this.inlineCleanup = null;
-    this.inlineHostEl = null;
-    this.inlineNode = null;
-  }
-
-  closePanel() {
-    this.activeNode = null;
-    this.hidePanel();
   }
 
   buildPanelMarkup(node, state, {
     editable,
     supportsFsApi,
     supportsUploads,
-    includeClose = true,
   } = {}) {
     const entryMarkup = state.entries.length
       ? state.entries
@@ -476,15 +331,6 @@ export class AttachmentsPlugin extends BasePlugin {
               Add URL
             </button>
           ` : ""}
-          ${includeClose ? `
-            <button
-              type="button"
-              class="ghost-button attachments-panel__action"
-              data-action="close-attachments"
-            >
-              Close
-            </button>
-          ` : ""}
         </div>
       </div>
       <p class="attachments-panel__hint">
@@ -514,26 +360,15 @@ export class AttachmentsPlugin extends BasePlugin {
     `;
   }
 
-  syncPanel() {
+  syncInlinePanel() {
+    if (!this.inlineHostEl) return;
+
     const node = this.activeNode;
     const component = this.getAttachmentComponent(node);
     const editable = this.app.getMode() === "edit";
-    const hasInline =
-      this.inlineHostEl &&
-      this.inlineNode &&
-      this.activeNode &&
-      this.inlineNode === this.activeNode;
 
-    if (editable && !hasInline) {
-      this.hidePanel();
-      return;
-    }
-
-    if (!this.isEnabled() || !node || !component) {
-      if (hasInline) {
-        this.inlineHostEl.replaceChildren();
-      }
-      this.hidePanel();
+    if (!node || !component) {
+      this.inlineHostEl.replaceChildren();
       return;
     }
 
@@ -545,22 +380,13 @@ export class AttachmentsPlugin extends BasePlugin {
       editable,
       supportsFsApi,
       supportsUploads,
-      includeClose: !hasInline,
     });
 
-    if (hasInline) {
-      this.inlineHostEl.innerHTML = `
-        <section class="attachments-panel attachments-panel--embedded" data-testid="attachments-panel-embedded">
-          ${markup}
-        </section>
-      `;
-      this.hidePanel();
-      return;
-    }
-
-    this.panelEl.innerHTML = markup;
-    this.panelEl.hidden = false;
-    this.panelEl.style.display = "";
+    this.inlineHostEl.innerHTML = `
+      <section class="attachments-panel attachments-panel--embedded" data-testid="attachments-panel-embedded">
+        ${markup}
+      </section>
+    `;
   }
 
   deleteAttachment(attachmentId) {
@@ -673,8 +499,6 @@ export class AttachmentsPlugin extends BasePlugin {
       throw new Error("This browser cannot persist local file attachments.");
     }
 
-    // Safari fallback stores picked File objects in IndexedDB. They reopen in
-    // the same browser, but they are not equivalent to Chromium directory handles.
     const nextEntries = [];
     for (const file of files) {
       if (!(file instanceof File)) continue;
@@ -717,18 +541,6 @@ export class AttachmentsPlugin extends BasePlugin {
     this.updateAttachmentState(node, nextState);
   }
 
-  resolveDropNode(event) {
-    const stage = this.app.stage;
-    stage.setPointersPositions(event);
-    const pointer = stage.getPointerPosition();
-    const intersection = pointer ? stage.getIntersection(pointer) : null;
-    return (
-      this.resolveAttachmentNode(intersection) ??
-      this.resolveAttachmentNode(this.activeNode) ??
-      this.resolveAttachmentNode(this.selectedNode)
-    );
-  }
-
   hasDroppableData(event) {
     const types = [...(event.dataTransfer?.types ?? [])];
     return (
@@ -742,35 +554,17 @@ export class AttachmentsPlugin extends BasePlugin {
   handleDragOver(event) {
     if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
     if (!this.hasDroppableData(event)) return;
-    const node = this.resolveDropNode(event);
-    if (!node) return;
+    if (!this.activeNode) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
   }
 
-  handleGlobalDragOver(event) {
-    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
-    if (!this.hasDroppableData(event)) return;
-    if (!this.resolveDropNode(event)) return;
-    event.preventDefault();
-  }
-
-  async handleGlobalDrop(event) {
-    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
-    if (!this.hasDroppableData(event)) return;
-    if (!this.resolveDropNode(event)) return;
-    event.preventDefault();
-  }
-
   async handleDrop(event) {
     if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
-
-    const node = this.resolveDropNode(event);
-    if (!node) return;
+    if (!this.activeNode) return;
 
     event.preventDefault();
-    this.setActiveNode(node);
-
+    const node = this.activeNode;
     const items = [...(event.dataTransfer?.items ?? [])];
     let handled = false;
 
@@ -818,51 +612,7 @@ export class AttachmentsPlugin extends BasePlugin {
   }
 
   async openAttachment(entry, state) {
-    if (entry.kind === "url" && entry.url) {
-      window.open(entry.url, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    if (entry.kind !== "local-file") return;
-
-    try {
-      const record = entry.handleKey ? await loadHandleRecord(entry.handleKey) : null;
-      const handle = record?.handle ?? null;
-
-      if (!handle) {
-        this.showStatus(
-          state.directory
-            ? "Local file handle missing. Reconnect the folder to reopen files."
-            : "Local file handle missing in this browser.",
-          "error",
-        );
-        return;
-      }
-
-      // Browser-local uploaded files are stored as File objects, while
-      // Chromium directory/file attachments reopen through file-system handles.
-      if (handle instanceof File) {
-        const url = URL.createObjectURL(handle);
-        window.open(url, "_blank", "noopener,noreferrer");
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        return;
-      }
-
-      const granted = await ensureReadPermission(handle);
-      if (!granted) {
-        this.showStatus("Permission to read this file was denied.", "error");
-        return;
-      }
-
-      const fileHandle = await getEntryFileHandle(handle, entry.path ?? entry.fileName);
-      const file = await fileHandle.getFile();
-      const url = URL.createObjectURL(file);
-      window.open(url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (error) {
-      console.error(error);
-      this.showStatus("Failed to open attachment.", "error");
-    }
+    await openAttachmentEntry(entry, state, (message, tone) => this.showStatus(message, tone));
   }
 
   openFilePicker() {
@@ -873,19 +623,17 @@ export class AttachmentsPlugin extends BasePlugin {
 
   async handleManualFileInputChange() {
     const node = this.activeNode;
-    const files = [...(this.fileInputEl?.files ?? [])];
-    if (!node || !files.length) return;
+    if (!node || !this.fileInputEl?.files?.length) return;
 
+    const files = [...this.fileInputEl.files];
     try {
       await this.attachUploadedFilesToNode(node, files);
-      this.showStatus(files.length === 1 ? "File attached." : "Files attached.");
+      this.showStatus("Attachment added.");
     } catch (error) {
       console.error(error);
-      this.showStatus("Failed to attach files.", "error");
+      this.showStatus("Failed to add file attachment.", "error");
     } finally {
-      if (this.fileInputEl) {
-        this.fileInputEl.value = "";
-      }
+      this.fileInputEl.value = "";
     }
   }
 
@@ -893,16 +641,16 @@ export class AttachmentsPlugin extends BasePlugin {
     const node = this.activeNode;
     if (!node) return;
 
-    const value = window.prompt("Enter an http(s) URL to attach:");
-    if (value == null) return;
+    const input = window.prompt("Enter a URL to attach", "https://");
+    if (input == null) return;
 
-    const url = value.trim();
-    if (!isHttpUrl(url)) {
+    const trimmed = input.trim();
+    if (!isHttpUrl(trimmed)) {
       this.showStatus("Please enter a valid http(s) URL.", "error");
       return;
     }
 
-    this.attachUrlToNode(node, url);
-    this.showStatus("URL attached.");
+    this.attachUrlToNode(node, trimmed);
+    this.showStatus("Attachment added.");
   }
 }

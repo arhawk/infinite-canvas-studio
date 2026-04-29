@@ -3,6 +3,7 @@ import {
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
+import { AttachmentsInlineController } from "../attachments/inlineController.js";
 
 class OpenComponentEditorCommand extends BaseCommand {
   static commandId = "component:edit";
@@ -62,6 +63,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     this.currentNode = null;
     this.currentEditor = null;
     this.selectedNodes = [];
+    this.attachmentsInlineController = new AttachmentsInlineController(this.app);
 
     this.buildModal();
 
@@ -124,6 +126,7 @@ export class ComponentEditorPlugin extends BasePlugin {
 
     this.cleanups.push(() => {
       this.app.stage.off(".componentEditor");
+      this.attachmentsInlineController?.destroy?.();
       this.overlay.remove();
     });
   }
@@ -331,15 +334,14 @@ export class ComponentEditorPlugin extends BasePlugin {
       return;
     }
 
-    const attachmentsPlugin = this.app.getPlugin("attachments");
-    if (!attachmentsPlugin?.mountInline) {
+    if (!this.attachmentsInlineController?.mountInline) {
       this.attachmentsEl.hidden = true;
       this.attachmentsBodyEl.replaceChildren();
       return;
     }
 
     this.attachmentsEl.hidden = false;
-    attachmentsPlugin.mountInline(this.attachmentsBodyEl, node);
+    this.attachmentsInlineController.mountInline(this.attachmentsBodyEl, node);
   }
 
   unmountAttachments() {
@@ -348,8 +350,7 @@ export class ComponentEditorPlugin extends BasePlugin {
     }
     this.attachmentsBodyEl?.replaceChildren();
 
-    const attachmentsPlugin = this.app.getPlugin("attachments");
-    attachmentsPlugin?.unmountInline?.();
+    this.attachmentsInlineController?.unmountInline?.();
   }
 
   createInput(field, node) {
