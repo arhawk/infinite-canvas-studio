@@ -594,6 +594,25 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
   expect(createdConnection.summary.targetNodeId).toBe(target.id);
   expect(createdConnection.summary.points.length).toBe(8);
 
+  const duplicateConnection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+  expect(duplicateConnection.id).toBe(createdConnection.id);
+
+  const reverseConnection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: target.id, targetId: source.id },
+  );
+  expect(reverseConnection.id).toBe(createdConnection.id);
+
+  await expect
+    .poll(async () => {
+      const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+      return nodes.filter((node) => node.componentType === "connection").length;
+    })
+    .toBe(1);
+
   const originalPoints = createdConnection.summary.points;
 
   await page.evaluate(

@@ -302,6 +302,18 @@ export class ConnectionsPlugin extends BasePlugin {
     return this.layer.find((node) => isConnectionNode(node));
   }
 
+  findConnectionBetween(sourceId, targetId) {
+    if (!sourceId || !targetId || sourceId === targetId) return null;
+    return this.getConnections().find((connectionNode) => {
+      const existingSourceId = connectionNode.getAttr("sourceNodeId");
+      const existingTargetId = connectionNode.getAttr("targetNodeId");
+      return (
+        (existingSourceId === sourceId && existingTargetId === targetId) ||
+        (existingSourceId === targetId && existingTargetId === sourceId)
+      );
+    }) ?? null;
+  }
+
   isTermdefConnection(connectionNode) {
     return isConnectionNode(connectionNode) && getConnectionKind(connectionNode) === CONNECTION_KIND_TERMDEF;
   }
@@ -787,6 +799,18 @@ export class ConnectionsPlugin extends BasePlugin {
     const source = this.findNodeById(sourceId);
     const target = this.findNodeById(targetId);
     if (!this.isConnectable(source) || !this.isConnectable(target)) return null;
+
+    const existingConnection = this.findConnectionBetween(sourceId, targetId);
+    if (existingConnection) {
+      this.updateConnection(existingConnection);
+      this.layer.batchDraw();
+      if (isButtonNode(source)) {
+        this.app.getPlugin("selection")?.setSelected?.([source]);
+      } else {
+        this.app.getPlugin("selection")?.setSelected?.([existingConnection]);
+      }
+      return existingConnection;
+    }
 
     if (isButtonNode(source)) {
       this.getConnections()
