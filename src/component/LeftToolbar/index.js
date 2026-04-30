@@ -70,21 +70,11 @@ export class LeftToolbarPlugin extends BasePlugin {
 
     el.appendChild(this._makeSep());
 
-    // View group (center + zoom-in + zoom-out + download + upload)
+    // View group
     const viewGroup = document.createElement("div");
     viewGroup.className = "left-toolbar__group";
     this.centerMapBtn = this._makeBtn("crosshair", "Fit all content (Home)", "center-map-btn");
-    this.zoomInBtn = this._makeBtn("zoom-in", "Zoom In", "zoom-in-btn");
-    this.zoomOutBtn = this._makeBtn("zoom-out", "Zoom Out", "zoom-out-btn");
-    this.saveBtn = this._makeBtn("download", "Save document as JSON (Mod+S)", "save-document-action");
-    this.loadBtn = this._makeBtn("upload", "Load document from JSON (Mod+O)", "load-document-action");
-    viewGroup.append(
-      this.centerMapBtn,
-      this.zoomInBtn,
-      this.zoomOutBtn,
-      this.saveBtn,
-      this.loadBtn,
-    );
+    viewGroup.append(this.centerMapBtn);
     el.appendChild(viewGroup);
 
     // Flex spacer pushes history group to the bottom

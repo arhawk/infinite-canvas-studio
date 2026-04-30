@@ -173,8 +173,6 @@ const historyPlugin = app.use(HistoryPlugin, {
   redoEl: leftToolbar.redoBtn,
 });
 app.use(DocumentPlugin, {
-  exportEl: leftToolbar.saveBtn,
-  importEl: leftToolbar.loadBtn,
   importInputEl: ui.loadDocumentInput,
 });
 app.use(BinaryCalculatorPlugin, {
@@ -197,8 +195,6 @@ app.use(TimerPlugin, {
 });
 app.use(CenterMapPlugin, {
   centerMapEl: leftToolbar.centerMapBtn,
-  zoomInEl: leftToolbar.zoomInBtn,
-  zoomOutEl: leftToolbar.zoomOutBtn,
 });
 
 app.start();

@@ -586,8 +586,7 @@ Controls:
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
 - Icon-only undo / redo buttons rendered with Lucide icons
-- Icon-only save / load document buttons rendered with Lucide icons
-- Center-map and zoom controls are always available in the main toolbar row
+- Center-map control is available from the left toolbar
 - Calculator and timer widgets are toggled from toolbar buttons
 - In drawing tools, a floating brush panel provides tool switching, color, width, recent colors, and eraser radius / clear controls
 - In `presentation`, a drawing visibility toggle can hide or show the draw layer
