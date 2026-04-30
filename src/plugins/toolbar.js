@@ -1,4 +1,4 @@
-import { BasePlugin } from "../core/baseClasses.js";
+import { BaseCommand, BasePlugin } from "../core/baseClasses.js";
 import {
   DEFAULT_SHAPE_FILL,
   DEFAULT_SHAPE_FILL_OPACITY,
@@ -72,9 +72,25 @@ function formatOpacityValue(value) {
   return Number(value).toFixed(2).replace(/\.?0+$/, "");
 }
 
+class TogglePresentationBoardFullscreenCommand extends BaseCommand {
+  static commandId = "presentation:toggle-fullscreen-board";
+  static label = "Toggle Presentation Board Fullscreen";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    this.plugin?.toggleBoardFullscreen?.();
+  }
+}
+
 
 export class ToolbarPlugin extends BasePlugin {
   static pluginId = "toolbar";
+
+  commands() {
+    return [TogglePresentationBoardFullscreenCommand];
+  }
 
   onSetup() {
     const {
@@ -189,6 +205,7 @@ export class ToolbarPlugin extends BasePlugin {
       this.getDrawingPlugin()?.toggleDrawLayerVisibility?.();
       this.syncUi();
     });
+    this.app.keybindings.register("Mod+Shift+F", "presentation:toggle-fullscreen-board");
 
     this.listen("tool:change", () => {
       this.syncDrawingUiToActiveTool();
@@ -228,6 +245,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncUi();
 
     this.cleanups.push(() => {
+      this.app.keybindings.unregister("Mod+Shift+F");
       if (this.brushPanelPositionFrame != null) {
         window.cancelAnimationFrame(this.brushPanelPositionFrame);
         this.brushPanelPositionFrame = null;
@@ -238,6 +256,32 @@ export class ToolbarPlugin extends BasePlugin {
         this.presentationToolbarAnimationFrame = null;
       }
     });
+  }
+
+  getBoardFullscreenTarget() {
+    const container = this.app.stage?.container?.();
+    if (!container) return null;
+    return container.closest(".board-shell");
+  }
+
+  toggleBoardFullscreen() {
+    const target = this.getBoardFullscreenTarget();
+    if (!target) return;
+
+    if (document.fullscreenElement === target) {
+      const exitPromise = document.exitFullscreen?.();
+      exitPromise?.catch?.(() => {});
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      const exitPromise = document.exitFullscreen?.();
+      exitPromise?.catch?.(() => {});
+      return;
+    }
+
+    const fullscreenPromise = target.requestFullscreen?.();
+    fullscreenPromise?.catch?.(() => {});
   }
 
   setupPresentationToolbarAutoHide() {

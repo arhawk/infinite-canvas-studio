@@ -137,6 +137,31 @@ test("switches between edit and presentation mode", async ({ page }) => {
   );
 });
 
+test("toggles board fullscreen with Mod+Shift+F only in presentation mode", async ({ page }) => {
+  const toggleShortcut = process.platform === "darwin" ? "Meta+Shift+F" : "Control+Shift+F";
+
+  await page.keyboard.press(toggleShortcut);
+  await expect
+    .poll(async () => page.evaluate(() => Boolean(document.fullscreenElement)))
+    .toBe(false);
+
+  await page.getByTestId("mode-capsule-present").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+
+  await page.keyboard.press(toggleShortcut);
+  await expect.poll(async () => page.evaluate(() => {
+    const target = document.querySelector(".board-shell");
+    return document.fullscreenElement === target;
+  })).toBe(true);
+
+  await page.keyboard.press(toggleShortcut);
+  await expect
+    .poll(async () => page.evaluate(() => document.fullscreenElement === null))
+    .toBe(true);
+});
+
 test("adds a sticky note from the palette and deletes it with the keyboard", async ({ page }) => {
   await page.getByTestId("palette-card-sticky").click();
 

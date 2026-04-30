@@ -68,7 +68,13 @@ function createApp(mode = "edit") {
       },
     ],
     commands: {
+      register: vi.fn(),
+      unregister: vi.fn(),
       execute: vi.fn(),
+    },
+    keybindings: {
+      register: vi.fn(),
+      unregister: vi.fn(),
     },
     events: {
       emit: vi.fn(),
