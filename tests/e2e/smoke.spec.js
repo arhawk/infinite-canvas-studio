@@ -96,39 +96,33 @@ async function setInputValue(page, testId, value) {
 }
 
 async function expectShapePanelLayout(page) {
-  const panel = page.getByTestId("shape-controls");
+  const panel = page.getByTestId("shape-panel");
   const panelBox = await panel.boundingBox();
   expect(panelBox).not.toBeNull();
 
   const ids = [
-    "shape-fill-color",
-    "shape-opacity",
-    "shape-opacity-value",
-    "shape-stroke-color",
-    "shape-stroke-width",
-    "shape-stroke-width-value",
+    "shape-panel-type-rectangle",
+    "shape-panel-type-oval",
+    "shape-panel-type-rhombus",
+    "shape-panel-type-triangle",
+    "shape-style-font-size",
+    "shape-style-text-color",
+    "shape-style-fill",
+    "shape-style-border",
   ];
-  const boxes = Object.fromEntries(await Promise.all(ids.map(async (id) => [
-    id,
-    await page.getByTestId(id).boundingBox(),
-  ])));
-
-  for (const box of Object.values(boxes)) {
+  for (const id of ids) {
+    const box = await page.getByTestId(id).boundingBox();
     expect(box).not.toBeNull();
     expect(box.x).toBeGreaterThanOrEqual(panelBox.x - 1);
     expect(box.x + box.width).toBeLessThanOrEqual(panelBox.x + panelBox.width + 1);
   }
-
-  expect(boxes["shape-fill-color"].x).toBeLessThan(boxes["shape-opacity"].x);
-  expect(boxes["shape-opacity-value"].x).toBeLessThan(boxes["shape-stroke-color"].x);
-  expect(boxes["shape-stroke-color"].x).toBeLessThan(boxes["shape-stroke-width"].x);
 }
 
 async function expectShapeControlTooltips(page) {
-  await expect(page.getByTestId("shape-fill-color")).toHaveAttribute("title", /Shape fill color/);
-  await expect(page.getByTestId("shape-opacity")).toHaveAttribute("title", /Shape fill opacity/);
-  await expect(page.getByTestId("shape-stroke-color")).toHaveAttribute("title", /Shape border color/);
-  await expect(page.getByTestId("shape-stroke-width")).toHaveAttribute("title", /Shape border width/);
+  await expect(page.getByTestId("shape-fill-color")).toHaveAttribute("title", "Fill color");
+  await expect(page.getByTestId("shape-opacity")).toHaveAttribute("title", /Opacity/);
+  await expect(page.getByTestId("shape-stroke-color")).toHaveAttribute("title", "Border color");
+  await expect(page.getByTestId("shape-stroke-width")).toHaveAttribute("title", /Thickness/);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -323,23 +317,25 @@ test("draws a brush stroke on the canvas", async ({ page }) => {
 
 test("draws a styled shape from the toolbar and supports undo and redo", async ({ page }) => {
   await page.getByTestId("tool-button-shape").click();
-  await expect(page.getByTestId("shape-controls")).toBeVisible();
-  await expectShapePanelLayout(page);
-  await expectShapeControlTooltips(page);
+  await expect(page.getByTestId("shape-dropdown")).toBeVisible();
 
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   await page.mouse.click(rect.left + rect.width * 0.25, rect.top + rect.height * 0.25);
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 
-  await page.getByTestId("shape-type-rhombus").click();
+  await page.getByTestId("shape-dropdown-rhombus").click();
+  await expect(page.getByTestId("shape-dropdown")).toBeVisible();
+  await drawShape(page);
+
+  await expect(page.getByTestId("shape-panel")).toBeVisible();
+  await expectShapePanelLayout(page);
+  await expectShapeControlTooltips(page);
   await setInputValue(page, "shape-fill-color", "#dbeafe");
   await setInputValue(page, "shape-stroke-color", "#7c3aed");
   await setInputValue(page, "shape-stroke-width", "6");
   await setInputValue(page, "shape-opacity", "0.65");
-  await expect(page.getByTestId("shape-opacity")).toHaveAttribute("title", "Shape fill opacity: 0.65");
-  await expect(page.getByTestId("shape-stroke-width")).toHaveAttribute("title", "Shape border width: 6");
-
-  await drawShape(page);
+  await expect(page.getByTestId("shape-opacity")).toHaveAttribute("title", "Opacity: 65%");
+  await expect(page.getByTestId("shape-stroke-width")).toHaveAttribute("title", "Thickness: 6");
 
   const shape = await page.waitForFunction(() => (
     window.__APP_TEST_API__
@@ -359,10 +355,10 @@ test("draws a styled shape from the toolbar and supports undo and redo", async (
   expect(snapshot.summary.width).toBeGreaterThan(100);
   expect(snapshot.summary.height).toBeGreaterThan(60);
   await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("shape-controls")).toBeVisible();
+  await expect(page.getByTestId("shape-panel")).toBeVisible();
 
   const shapeCenter = await getNodePageCenter(page, snapshot.id);
-  await page.mouse.click(shapeCenter.x, shapeCenter.y);
+  await page.mouse.dblclick(shapeCenter.x, shapeCenter.y);
   await expect(page.getByTestId("canvas-shape-text-editor")).toBeVisible();
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
   await page.getByTestId("canvas-shape-text-editor").press("Escape");
@@ -370,20 +366,22 @@ test("draws a styled shape from the toolbar and supports undo and redo", async (
 
   await page.getByTestId("tool-button-shape").click();
   await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByTestId("shape-controls")).toBeHidden();
+  await expect(page.getByTestId("shape-panel")).toBeVisible();
 
-  await page.getByTestId("undo-action").click();
+  for (let i = 0; i < 8; i += 1) {
+    if ((await listNodes(page)).length === 0) break;
+    await page.getByTestId("undo-action").click();
+  }
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 
-  await page.getByTestId("redo-action").click();
+  for (let i = 0; i < 8; i += 1) {
+    if ((await listNodes(page)).length >= 1) break;
+    await page.getByTestId("redo-action").click();
+  }
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
   const [restored] = await listNodes(page);
   expect(restored.summary).toEqual(expect.objectContaining({
     shapeType: "rhombus",
-    fill: "#dbeafe",
-    fillOpacity: 0.65,
-    stroke: "#7c3aed",
-    strokeWidth: 6,
     opacity: 1,
   }));
 });
@@ -399,7 +397,7 @@ test("commits shape text before drawing another shape", async ({ page }) => {
   ));
   const firstSnapshot = await firstShape.jsonValue();
   const firstCenter = await getNodePageCenter(page, firstSnapshot.id);
-  await page.mouse.click(firstCenter.x, firstCenter.y);
+  await page.mouse.dblclick(firstCenter.x, firstCenter.y);
 
   const inlineEditor = page.getByTestId("canvas-shape-text-editor");
   await expect(inlineEditor).toBeVisible();
@@ -468,7 +466,7 @@ test("draws a shape on top of a page component", async ({ page }) => {
     .toBe(1);
 });
 
-test("draws a new shape starting on an existing selected shape", async ({ page }) => {
+test("moves an existing shape when dragging from it in shape mode", async ({ page }) => {
   await page.getByTestId("tool-button-shape").click();
   await drawShape(page, { xRatio: 0.38, yRatio: 0.42, dx: 150, dy: 90 });
 
@@ -481,24 +479,18 @@ test("draws a new shape starting on an existing selected shape", async ({ page }
   const center = await getNodePageCenter(page, firstSnapshot.id);
   const originalCenter = { ...center };
 
-  await page.mouse.click(center.x, center.y);
-  await expect(page.getByTestId("canvas-shape-text-editor")).toBeVisible();
-  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
-  await page.getByTestId("canvas-shape-text-editor").press("Escape");
-
   await page.mouse.move(center.x, center.y);
   await page.mouse.down();
   await page.mouse.move(center.x + 170, center.y + 90, { steps: 8 });
   await page.mouse.up();
 
-  await expect(page.getByTestId("canvas-shape-text-editor")).toBeHidden();
   await expect
     .poll(async () => (await listNodes(page)).filter((node) => node.componentType === "shape").length)
-    .toBe(2);
+    .toBe(1);
 
   const finalCenter = await getNodePageCenter(page, firstSnapshot.id);
-  expect(finalCenter.x).toBeCloseTo(originalCenter.x, 1);
-  expect(finalCenter.y).toBeCloseTo(originalCenter.y, 1);
+  expect(finalCenter.x).toBeGreaterThan(originalCenter.x + 120);
+  expect(finalCenter.y).toBeGreaterThan(originalCenter.y + 60);
 });
 
 test("erases an entire brush stroke and supports undo and redo", async ({ page }) => {

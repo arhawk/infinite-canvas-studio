@@ -2,16 +2,18 @@ import { BasePlugin, BaseTool } from "../core/baseClasses.js";
 import {
   DEFAULT_SHAPE_FILL,
   DEFAULT_SHAPE_FILL_OPACITY,
-  DEFAULT_SHAPE_LINE_HEIGHT,
   DEFAULT_SHAPE_STROKE,
   MIN_SHAPE_HEIGHT,
-  MIN_SHAPE_LINE_HEIGHT,
   MIN_SHAPE_WIDTH,
   applyShapeStyle,
   normalizeShapeType,
 } from "../component/shape.js";
 
 const DRAG_THRESHOLD = 4;
+const ROTATION_HIT_RADIUS = 18;
+const ROTATION_HANDLE_DEAD_ZONE = 9;
+const ROTATION_SNAP_TOLERANCE = 5;
+const ROTATION_SNAP_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
 class ShapeTool extends BaseTool {
   static toolId = "shape";
@@ -27,6 +29,36 @@ function normalizePoint(value = {}) {
 
 function radiansToDegrees(value) {
   return value * (180 / Math.PI);
+}
+
+function normalizeDegrees(value) {
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function angleDistance(a, b) {
+  const diff = Math.abs(normalizeDegrees(a) - normalizeDegrees(b));
+  return Math.min(diff, 360 - diff);
+}
+
+function snapRotation(value) {
+  const normalized = normalizeDegrees(value);
+  const closest = ROTATION_SNAP_ANGLES
+    .map((angle) => ({ angle, distance: angleDistance(normalized, angle) }))
+    .sort((a, b) => a.distance - b.distance)[0];
+  if (!closest || closest.distance > ROTATION_SNAP_TOLERANCE) return value;
+  const turns = Math.round(value / 360);
+  return closest.angle + turns * 360;
+}
+
+function rotateVector(point, degrees) {
+  const radians = degrees * (Math.PI / 180);
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: point.x * cos - point.y * sin,
+    y: point.x * sin + point.y * cos,
+  };
 }
 
 function isTransformerTarget(target) {
@@ -54,25 +86,6 @@ function getShapeBounds(startPoint, endPoint, {
 
   if (dragDistance < DRAG_THRESHOLD) {
     return null;
-  }
-
-  if (normalizedType === "line") {
-    const lineHeight = Math.max(
-      MIN_SHAPE_LINE_HEIGHT,
-      Number.isFinite(style.height) ? style.height : DEFAULT_SHAPE_LINE_HEIGHT,
-    );
-
-    const angle = Math.atan2(dy, dx);
-    const offsetX = -Math.sin(angle) * lineHeight / 2;
-    const offsetY = Math.cos(angle) * lineHeight / 2;
-
-    return {
-      x: start.x - offsetX,
-      y: start.y - offsetY,
-      width: Math.max(MIN_SHAPE_WIDTH, dragDistance),
-      height: lineHeight,
-      rotation: radiansToDegrees(angle),
-    };
   }
 
   let width = Math.abs(dx);
@@ -115,6 +128,8 @@ export class ShapesPlugin extends BasePlugin {
     this.stage = this.app.stage;
     this.previewNode = null;
     this.isDrawing = false;
+    this.rotationState = null;
+    this.moveState = null;
     this.startPoint = null;
     this.currentPoint = null;
     this.startTarget = null;
@@ -144,7 +159,18 @@ export class ShapesPlugin extends BasePlugin {
       this.syncCursorOverride();
       if (!this.isEnabled()) {
         this.cancelPreview();
+        this.cancelRotation(false);
+        this.cancelMove(false);
       }
+    });
+
+    this.listen("selection:change", ({ nodes = [] } = {}) => {
+      const sel = this.app.getPlugin("selection");
+      if (!sel?.transformer) return;
+      const isShapeOnly =
+        nodes.length === 1 && nodes[0]?.getAttr?.("componentType") === "shape";
+      sel.transformer.rotationSnaps(isShapeOnly ? ROTATION_SNAP_ANGLES : []);
+      sel.transformer.rotationSnapTolerance(isShapeOnly ? 8 : 0);
     });
 
     this.stage.on("mousedown.shapes touchstart.shapes", (event) => this.handlePointerDown(event));
@@ -156,6 +182,8 @@ export class ShapesPlugin extends BasePlugin {
     this.cleanups.push(() => {
       this.stage.off(".shapes");
       this.cancelPreview();
+      this.cancelRotation(false);
+      this.cancelMove(false);
     });
   }
 
@@ -169,18 +197,36 @@ export class ShapesPlugin extends BasePlugin {
 
   onModeExit() {
     this.cancelPreview();
-    if (this.app.cursorOverride === "crosshair") {
+    this.cancelRotation(false);
+    this.cancelMove(false);
+    if (["crosshair", "move", "grab", "grabbing"].includes(this.app.cursorOverride)) {
       this.app.clearCursorOverride();
     }
   }
 
-  syncCursorOverride() {
+  syncCursorOverride(target = null, event = null) {
     if (this.isEnabled()) {
+      if (this.rotationState) {
+        this.app.setCursorOverride("grabbing");
+        return;
+      }
+      if (this.moveState) {
+        this.app.setCursorOverride(this.moveState.started ? "grabbing" : "move");
+        return;
+      }
+      if (this.getRotationHit(event)) {
+        this.app.setCursorOverride("grab");
+        return;
+      }
+      if (this.getShapeTarget(target)) {
+        this.app.setCursorOverride("move");
+        return;
+      }
       this.app.setCursorOverride("crosshair");
       return;
     }
 
-    if (this.app.cursorOverride === "crosshair") {
+    if (["crosshair", "move", "grab", "grabbing"].includes(this.app.cursorOverride)) {
       this.app.clearCursorOverride();
     }
   }
@@ -199,10 +245,12 @@ export class ShapesPlugin extends BasePlugin {
   canStartShape(target) {
     if (!target) return false;
     if (target === this.stage) return true;
-    if (isTransformerTarget(target)) {
-      return false;
-    }
-
+    if (isTransformerTarget(target)) return false;
+    // Existing shapes stay movable while the shape tool is active.
+    const selectable = target?.hasName?.("selectable")
+      ? target
+      : target?.findAncestor?.(".selectable", true);
+    if (selectable?.getAttr?.("componentType") === "shape") return false;
     const layer = target.getLayer?.();
     return layer === this.app.mainLayer || layer === this.app.drawLayer;
   }
@@ -224,10 +272,7 @@ export class ShapesPlugin extends BasePlugin {
 
     const selection = this.app.getPlugin("selection");
     const selectedNodes = selection?.getSelectedNodes?.() ?? [];
-    if (selectedNodes.length === 1 && selectedNodes[0] === shape) {
-      shape.openInlineEditor?.(event);
-      return true;
-    }
+    if (selectedNodes.length === 1 && selectedNodes[0] === shape) return true;
 
     selection?.setSelected?.([shape]);
     return true;
@@ -312,9 +357,178 @@ export class ShapesPlugin extends BasePlugin {
     this.app.overlayLayer.batchDraw();
   }
 
+  getSelectedShape() {
+    const selectedNodes = this.app.getPlugin("selection")?.getSelectedNodes?.() ?? [];
+    return selectedNodes.length === 1 && selectedNodes[0]?.getAttr?.("componentType") === "shape"
+      ? selectedNodes[0]
+      : null;
+  }
+
+  getRotationHit(event = null) {
+    if (!this.isEnabled()) return null;
+    if (event?.target && isTransformerTarget(event.target)) return null;
+
+    const node = this.getSelectedShape();
+    if (!node?.getStage?.() || node.getAttr("inlineEditing")) return null;
+
+    const point = this.pointerToCanvas(event);
+    if (!point) return null;
+
+    const width = Number(node.width?.());
+    const height = Number(node.height?.());
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+    const scale = this.app.stageApi?.getScale?.() ?? this.stage.scaleX?.() ?? 1;
+    const radius = ROTATION_HIT_RADIUS / Math.max(scale, 0.001);
+    const deadZone = ROTATION_HANDLE_DEAD_ZONE / Math.max(scale, 0.001);
+    const transform = node.getAbsoluteTransform?.(this.stage)?.copy?.();
+    if (!transform?.point) return null;
+
+    const corners = [
+      transform.point({ x: 0, y: 0 }),
+      transform.point({ x: width, y: 0 }),
+      transform.point({ x: 0, y: height }),
+      transform.point({ x: width, y: height }),
+    ];
+    const nearCorner = corners.some((corner) => (
+      Math.hypot(point.x - corner.x, point.y - corner.y) <= radius &&
+      Math.hypot(point.x - corner.x, point.y - corner.y) > deadZone
+    ));
+    if (!nearCorner) return null;
+
+    const localCenter = { x: width / 2, y: height / 2 };
+    const center = transform.point(localCenter);
+    const centerInParent = node.getTransform?.()?.copy?.()?.point?.(localCenter) ?? {
+      x: node.x() + localCenter.x,
+      y: node.y() + localCenter.y,
+    };
+
+    return {
+      node,
+      point,
+      center,
+      centerInParent,
+      localCenter,
+    };
+  }
+
+  beginRotation(event) {
+    const hit = this.getRotationHit(event);
+    if (!hit) return false;
+
+    event.cancelBubble = true;
+    event.evt?.preventDefault?.();
+    event.evt?.stopPropagation?.();
+
+    const { node, point, center } = hit;
+    node.stopDrag?.();
+    this.rotationState = {
+      node,
+      center,
+      centerInParent: hit.centerInParent,
+      localCenter: hit.localCenter,
+      startAngle: radiansToDegrees(Math.atan2(point.y - center.y, point.x - center.x)),
+      startRotation: node.rotation?.() ?? 0,
+    };
+    this.app.events.emit("node:change:start", { node });
+    this.syncCursorOverride(event.target, event);
+    return true;
+  }
+
+  updateRotation(event) {
+    const state = this.rotationState;
+    if (!state?.node?.getStage?.()) return;
+
+    const point = this.pointerToCanvas(event);
+    if (!point) return;
+
+    event.cancelBubble = true;
+    event.evt?.preventDefault?.();
+    const angle = radiansToDegrees(Math.atan2(point.y - state.center.y, point.x - state.center.x));
+    const nextRotation = snapRotation(state.startRotation + angle - state.startAngle);
+    const rotatedCenter = rotateVector(state.localCenter, nextRotation);
+    state.node.position({
+      x: state.centerInParent.x - rotatedCenter.x,
+      y: state.centerInParent.y - rotatedCenter.y,
+    });
+    state.node.rotation(nextRotation);
+    this.app.events.emit("node:changing", { node: state.node });
+    this.app.getPlugin("selection")?.transformer?.forceUpdate?.();
+    state.node.getLayer?.()?.batchDraw?.();
+    this.app.overlayLayer?.batchDraw?.();
+  }
+
+  cancelRotation(commit = true) {
+    const state = this.rotationState;
+    if (!state) return;
+    this.rotationState = null;
+    if (commit && state.node?.getStage?.()) {
+      this.app.events.emit("node:changed", { node: state.node });
+    }
+    this.syncCursorOverride();
+  }
+
+  beginMove(event) {
+    if (event?.target && isTransformerTarget(event.target)) return false;
+    const node = this.getShapeTarget(event.target);
+    if (!node?.getStage?.() || node.getAttr("inlineEditing")) return false;
+
+    const point = this.pointerToCanvas(event);
+    if (!point) return false;
+
+    this.app.getPlugin("selection")?.setSelected?.([node]);
+    this.moveState = {
+      node,
+      startPoint: point,
+      startPosition: { x: node.x(), y: node.y() },
+      started: false,
+    };
+    return true;
+  }
+
+  updateMove(event) {
+    const state = this.moveState;
+    if (!state?.node?.getStage?.()) return;
+
+    const point = this.pointerToCanvas(event);
+    if (!point) return;
+
+    const dx = point.x - state.startPoint.x;
+    const dy = point.y - state.startPoint.y;
+    if (!state.started && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+
+    event.cancelBubble = true;
+    event.evt?.preventDefault?.();
+    if (!state.started) {
+      state.started = true;
+      this.app.events.emit("node:change:start", { node: state.node });
+    }
+    state.node.position({
+      x: state.startPosition.x + dx,
+      y: state.startPosition.y + dy,
+    });
+    this.app.events.emit("node:changing", { node: state.node });
+    this.app.getPlugin("selection")?.transformer?.forceUpdate?.();
+    state.node.getLayer?.()?.batchDraw?.();
+    this.app.overlayLayer?.batchDraw?.();
+  }
+
+  cancelMove(commit = true) {
+    const state = this.moveState;
+    if (!state) return;
+    this.moveState = null;
+    if (commit && state.started && state.node?.getStage?.()) {
+      this.app.events.emit("node:changed", { node: state.node });
+    }
+    this.syncCursorOverride();
+  }
+
   handlePointerDown(event) {
     if (!this.isEnabled()) return;
     if (event.evt?.button != null && event.evt.button !== 0) return;
+    if (this.beginRotation(event)) return;
+    if (this.beginMove(event)) return;
     if (!this.canStartShape(event.target)) return;
 
     const point = this.pointerToCanvas(event);
@@ -331,7 +545,18 @@ export class ShapesPlugin extends BasePlugin {
   }
 
   handlePointerMove(event) {
-    if (!this.isDrawing) return;
+    if (this.rotationState) {
+      this.updateRotation(event);
+      return;
+    }
+    if (this.moveState) {
+      this.updateMove(event);
+      return;
+    }
+    if (!this.isDrawing) {
+      this.syncCursorOverride(event.target, event);
+      return;
+    }
     const point = this.pointerToCanvas(event);
     if (!point) return;
     this.currentPoint = point;
@@ -339,6 +564,14 @@ export class ShapesPlugin extends BasePlugin {
   }
 
   async handlePointerUp(event) {
+    if (this.rotationState) {
+      this.cancelRotation(true);
+      return;
+    }
+    if (this.moveState) {
+      this.cancelMove(true);
+      return;
+    }
     if (!this.isDrawing) return;
 
     const point = this.pointerToCanvas(event) ?? this.currentPoint;
@@ -350,6 +583,9 @@ export class ShapesPlugin extends BasePlugin {
       return;
     }
 
-    await this.app.addComponent("shape", payload);
+    const node = await this.app.addComponent("shape", payload);
+    if (node) {
+      this.app.getPlugin("selection")?.setSelected?.([node]);
+    }
   }
 }

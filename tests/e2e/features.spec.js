@@ -1234,7 +1234,7 @@ test("selected button exposes live shape controls", async ({ page }) => {
 
   await expect(page.getByTestId("button-controls")).toBeVisible();
   await waitForPaint(page);
-  await expect(page.getByTestId("shape-controls")).toBeHidden();
+  await expect(page.getByTestId("shape-panel")).toBeHidden();
   await expect(page.getByTestId("button-type-rounded")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("button-font-size")).toHaveValue("16");
   await expect(page.getByTestId("button-text-color")).toHaveValue("#5b3b12");
@@ -1251,7 +1251,7 @@ test("selected button exposes live shape controls", async ({ page }) => {
   await expect(page.getByTestId("button-opacity")).toHaveAttribute("title", "Opacity: 100%");
   await expect(page.getByTestId("button-stroke-color")).toHaveAttribute("title", "Border color");
   await expect(page.getByTestId("button-stroke-width")).toHaveAttribute("title", "Thickness: 2");
-  await expect(page.locator(".toolbar__button-style-tool")).toHaveCount(4);
+  await expect(page.locator("#button-controls .toolbar__button-style-tool")).toHaveCount(4);
   await expect(page.getByTestId("button-style-font-size")).toBeVisible();
   await expect(page.getByTestId("button-style-text-color")).toBeVisible();
   await expect(page.getByTestId("button-style-fill")).toBeVisible();
@@ -1382,7 +1382,7 @@ test("selected button click edits its label inline", async ({ page }) => {
   await expect(page.getByTestId("button-controls")).toBeVisible();
   await expect(page.getByTestId("canvas-button-text-editor")).toHaveCount(0);
 
-  await page.mouse.click(center.x, center.y);
+  await page.mouse.dblclick(center.x, center.y);
   const editor = page.getByTestId("canvas-button-text-editor");
   await expect(editor).toBeVisible();
   const editorBox = await editor.boundingBox();
@@ -2989,9 +2989,10 @@ test("edits shape text inline and preserves shape style through resize and docum
   await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), shape.id);
   await waitForPaint(page);
+  await page.getByTestId("tool-button-shape").click();
 
   const center = await getNodePageCenter(page, shape.id);
-  await page.mouse.click(center.x, center.y);
+  await page.mouse.dblclick(center.x, center.y);
 
   const inlineEditor = page.getByTestId("canvas-shape-text-editor");
   await expect(inlineEditor).toBeVisible();

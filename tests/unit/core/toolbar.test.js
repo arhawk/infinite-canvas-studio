@@ -1,4 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../src/component/shape.js", () => ({
+  SHAPE_TYPES: [
+    { value: "rectangle", label: "Rectangle" },
+    { value: "oval", label: "Oval / Circle" },
+    { value: "rhombus", label: "Rhombus" },
+    { value: "triangle", label: "Triangle" },
+  ],
+  normalizeShapeType: (value) => (
+    ["rectangle", "oval", "rhombus", "triangle"].includes(value) ? value : "rectangle"
+  ),
+  applyShapeStyle: vi.fn(),
+  getShapeData: vi.fn(() => ({
+    shapeType: "rectangle",
+    fill: "#ffffff",
+    fillOpacity: 0,
+    stroke: "#000000",
+    strokeWidth: 2,
+    textColor: "#2d2d2d",
+    fontSize: 18,
+  })),
+}));
+
+vi.mock("../../../src/lib/konva.js", () => ({
+  Konva: {},
+}));
+
 import { ToolbarPlugin } from "../../../src/plugins/toolbar.js";
 
 function createToolbarDom() {
@@ -33,18 +60,53 @@ function createToolbarDom() {
             <button type="button" class="toolbar__share-btn" id="share-btn">Share</button>
           </div>
         </header>
-        <div id="shape-controls" hidden></div>
+        <div id="shape-panel" hidden>
+          <div id="shape-panel-type-controls">
+            <button type="button" data-shape-type="rectangle"></button>
+          </div>
+          <button data-testid="shape-style-font-size"></button>
+          <button data-testid="shape-style-text-color"></button>
+          <button data-testid="shape-style-fill"></button>
+          <button data-testid="shape-style-border"></button>
+          <div id="shape-text-swatches"></div>
+          <div id="shape-fill-swatches"></div>
+          <div id="shape-border-swatches"></div>
+          <div class="toolbar__button-custom-color"><input id="shape-text-color" type="color" value="#2d2d2d" /></div>
+          <div class="toolbar__button-custom-color"><input id="shape-fill-color" type="color" value="#ffffff" /></div>
+          <div class="toolbar__button-custom-color"><input id="shape-stroke-color" type="color" value="#000000" /></div>
+          <input id="shape-font-size" type="range" min="8" max="72" value="18" />
+          <output id="shape-font-size-value">18</output>
+          <input id="shape-stroke-width" type="range" min="0" max="24" value="2" />
+          <output id="shape-stroke-width-value">2</output>
+          <input id="shape-opacity" type="range" min="0" max="1" step="0.05" value="0" />
+          <output id="shape-opacity-value">0%</output>
+        </div>
+        <div id="button-controls" hidden>
+          <div id="button-type-controls">
+            <button type="button" data-button-shape-type="rounded"></button>
+          </div>
+          <button data-testid="button-style-font-size"></button>
+          <button data-testid="button-style-text-color"></button>
+          <button data-testid="button-style-fill"></button>
+          <button data-testid="button-style-border"></button>
+          <div id="button-text-swatches"></div>
+          <div id="button-fill-swatches"></div>
+          <div id="button-border-swatches"></div>
+          <div class="toolbar__button-custom-color"><input id="button-text-color" type="color" value="#5b3b12" /></div>
+          <div class="toolbar__button-custom-color"><input id="button-fill-color" type="color" value="#f7e7c6" /></div>
+          <div class="toolbar__button-custom-color"><input id="button-stroke-color" type="color" value="#b9782f" /></div>
+          <input id="button-font-size" type="range" min="8" max="72" value="16" />
+          <output id="button-font-size-value">16</output>
+          <input id="button-stroke-width" type="range" min="0" max="24" value="2" />
+          <output id="button-stroke-width-value">2</output>
+          <input id="button-opacity" type="range" min="0" max="1" step="0.05" value="1" />
+          <output id="button-opacity-value">100%</output>
+        </div>
         <div id="shape-type-controls">
           <button type="button" data-shape-type="rectangle"></button>
         </div>
         <button id="save-focus" type="button"></button>
         <button id="focus-position-mode" type="button"></button>
-        <input id="shape-fill-color" type="color" value="#ffffff" />
-        <input id="shape-stroke-color" type="color" value="#000000" />
-        <input id="shape-stroke-width" type="range" min="0" max="24" value="2" />
-        <output id="shape-stroke-width-value">2</output>
-        <input id="shape-opacity" type="range" min="0" max="1" step="0.05" value="0" />
-        <output id="shape-opacity-value">0</output>
         <button id="eraser-trigger" type="button"></button>
       </main>
     </div>
@@ -112,14 +174,28 @@ function createPlugin(app) {
     drawingVisibilityToggleEl: document.querySelector("#drawing-visibility-toggle"),
     saveFocusEl: document.querySelector("#save-focus"),
     focusPositionModeEl: document.querySelector("#focus-position-mode"),
-    shapeControlsEl: document.querySelector("#shape-controls"),
-    shapeTypeControlsEl: document.querySelector("#shape-type-controls"),
+    shapePanelEl: document.querySelector("#shape-panel"),
+    shapePanelTypeControlsEl: document.querySelector("#shape-panel-type-controls"),
+    shapeFontSizeEl: document.querySelector("#shape-font-size"),
+    shapeFontSizeValueEl: document.querySelector("#shape-font-size-value"),
+    shapeTextColorEl: document.querySelector("#shape-text-color"),
     shapeFillColorEl: document.querySelector("#shape-fill-color"),
     shapeStrokeColorEl: document.querySelector("#shape-stroke-color"),
     shapeStrokeWidthEl: document.querySelector("#shape-stroke-width"),
     shapeStrokeWidthValueEl: document.querySelector("#shape-stroke-width-value"),
     shapeOpacityEl: document.querySelector("#shape-opacity"),
     shapeOpacityValueEl: document.querySelector("#shape-opacity-value"),
+    buttonControlsEl: document.querySelector("#button-controls"),
+    buttonTypeControlsEl: document.querySelector("#button-type-controls"),
+    buttonFontSizeEl: document.querySelector("#button-font-size"),
+    buttonFontSizeValueEl: document.querySelector("#button-font-size-value"),
+    buttonTextColorEl: document.querySelector("#button-text-color"),
+    buttonFillColorEl: document.querySelector("#button-fill-color"),
+    buttonStrokeColorEl: document.querySelector("#button-stroke-color"),
+    buttonStrokeWidthEl: document.querySelector("#button-stroke-width"),
+    buttonStrokeWidthValueEl: document.querySelector("#button-stroke-width-value"),
+    buttonOpacityEl: document.querySelector("#button-opacity"),
+    buttonOpacityValueEl: document.querySelector("#button-opacity-value"),
     penDropdownPlugin,
     eraserTriggerEl: document.querySelector("#eraser-trigger"),
   });

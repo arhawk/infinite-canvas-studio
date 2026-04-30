@@ -72,6 +72,17 @@ textarea {
   white-space: pre-wrap;
 }
 
+.canvas-text-editor--compact {
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.canvas-text-editor--compact::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .app-shell {
   display: flex;
   height: 100dvh;
@@ -605,12 +616,12 @@ h2 {
   border-radius: 999px;
 }
 
-.shape-component__preview-line {
-  left: 20%;
-  right: 20%;
-  bottom: 22%;
-  height: 0;
-  background: transparent;
+.shape-component__preview-diamond {
+  left: 38%;
+  bottom: 18%;
+  width: 24%;
+  aspect-ratio: 1;
+  transform: rotate(45deg);
 }
 
 .toolbar {

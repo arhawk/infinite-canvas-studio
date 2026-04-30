@@ -110,6 +110,33 @@ export class ComponentEditorPlugin extends BasePlugin {
 
       const selectable = target?.findAncestor?.(".selectable", true)
         ?? (target?.hasName?.("selectable") ? target : null);
+      if (selectable?.getAttr?.("componentType") === "shape") {
+        selectable.openInlineEditor?.(event);
+        return;
+      }
+      const selectedShape =
+        this.selectedNodes.length === 1 &&
+        this.selectedNodes[0]?.getAttr?.("componentType") === "shape"
+          ? this.selectedNodes[0]
+          : null;
+      const pointer = this.app.stage.getPointerPosition?.();
+      const canvasPoint = pointer ? this.app.stageApi.screenToCanvas(pointer) : null;
+      const selectedShapeBox = selectedShape?.getClientRect?.({
+        relativeTo: this.app.stage,
+        skipShadow: true,
+        skipStroke: true,
+      }) ?? null;
+      if (
+        selectedShapeBox &&
+        canvasPoint &&
+        canvasPoint.x >= selectedShapeBox.x &&
+        canvasPoint.x <= selectedShapeBox.x + selectedShapeBox.width &&
+        canvasPoint.y >= selectedShapeBox.y &&
+        canvasPoint.y <= selectedShapeBox.y + selectedShapeBox.height
+      ) {
+        selectedShape.openInlineEditor?.(event);
+        return;
+      }
       if (selectable?.getAttr?.("componentType") === "text") {
         selectable.openInlineEditor?.(event);
         return;

@@ -3,6 +3,7 @@ import { App } from "./core/app.js";
 import { LeftToolbarPlugin } from "./component/LeftToolbar/index.js";
 import { ComponentsDropdownPlugin } from "./component/ComponentsDropdown/index.js";
 import { PenDropdownPlugin } from "./component/PenDropdown/index.js";
+import { ShapeDropdownPlugin } from "./component/ShapeDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
@@ -73,14 +74,17 @@ const ui = {
   timerDurationRow: getRequiredElement("#timer-duration-row"),
   timerClose: getRequiredElement("#timer-close"),
   timerHeader: getRequiredElement("#timer-header"),
-  shapeControls: getRequiredElement("#shape-controls"),
-  shapeTypeControls: getRequiredElement("#shape-type-controls"),
+  shapePanel: getRequiredElement("#shape-panel"),
+  shapePanelTypeControls: getRequiredElement("#shape-panel-type-controls"),
+  shapeFontSize: getRequiredElement("#shape-font-size"),
+  shapeFontSizeValue: getRequiredElement("#shape-font-size-value"),
+  shapeTextColor: getRequiredElement("#shape-text-color"),
   shapeFillColor: getRequiredElement("#shape-fill-color"),
+  shapeOpacity: getRequiredElement("#shape-opacity"),
+  shapeOpacityValue: getRequiredElement("#shape-opacity-value"),
   shapeStrokeColor: getRequiredElement("#shape-stroke-color"),
   shapeStrokeWidth: getRequiredElement("#shape-stroke-width"),
   shapeStrokeWidthValue: getRequiredElement("#shape-stroke-width-value"),
-  shapeOpacity: getRequiredElement("#shape-opacity"),
-  shapeOpacityValue: getRequiredElement("#shape-opacity-value"),
   buttonControls: getRequiredElement("#button-controls"),
   buttonTypeControls: getRequiredElement("#button-type-controls"),
   buttonFontSize: getRequiredElement("#button-font-size"),
@@ -133,19 +137,24 @@ app.use(ComponentEditorPlugin);
 app.use(PageComparePlugin);
 const penDropdown = app.use(PenDropdownPlugin);
 penDropdown.wireTrigger(leftToolbar.penBtn);
+const shapeDropdown = app.use(ShapeDropdownPlugin);
+shapeDropdown.wireTrigger(leftToolbar.shapeBtn);
 app.use(ToolbarPlugin, {
   presentationToolbarHoverZoneEl: ui.presentationToolbarHoverZone,
   modeCapsuleEditEl: ui.modeCapsuleEdit,
   modeCapsulePresentEl: ui.modeCapsulePresent,
   drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
-  shapeControlsEl: ui.shapeControls,
-  shapeTypeControlsEl: ui.shapeTypeControls,
+  shapePanelEl: ui.shapePanel,
+  shapePanelTypeControlsEl: ui.shapePanelTypeControls,
+  shapeFontSizeEl: ui.shapeFontSize,
+  shapeFontSizeValueEl: ui.shapeFontSizeValue,
+  shapeTextColorEl: ui.shapeTextColor,
   shapeFillColorEl: ui.shapeFillColor,
+  shapeOpacityEl: ui.shapeOpacity,
+  shapeOpacityValueEl: ui.shapeOpacityValue,
   shapeStrokeColorEl: ui.shapeStrokeColor,
   shapeStrokeWidthEl: ui.shapeStrokeWidth,
   shapeStrokeWidthValueEl: ui.shapeStrokeWidthValue,
-  shapeOpacityEl: ui.shapeOpacity,
-  shapeOpacityValueEl: ui.shapeOpacityValue,
   penDropdownPlugin: penDropdown,
   penTriggerEl: leftToolbar.penBtn,
   eraserTriggerEl: leftToolbar.eraserBtn,

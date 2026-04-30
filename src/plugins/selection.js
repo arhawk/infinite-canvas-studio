@@ -44,6 +44,7 @@ class CopySelectionCommand extends BaseCommand {
     edit: {
       tools: {
         arrange: {},
+        shape: {},
       },
     },
   };
@@ -511,6 +512,7 @@ export class SelectionPlugin extends BasePlugin {
     });
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
+    stage.on("dblclick.selection dbltap.selection", (event) => this.handleDoubleClick(event));
     stage.on("mousedown.selection touchstart.selection", (event) => this.handlePointerDown(event));
     stage.on("mousemove.selection touchmove.selection", () => this.handlePointerMove());
     stage.on("mouseup.selection touchend.selection", () => this.handlePointerUp());
@@ -1095,7 +1097,9 @@ export class SelectionPlugin extends BasePlugin {
   syncNodeInteractivity(node) {
     if (!node?.hasName?.("selectable")) return;
     const shapeToolActive = this.app.getEditorTool() === "shape";
-    const canUseSelection = this.isEnabled() && !shapeToolActive;
+    const canUseSelection = this.isEnabled() && (
+      !shapeToolActive || node.getAttr("componentType") === "shape"
+    );
     node.draggable(Boolean(node.getAttr("baseDraggable")) && canUseSelection);
   }
 
@@ -1104,6 +1108,13 @@ export class SelectionPlugin extends BasePlugin {
     node.off(".selectionSync");
     node.on("dragstart.selectionSync transformstart.selectionSync", () => {
       if (!node.getStage?.()) return;
+      if (
+        this.app.getEditorTool() === "shape" &&
+        node.getAttr("componentType") === "shape" &&
+        !this.selectedNodes.includes(node)
+      ) {
+        this.setSelected([node]);
+      }
       this.app.events.emit("node:change:start", { node });
     });
     node.on("dragmove.selectionSync transform.selectionSync", (event) => {
@@ -1385,16 +1396,6 @@ export class SelectionPlugin extends BasePlugin {
   handleClick(event) {
     const activeTool = this.app.tools.getActive();
     if (activeTool !== "arrange" && activeTool !== "shape") return;
-    const selectedShape =
-      activeTool === "shape" &&
-      this.selectedNodes.length === 1 &&
-      this.selectedNodes[0]?.getAttr?.("componentType") === "shape"
-        ? this.selectedNodes[0]
-        : null;
-    if (selectedShape && this.isPointerInsideNode(selectedShape)) {
-      selectedShape.openInlineEditor?.(event);
-      return;
-    }
     let targetNode = event.target;
     if (targetNode === this.stage && typeof this.stage?.getIntersection === "function") {
       const pointer = this.stage.getPointerPosition() ?? (() => {
@@ -1458,6 +1459,31 @@ export class SelectionPlugin extends BasePlugin {
       return;
     }
     this.setSelected([...this.selectedNodes, target]);
+  }
+
+  handleDoubleClick(event) {
+    const activeTool = this.app.tools.getActive();
+    if (activeTool !== "arrange" && activeTool !== "shape") return;
+    if (event.evt?.button != null && event.evt.button !== 0) return;
+    if (event?.evt && typeof this.stage?.setPointersPositions === "function") {
+      this.stage.setPointersPositions(event.evt);
+    }
+
+    const target = this.getSelectable(event.target);
+    const selectedShape =
+      this.selectedNodes.length === 1 &&
+      this.selectedNodes[0]?.getAttr?.("componentType") === "shape"
+        ? this.selectedNodes[0]
+        : null;
+    const shapeTarget = target?.getAttr?.("componentType") === "shape"
+      ? target
+      : selectedShape && this.isPointerInsideNode(selectedShape)
+        ? selectedShape
+        : null;
+    if (!shapeTarget) return;
+
+    event.cancelBubble = true;
+    shapeTarget.openInlineEditor?.(event);
   }
 
   handleSnapMove(event) {

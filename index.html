@@ -59,17 +59,17 @@
 
           <!-- Floating panels (absolutely positioned below toolbar) -->
           <div
-            id="shape-controls"
-            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel"
-            data-testid="shape-controls"
+            id="shape-panel"
+            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel toolbar__button-panel"
+            data-testid="shape-panel"
             hidden
           >
             <div
-              id="shape-type-controls"
+              id="shape-panel-type-controls"
               class="toolbar__shape-types"
               role="group"
               aria-label="Shape type"
-              data-testid="shape-type-controls"
+              data-testid="shape-panel-type-controls"
             >
               <button
                 class="toolbar__shape-type-button"
@@ -77,7 +77,7 @@
                 title="Rectangle"
                 aria-label="Rectangle"
                 data-shape-type="rectangle"
-                data-testid="shape-type-rectangle"
+                data-testid="shape-panel-type-rectangle"
               >
                 <i data-lucide="square" aria-hidden="true"></i>
               </button>
@@ -87,7 +87,7 @@
                 title="Oval / Circle"
                 aria-label="Oval / Circle"
                 data-shape-type="oval"
-                data-testid="shape-type-oval"
+                data-testid="shape-panel-type-oval"
               >
                 <i data-lucide="circle" aria-hidden="true"></i>
               </button>
@@ -97,7 +97,7 @@
                 title="Rhombus"
                 aria-label="Rhombus"
                 data-shape-type="rhombus"
-                data-testid="shape-type-rhombus"
+                data-testid="shape-panel-type-rhombus"
               >
                 <i data-lucide="diamond" aria-hidden="true"></i>
               </button>
@@ -107,76 +107,160 @@
                 title="Triangle"
                 aria-label="Triangle"
                 data-shape-type="triangle"
-                data-testid="shape-type-triangle"
+                data-testid="shape-panel-type-triangle"
               >
                 <i data-lucide="triangle" aria-hidden="true"></i>
               </button>
-              <button
-                class="toolbar__shape-type-button"
-                type="button"
-                title="Divider / Line"
-                aria-label="Divider / Line"
-                data-shape-type="line"
-                data-testid="shape-type-line"
-              >
-                <i data-lucide="minus" aria-hidden="true"></i>
-              </button>
             </div>
 
-            <label class="toolbar__field" title="Shape fill color">
-              <span class="toolbar__sr-only">Shape fill color</span>
-              <input
-                id="shape-fill-color"
-                type="color"
-                value="#ffffff"
-                aria-label="Shape fill color"
-                title="Shape fill color"
-                data-testid="shape-fill-color"
-              />
-            </label>
+            <div
+              class="toolbar__button-tools"
+              role="group"
+              aria-label="Shape appearance"
+            >
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--font-size">
+                <button
+                  id="shape-font-size-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Font size"
+                  aria-label="Font size"
+                  data-testid="shape-style-font-size"
+                >
+                  <span class="toolbar__button-font-size-icon" aria-hidden="true">
+                    <span class="toolbar__button-font-size-a">A</span>
+                    <span class="toolbar__button-font-size-mark"></span>
+                  </span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape font size settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="shape-font-size-label">Font size</span>
+                    <input
+                      id="shape-font-size"
+                      type="range"
+                      min="8"
+                      max="72"
+                      step="1"
+                      value="18"
+                      data-testid="shape-font-size"
+                      aria-labelledby="shape-font-size-label"
+                      title="Font size: 18"
+                    />
+                    <output id="shape-font-size-value" data-testid="shape-font-size-value" title="Font size: 18">18</output>
+                  </label>
+                </div>
+              </div>
 
-            <label class="toolbar__field toolbar__field--slider toolbar__shape-slider toolbar__shape-slider--opacity" title="Shape fill opacity">
-              <span id="shape-opacity-label" class="toolbar__sr-only">Shape opacity</span>
-              <input
-                id="shape-opacity"
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value="0"
-                data-testid="shape-opacity"
-                aria-labelledby="shape-opacity-label"
-                title="Shape fill opacity"
-              />
-              <output id="shape-opacity-value" data-testid="shape-opacity-value" title="Shape fill opacity">0</output>
-            </label>
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color">
+                <button
+                  id="shape-text-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Text color"
+                  aria-label="Text color"
+                  data-testid="shape-style-text-color"
+                >
+                  <span class="toolbar__button-text-icon" aria-hidden="true">A</span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape text color settings">
+                  <div class="toolbar__button-color-grid" id="shape-text-swatches" aria-label="Shape text colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom text color">
+                    <span class="toolbar__sr-only">Custom text color</span>
+                    <input
+                      id="shape-text-color"
+                      type="color"
+                      value="#2d2d2d"
+                      aria-label="Custom text color"
+                      title="Text color"
+                      data-testid="shape-text-color"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <label class="toolbar__field" title="Shape border color">
-              <span class="toolbar__sr-only">Shape border color</span>
-              <input
-                id="shape-stroke-color"
-                type="color"
-                value="#000000"
-                aria-label="Shape border color"
-                title="Shape border color"
-                data-testid="shape-stroke-color"
-              />
-            </label>
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color">
+                <button
+                  id="shape-fill-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Fill color"
+                  aria-label="Fill color"
+                  data-testid="shape-style-fill"
+                >
+                  <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape fill settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="shape-opacity-label">Opacity</span>
+                    <input
+                      id="shape-opacity"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="0"
+                      data-testid="shape-opacity"
+                      aria-labelledby="shape-opacity-label"
+                      title="Opacity: 0%"
+                    />
+                    <output id="shape-opacity-value" data-testid="shape-opacity-value" title="Opacity: 0%">0%</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="shape-fill-swatches" aria-label="Shape fill colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom fill color">
+                    <span class="toolbar__sr-only">Custom fill color</span>
+                    <input
+                      id="shape-fill-color"
+                      type="color"
+                      value="#ffffff"
+                      aria-label="Custom fill color"
+                      title="Fill color"
+                      data-testid="shape-fill-color"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <label class="toolbar__field toolbar__field--slider toolbar__shape-slider toolbar__shape-slider--stroke-width" title="Shape border width">
-              <span id="shape-stroke-width-label" class="toolbar__sr-only">Border width</span>
-              <input
-                id="shape-stroke-width"
-                type="range"
-                min="0"
-                max="24"
-                value="2"
-                data-testid="shape-stroke-width"
-                aria-labelledby="shape-stroke-width-label"
-                title="Shape border width"
-              />
-              <output id="shape-stroke-width-value" data-testid="shape-stroke-width-value" title="Shape border width">2</output>
-            </label>
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--border-style">
+                <button
+                  id="shape-border-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Border color"
+                  aria-label="Border color"
+                  data-testid="shape-style-border"
+                >
+                  <span class="toolbar__button-border-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape border settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="shape-stroke-width-label">Thickness</span>
+                    <input
+                      id="shape-stroke-width"
+                      type="range"
+                      min="0"
+                      max="24"
+                      value="2"
+                      data-testid="shape-stroke-width"
+                      aria-labelledby="shape-stroke-width-label"
+                      title="Thickness: 2"
+                    />
+                    <output id="shape-stroke-width-value" data-testid="shape-stroke-width-value" title="Thickness: 2">2</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="shape-border-swatches" aria-label="Shape border colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom border color">
+                    <span class="toolbar__sr-only">Custom border color</span>
+                    <input
+                      id="shape-stroke-color"
+                      type="color"
+                      value="#000000"
+                      aria-label="Custom border color"
+                      title="Border color"
+                      data-testid="shape-stroke-color"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div
