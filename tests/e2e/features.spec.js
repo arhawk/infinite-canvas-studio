@@ -578,6 +578,51 @@ test("marks unlinked pages with a minimap warning", async ({ page }) => {
   await expect.poll(async () => countMinimapWarningPixels(page)).toBe(0);
 });
 
+test("cycles through unlinked pages from the minimap", async ({ page }) => {
+  const firstUnlinked = await addComponent(page, "page", { x: 120, y: 140 });
+  const linkedSource = await addComponent(page, "page", { x: 1120, y: 140 });
+  const linkedTarget = await addComponent(page, "page", { x: 1680, y: 140 });
+  const secondUnlinked = await addComponent(page, "page", { x: 120, y: 980 });
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: linkedSource.id, targetId: linkedTarget.id },
+  );
+  await page.evaluate(() => window.__APP_TEST_API__.selectNodes([]));
+  await waitForPaint(page);
+
+  const jumpButton = page.getByTestId("minimap-unlinked-page-next");
+  await expect(jumpButton).toBeEnabled();
+
+  await jumpButton.click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([firstUnlinked.id]);
+  await expect
+    .poll(async () => {
+      const [viewport, node] = await Promise.all([
+        page.evaluate(() => window.__APP_TEST_API__.getViewportState()),
+        getNode(page, firstUnlinked.id),
+      ]);
+      const center = getBoundsCenter(node.bounds);
+      return Math.hypot(viewport.center.x - center.x, viewport.center.y - center.y);
+    })
+    .toBeLessThan(5);
+
+  await jumpButton.click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([secondUnlinked.id]);
+  await expect
+    .poll(async () => {
+      const [viewport, node] = await Promise.all([
+        page.evaluate(() => window.__APP_TEST_API__.getViewportState()),
+        getNode(page, secondUnlinked.id),
+      ]);
+      const center = getBoundsCenter(node.bounds);
+      return Math.hypot(viewport.center.x - center.x, viewport.center.y - center.y);
+    })
+    .toBeLessThan(5);
+});
+
 test("pastes copied components into the current viewport", async ({ page }) => {
   const source = await addComponent(page, "sticky", { x: 160, y: 180 });
   await page.evaluate((sourceId) => window.__APP_TEST_API__.selectNode(sourceId), source.id);

@@ -5,6 +5,7 @@ const MINIMAP_H = 110;
 const NODE_PADDING = 80; // extra space around nodes when computing canvas bounds
 const LASER_HIDE_DELAY = 1400;
 const UNLINKED_PAGE_WARNING_SIZE = 9;
+const UNLINKED_PAGE_WARNING_PULSE_MS = 1200;
 
 function isPageNode(node) {
   return node?.getAttr?.("componentType") === "page";
@@ -22,6 +23,9 @@ export class MinimapPlugin extends BasePlugin {
     this.mainLayer = this.app.mainLayer;
     this.minimapTransform = null;
     this.laserTimeout = null;
+    this.warningAnimationFrame = null;
+    this.hasUnlinkedPageWarnings = false;
+    this.unlinkedPageCursorId = null;
     this.collapsed = false;
     this.pendingHeaderActions ??= [];
 
@@ -37,6 +41,7 @@ export class MinimapPlugin extends BasePlugin {
 
     this.cleanups.push(() => {
       clearTimeout(this.laserTimeout);
+      this.stopWarningAnimation();
       this.panelEl?.remove();
     });
   }
@@ -59,6 +64,22 @@ export class MinimapPlugin extends BasePlugin {
     this.headerActionsEl = document.createElement("div");
     this.headerActionsEl.className = "minimap__header-actions";
 
+    this.unlinkedPageBtn = document.createElement("button");
+    this.unlinkedPageBtn.type = "button";
+    this.unlinkedPageBtn.className = "minimap__action-btn minimap__unlinked-page-btn";
+    this.unlinkedPageBtn.dataset.testid = "minimap-unlinked-page-next";
+    this.unlinkedPageBtn.disabled = true;
+    this.unlinkedPageBtn.setAttribute("aria-label", "No unlinked pages");
+    this.unlinkedPageBtn.title = "No unlinked pages";
+    this.unlinkedPageBtn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true" focusable="false">
+        <path d="M6.5 1.35 12 11.35H1L6.5 1.35Z" fill="#facc15" stroke="#7c4a03" stroke-width="1" stroke-linejoin="round"/>
+        <path d="M6.5 4.35v3.35" stroke="#5f3b00" stroke-width="1.25" stroke-linecap="round"/>
+        <circle cx="6.5" cy="9.55" r=".72" fill="#5f3b00"/>
+      </svg>
+    `;
+    this.listenDom(this.unlinkedPageBtn, "click", () => this.goToNextUnlinkedPage());
+
     this.toggleBtn = document.createElement("button");
     this.toggleBtn.className = "minimap__toggle-btn";
     this.toggleBtn.setAttribute("aria-label", "Collapse minimap");
@@ -69,6 +90,7 @@ export class MinimapPlugin extends BasePlugin {
       this.attachHeaderAction(actionEl);
     }
     this.pendingHeaderActions = [];
+    this.headerActionsEl.appendChild(this.unlinkedPageBtn);
     this.headerActionsEl.appendChild(this.toggleBtn);
     headerRow.appendChild(this.headerActionsEl);
 
@@ -120,6 +142,9 @@ export class MinimapPlugin extends BasePlugin {
       "aria-label",
       this.collapsed ? "Expand minimap" : "Collapse minimap",
     );
+    if (this.collapsed) {
+      this.stopWarningAnimation();
+    }
     if (!this.collapsed) {
       // Resume rendering now that the panel is visible again
       this.update();
@@ -261,7 +286,75 @@ export class MinimapPlugin extends BasePlugin {
     return new Set([...pageIds].filter((id) => !linkedPageIds.has(id)));
   }
 
-  drawUnlinkedPageWarning(ctx, { x, y, width }) {
+  getUnlinkedPageNodes(nodes = this.selectableNodes()) {
+    const unlinkedPageIds = this.getUnlinkedPageIds(nodes);
+    return nodes.filter((node) => unlinkedPageIds.has(node.id()));
+  }
+
+  sortPageNodesForTraversal(nodes) {
+    return [...nodes].sort((a, b) => {
+      const aRect = a.getClientRect({ relativeTo: this.mainLayer });
+      const bRect = b.getClientRect({ relativeTo: this.mainLayer });
+      return (
+        aRect.y - bRect.y
+        || aRect.x - bRect.x
+        || String(a.id()).localeCompare(String(b.id()))
+      );
+    });
+  }
+
+  syncUnlinkedPageButton(unlinkedPageCount) {
+    if (!this.unlinkedPageBtn) return;
+
+    const hasUnlinkedPages = unlinkedPageCount > 0;
+    this.unlinkedPageBtn.disabled = !hasUnlinkedPages;
+    this.unlinkedPageBtn.setAttribute(
+      "aria-label",
+      hasUnlinkedPages
+        ? `Go to next unlinked page (${unlinkedPageCount})`
+        : "No unlinked pages",
+    );
+    this.unlinkedPageBtn.title = hasUnlinkedPages
+      ? `Go to next unlinked page (${unlinkedPageCount})`
+      : "No unlinked pages";
+  }
+
+  goToNextUnlinkedPage() {
+    const unlinkedPages = this.sortPageNodesForTraversal(this.getUnlinkedPageNodes());
+    this.syncUnlinkedPageButton(unlinkedPages.length);
+    if (!unlinkedPages.length) {
+      this.unlinkedPageCursorId = null;
+      return;
+    }
+
+    const selection = this.app.getPlugin("selection");
+    const selectedIds = new Set(
+      (selection?.getSelectedNodes?.() ?? [])
+        .map((node) => node.id?.())
+        .filter(Boolean),
+    );
+    const selectedIndex = unlinkedPages.findIndex((node) => selectedIds.has(node.id()));
+    const cursorIndex = unlinkedPages.findIndex((node) => node.id() === this.unlinkedPageCursorId);
+    const startIndex = selectedIndex >= 0 ? selectedIndex : cursorIndex;
+    const nextIndex = (startIndex + 1) % unlinkedPages.length;
+    const target = unlinkedPages[nextIndex];
+    const targetRect = target.getClientRect({ relativeTo: this.mainLayer });
+    const targetCenter = {
+      x: targetRect.x + targetRect.width / 2,
+      y: targetRect.y + targetRect.height / 2,
+    };
+
+    this.unlinkedPageCursorId = target.id();
+    selection?.setSelected?.([target]);
+    this.app.stageApi.centerOn(targetCenter, { duration: 0.35 });
+  }
+
+  getWarningPulse() {
+    const phase = (performance.now() % UNLINKED_PAGE_WARNING_PULSE_MS) / UNLINKED_PAGE_WARNING_PULSE_MS;
+    return 0.66 + 0.34 * ((Math.sin(phase * Math.PI * 2) + 1) / 2);
+  }
+
+  drawUnlinkedPageWarning(ctx, { x, y, width }, pulse = 1) {
     const size = UNLINKED_PAGE_WARNING_SIZE;
     const half = size / 2;
     const cx = Math.max(half + 1, Math.min(MINIMAP_W - half - 1, x + width - 1));
@@ -273,6 +366,9 @@ export class MinimapPlugin extends BasePlugin {
     ctx.lineTo(cx - half, top + size);
     ctx.lineTo(cx + half, top + size);
     ctx.closePath();
+    ctx.globalAlpha = pulse;
+    ctx.shadowColor = `rgba(250, 204, 21, ${0.25 + pulse * 0.45})`;
+    ctx.shadowBlur = 2 + pulse * 5;
     ctx.fillStyle = "#facc15";
     ctx.strokeStyle = "#7c4a03";
     ctx.lineWidth = 1;
@@ -293,10 +389,39 @@ export class MinimapPlugin extends BasePlugin {
     ctx.restore();
   }
 
+  stopWarningAnimation() {
+    if (this.warningAnimationFrame == null) return;
+    cancelAnimationFrame(this.warningAnimationFrame);
+    this.warningAnimationFrame = null;
+  }
+
+  syncWarningAnimation(shouldAnimate) {
+    this.hasUnlinkedPageWarnings = shouldAnimate;
+    if (!shouldAnimate || this.collapsed) {
+      this.stopWarningAnimation();
+      return;
+    }
+
+    if (this.warningAnimationFrame != null) return;
+    this.warningAnimationFrame = requestAnimationFrame(() => {
+      this.warningAnimationFrame = null;
+      if (!this.collapsed) {
+        this.update();
+      }
+    });
+  }
+
   // ── Drawing ───────────────────────────────────────────────────────────────
 
   update() {
-    if (this.collapsed) return;
+    const nodes = this.selectableNodes();
+    const unlinkedPageIds = this.getUnlinkedPageIds(nodes);
+    this.syncUnlinkedPageButton(unlinkedPageIds.size);
+
+    if (this.collapsed) {
+      this.stopWarningAnimation();
+      return;
+    }
 
     const ctx = this.canvas.getContext("2d");
     const w = MINIMAP_W;
@@ -304,7 +429,6 @@ export class MinimapPlugin extends BasePlugin {
 
     ctx.clearRect(0, 0, w, h);
 
-    const nodes = this.selectableNodes();
     const bounds = this.displayBounds(nodes);
 
     // Uniform scale that fits bounds into the canvas, letterboxed
@@ -320,7 +444,6 @@ export class MinimapPlugin extends BasePlugin {
 
     // Draw every selectable node as a small rounded rect, except connections
     // which keep their actual curve shape in the overview.
-    const unlinkedPageIds = this.getUnlinkedPageIds(nodes);
     const unlinkedPageMarkers = [];
     for (const node of nodes) {
       if (isConnectionNode(node)) {
@@ -365,7 +488,9 @@ export class MinimapPlugin extends BasePlugin {
     ctx.fill();
     ctx.stroke();
 
-    unlinkedPageMarkers.forEach((marker) => this.drawUnlinkedPageWarning(ctx, marker));
+    const warningPulse = this.getWarningPulse();
+    unlinkedPageMarkers.forEach((marker) => this.drawUnlinkedPageWarning(ctx, marker, warningPulse));
+    this.syncWarningAnimation(unlinkedPageMarkers.length > 0);
   }
 
   // ── Laser dot ─────────────────────────────────────────────────────────────

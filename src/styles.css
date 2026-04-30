@@ -3022,9 +3022,25 @@ body.is-presentation-mode .toolbar__share-btn {
   color: var(--text, #3d2f20);
 }
 
+.minimap__action-btn:disabled,
+.minimap__toggle-btn:disabled {
+  cursor: default;
+  opacity: 0.36;
+}
+
+.minimap__action-btn:disabled:hover,
+.minimap__toggle-btn:disabled:hover {
+  background: transparent;
+  color: var(--muted);
+}
+
 .minimap__action-btn[aria-pressed="true"] {
   background: rgba(186, 117, 23, 0.14);
   color: #854f0b;
+}
+
+.minimap__unlinked-page-btn:not(:disabled) {
+  color: #7c4a03;
 }
 
 .minimap__action-btn svg,
