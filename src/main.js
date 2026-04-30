@@ -3,6 +3,7 @@ import { App } from "./core/app.js";
 import { LeftToolbarPlugin } from "./component/LeftToolbar/index.js";
 import { ComponentsDropdownPlugin } from "./component/ComponentsDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
+import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
 import { DrawingPlugin } from "./plugins/drawing.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
@@ -56,6 +57,7 @@ function getOptionalElement(selector) {
 
 const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
+  presentationToolbarHoverZone: getRequiredElement("#presentation-toolbar-hover-zone"),
   drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
   loadDocumentInput: getOptionalElement("#load-document-input"),
   calculatorWidget: getRequiredElement("#calculator-widget"),
@@ -117,6 +119,7 @@ app.use(AnnotatorPlugin);
 app.use(ComponentEditorPlugin);
 app.use(PageComparePlugin);
 app.use(ToolbarPlugin, {
+  presentationToolbarHoverZoneEl: ui.presentationToolbarHoverZone,
   modeCapsuleEditEl: ui.modeCapsuleEdit,
   modeCapsulePresentEl: ui.modeCapsulePresent,
   drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
@@ -134,6 +137,10 @@ app.use(ToolbarPlugin, {
 });
 
 // Components dropdown — replaces the old sidebar palette
+app.use(BackgroundPlugin, {
+  toggleEl: leftToolbar.backgroundBtn,
+});
+
 const componentsDropdown = app.use(ComponentsDropdownPlugin);
 componentsDropdown.wireTrigger(leftToolbar.componentsBtn);
 

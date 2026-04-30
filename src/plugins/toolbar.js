@@ -18,6 +18,8 @@ const DEFAULT_ERASER_STATE = {
   radius: 12,
 };
 
+const PRESENTATION_TOOLBAR_HIDE_DELAY_MS = 100;
+
 const DEFAULT_DRAWING_TOOL_STATE = {
   pen: {
     color: "#1f6feb",
@@ -57,6 +59,7 @@ export class ToolbarPlugin extends BasePlugin {
 
   onSetup() {
     const {
+      presentationToolbarHoverZoneEl,
       modeCapsuleEditEl,
       modeCapsulePresentEl,
       drawingVisibilityToggleEl,
@@ -74,6 +77,7 @@ export class ToolbarPlugin extends BasePlugin {
     } = this.options;
 
     this.ui = {
+      presentationToolbarHoverZoneEl,
       modeCapsuleEditEl,
       modeCapsulePresentEl,
       drawingVisibilityToggleEl,
@@ -89,6 +93,7 @@ export class ToolbarPlugin extends BasePlugin {
       strokeWidthValueEl,
       clearStrokesEl,
     };
+    this.toolbarEl = document.querySelector(".toolbar");
     this.focusState = {
       positionMode: "absolute",
       canSave: false,
@@ -96,6 +101,10 @@ export class ToolbarPlugin extends BasePlugin {
       selectedNodeId: null,
     };
     this.brushPanelPositionFrame = null;
+    this.presentationToolbarHideTimer = null;
+    this.presentationToolbarAnimationFrame = null;
+    this.isHoveringPresentationToolbarZone = false;
+    this.isHoveringPresentationToolbar = false;
 
     this.drawingToolState = cloneDrawingToolState();
     this.eraserState = { ...DEFAULT_ERASER_STATE };
@@ -150,6 +159,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.listen("draw:removed", () => this.syncUi());
 
     this.setupModeToggle();
+    this.setupPresentationToolbarAutoHide();
     this.renderToolButtons();
 
     this.loadDrawingUiFromTool("pen");
@@ -163,7 +173,100 @@ export class ToolbarPlugin extends BasePlugin {
         window.cancelAnimationFrame(this.brushPanelPositionFrame);
         this.brushPanelPositionFrame = null;
       }
+      this.clearPresentationToolbarHideTimer();
+      if (this.presentationToolbarAnimationFrame != null) {
+        window.cancelAnimationFrame(this.presentationToolbarAnimationFrame);
+        this.presentationToolbarAnimationFrame = null;
+      }
     });
+  }
+
+  setupPresentationToolbarAutoHide() {
+    const { presentationToolbarHoverZoneEl } = this.ui;
+    if (!this.toolbarEl || !presentationToolbarHoverZoneEl) return;
+
+    const showToolbar = () => {
+      this.isHoveringPresentationToolbarZone = true;
+      this.setPresentationToolbarVisible(true);
+    };
+    const leaveHoverZone = () => {
+      this.isHoveringPresentationToolbarZone = false;
+      this.schedulePresentationToolbarHide();
+    };
+    const enterToolbar = () => {
+      this.isHoveringPresentationToolbar = true;
+      this.setPresentationToolbarVisible(true);
+    };
+    const leaveToolbar = () => {
+      this.isHoveringPresentationToolbar = false;
+      this.schedulePresentationToolbarHide();
+    };
+
+    this.listenDom(presentationToolbarHoverZoneEl, "mouseenter", showToolbar);
+    this.listenDom(presentationToolbarHoverZoneEl, "mouseleave", leaveHoverZone);
+    this.listenDom(this.toolbarEl, "mouseenter", enterToolbar);
+    this.listenDom(this.toolbarEl, "mouseleave", leaveToolbar);
+  }
+
+  clearPresentationToolbarHideTimer() {
+    if (this.presentationToolbarHideTimer == null) return;
+    window.clearTimeout(this.presentationToolbarHideTimer);
+    this.presentationToolbarHideTimer = null;
+  }
+
+  clearPresentationToolbarAnimationFrame() {
+    if (this.presentationToolbarAnimationFrame == null) return;
+    window.cancelAnimationFrame(this.presentationToolbarAnimationFrame);
+    this.presentationToolbarAnimationFrame = null;
+  }
+
+  setPresentationToolbarVisible(visible) {
+    if (!this.toolbarEl || this.app.getMode() !== "presentation") return;
+
+    this.clearPresentationToolbarHideTimer();
+    this.toolbarEl.classList.toggle("is-visible", visible);
+  }
+
+  schedulePresentationToolbarHide() {
+    if (!this.toolbarEl || this.app.getMode() !== "presentation") return;
+
+    this.clearPresentationToolbarHideTimer();
+    this.presentationToolbarHideTimer = window.setTimeout(() => {
+      this.presentationToolbarHideTimer = null;
+      if (this.isHoveringPresentationToolbarZone || this.isHoveringPresentationToolbar) return;
+      this.toolbarEl.classList.remove("is-visible");
+    }, PRESENTATION_TOOLBAR_HIDE_DELAY_MS);
+  }
+
+  syncPresentationToolbarAutoHide() {
+    const { presentationToolbarHoverZoneEl } = this.ui;
+    if (!this.toolbarEl || !presentationToolbarHoverZoneEl) return;
+
+    const isPresentation = this.app.getMode() === "presentation";
+
+    presentationToolbarHoverZoneEl.hidden = !isPresentation;
+
+    if (!isPresentation) {
+      this.isHoveringPresentationToolbarZone = false;
+      this.isHoveringPresentationToolbar = false;
+      this.clearPresentationToolbarHideTimer();
+      this.clearPresentationToolbarAnimationFrame();
+      this.toolbarEl.classList.add("toolbar--no-transition");
+      this.toolbarEl.classList.remove("is-visible");
+      this.presentationToolbarAnimationFrame = window.requestAnimationFrame(() => {
+        this.presentationToolbarAnimationFrame = null;
+        this.toolbarEl?.classList.remove("toolbar--no-transition");
+      });
+      return;
+    }
+
+    this.clearPresentationToolbarAnimationFrame();
+    this.toolbarEl.classList.remove("toolbar--no-transition");
+    this.clearPresentationToolbarHideTimer();
+    this.toolbarEl.classList.toggle(
+      "is-visible",
+      this.isHoveringPresentationToolbarZone || this.isHoveringPresentationToolbar,
+    );
   }
 
   isDrawingTool(toolId) {
@@ -450,6 +553,7 @@ export class ToolbarPlugin extends BasePlugin {
 
     document.body.classList.toggle("is-edit-mode", isEdit);
     document.body.classList.toggle("is-presentation-mode", !isEdit);
+    this.syncPresentationToolbarAutoHide();
 
     if (modeCapsuleEditEl) {
       modeCapsuleEditEl.setAttribute("aria-pressed", String(isEdit));

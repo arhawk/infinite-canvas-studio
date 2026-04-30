@@ -285,6 +285,7 @@ export function exportDocumentSnapshot(app, {
         y: app.stage.y(),
       },
     },
+    background: app.getBackgroundState?.() ?? app.stageApi.getBackgroundState(),
     nodes: collectNodeSnapshots(app),
     drawings: collectDrawingSnapshots(app),
   });
@@ -299,6 +300,7 @@ export async function importDocumentSnapshot(app, snapshot, {
   await restoreNodeSnapshots(app, documentSnapshot.nodes);
   await migrateLegacyTermDefLinks(app, documentSnapshot.nodes);
   restoreDrawingSnapshots(app, documentSnapshot.drawings);
+  app.setBackgroundState?.(documentSnapshot.background) ?? app.stageApi.setBackgroundState(documentSnapshot.background);
 
   if (includeView) {
     applyDocumentView(app, documentSnapshot.view);

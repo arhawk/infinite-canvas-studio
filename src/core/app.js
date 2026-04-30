@@ -116,6 +116,21 @@ export class App {
     return this.modeManager.isReadOnly();
   }
 
+  getBackgroundState() {
+    return this.stageApi.getBackgroundState();
+  }
+
+  setBackgroundState(state, { silent = false } = {}) {
+    const before = this.getBackgroundState();
+    const after = this.stageApi.setBackgroundState(state);
+
+    if (!silent && JSON.stringify(before) !== JSON.stringify(after)) {
+      this.events.emit("background:change", { before, after });
+    }
+
+    return after;
+  }
+
   async addComponent(type, payload) {
     const node = await this.components.create(type, payload);
     if (!node) return null;

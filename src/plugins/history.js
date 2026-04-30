@@ -192,6 +192,7 @@ export class HistoryPlugin extends BasePlugin {
     this.listen("node:changed", ({ node }) => this.handleNodeChanged(node));
     this.listen("draw:added", ({ node }) => this.handleDrawingAdded(node));
     this.listen("draw:removed", ({ node }) => this.handleDrawingRemoved(node));
+    this.listen("background:change", ({ before, after }) => this.handleBackgroundChanged(before, after));
     this.listen("interaction:change", () => this.syncUi());
 
     if (undoEl) {
@@ -280,6 +281,20 @@ export class HistoryPlugin extends BasePlugin {
         ) {
           this.pendingOperations[index] = {
             type: "update-node",
+            before: clonePlainData(current.before),
+            after: clonePlainData(operation.after),
+          };
+          return;
+        }
+      }
+    }
+
+    if (operation.type === "update-background") {
+      for (let index = this.pendingOperations.length - 1; index >= 0; index -= 1) {
+        const current = this.pendingOperations[index];
+        if (current?.type === "update-background") {
+          this.pendingOperations[index] = {
+            type: "update-background",
             before: clonePlainData(current.before),
             after: clonePlainData(operation.after),
           };
@@ -517,6 +532,17 @@ export class HistoryPlugin extends BasePlugin {
     });
   }
 
+  handleBackgroundChanged(before, after) {
+    if (this.isTrackingSuspended()) return;
+    if (snapshotsEqual(before, after)) return;
+
+    this.enqueueOperation({
+      type: "update-background",
+      before: clonePlainData(before),
+      after: clonePlainData(after),
+    });
+  }
+
   findSelectableNodeById(id) {
     return id ? this.app.mainLayer.findOne(`#${id}`) : null;
   }
@@ -556,6 +582,8 @@ export class HistoryPlugin extends BasePlugin {
         return "drawing a stroke";
       case "remove-drawing":
         return "deleting a stroke";
+      case "update-background":
+        return "changing canvas background";
       case "batch": {
         const descriptions = [...new Set(
           (operation.operations ?? [])
@@ -691,6 +719,9 @@ export class HistoryPlugin extends BasePlugin {
           this.removeDrawing(operation.snapshot);
           this.drawSnapshotCache.delete(operation.snapshot.id);
         }
+        break;
+      case "update-background":
+        this.app.setBackgroundState(direction === "undo" ? operation.before : operation.after);
         break;
       default:
         break;

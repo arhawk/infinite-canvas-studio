@@ -1,11 +1,15 @@
 import { Konva } from "./lib/konva.js";
+import {
+  BACKGROUND_TYPES,
+  cloneBackgroundState,
+  DEFAULT_BACKGROUND_STATE,
+  normalizeBackgroundState,
+} from "./background/state.js";
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const ZOOM_RATIO = 1.04;
 const GRID_SPACING = 32;
-const GRID_COLOR = "rgba(84, 64, 43, 0.08)";
-const GRID_MAJOR_COLOR = "rgba(84, 64, 43, 0.14)";
 const GRID_MAJOR_EVERY = 4;
 const PAN_CLICK_THRESHOLD = 4;
 const GRID_BUFFER_CELLS = 2;
@@ -50,6 +54,7 @@ export class StageController {
       width: container.clientWidth,
       height: container.clientHeight,
     };
+    this.backgroundState = cloneBackgroundState(DEFAULT_BACKGROUND_STATE);
 
     this.onKeyDown = this.onKeyDown.bind(this);
     this.onKeyUp = this.onKeyUp.bind(this);
@@ -68,7 +73,55 @@ export class StageController {
 
     this.resizeObserver = new ResizeObserver(this.onResize);
     this.resizeObserver.observe(container);
+    this.applyBackgroundState();
     this.syncViewport(1);
+  }
+
+  getBackgroundState() {
+    return cloneBackgroundState(this.backgroundState);
+  }
+
+  setBackgroundState(state = {}) {
+    this.backgroundState = normalizeBackgroundState(state);
+    this.applyBackgroundState();
+    this.gridSignature = null;
+    this.redrawGrid();
+    this.stage.batchDraw();
+    return this.getBackgroundState();
+  }
+
+  applyBackgroundState() {
+    const { type, color } = this.backgroundState;
+    this.container.dataset.backgroundType = type;
+    this.container.style.setProperty("--canvas-bg-color", color);
+
+    const paperBase = type === BACKGROUND_TYPES.WARM_PAPER ? color : DEFAULT_BACKGROUND_STATE.color;
+    this.container.style.setProperty("--canvas-paper-base", paperBase);
+    this.container.style.setProperty("--canvas-paper-shadow", this.mixHexColor(paperBase, "#c9a16a", 0.18));
+    this.container.style.setProperty("--canvas-paper-highlight", this.mixHexColor(paperBase, "#fffdf6", 0.52));
+  }
+
+  getGridStrokeColor(isMajor = false) {
+    const alpha = isMajor ? 0.18 : 0.1;
+    const hex = this.mixHexColor(this.backgroundState.color, "#4f4334", isMajor ? 0.55 : 0.4);
+    const red = Number.parseInt(hex.slice(1, 3), 16);
+    const green = Number.parseInt(hex.slice(3, 5), 16);
+    const blue = Number.parseInt(hex.slice(5, 7), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  }
+
+  mixHexColor(baseHex, targetHex, ratio = 0.5) {
+    const clampRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+    const parse = (hex) => ({
+      r: Number.parseInt(hex.slice(1, 3), 16),
+      g: Number.parseInt(hex.slice(3, 5), 16),
+      b: Number.parseInt(hex.slice(5, 7), 16),
+    });
+    const base = parse(baseHex);
+    const target = parse(targetHex);
+    const toHex = (value) => Math.round(value).toString(16).padStart(2, "0");
+
+    return `#${toHex(base.r + (target.r - base.r) * clampRatio)}${toHex(base.g + (target.g - base.g) * clampRatio)}${toHex(base.b + (target.b - base.b) * clampRatio)}`;
   }
 
   screenToCanvas(screenPos) {
@@ -88,6 +141,13 @@ export class StageController {
   }
 
   redrawGrid() {
+    if (this.backgroundState.type !== BACKGROUND_TYPES.GRID) {
+      this.gridSignature = "hidden";
+      this.gridLayer.destroyChildren();
+      this.gridLayer.batchDraw();
+      return;
+    }
+
     const topLeft = this.screenToCanvas({ x: 0, y: 0 });
     const bottomRight = this.screenToCanvas({
       x: this.stage.width(),
@@ -111,7 +171,7 @@ export class StageController {
       const isMajor = Math.round(x / GRID_SPACING) % GRID_MAJOR_EVERY === 0;
       this.gridLayer.add(new Konva.Line({
         points: [x, minY, x, maxY],
-        stroke: isMajor ? GRID_MAJOR_COLOR : GRID_COLOR,
+        stroke: this.getGridStrokeColor(isMajor),
         strokeWidth: 1,
         listening: false,
         perfectDrawEnabled: false,
@@ -122,7 +182,7 @@ export class StageController {
       const isMajor = Math.round(y / GRID_SPACING) % GRID_MAJOR_EVERY === 0;
       this.gridLayer.add(new Konva.Line({
         points: [minX, y, maxX, y],
-        stroke: isMajor ? GRID_MAJOR_COLOR : GRID_COLOR,
+        stroke: this.getGridStrokeColor(isMajor),
         strokeWidth: 1,
         listening: false,
         perfectDrawEnabled: false,
