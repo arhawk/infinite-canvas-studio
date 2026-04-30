@@ -78,6 +78,52 @@ async function countMinimapWarningPixels(page) {
   });
 }
 
+async function getMinimapLaserAlignment(page, nodeId) {
+  return page.evaluate((id) => {
+    const node = window.__APP_TEST_API__.getNode(id);
+    const viewport = window.__APP_TEST_API__.getViewportState().viewport;
+    const canvas = document.querySelector('[data-testid="minimap"] canvas');
+    const wrapper = canvas?.parentElement ?? null;
+    const laser = wrapper?.querySelector(".minimap__laser") ?? null;
+    if (!node?.bounds || !canvas || !wrapper || !laser) return null;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const laserX = parseFloat(laser.style.left) - (canvasRect.left - wrapperRect.left);
+    const laserY = parseFloat(laser.style.top) - (canvasRect.top - wrapperRect.top);
+    const paddedNode = {
+      x: node.bounds.x - 80,
+      y: node.bounds.y - 80,
+      width: node.bounds.width + 160,
+      height: node.bounds.height + 160,
+    };
+    const bounds = {
+      x: Math.min(paddedNode.x, viewport.x),
+      y: Math.min(paddedNode.y, viewport.y),
+      width: Math.max(paddedNode.x + paddedNode.width, viewport.x + viewport.width)
+        - Math.min(paddedNode.x, viewport.x),
+      height: Math.max(paddedNode.y + paddedNode.height, viewport.y + viewport.height)
+        - Math.min(paddedNode.y, viewport.y),
+    };
+    const minimapScale = Math.min(canvas.width / bounds.width, canvas.height / bounds.height);
+    const offsetX = (canvas.width - bounds.width * minimapScale) / 2;
+    const offsetY = (canvas.height - bounds.height * minimapScale) / 2;
+    const nodeCenter = {
+      x: node.bounds.x + node.bounds.width / 2,
+      y: node.bounds.y + node.bounds.height / 2,
+    };
+    const canvasX = (nodeCenter.x - bounds.x) * minimapScale + offsetX;
+    const canvasY = (nodeCenter.y - bounds.y) * minimapScale + offsetY;
+    const expectedX = (canvasX / canvas.width) * canvasRect.width;
+    const expectedY = (canvasY / canvas.height) * canvasRect.height;
+
+    return {
+      dx: Math.abs(laserX - expectedX),
+      dy: Math.abs(laserY - expectedY),
+    };
+  }, nodeId);
+}
+
 function getUnionBounds(nodes = []) {
   const bounds = nodes.map((node) => node.bounds).filter(Boolean);
   if (!bounds.length) return null;
@@ -621,6 +667,22 @@ test("cycles through unlinked pages from the minimap", async ({ page }) => {
       return Math.hypot(viewport.center.x - center.x, viewport.center.y - center.y);
     })
     .toBeLessThan(5);
+});
+
+test("positions the minimap selection laser on the rendered canvas", async ({ page }) => {
+  const selectedPage = await addComponent(page, "page", { x: 1280, y: 820 });
+
+  await page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="minimap"] canvas');
+    canvas.style.width = "90px";
+  });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), selectedPage.id);
+  await waitForPaint(page);
+
+  const alignment = await getMinimapLaserAlignment(page, selectedPage.id);
+  expect(alignment).not.toBeNull();
+  expect(alignment.dx).toBeLessThan(0.75);
+  expect(alignment.dy).toBeLessThan(0.75);
 });
 
 test("pastes copied components into the current viewport", async ({ page }) => {

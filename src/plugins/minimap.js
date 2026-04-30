@@ -216,6 +216,31 @@ export class MinimapPlugin extends BasePlugin {
     };
   }
 
+  minimapCanvasToDom(x, y) {
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const wrapperRect = this.canvas.parentElement.getBoundingClientRect();
+    const canvasWidth = this.canvas.width || MINIMAP_W;
+    const canvasHeight = this.canvas.height || MINIMAP_H;
+    const renderedWidth = canvasRect.width || canvasWidth;
+    const renderedHeight = canvasRect.height || canvasHeight;
+    return {
+      x: canvasRect.left - wrapperRect.left + (x / canvasWidth) * renderedWidth,
+      y: canvasRect.top - wrapperRect.top + (y / canvasHeight) * renderedHeight,
+    };
+  }
+
+  minimapDomToCanvas(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasWidth = this.canvas.width || MINIMAP_W;
+    const canvasHeight = this.canvas.height || MINIMAP_H;
+    const renderedWidth = rect.width || canvasWidth;
+    const renderedHeight = rect.height || canvasHeight;
+    return {
+      x: ((clientX - rect.left) / renderedWidth) * canvasWidth,
+      y: ((clientY - rect.top) / renderedHeight) * canvasHeight,
+    };
+  }
+
   connectionPoints(node) {
     const line = node.findOne(".connection-line");
     const points = line?.points?.() ?? [];
@@ -520,9 +545,10 @@ export class MinimapPlugin extends BasePlugin {
     // Clamp inside canvas bounds
     const cx = Math.max(0, Math.min(MINIMAP_W, x));
     const cy = Math.max(0, Math.min(MINIMAP_H, y));
+    const domPos = this.minimapCanvasToDom(cx, cy);
 
-    this.laserEl.style.left = `${cx}px`;
-    this.laserEl.style.top = `${cy}px`;
+    this.laserEl.style.left = `${domPos.x}px`;
+    this.laserEl.style.top = `${domPos.y}px`;
     this.laserEl.classList.remove("is-visible"); // reset animation
     // Force reflow so removing + re-adding the class restarts the animation
     void this.laserEl.offsetWidth;
@@ -538,9 +564,7 @@ export class MinimapPlugin extends BasePlugin {
   handleClick(event) {
     if (!this.minimapTransform) return;
 
-    const rect = this.canvas.getBoundingClientRect();
-    const mx = event.clientX - rect.left;
-    const my = event.clientY - rect.top;
+    const { x: mx, y: my } = this.minimapDomToCanvas(event.clientX, event.clientY);
 
     const canvasPos = this.fromMinimap(mx, my);
     this.app.stageApi.centerOn(canvasPos, { duration: 0.35 });
