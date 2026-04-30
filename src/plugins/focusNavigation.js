@@ -9,6 +9,7 @@ import { Konva } from "../lib/konva.js";
 const NAV_BUTTON_RADIUS = 16;
 const NAV_BUTTON_OFFSET = NAV_BUTTON_RADIUS + 6;
 const CURVE_SAMPLE_STEPS = 48;
+const IN_VIEWPORT_NAV_BUTTON_T = 0.82;
 const FOCUS_VIEWPORT_MARGIN_RATIO = 0.1;
 const MIN_FOCUS_SCALE = 0.1;
 const MAX_FOCUS_SCALE = 5;
@@ -27,6 +28,10 @@ function isRankingBoxNode(node) {
 
 function isButtonNode(node) {
   return node?.getAttr?.("componentType") === "button";
+}
+
+function isPageNode(node) {
+  return node?.getAttr?.("componentType") === "page";
 }
 
 function isFocusableNode(node) {
@@ -86,6 +91,13 @@ function nudgePointInsideViewport(insidePoint, outsidePoint) {
   return {
     x: insidePoint.x + (dx / length) * NAV_BUTTON_OFFSET,
     y: insidePoint.y + (dy / length) * NAV_BUTTON_OFFSET,
+  };
+}
+
+function clampPointToNavigationBounds(point, rect) {
+  return {
+    x: Math.min(rect.width - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, point.x)),
+    y: Math.min(rect.height - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, point.y)),
   };
 }
 
@@ -227,6 +239,11 @@ export class FocusNavigationPlugin extends BasePlugin {
   getNodeBounds(node) {
     const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
     return anchorNode?.getClientRect({ relativeTo: this.stage }) ?? null;
+  }
+
+  getNodeVisibilityBounds(node) {
+    const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
+    return anchorNode?.getClientRect({ relativeTo: this.stage, skipShadow: true }) ?? null;
   }
 
   getNodeFocusAnchor(node) {
@@ -512,12 +529,6 @@ export class FocusNavigationPlugin extends BasePlugin {
     );
   }
 
-  isCanvasPointVisible(point) {
-    if (!isFinitePoint(point)) return false;
-
-    return pointInRect(point, this.app.stageApi.getViewportBounds());
-  }
-
   handleStageClick(event) {
     if (!this.app.modeManager.matches({ mode: "presentation" })) return;
     if (this.app.stageApi.consumePanClickSuppression()) return;
@@ -587,17 +598,17 @@ export class FocusNavigationPlugin extends BasePlugin {
         const outsidePoint = cubicBezierPoint(curvePoints, high);
         const adjustedPoint = nudgePointInsideViewport(insidePoint, outsidePoint);
 
-        return {
-          x: Math.min(rect.width - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, adjustedPoint.x)),
-          y: Math.min(rect.height - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, adjustedPoint.y)),
-        };
+        return clampPointToNavigationBounds(adjustedPoint, rect);
       }
 
       previousT = t;
       previousPoint = point;
     }
 
-    return null;
+    return clampPointToNavigationBounds(
+      cubicBezierPoint(curvePoints, IN_VIEWPORT_NAV_BUTTON_T),
+      rect,
+    );
   }
 
   buildNavigationButton(screenPoint, targetNode, savedFocus) {
@@ -688,14 +699,16 @@ export class FocusNavigationPlugin extends BasePlugin {
     reverse = false,
   }) {
     if (!isFocusableNode(fromNode) || !isFocusableNode(toNode)) return;
+    if (!isPageNode(fromNode) || !isPageNode(toNode)) return;
 
     const savedFocus = this.getSavedFocus(toNode);
     if (!savedFocus) return;
 
-    const fromBounds = this.getNodeBounds(fromNode);
+    const fromBounds = this.getNodeVisibilityBounds(fromNode);
     if (!this.isBoxFullyVisible(fromBounds)) return;
 
-    if (this.isCanvasPointVisible(savedFocus.center)) return;
+    const toBounds = this.getNodeVisibilityBounds(toNode);
+    if (this.isBoxFullyVisible(toBounds)) return;
 
     const screenPoint = this.findNavigationButtonPoint(connectionNode, { reverse });
     if (!screenPoint) return;

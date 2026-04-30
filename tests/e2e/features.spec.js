@@ -1472,8 +1472,8 @@ test("reopens the context menu without Konva destroyed-shape warnings", async ({
 });
 
 test("follows a presentation navigation button toward an auto focus", async ({ page }) => {
-  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
-  const target = await addComponent(page, "sticky", { x: 1800, y: 180 });
+  const source = await addComponent(page, "page", { x: 180, y: 180, label: "Source" });
+  const target = await addComponent(page, "page", { x: 1800, y: 180, label: "Target" });
 
   await page.evaluate(
     ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
@@ -1540,9 +1540,86 @@ test("follows a presentation navigation button toward an auto focus", async ({ p
     .toBeGreaterThan(0);
 });
 
+test("shows presentation navigation buttons for nearby connected pages", async ({ page }) => {
+  const source = await addComponent(page, "page", { x: 0, y: 120, label: "Source" });
+  const target = await addComponent(page, "page", { x: 1000, y: 120, label: "Target" });
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.getByTestId("mode-capsule-present").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  const viewport = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0, scale: 0.5 }) &&
+      window.__APP_TEST_API__.getViewportState()
+  ), source.id);
+  const targetFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    target.id,
+  );
+  expect(targetFocus.center.x).toBeGreaterThan(viewport.viewport.x);
+  expect(targetFocus.center.x).toBeLessThan(viewport.viewport.x + viewport.viewport.width);
+  expect(targetFocus.center.y).toBeGreaterThan(viewport.viewport.y);
+  expect(targetFocus.center.y).toBeLessThan(viewport.viewport.y + viewport.viewport.height);
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getNavigationButtons().length))
+    .toBeGreaterThan(0);
+
+  await page.evaluate(() => window.__APP_TEST_API__.clickNavigationButton(0));
+
+  await expect
+    .poll(async () => {
+      const current = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(current.center.x - targetFocus.center.x);
+    })
+    .toBeLessThan(4);
+});
+
+test("does not show presentation navigation buttons for visible page targets or non-page connections", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 80, y: 80 });
+  const pageNode = await addComponent(page, "page", { x: 460, y: 120, label: "Page" });
+  const firstPage = await addComponent(page, "page", { x: 1560, y: 120, label: "First Page" });
+  const secondPage = await addComponent(page, "page", { x: 2600, y: 120, label: "Second Page" });
+
+  await page.evaluate(
+    async ({ stickyId, pageId, firstPageId, secondPageId }) => {
+      await window.__APP_TEST_API__.createConnection(stickyId, pageId);
+      await window.__APP_TEST_API__.createConnection(firstPageId, secondPageId);
+    },
+    {
+      stickyId: sticky.id,
+      pageId: pageNode.id,
+      firstPageId: firstPage.id,
+      secondPageId: secondPage.id,
+    },
+  );
+
+  await page.evaluate((viewport) => window.__APP_TEST_API__.setViewport(viewport), {
+    scale: 0.35,
+    position: { x: 0, y: 80 },
+  });
+  await page.getByTestId("mode-capsule-present").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getNavigationButtons().length))
+    .toBe(0);
+});
+
 test("does not show presentation navigation buttons for hidden connections", async ({ page }) => {
-  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
-  const target = await addComponent(page, "sticky", { x: 1800, y: 180 });
+  const source = await addComponent(page, "page", { x: 180, y: 180, label: "Source" });
+  const target = await addComponent(page, "page", { x: 1800, y: 180, label: "Target" });
 
   const connection = await page.evaluate(
     ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
