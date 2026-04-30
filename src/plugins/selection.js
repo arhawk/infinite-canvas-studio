@@ -161,6 +161,14 @@ function isSelectableNode(node) {
   return !!node?.hasName?.("selectable");
 }
 
+function shouldAutoSelectAddedNode(node) {
+  if (!isSelectableNode(node)) return false;
+  if (node.getAttr?.("autoSelectOnAdd") === false) return false;
+  if (node.visible?.() === false || node.isVisible?.() === false) return false;
+  if (node.listening?.() === false || node.isListening?.() === false) return false;
+  return true;
+}
+
 function resolveSelectableNode(target) {
   if (!target) return null;
   return target.findAncestor?.(".selectable", true) ?? (target.hasName?.("selectable") ? target : null);
@@ -411,6 +419,9 @@ export class SelectionPlugin extends BasePlugin {
       this.syncNodeInteractivity(node);
       this.bindNodeChangeSync(node);
       if (this.app.isReplayingHistory || this.app.isRestoringDocument) {
+        return;
+      }
+      if (!shouldAutoSelectAddedNode(node)) {
         return;
       }
       this.setSelected([node]);

@@ -264,6 +264,14 @@ test("adds the selected node to the outline panel", async ({ page }) => {
   await expect(page.getByTestId("catalog-panel")).toContainText("Sticky note");
 });
 
+test("does not auto-select the hidden catalog data node", async ({ page }) => {
+  await expect(page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode())).resolves.toBe(true);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([]);
+});
+
 test("presentation page shows attachment bookmarks and does not open attachments panel", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 180, y: 180, label: "Attachment Page" });
 
