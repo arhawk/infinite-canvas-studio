@@ -36,8 +36,24 @@ function isButtonNode(node) {
   return node?.getAttr?.("componentType") === "button";
 }
 
+function isPageNode(node) {
+  return node?.getAttr?.("componentType") === "page";
+}
+
 function isTextNode(node) {
   return node?.getAttr?.("componentType") === "text";
+}
+
+function getPageSize(node) {
+  const background = node?.findOne?.(".page-bg") ?? node?.findOne?.(".container-bg");
+  return {
+    width: Number.isFinite(background?.width?.())
+      ? background.width()
+      : (Number.isFinite(node?.width?.()) ? node.width() : 960),
+    height: Number.isFinite(background?.height?.())
+      ? background.height()
+      : (Number.isFinite(node?.height?.()) ? node.height() : 540),
+  };
 }
 
 function readOffset(offset) {
@@ -58,6 +74,20 @@ class ConnectNodesCommand extends BaseCommand {
 
   execute(sourceId) {
     this.plugin.startConnecting(sourceId);
+  }
+}
+
+class CreateNextPageCommand extends BaseCommand {
+  static commandId = "page:create-next";
+  static label = "Create Next Page";
+  static modes = {
+    edit: {
+      tools: { arrange: {} },
+    },
+  };
+
+  execute(sourceId) {
+    return this.plugin.createNextPage(sourceId);
   }
 }
 
@@ -95,6 +125,24 @@ class ConnectNodesMenuItem extends BaseContextMenuItem {
   }
 }
 
+class CreateNextPageMenuItem extends BaseContextMenuItem {
+  static itemId = "page:create-next-menu";
+  static label = "Create Next Page";
+  static modes = {
+    edit: {
+      tools: { arrange: {} },
+    },
+  };
+
+  condition(node) {
+    return isPageNode(node);
+  }
+
+  execute(node) {
+    this.app.commands.execute("page:create-next", node.id());
+  }
+}
+
 class DeleteConnectionMenuItem extends BaseContextMenuItem {
   static itemId = "connection:delete-menu";
   static label = "Delete Connection";
@@ -126,11 +174,11 @@ export class ConnectionsPlugin extends BasePlugin {
   };
 
   commands() {
-    return [ConnectNodesCommand, DeleteConnectionCommand];
+    return [ConnectNodesCommand, CreateNextPageCommand, DeleteConnectionCommand];
   }
 
   menuItems() {
-    return [ConnectNodesMenuItem, DeleteConnectionMenuItem];
+    return [ConnectNodesMenuItem, CreateNextPageMenuItem, DeleteConnectionMenuItem];
   }
 
   onSetup() {
@@ -762,6 +810,27 @@ export class ConnectionsPlugin extends BasePlugin {
     }
 
     return connection;
+  }
+
+  async createNextPage(sourceId) {
+    const source = this.findNodeById(sourceId);
+    if (!isPageNode(source)) return null;
+
+    const sourceSize = getPageSize(source);
+
+    const nextPage = await this.app.addComponent("page", {
+      x: source.x() + sourceSize.width + 120,
+      y: source.y(),
+      width: sourceSize.width,
+      height: sourceSize.height,
+    });
+    if (!nextPage) return null;
+
+    const connection = await this.createConnection(source.id(), nextPage.id());
+    this.app.getPlugin("selection")?.setSelected?.([nextPage]);
+    this.layer.batchDraw();
+
+    return { page: nextPage, connection };
   }
 
   startConnecting(sourceId) {

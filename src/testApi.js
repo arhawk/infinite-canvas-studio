@@ -656,6 +656,16 @@ export function setupAppTestApi(app) {
       const connection = await connectionsPlugin?.createConnection?.(sourceId, targetId);
       return connection ? serializeNode(app, connection) : null;
     },
+    createNextPage: async (sourceId) => {
+      const connectionsPlugin = getPlugin(app, "connections");
+      const result = await connectionsPlugin?.createNextPage?.(sourceId);
+      return result
+        ? {
+            page: result.page ? serializeNode(app, result.page) : null,
+            connection: result.connection ? serializeNode(app, result.connection) : null,
+          }
+        : null;
+    },
     startConnection: (sourceId) => {
       const connectionsPlugin = getPlugin(app, "connections");
       if (!connectionsPlugin?.startConnecting) return false;

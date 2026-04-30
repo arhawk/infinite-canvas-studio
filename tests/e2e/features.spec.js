@@ -519,6 +519,52 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
     .not.toBe(JSON.stringify(originalPoints));
 });
 
+test("creates a connected next page from the page context menu", async ({ page }) => {
+  const source = await addComponent(page, "page", { x: 120, y: 140 });
+  const sourceCenter = await getNodePageCenter(page, source.id);
+
+  await page.mouse.click(sourceCenter.x, sourceCenter.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
+    expect.objectContaining({
+      visible: true,
+      labels: expect.arrayContaining(["Create Next Page"]),
+      pagePoint: expect.any(Object),
+    }),
+  );
+
+  const menuState = await page.evaluate(() => window.__APP_TEST_API__.getContextMenuState());
+  const itemIndex = menuState.items.findIndex((item) => item.label === "Create Next Page");
+  expect(itemIndex).toBeGreaterThanOrEqual(0);
+
+  await page.mouse.click(menuState.pagePoint.x + 40, menuState.pagePoint.y + 6 + itemIndex * 38 + 19);
+  await waitForPaint(page);
+
+  const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+  const pages = nodes.filter((node) => node.componentType === "page");
+  const connections = nodes.filter((node) => node.componentType === "connection");
+  const nextPage = pages.find((node) => node.id !== source.id);
+
+  expect(pages).toHaveLength(2);
+  expect(connections).toHaveLength(1);
+  expect(nextPage).toBeTruthy();
+  expect(nextPage.bounds.x).toBeGreaterThan(source.bounds.x + source.bounds.width);
+  expect(Math.abs(nextPage.bounds.y - source.bounds.y)).toBeLessThan(1);
+
+  const connection = connections[0];
+  expect(connection.summary.sourceNodeId).toBe(source.id);
+  expect(connection.summary.targetNodeId).toBe(nextPage.id);
+  expect(connection.summary.points.length).toBe(8);
+  expect(new Set([
+    connection.summary.points[1],
+    connection.summary.points[3],
+    connection.summary.points[5],
+    connection.summary.points[7],
+  ]).size).toBe(1);
+  expect(
+    connections.some((entry) => entry.summary.sourceNodeId === nextPage.id),
+  ).toBe(false);
+});
+
 test("copies connections along with their selected endpoints", async ({ page }) => {
   const source = await addComponent(page, "sticky", { x: 180, y: 180 });
   const target = await addComponent(page, "sticky", { x: 520, y: 220 });
