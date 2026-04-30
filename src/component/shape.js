@@ -294,36 +294,27 @@ function attachShapeInlineEditor(group) {
     area.className = "canvas-text-editor canvas-text-editor--compact";
     area.dataset.testid = "canvas-shape-text-editor";
     area.rows = 1;
+    area.wrap = "soft";
     document.body.append(area);
-
-    const measureText = (value) => {
-      const lines = String(value || "Text").split(/\r?\n/);
-      const widestLine = lines.reduce((widest, line) => (line.length > widest.length ? line : widest), "");
-      const measured = label.measureSize?.(widestLine || "Text");
-      const fallbackWidth = Math.max(
-        (widestLine.length || 1) * label.fontSize() * 0.58,
-        label.fontSize() * 1.6,
-      );
-      return {
-        width: measured?.width ?? fallbackWidth,
-        lines: Math.max(lines.length, 1),
-      };
-    };
 
     const syncEditorSize = () => {
       const padding = Math.max(5 * stageScale, 3);
-      const lineHeight = label.fontSize() * label.lineHeight();
-      const textSize = measureText(area.value);
-      const maxWidth = Math.max((groupBox.width - 12) * stageScale, 56);
-      const maxHeight = Math.max((groupBox.height - 8) * stageScale, lineHeight * stageScale + padding * 2);
-      const width = Math.min(
-        Math.max(textSize.width * stageScale + padding * 2, 58),
-        maxWidth,
+      const lineHeight = label.fontSize() * label.lineHeight() * stageScale;
+      const contentWidth = Math.max((label.width?.() ?? groupBox.width) * stageScale, 1);
+      const width = Math.max(contentWidth + padding * 2, 58);
+      const maxHeight = Math.max(
+        (label.height?.() ?? groupBox.height) * stageScale + padding * 2,
+        lineHeight + padding * 2,
       );
-      const height = Math.min(
-        Math.max(lineHeight * textSize.lines * stageScale + padding * 2, 28),
-        maxHeight,
-      );
+
+      Object.assign(area.style, {
+        width: `${width}px`,
+        height: "auto",
+        padding: `${padding}px`,
+      });
+
+      const measuredHeight = Math.max(area.scrollHeight + 2, lineHeight + padding * 2, 28);
+      const height = Math.min(measuredHeight, maxHeight);
       const screenPos = app.stageApi.canvasToScreen({
         x: groupBox.x + groupBox.width / 2,
         y: groupBox.y + groupBox.height / 2,
@@ -332,18 +323,18 @@ function attachShapeInlineEditor(group) {
       Object.assign(area.style, {
         left: `${stageBox.left + screenPos.x - width / 2}px`,
         top: `${stageBox.top + screenPos.y - height / 2}px`,
-        width: `${width}px`,
         height: `${height}px`,
-        padding: `${padding}px`,
       });
     };
 
     Object.assign(area.style, {
+      boxSizing: "border-box",
       fontFamily: label.fontFamily(),
       fontSize: `${label.fontSize() * stageScale}px`,
       lineHeight: String(label.lineHeight()),
       color: label.fill(),
       textAlign: label.align(),
+      overflowWrap: "break-word",
     });
     syncEditorSize();
 

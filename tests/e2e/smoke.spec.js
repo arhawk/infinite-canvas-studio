@@ -386,6 +386,40 @@ test("draws a styled shape from the toolbar and supports undo and redo", async (
   }));
 });
 
+test("sizes the shape inline editor to wrapped text", async ({ page }) => {
+  const text = "测试".repeat(28);
+  const shape = await page.evaluate((shapeText) => (
+    window.__APP_TEST_API__.addComponent("shape", {
+      x: 180,
+      y: 150,
+      width: 420,
+      height: 300,
+      shapeType: "oval",
+      strokeWidth: 4,
+      text: shapeText,
+      fontSize: 32,
+    })
+  ), text);
+
+  const shapeCenter = await getNodePageCenter(page, shape.id);
+  await page.mouse.dblclick(shapeCenter.x, shapeCenter.y);
+
+  const inlineEditor = page.getByTestId("canvas-shape-text-editor");
+  await expect(inlineEditor).toBeVisible();
+  const editorMetrics = await inlineEditor.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    return {
+      height: rect.height,
+      lineHeight: Number.parseFloat(style.lineHeight),
+      scrollHeight: element.scrollHeight,
+    };
+  });
+
+  expect(editorMetrics.height).toBeGreaterThan(editorMetrics.lineHeight * 2.5);
+  expect(editorMetrics.height).toBeGreaterThanOrEqual(editorMetrics.scrollHeight - 2);
+});
+
 test("commits shape text before drawing another shape", async ({ page }) => {
   await page.getByTestId("tool-button-shape").click();
   await drawShape(page, { xRatio: 0.34, yRatio: 0.42, dx: 150, dy: 90 });
