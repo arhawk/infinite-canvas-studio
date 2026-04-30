@@ -650,6 +650,24 @@ test("marks unlinked pages with a minimap warning", async ({ page }) => {
   await expect(jumpButton).toBeHidden();
 });
 
+test("treats pages connected to non-page components as linked in the minimap", async ({ page }) => {
+  const jumpButton = page.getByTestId("minimap-unlinked-page-next");
+  const pageNode = await addComponent(page, "page", { x: 120, y: 140 });
+  await waitForPaint(page);
+  await expect.poll(async () => countMinimapWarningPixels(page)).toBeGreaterThan(12);
+  await expect(jumpButton).toBeVisible();
+
+  const sticky = await addComponent(page, "sticky", { x: 920, y: 180 });
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: sticky.id, targetId: pageNode.id },
+  );
+  await waitForPaint(page);
+
+  await expect.poll(async () => countMinimapWarningPixels(page)).toBe(0);
+  await expect(jumpButton).toBeHidden();
+});
+
 test("cycles through unlinked pages from the minimap", async ({ page }) => {
   const firstUnlinked = await addComponent(page, "page", { x: 120, y: 140 });
   const linkedSource = await addComponent(page, "page", { x: 1120, y: 140 });

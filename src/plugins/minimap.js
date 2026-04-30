@@ -295,18 +295,19 @@ export class MinimapPlugin extends BasePlugin {
     );
     if (!pageIds.size) return new Set();
 
+    const nodeIds = new Set(nodes.map((node) => node.id()).filter(Boolean));
     const linkedPageIds = new Set();
     nodes
       .filter((node) => isConnectionNode(node))
       .forEach((connection) => {
         const sourceId = connection.getAttr("sourceNodeId");
         const targetId = connection.getAttr("targetNodeId");
-        if (!pageIds.has(sourceId) || !pageIds.has(targetId) || sourceId === targetId) {
-          return;
+        if (pageIds.has(sourceId) && nodeIds.has(targetId)) {
+          linkedPageIds.add(sourceId);
         }
-
-        linkedPageIds.add(sourceId);
-        linkedPageIds.add(targetId);
+        if (pageIds.has(targetId) && nodeIds.has(sourceId)) {
+          linkedPageIds.add(targetId);
+        }
       });
 
     return new Set([...pageIds].filter((id) => !linkedPageIds.has(id)));
