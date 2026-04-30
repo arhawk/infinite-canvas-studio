@@ -4,6 +4,15 @@ const MINIMAP_W = 180;
 const MINIMAP_H = 110;
 const NODE_PADDING = 80; // extra space around nodes when computing canvas bounds
 const LASER_HIDE_DELAY = 1400;
+const UNLINKED_PAGE_WARNING_SIZE = 9;
+
+function isPageNode(node) {
+  return node?.getAttr?.("componentType") === "page";
+}
+
+function isConnectionNode(node) {
+  return node?.getAttr?.("componentType") === "connection";
+}
 
 export class MinimapPlugin extends BasePlugin {
   static pluginId = "minimap";
@@ -226,6 +235,64 @@ export class MinimapPlugin extends BasePlugin {
     ctx.restore();
   }
 
+  getUnlinkedPageIds(nodes) {
+    const pageIds = new Set(
+      nodes
+        .filter((node) => isPageNode(node))
+        .map((node) => node.id())
+        .filter(Boolean),
+    );
+    if (!pageIds.size) return new Set();
+
+    const linkedPageIds = new Set();
+    nodes
+      .filter((node) => isConnectionNode(node))
+      .forEach((connection) => {
+        const sourceId = connection.getAttr("sourceNodeId");
+        const targetId = connection.getAttr("targetNodeId");
+        if (!pageIds.has(sourceId) || !pageIds.has(targetId) || sourceId === targetId) {
+          return;
+        }
+
+        linkedPageIds.add(sourceId);
+        linkedPageIds.add(targetId);
+      });
+
+    return new Set([...pageIds].filter((id) => !linkedPageIds.has(id)));
+  }
+
+  drawUnlinkedPageWarning(ctx, { x, y, width }) {
+    const size = UNLINKED_PAGE_WARNING_SIZE;
+    const half = size / 2;
+    const cx = Math.max(half + 1, Math.min(MINIMAP_W - half - 1, x + width - 1));
+    const top = Math.max(1, Math.min(MINIMAP_H - size - 1, y - 2));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, top);
+    ctx.lineTo(cx - half, top + size);
+    ctx.lineTo(cx + half, top + size);
+    ctx.closePath();
+    ctx.fillStyle = "#facc15";
+    ctx.strokeStyle = "#7c4a03";
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = "#5f3b00";
+    ctx.fillStyle = "#5f3b00";
+    ctx.lineWidth = 1.15;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx, top + 3);
+    ctx.lineTo(cx, top + 6.1);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, top + 7.7, 0.65, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   // ── Drawing ───────────────────────────────────────────────────────────────
 
   update() {
@@ -253,9 +320,10 @@ export class MinimapPlugin extends BasePlugin {
 
     // Draw every selectable node as a small rounded rect, except connections
     // which keep their actual curve shape in the overview.
+    const unlinkedPageIds = this.getUnlinkedPageIds(nodes);
+    const unlinkedPageMarkers = [];
     for (const node of nodes) {
-      const isConnection = node.getAttr("componentType") === "connection";
-      if (isConnection) {
+      if (isConnectionNode(node)) {
         this.drawConnection(ctx, node);
         continue;
       }
@@ -277,6 +345,10 @@ export class MinimapPlugin extends BasePlugin {
       }
       ctx.fill();
       ctx.stroke();
+
+      if (unlinkedPageIds.has(node.id())) {
+        unlinkedPageMarkers.push({ x, y, width: nw });
+      }
     }
 
     // Draw viewport rect
@@ -292,6 +364,8 @@ export class MinimapPlugin extends BasePlugin {
     ctx.rect(vpTL.x, vpTL.y, vpW, vpH);
     ctx.fill();
     ctx.stroke();
+
+    unlinkedPageMarkers.forEach((marker) => this.drawUnlinkedPageWarning(ctx, marker));
   }
 
   // ── Laser dot ─────────────────────────────────────────────────────────────

@@ -57,6 +57,27 @@ async function listCatalogItems(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listCatalogItems());
 }
 
+async function countMinimapWarningPixels(page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="minimap"] canvas');
+    const context = canvas?.getContext?.("2d");
+    if (!canvas || !context) return 0;
+
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const red = data[index];
+      const green = data[index + 1];
+      const blue = data[index + 2];
+      const alpha = data[index + 3];
+      if (red > 220 && green > 170 && blue < 90 && alpha > 120) {
+        count += 1;
+      }
+    }
+    return count;
+  });
+}
+
 function getUnionBounds(nodes = []) {
   const bounds = nodes.map((node) => node.bounds).filter(Boolean);
   if (!bounds.length) return null;
@@ -540,6 +561,21 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
       return JSON.stringify(current?.summary?.points ?? []);
     })
     .not.toBe(JSON.stringify(originalPoints));
+});
+
+test("marks unlinked pages with a minimap warning", async ({ page }) => {
+  const firstPage = await addComponent(page, "page", { x: 120, y: 140 });
+  await waitForPaint(page);
+  await expect.poll(async () => countMinimapWarningPixels(page)).toBeGreaterThan(12);
+
+  const secondPage = await addComponent(page, "page", { x: 1220, y: 140 });
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: firstPage.id, targetId: secondPage.id },
+  );
+  await waitForPaint(page);
+
+  await expect.poll(async () => countMinimapWarningPixels(page)).toBe(0);
 });
 
 test("pastes copied components into the current viewport", async ({ page }) => {
