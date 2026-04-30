@@ -161,7 +161,10 @@ export class App {
 
     if (this.modeManager.matches({ mode: "edit", editorTool: "arrange" })) {
       container.style.cursor = "default";
+      return;
     }
+
+    container.style.cursor = "default";
   }
 
   getSelectableParent(node) {

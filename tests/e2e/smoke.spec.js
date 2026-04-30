@@ -187,6 +187,24 @@ test("adds a sticky note from the palette and deletes it with the keyboard", asy
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 });
 
+test("opens the component palette from another active tool", async ({ page }) => {
+  await page.getByTestId("tool-button-pen").click();
+  await expect(page.getByTestId("tool-button-pen")).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByTestId("components-trigger").click();
+  await expect(page.getByTestId("components-trigger")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("tool-button-pen")).toHaveAttribute("aria-pressed", "false");
+
+  const stickyCard = page.getByTestId("palette-card-sticky");
+  await expect(stickyCard).toBeVisible();
+  await expect(stickyCard).toBeEnabled();
+  await stickyCard.click();
+
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+  await expect(page.getByTestId("components-trigger")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("tool-button-arrange")).toHaveAttribute("aria-pressed", "true");
+});
+
 test("adds a palette-clicked component in the current viewport", async ({ page }) => {
   const viewport = await page.evaluate(() => window.__APP_TEST_API__.setViewport({
     scale: 0.7,

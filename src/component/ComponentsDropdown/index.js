@@ -1,9 +1,14 @@
-import { BasePlugin } from "../../core/baseClasses.js";
+import { BasePlugin, BaseTool } from "../../core/baseClasses.js";
 import { getCenteredComponentPlacementPoint } from "../../lib/componentPlacement.js";
 import { renderIcons } from "../../lib/icons.js";
 import { Konva } from "../../lib/konva.js";
 
 const IMAGE_PLACEHOLDER_ICON = "image";
+
+class ComponentsTool extends BaseTool {
+  static toolId = "components";
+  static label = "Components";
+}
 
 function buildIframePreview(previewDiv) {
   previewDiv.classList.add("comp-dropdown__preview--iframe");
@@ -57,10 +62,14 @@ export class ComponentsDropdownPlugin extends BasePlugin {
   static modes = {
     edit: {
       tools: {
-        arrange: {},
+        components: {},
       },
     },
   };
+
+  tools() {
+    return [ComponentsTool];
+  }
 
   onSetup() {
     this._open = false;
@@ -78,6 +87,14 @@ export class ComponentsDropdownPlugin extends BasePlugin {
   }
 
   onModeChange() {
+    if (this._open && this.app.getEditorTool() !== "components") {
+      this._close();
+    }
+    this._syncInteractivity();
+  }
+
+  onModeExit() {
+    this._close();
     this._syncInteractivity();
   }
 
@@ -88,7 +105,11 @@ export class ComponentsDropdownPlugin extends BasePlugin {
     this._triggerBtn = triggerBtn;
     this.listenDom(triggerBtn, "click", (e) => {
       e.stopPropagation();
-      this._toggle();
+      if (this._open && this.app.getEditorTool() === "components") {
+        this._close({ restoreArrange: true });
+        return;
+      }
+      this._openDropdown();
     });
   }
 
@@ -120,33 +141,37 @@ export class ComponentsDropdownPlugin extends BasePlugin {
       if (!this._open) return;
       if (this._dropdown.contains(e.target)) return;
       if (this._triggerBtn?.contains(e.target)) return;
-      this._close();
+      this._close({ restoreArrange: true });
     };
     document.addEventListener("mousedown", this._outsideHandler, true);
 
     // Esc key
     this.listenDom(document, "keydown", (e) => {
-      if (e.key === "Escape" && this._open) this._close();
+      if (e.key === "Escape" && this._open) this._close({ restoreArrange: true });
     });
   }
 
   // ── Open / close ──────────────────────────────────────────────────────────
 
-  _toggle() {
-    this._open ? this._close() : this._openDropdown();
-  }
-
   _openDropdown() {
+    if (this.app.getMode() !== "edit") {
+      this.app.setMode("edit");
+    }
+    if (this.app.getEditorTool() !== "components") {
+      this.app.setEditorTool("components");
+    }
     this._open = true;
     this._dropdown.hidden = false;
     this._positionDropdown();
-    this._triggerBtn?.setAttribute("aria-pressed", "true");
+    this._syncInteractivity();
   }
 
-  _close() {
+  _close({ restoreArrange = false } = {}) {
     this._open = false;
     this._dropdown.hidden = true;
-    this._triggerBtn?.setAttribute("aria-pressed", "false");
+    if (restoreArrange && this.app.getMode() === "edit" && this.app.getEditorTool() === "components") {
+      this.app.setEditorTool("arrange");
+    }
   }
 
   _positionDropdown() {
@@ -214,8 +239,8 @@ export class ComponentsDropdownPlugin extends BasePlugin {
       this.listenDom(card, "click", async () => {
         if (!this.isEnabled()) return;
         const point = await getCenteredComponentPlacementPoint(this.app, item.type);
-        await this.app.addComponent(item.type, point);
-        this._close();
+        const node = await this.app.addComponent(item.type, point);
+        this._close({ restoreArrange: !node });
       });
 
       this._listEl.append(card);
@@ -260,8 +285,8 @@ export class ComponentsDropdownPlugin extends BasePlugin {
         x: event.offsetX,
         y: event.offsetY,
       });
-      await this.app.addComponent(type, point);
-      this._close();
+      const node = await this.app.addComponent(type, point);
+      this._close({ restoreArrange: !node });
     });
   }
 

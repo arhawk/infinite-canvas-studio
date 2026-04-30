@@ -3,12 +3,13 @@ import { renderIcons } from "../../lib/icons.js";
 
 const TOOL_ICONS = {
   arrange: "mouse-pointer-2",
+  components: "layers",
   pen: "pen",
   eraser: "eraser",
   shape: "shapes",
 };
 
-const VISIBLE_TOOL_IDS = ["arrange", "pen", "eraser", "shape"];
+const VISIBLE_TOOL_IDS = ["arrange", "pen", "eraser", "shape", "components"];
 const BRUSH_TOOL_IDS = ["pen", "pencil", "highlighter"];
 
 export class LeftToolbarPlugin extends BasePlugin {
@@ -39,20 +40,10 @@ export class LeftToolbarPlugin extends BasePlugin {
     logo.innerHTML = `<span class="left-toolbar__logo-text">Mimi</span>`;
     el.appendChild(logo);
 
-    // Tool group (cursor / pen / eraser) — rendered separately in _renderToolButtons
+    // Tool group — rendered separately in _renderToolButtons
     this._toolGroupEl = document.createElement("div");
     this._toolGroupEl.className = "left-toolbar__group";
     el.appendChild(this._toolGroupEl);
-
-    el.appendChild(this._makeSep());
-
-    // Components group
-    const compGroup = document.createElement("div");
-    compGroup.className = "left-toolbar__group";
-    this.componentsBtn = this._makeBtn("layers", "Components", "components-trigger");
-    this.componentsBtn.setAttribute("aria-pressed", "false");
-    compGroup.appendChild(this.componentsBtn);
-    el.appendChild(compGroup);
 
     el.appendChild(this._makeSep());
 
@@ -130,7 +121,9 @@ export class LeftToolbarPlugin extends BasePlugin {
             ? "Brush tools"
             : toolId === "eraser"
               ? "Eraser"
-              : "Shapes";
+              : toolId === "shape"
+                ? "Shapes"
+                : "Components";
 
       const btn = document.createElement("button");
       btn.type = "button";
@@ -139,7 +132,9 @@ export class LeftToolbarPlugin extends BasePlugin {
       btn.setAttribute("aria-label", label);
       btn.setAttribute("aria-pressed", "false");
       btn.dataset.toolId = toolId;
-      btn.dataset.testid = `tool-button-${toolId}`;
+      btn.dataset.testid = toolId === "components"
+        ? "components-trigger"
+        : `tool-button-${toolId}`;
 
       if (icon) {
         btn.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`;
@@ -147,19 +142,22 @@ export class LeftToolbarPlugin extends BasePlugin {
         btn.textContent = label;
       }
 
-      this.listenDom(btn, "click", () => {
-        if (toolId === "shape" && this.app.getEditorTool() === "shape") {
-          this.app.setEditorTool("arrange");
-          return;
-        }
-        this.app.setEditorTool(toolId);
-      });
+      if (toolId !== "components") {
+        this.listenDom(btn, "click", () => {
+          if (toolId === "shape" && this.app.getEditorTool() === "shape") {
+            this.app.setEditorTool("arrange");
+            return;
+          }
+          this.app.setEditorTool(toolId);
+        });
+      }
       this._toolGroupEl.appendChild(btn);
       this._toolBtns.push(btn);
       if (toolId === "pen") this.penBtn = btn;
       if (toolId === "eraser") this.eraserBtn = btn;
       if (toolId === "shape") this.shapeBtn = btn;
       if (toolId === "arrange") this.arrangeBtn = btn;
+      if (toolId === "components") this.componentsBtn = btn;
     }
 
     renderIcons(this._toolGroupEl, { width: 18, height: 18, "stroke-width": 2 });

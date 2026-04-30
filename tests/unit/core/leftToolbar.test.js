@@ -31,6 +31,20 @@ describe("LeftToolbarPlugin", () => {
     createDom();
   });
 
+  it("renders Components in the main single-select tool group", () => {
+    const plugin = new LeftToolbarPlugin(createApp());
+
+    const toolButtons = Array.from(plugin.arrangeBtn.parentElement.children);
+    const shapeIndex = toolButtons.indexOf(plugin.shapeBtn);
+    const componentsIndex = toolButtons.indexOf(plugin.componentsBtn);
+
+    expect(shapeIndex).toBeGreaterThanOrEqual(0);
+    expect(componentsIndex).toBe(shapeIndex + 1);
+    expect(plugin.componentsBtn.dataset.toolId).toBe("components");
+    expect(plugin.componentsBtn.dataset.testid).toBe("components-trigger");
+    expect(plugin.componentsBtn.getAttribute("aria-label")).toBe("Components");
+  });
+
   it("renders a Background button under Timer in the left plugin group", () => {
     const plugin = new LeftToolbarPlugin(createApp());
 
