@@ -9,11 +9,13 @@ function createDom() {
         <div class="left-toolbar__group">
           <button
             id="background-settings-toggle"
-            class="left-toolbar__btn left-toolbar__btn--text"
+            class="left-toolbar__btn"
             type="button"
             aria-pressed="false"
             data-testid="background-toggle"
-          >B</button>
+          >
+            <i data-lucide="wallpaper" aria-hidden="true"></i>
+          </button>
         </div>
       </nav>
     </div>

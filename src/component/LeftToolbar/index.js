@@ -61,7 +61,7 @@ export class LeftToolbarPlugin extends BasePlugin {
     pluginsGroup.className = "left-toolbar__group";
     this.calculatorBtn = this._makeBtn("calculator", "Binary Calculator", "calculator-toggle");
     this.timerBtn = this._makeBtn("timer", "Timer / Stopwatch", "timer-toggle");
-    this.backgroundBtn = this._makeTextBtn("B", "Background", "background-toggle");
+    this.backgroundBtn = this._makeBtn("wallpaper", "Background", "background-toggle");
     this.calculatorBtn.setAttribute("aria-pressed", "false");
     this.timerBtn.setAttribute("aria-pressed", "false");
     this.backgroundBtn.setAttribute("aria-pressed", "false");
@@ -108,17 +108,6 @@ export class LeftToolbarPlugin extends BasePlugin {
     btn.setAttribute("aria-label", label);
     if (testid) btn.dataset.testid = testid;
     btn.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`;
-    return btn;
-  }
-
-  _makeTextBtn(text, label, testid) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "left-toolbar__btn left-toolbar__btn--text";
-    btn.title = label;
-    btn.setAttribute("aria-label", label);
-    if (testid) btn.dataset.testid = testid;
-    btn.textContent = text;
     return btn;
   }
 

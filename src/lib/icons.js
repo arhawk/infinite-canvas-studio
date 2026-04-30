@@ -28,6 +28,7 @@ import {
   TriangleAlert,
   Undo2,
   Upload,
+  Wallpaper,
   ZoomIn,
   ZoomOut,
   createIcons,
@@ -63,6 +64,7 @@ const PROJECT_ICONS = {
   TriangleAlert,
   Undo2,
   Upload,
+  Wallpaper,
   ZoomIn,
   ZoomOut,
 };

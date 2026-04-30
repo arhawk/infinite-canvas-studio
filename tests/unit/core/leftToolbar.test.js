@@ -41,7 +41,8 @@ describe("LeftToolbarPlugin", () => {
     expect(timerIndex).toBeGreaterThanOrEqual(0);
     expect(backgroundIndex).toBe(timerIndex + 1);
     expect(plugin.backgroundBtn).toBeTruthy();
-    expect(plugin.backgroundBtn.textContent).toBe("B");
+    expect(plugin.backgroundBtn.textContent).toBe("");
+    expect(plugin.backgroundBtn.querySelector('[data-lucide="wallpaper"]')).toBeTruthy();
     expect(plugin.backgroundBtn.dataset.testid).toBe("background-toggle");
     expect(plugin.backgroundBtn.getAttribute("aria-label")).toBe("Background");
   });
