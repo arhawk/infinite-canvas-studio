@@ -3016,6 +3016,11 @@ body.is-presentation-mode .toolbar__share-btn {
   flex-shrink: 0;
 }
 
+.minimap__action-btn[hidden],
+.minimap__toggle-btn[hidden] {
+  display: none;
+}
+
 .minimap__action-btn:hover,
 .minimap__toggle-btn:hover {
   background: rgba(61, 47, 32, 0.08);
@@ -3039,8 +3044,29 @@ body.is-presentation-mode .toolbar__share-btn {
   color: #854f0b;
 }
 
-.minimap__unlinked-page-btn:not(:disabled) {
+.minimap__unlinked-page-btn:not([hidden]) {
+  animation: minimap-unlinked-page-button-pulse 1.2s ease-in-out infinite;
   color: #7c4a03;
+}
+
+@keyframes minimap-unlinked-page-button-pulse {
+  0%,
+  100% {
+    background: rgba(250, 204, 21, 0.08);
+    filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0));
+    opacity: 1;
+  }
+  50% {
+    background: rgba(250, 204, 21, 0.24);
+    filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.72));
+    opacity: 0.68;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimap__unlinked-page-btn:not([hidden]) {
+    animation: none;
+  }
 }
 
 .minimap__action-btn svg,

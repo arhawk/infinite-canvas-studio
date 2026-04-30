@@ -610,9 +610,14 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
 });
 
 test("marks unlinked pages with a minimap warning", async ({ page }) => {
+  const jumpButton = page.getByTestId("minimap-unlinked-page-next");
+  await expect(jumpButton).toBeHidden();
+
   const firstPage = await addComponent(page, "page", { x: 120, y: 140 });
   await waitForPaint(page);
   await expect.poll(async () => countMinimapWarningPixels(page)).toBeGreaterThan(12);
+  await expect(jumpButton).toBeVisible();
+  await expect(jumpButton).toHaveCSS("animation-name", "minimap-unlinked-page-button-pulse");
 
   const secondPage = await addComponent(page, "page", { x: 1220, y: 140 });
   await page.evaluate(
@@ -622,6 +627,7 @@ test("marks unlinked pages with a minimap warning", async ({ page }) => {
   await waitForPaint(page);
 
   await expect.poll(async () => countMinimapWarningPixels(page)).toBe(0);
+  await expect(jumpButton).toBeHidden();
 });
 
 test("cycles through unlinked pages from the minimap", async ({ page }) => {
@@ -638,6 +644,7 @@ test("cycles through unlinked pages from the minimap", async ({ page }) => {
   await waitForPaint(page);
 
   const jumpButton = page.getByTestId("minimap-unlinked-page-next");
+  await expect(jumpButton).toBeVisible();
   await expect(jumpButton).toBeEnabled();
 
   await jumpButton.click();

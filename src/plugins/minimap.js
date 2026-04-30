@@ -1,4 +1,5 @@
 import { BasePlugin } from "../core/baseClasses.js";
+import { renderIcons } from "../lib/icons.js";
 
 const MINIMAP_W = 180;
 const MINIMAP_H = 110;
@@ -69,15 +70,15 @@ export class MinimapPlugin extends BasePlugin {
     this.unlinkedPageBtn.className = "minimap__action-btn minimap__unlinked-page-btn";
     this.unlinkedPageBtn.dataset.testid = "minimap-unlinked-page-next";
     this.unlinkedPageBtn.disabled = true;
+    this.unlinkedPageBtn.hidden = true;
     this.unlinkedPageBtn.setAttribute("aria-label", "No unlinked pages");
     this.unlinkedPageBtn.title = "No unlinked pages";
-    this.unlinkedPageBtn.innerHTML = `
-      <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true" focusable="false">
-        <path d="M6.5 1.35 12 11.35H1L6.5 1.35Z" fill="#facc15" stroke="#7c4a03" stroke-width="1" stroke-linejoin="round"/>
-        <path d="M6.5 4.35v3.35" stroke="#5f3b00" stroke-width="1.25" stroke-linecap="round"/>
-        <circle cx="6.5" cy="9.55" r=".72" fill="#5f3b00"/>
-      </svg>
-    `;
+    this.unlinkedPageBtn.innerHTML = '<i data-lucide="triangle-alert" aria-hidden="true"></i>';
+    renderIcons(this.unlinkedPageBtn, {
+      width: 14,
+      height: 14,
+      "stroke-width": 2.25,
+    });
     this.listenDom(this.unlinkedPageBtn, "click", () => this.goToNextUnlinkedPage());
 
     this.toggleBtn = document.createElement("button");
@@ -333,6 +334,7 @@ export class MinimapPlugin extends BasePlugin {
 
     const hasUnlinkedPages = unlinkedPageCount > 0;
     this.unlinkedPageBtn.disabled = !hasUnlinkedPages;
+    this.unlinkedPageBtn.hidden = !hasUnlinkedPages;
     this.unlinkedPageBtn.setAttribute(
       "aria-label",
       hasUnlinkedPages
