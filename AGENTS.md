@@ -589,13 +589,8 @@ Controls:
 - Icon-only save / load document buttons rendered with Lucide icons
 - Center-map and zoom controls are always available in the main toolbar row
 - Calculator and timer widgets are toggled from toolbar buttons
-- In `edit` + `arrange`, the helper control group currently exposes `Connect to...` and `Delete` for the selected node
 - In drawing tools, a floating brush panel provides tool switching, color, width, recent colors, and eraser radius / clear controls
 - In `presentation`, a drawing visibility toggle can hide or show the draw layer
-
-Note:
-
-- The `save-focus` and `focus-position-mode` DOM controls still exist in `index.html`, but the current `ToolbarPlugin` keeps them hidden.
 
 ### 10. Context Menu
 
@@ -616,7 +611,7 @@ Behavior:
 
 - Dragging a selectable component over a container and releasing it **captures** the component as a child of the container.
 - Dragging a child component out of the container bounds **releases** it back to the main layer.
-- Right-click any non-connection component, or use the `Connect to...` toolbar button while it is selected in `edit.arrange`, to connect it to another component.
+- Right-click any non-connection component to connect it to another component.
 - Connections are real selectable nodes, so they can be selected, deleted, edited, and adjusted via visible curve control handles when selected in `edit.arrange`.
 - The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
 - Container labels are editable via double-click.

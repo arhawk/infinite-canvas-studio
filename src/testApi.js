@@ -656,6 +656,12 @@ export function setupAppTestApi(app) {
       const connection = await connectionsPlugin?.createConnection?.(sourceId, targetId);
       return connection ? serializeNode(app, connection) : null;
     },
+    startConnection: (sourceId) => {
+      const connectionsPlugin = getPlugin(app, "connections");
+      if (!connectionsPlugin?.startConnecting) return false;
+      connectionsPlugin.startConnecting(sourceId);
+      return connectionsPlugin.connectingFromId === sourceId;
+    },
     doubleClickConnectionLine: (id) => {
       const node = getNodeById(app, id);
       if (node?.getAttr?.("componentType") !== "connection") return false;

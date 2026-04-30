@@ -475,17 +475,15 @@ test("does not create an image component when image paste targets an input", asy
     .toBe(beforeImageCount);
 });
 
-test("creates a connection from the toolbar and updates it when a node moves", async ({ page }) => {
+test("creates a connection and updates it when a node moves", async ({ page }) => {
   const source = await addComponent(page, "sticky", { x: 180, y: 180 });
   const target = await addComponent(page, "sticky", { x: 560, y: 220 });
 
-  const sourceCenter = await getNodePageCenter(page, source.id);
-  const targetCenter = await getNodePageCenter(page, target.id);
-
-  await page.mouse.click(sourceCenter.x, sourceCenter.y);
-  await expect(page.getByTestId("connect-selection")).toBeEnabled();
-  await page.getByTestId("connect-selection").click();
-  await page.mouse.click(targetCenter.x, targetCenter.y);
+  const createdConnection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+  expect(createdConnection).not.toBeNull();
 
   await expect
     .poll(async () => {
@@ -493,10 +491,6 @@ test("creates a connection from the toolbar and updates it when a node moves", a
       return nodes.filter((node) => node.componentType === "connection").length;
     })
     .toBe(1);
-
-  const createdConnection = await page.evaluate(() => (
-    window.__APP_TEST_API__.listNodes().find((node) => node.componentType === "connection")
-  ));
 
   expect(createdConnection.summary.sourceNodeId).toBe(source.id);
   expect(createdConnection.summary.targetNodeId).toBe(target.id);
@@ -521,12 +515,10 @@ test("copies connections along with their selected endpoints", async ({ page }) 
   const source = await addComponent(page, "sticky", { x: 180, y: 180 });
   const target = await addComponent(page, "sticky", { x: 520, y: 220 });
 
-  const sourceCenter = await getNodePageCenter(page, source.id);
-  await page.mouse.click(sourceCenter.x, sourceCenter.y);
-  await page.getByTestId("connect-selection").click();
-
-  const targetCenter = await getNodePageCenter(page, target.id);
-  await page.mouse.click(targetCenter.x, targetCenter.y);
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
 
   await expect
     .poll(async () => page.evaluate(({ sourceId, targetId }) => (
@@ -591,8 +583,7 @@ test("connects another component to the JavaScript editor preview", async ({ pag
 
   const sourceCenter = await getNodePageCenter(page, source.id);
   await page.mouse.click(sourceCenter.x, sourceCenter.y);
-  await expect(page.getByTestId("connect-selection")).toBeEnabled();
-  await page.getByTestId("connect-selection").click();
+  await page.evaluate((sourceId) => window.__APP_TEST_API__.startConnection(sourceId), source.id);
 
   const previewBox = await page.getByTestId("javascript-editor-output-preview").boundingBox();
   await page.mouse.click(previewBox.x + 28, previewBox.y + 28);
@@ -950,7 +941,7 @@ test("double-clicking a button follows its connected target instead of its own f
 
 test("saves focus through the focus api for a node", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 280, y: 220 });
-  await expect(page.getByTestId("save-focus")).toBeHidden();
+  await expect(page.getByTestId("save-focus")).toHaveCount(0);
   await page.evaluate((nodeId) => window.__APP_TEST_API__.saveFocus(nodeId), sticky.id);
   await expect(page.getByTestId("focus-save-toast")).toHaveText("Focus saved");
 
@@ -2463,7 +2454,7 @@ test("edits shape text inline and preserves shape style through resize and docum
   expect(restored.summary.height).toBeCloseTo(150, 1);
 });
 
-test("resizes pages and deletes them from the toolbar", async ({ page }) => {
+test("resizes pages and deletes them with the keyboard", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 140, y: 120 });
   const center = await getNodePageCenter(page, pageNode.id);
 
@@ -2482,13 +2473,12 @@ test("resizes pages and deletes them from the toolbar", async ({ page }) => {
     },
   );
 
-  await expect(page.getByTestId("delete-selection")).toBeVisible();
   expect(resized.summary.width).toBeGreaterThan(before.summary.width + 100);
   expect(resized.summary.height).toBeGreaterThan(before.summary.height + 60);
   expect(resized.summary.scaleX).toBeCloseTo(1, 4);
   expect(resized.summary.scaleY).toBeCloseTo(1, 4);
 
-  await page.getByTestId("delete-selection").click();
+  await page.keyboard.press("Delete");
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.listNodes().length))
     .toBe(0);
