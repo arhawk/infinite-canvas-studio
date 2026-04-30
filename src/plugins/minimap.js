@@ -182,6 +182,50 @@ export class MinimapPlugin extends BasePlugin {
     };
   }
 
+  connectionPoints(node) {
+    const line = node.findOne(".connection-line");
+    const points = line?.points?.() ?? [];
+    if (points.length < 4) return null;
+
+    const mapped = [];
+    for (let i = 0; i < points.length; i += 2) {
+      mapped.push(this.toMinimap(points[i], points[i + 1]));
+    }
+    return { line, points: mapped };
+  }
+
+  drawConnection(ctx, node) {
+    const connection = this.connectionPoints(node);
+    if (!connection) return;
+
+    const { line, points } = connection;
+    ctx.save();
+    ctx.strokeStyle = "rgba(84, 64, 43, 0.35)";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.setLineDash(line.dash?.() ?? []);
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    if (line.bezier?.() && points.length >= 4) {
+      ctx.bezierCurveTo(
+        points[1].x,
+        points[1].y,
+        points[2].x,
+        points[2].y,
+        points[3].x,
+        points[3].y,
+      );
+    } else {
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ── Drawing ───────────────────────────────────────────────────────────────
 
   update() {
@@ -207,21 +251,22 @@ export class MinimapPlugin extends BasePlugin {
     ctx.fillStyle = "rgba(61, 47, 32, 0.03)";
     ctx.fillRect(0, 0, w, h);
 
-    // Draw every selectable node as a small rounded rect
+    // Draw every selectable node as a small rounded rect, except connections
+    // which keep their actual curve shape in the overview.
     for (const node of nodes) {
+      const isConnection = node.getAttr("componentType") === "connection";
+      if (isConnection) {
+        this.drawConnection(ctx, node);
+        continue;
+      }
+
       const r = node.getClientRect({ relativeTo: this.mainLayer });
       const { x, y } = this.toMinimap(r.x, r.y);
       const nw = Math.max(2, r.width * scale);
       const nh = Math.max(2, r.height * scale);
 
-      const isConnection = node.getAttr("componentType") === "connection";
-
-      ctx.fillStyle = isConnection
-        ? "rgba(84, 64, 43, 0.15)"
-        : "rgba(84, 64, 43, 0.28)";
-      ctx.strokeStyle = isConnection
-        ? "rgba(84, 64, 43, 0.25)"
-        : "rgba(84, 64, 43, 0.5)";
+      ctx.fillStyle = "rgba(84, 64, 43, 0.28)";
+      ctx.strokeStyle = "rgba(84, 64, 43, 0.5)";
       ctx.lineWidth = 0.5;
 
       ctx.beginPath();
