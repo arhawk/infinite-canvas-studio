@@ -169,9 +169,14 @@ function getNodeSummary(node) {
 
   if (componentType === "button") {
     return {
+      shapeType: node.getAttr("buttonShapeType") ?? "rounded",
       label: node.findOne(".button-label")?.text() ?? "",
-      fill: node.findOne(".button-bg")?.fill() ?? null,
-      stroke: node.findOne(".button-bg")?.stroke() ?? null,
+      fill: node.getAttr("buttonFill") ?? node.findOne(".button-bg")?.fill() ?? null,
+      fillOpacity: node.getAttr("buttonFillOpacity") ?? 1,
+      stroke: node.getAttr("buttonStroke") ?? node.findOne(".button-bg")?.stroke() ?? null,
+      strokeWidth: node.getAttr("buttonStrokeWidth") ?? 2,
+      textColor: node.getAttr("buttonTextColor") ?? node.findOne(".button-label")?.fill() ?? null,
+      fontSize: node.getAttr("buttonFontSize") ?? node.findOne(".button-label")?.fontSize?.() ?? null,
       width: node.findOne(".button-bg")?.width() ?? node.width?.() ?? null,
       height: node.findOne(".button-bg")?.height() ?? node.height?.() ?? null,
     };

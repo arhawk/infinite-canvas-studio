@@ -230,6 +230,13 @@ async function waitForPaint(page) {
   }));
 }
 
+async function setInputValue(page, testId, value) {
+  await page.getByTestId(testId).evaluate((input, nextValue) => {
+    input.value = nextValue;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+}
+
 async function dragBetweenPagePoints(page, start, end, steps = 8) {
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
@@ -1134,6 +1141,7 @@ test("button components keep one hidden outgoing connection and jump to the targ
 test("buttons start compact and can be resized", async ({ page }) => {
   const button = await addComponent(page, "button", { x: 220, y: 180, label: "Go" });
 
+  expect(button.summary.shapeType).toBe("rounded");
   expect(button.summary.width).toBeCloseTo(132, 3);
   expect(button.summary.height).toBeCloseTo(44, 3);
 
@@ -1151,6 +1159,236 @@ test("buttons start compact and can be resized", async ({ page }) => {
   const reloaded = await getNode(page, button.id);
   expect(reloaded.summary.width).toBeCloseTo(96, 3);
   expect(reloaded.summary.height).toBeCloseTo(36, 3);
+});
+
+test("button shape changes persist and keep jump navigation working", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const target = await addComponent(page, "sticky", { x: 1120, y: 180, text: "Target" });
+
+  await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: button.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), button.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+
+  const shapeSelect = page.getByTestId("component-editor-input-shapeType");
+  await expect(shapeSelect).toBeVisible();
+  await expect(shapeSelect).toHaveValue("rounded");
+
+  await shapeSelect.selectOption("rhombus");
+  await page.getByTestId("component-editor-apply").click();
+
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.shapeType ?? null)
+    .toBe("rhombus");
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.shapeType ?? null)
+    .toBe("rhombus");
+
+  const expectedFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    target.id,
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), button.id);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.activateButton(nodeId), button.id);
+
+  await expect
+    .poll(async () => {
+      const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(viewport.center.x - expectedFocus.center.x);
+    })
+    .toBeLessThan(4);
+});
+
+test("selected button exposes live shape controls", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 520, y: 220, label: "Go" });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
+
+  await expect(page.getByTestId("button-controls")).toBeVisible();
+  await waitForPaint(page);
+  await expect(page.getByTestId("shape-controls")).toBeHidden();
+  await expect(page.getByTestId("button-type-rounded")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("button-font-size")).toHaveValue("16");
+  await expect(page.getByTestId("button-text-color")).toHaveValue("#5b3b12");
+  await expect(page.getByTestId("button-fill-color")).toHaveValue("#f7e7c6");
+  await expect(page.getByTestId("button-opacity")).toHaveValue("1");
+  await expect(page.getByTestId("button-stroke-color")).toHaveValue("#b9782f");
+  await expect(page.getByTestId("button-stroke-width")).toHaveValue("2");
+  await expect(page.getByTestId("button-opacity-value")).toHaveText("100%");
+  await expect(page.getByTestId("button-style-text-color")).toHaveAttribute("title", "Text color");
+  await expect(page.getByTestId("button-style-fill")).toHaveAttribute("title", "Fill color");
+  await expect(page.getByTestId("button-style-border")).toHaveAttribute("title", "Border color");
+  await expect(page.getByTestId("button-text-color")).toHaveAttribute("title", "Text color");
+  await expect(page.getByTestId("button-fill-color")).toHaveAttribute("title", "Fill color");
+  await expect(page.getByTestId("button-opacity")).toHaveAttribute("title", "Opacity: 100%");
+  await expect(page.getByTestId("button-stroke-color")).toHaveAttribute("title", "Border color");
+  await expect(page.getByTestId("button-stroke-width")).toHaveAttribute("title", "Thickness: 2");
+  await expect(page.locator(".toolbar__button-style-tool")).toHaveCount(4);
+  await expect(page.getByTestId("button-style-font-size")).toBeVisible();
+  await expect(page.getByTestId("button-style-text-color")).toBeVisible();
+  await expect(page.getByTestId("button-style-fill")).toBeVisible();
+  await expect(page.getByTestId("button-style-border")).toBeVisible();
+  await expect(page.getByTestId("button-style-text-color").locator(".toolbar__button-text-icon")).toHaveText("A");
+  await expect(page.getByTestId("button-style-fill").locator(".toolbar__button-fill-icon")).toHaveCount(1);
+  await expect(page.getByTestId("button-style-border").locator(".toolbar__button-border-icon")).toHaveCount(1);
+  await page.getByTestId("button-style-font-size").click();
+  await expect(page.getByTestId("button-font-size")).toBeVisible();
+  await page.getByTestId("button-style-fill").click();
+  await expect(page.getByTestId("button-opacity")).toBeVisible();
+  await expect(page.locator("#button-fill-swatches .toolbar__button-color-swatch")).toHaveCount(9);
+  await expect(page.locator("#button-fill-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  await page.getByTestId("button-style-border").click();
+  await expect(page.getByTestId("button-stroke-width")).toBeVisible();
+  await expect(page.locator("#button-border-swatches .toolbar__button-color-swatch")).toHaveCount(9);
+  await expect(page.locator("#button-border-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  await page.getByTestId("button-style-text-color").click();
+  await expect(page.locator("#button-text-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#button-text-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+
+  const buttonSnapshot = await getNode(page, button.id);
+  const buttonTopCenter = await canvasPointToPage(page, {
+    x: buttonSnapshot.bounds.x + buttonSnapshot.bounds.width / 2,
+    y: buttonSnapshot.bounds.y,
+  });
+  const panelBox = await page.getByTestId("button-controls").boundingBox();
+  expect(panelBox).toBeTruthy();
+  expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(buttonTopCenter.y - 18);
+  expect(Math.abs(panelBox.x + panelBox.width / 2 - buttonTopCenter.x)).toBeLessThan(24);
+
+  await page.getByTestId("button-type-triangle").click();
+  await setInputValue(page, "button-font-size", "24");
+  await setInputValue(page, "button-text-color", "#ffffff");
+  await setInputValue(page, "button-fill-color", "#dbeafe");
+  await setInputValue(page, "button-opacity", "0.4");
+  await setInputValue(page, "button-stroke-color", "#111827");
+  await setInputValue(page, "button-stroke-width", "6");
+  await expect(page.getByTestId("button-opacity-value")).toHaveText("40%");
+  await expect(page.locator('#button-fill-swatches .toolbar__button-color-swatch[data-color="#dbeafe"]')).toHaveCount(1);
+  await expect(page.locator('#button-border-swatches .toolbar__button-color-swatch[data-color="#111827"]')).toHaveCount(1);
+
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary ?? null)
+    .toEqual(expect.objectContaining({
+      shapeType: "triangle",
+      fill: "#dbeafe",
+      fillOpacity: 0.4,
+      stroke: "#111827",
+      strokeWidth: 6,
+      textColor: "#ffffff",
+      fontSize: 24,
+    }));
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary ?? null)
+    .toEqual(expect.objectContaining({
+      shapeType: "triangle",
+      fill: "#dbeafe",
+      fillOpacity: 0.4,
+      stroke: "#111827",
+      strokeWidth: 6,
+      textColor: "#ffffff",
+      fontSize: 24,
+    }));
+});
+
+test("selected button toolbar follows its page parent while the page moves", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 160, y: 160, label: "Flow" });
+  const button = await addComponent(page, "button", { x: 260, y: 280, label: "Go" });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
+  await expect(page.getByTestId("button-controls")).toBeVisible();
+  await waitForPaint(page);
+
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    { id: pageNode.id, position: { x: 300, y: 220 } },
+  );
+  await waitForPaint(page);
+
+  const buttonSnapshot = await getNode(page, button.id);
+  expect(buttonSnapshot.parentId).toBe(pageNode.id);
+
+  const buttonTopCenter = await canvasPointToPage(page, {
+    x: buttonSnapshot.bounds.x + buttonSnapshot.bounds.width / 2,
+    y: buttonSnapshot.bounds.y,
+  });
+  const panelBox = await page.getByTestId("button-controls").boundingBox();
+  expect(panelBox).toBeTruthy();
+  expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(buttonTopCenter.y - 18);
+  expect(Math.abs(panelBox.x + panelBox.width / 2 - buttonTopCenter.x)).toBeLessThan(24);
+});
+
+test("selected unconnected button starts a target connection by default", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const target = await addComponent(page, "sticky", { x: 560, y: 220, text: "Target" });
+  const targetCenter = await getNodePageCenter(page, target.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
+  await waitForPaint(page);
+
+  await page.mouse.move(targetCenter.x, targetCenter.y);
+  await page.mouse.click(targetCenter.x, targetCenter.y);
+
+  await expect
+    .poll(async () => page.evaluate(({ sourceId, targetId }) => (
+      window.__APP_TEST_API__.listNodes().some((node) => (
+        node.componentType === "connection" &&
+        node.summary.sourceNodeId === sourceId &&
+        node.summary.targetNodeId === targetId &&
+        node.summary.hiddenUntilEndpointSelected === true
+      ))
+    ), { sourceId: button.id, targetId: target.id }))
+    .toBe(true);
+});
+
+test("selected button click edits its label inline", async ({ page }) => {
+  const button = await addComponent(page, "button", { x: 220, y: 180, label: "Go" });
+  const center = await getNodePageCenter(page, button.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
+
+  await expect(page.getByTestId("button-controls")).toBeVisible();
+  await expect(page.getByTestId("canvas-button-text-editor")).toHaveCount(0);
+
+  await page.mouse.click(center.x, center.y);
+  const editor = page.getByTestId("canvas-button-text-editor");
+  await expect(editor).toBeVisible();
+  const editorBox = await editor.boundingBox();
+  expect(editorBox).toBeTruthy();
+  expect(editorBox.width).toBeLessThan(100);
+  expect(editorBox.height).toBeLessThan(40);
+
+  await editor.fill("Launch");
+  await page.mouse.click(center.x + 220, center.y + 120);
+
+  await expect(editor).toHaveCount(0);
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.label ?? "")
+    .toBe("Launch");
+
+  await page.getByTestId("undo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.label ?? "")
+    .toBe("Go");
+
+  await page.getByTestId("redo-action").click();
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.label ?? "")
+    .toBe("Launch");
 });
 
 test("double-clicking a button follows its connected target instead of its own focus", async ({ page }) => {
@@ -2654,6 +2892,8 @@ test("edits shape text inline and preserves shape style through resize and docum
     fillOpacity: 0.8,
   });
   await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), shape.id);
+  await waitForPaint(page);
 
   const center = await getNodePageCenter(page, shape.id);
   await page.mouse.click(center.x, center.y);
