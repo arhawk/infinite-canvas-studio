@@ -114,7 +114,12 @@ async function createNodeFromPalette(page, componentType) {
     window.__APP_TEST_API__.listNodes().map((node) => node.id)
   ));
 
-  await page.getByTestId(`palette-card-${componentType}`).click();
+  const card = page.getByTestId(`palette-card-${componentType}`);
+  if (!(await card.isVisible())) {
+    await page.getByTestId("components-trigger").click();
+  }
+  await expect(card).toBeVisible();
+  await card.click();
 
   const handle = await page.waitForFunction(
     ({ type, previousIds }) => {
@@ -1734,14 +1739,22 @@ test("pans the viewport when dragging empty canvas without shift pressed", async
 
   await dragBetweenPagePoints(page, start, end, 16);
 
+  const expectedPosition = {
+    x: before.position.x + (end.x - start.x),
+    y: before.position.y + (end.y - start.y),
+  };
   await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getViewportState()))
-    .toEqual(expect.objectContaining({
-      position: expect.objectContaining({
-        x: before.position.x + (end.x - start.x),
-        y: before.position.y + (end.y - start.y),
-      }),
-    }));
+    .poll(async () => {
+      const state = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return state.position.x;
+    })
+    .toBeCloseTo(expectedPosition.x, 4);
+  await expect
+    .poll(async () => {
+      const state = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return state.position.y;
+    })
+    .toBeCloseTo(expectedPosition.y, 4);
 
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
@@ -1791,6 +1804,7 @@ test("shows iframe in the palette and creates it through the component editor wo
   const firstUrl = buildIframePageUrl({ title: "Initial iframe page" });
   const iframeCard = page.getByTestId("palette-card-iframe");
 
+  await page.getByTestId("components-trigger").click();
   await expect(iframeCard).toBeVisible();
   await expect(iframeCard).toContainText("Iframe");
   await expect(iframeCard).toContainText("https://");

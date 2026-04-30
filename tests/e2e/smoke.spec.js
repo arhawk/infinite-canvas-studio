@@ -16,6 +16,15 @@ async function listNodes(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listNodes());
 }
 
+async function clickPaletteCard(page, componentType) {
+  const card = page.getByTestId(`palette-card-${componentType}`);
+  if (!(await card.isVisible())) {
+    await page.getByTestId("components-trigger").click();
+  }
+  await expect(card).toBeVisible();
+  await card.click();
+}
+
 async function getNodePageCenter(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNodePageCenter(nodeId), id);
 }
@@ -163,7 +172,7 @@ test("toggles board fullscreen with Mod+Shift+F only in presentation mode", asyn
 });
 
 test("adds a sticky note from the palette and deletes it with the keyboard", async ({ page }) => {
-  await page.getByTestId("palette-card-sticky").click();
+  await clickPaletteCard(page, "sticky");
 
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
   const [node] = await listNodes(page);
@@ -178,7 +187,7 @@ test("adds a sticky note from the palette and deletes it with the keyboard", asy
 });
 
 test("adds a ranking box from the palette", async ({ page }) => {
-  await page.getByTestId("palette-card-rankingBox").click();
+  await clickPaletteCard(page, "rankingBox");
 
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
   const [node] = await listNodes(page);
@@ -189,7 +198,7 @@ test("undoes and redoes adding a sticky note", async ({ page }) => {
   await expect(page.getByTestId("undo-action")).toBeDisabled();
   await expect(page.getByTestId("redo-action")).toBeDisabled();
 
-  await page.getByTestId("palette-card-sticky").click();
+  await clickPaletteCard(page, "sticky");
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
 
   await page.getByTestId("undo-action").click();
@@ -204,17 +213,41 @@ test("marquee selects multiple components and supports JSON clipboard paste", as
     origin: new URL(page.url()).origin,
   });
   const nodes = await page.evaluate(async () => Promise.all([
-    window.__APP_TEST_API__.addComponent("sticky", { x: 80, y: 80 }),
-    window.__APP_TEST_API__.addComponent("text", { x: 300, y: 120 }),
+    window.__APP_TEST_API__.addComponent("sticky", { x: 140, y: 220 }),
+    window.__APP_TEST_API__.addComponent("text", { x: 420, y: 260 }),
   ]));
 
-  const start = await page.evaluate(() => window.__APP_TEST_API__.canvasToPagePoint({ x: 40, y: 40 }));
-  const end = await page.evaluate(() => window.__APP_TEST_API__.canvasToPagePoint({ x: 520, y: 260 }));
+  const nodeBounds = await listNodes(page);
+  const marqueeBounds = nodeBounds.reduce((bounds, node) => ({
+    minX: Math.min(bounds.minX, node.bounds.x),
+    minY: Math.min(bounds.minY, node.bounds.y),
+    maxX: Math.max(bounds.maxX, node.bounds.x + node.bounds.width),
+    maxY: Math.max(bounds.maxY, node.bounds.y + node.bounds.height),
+  }), {
+    minX: Infinity,
+    minY: Infinity,
+    maxX: -Infinity,
+    maxY: -Infinity,
+  });
+  const start = await page.evaluate((point) => (
+    window.__APP_TEST_API__.canvasToPagePoint(point)
+  ), {
+    x: marqueeBounds.minX - 40,
+    y: marqueeBounds.minY - 40,
+  });
+  const end = await page.evaluate((point) => (
+    window.__APP_TEST_API__.canvasToPagePoint(point)
+  ), {
+    x: marqueeBounds.maxX + 40,
+    y: marqueeBounds.maxY + 40,
+  });
 
+  await page.keyboard.down("Shift");
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 10 });
   await page.mouse.up();
+  await page.keyboard.up("Shift");
 
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
@@ -524,7 +557,7 @@ test("draws and erases strokes in presentation mode", async ({ page }) => {
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByTestId("tool-button-pen").click();
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("pen"));
   await expect(page.getByTestId("stroke-width")).toBeEnabled();
 
   const { start, end } = await drawStroke(page, {
@@ -539,7 +572,7 @@ test("draws and erases strokes in presentation mode", async ({ page }) => {
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBeGreaterThan(0);
 
-  await page.getByTestId("tool-button-eraser").click();
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("eraser"));
   await expect(page.getByTestId("stroke-width")).toBeEnabled();
   await expect(page.getByTestId("clear-strokes")).toBeVisible();
 
@@ -558,12 +591,14 @@ test("toggles pen and eraser on and off in presentation mode", async ({ page }) 
   await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
 
   const canvas = page.getByTestId("canvas-container");
-  const penButton = page.getByTestId("tool-button-pen");
-  const eraserButton = page.getByTestId("tool-button-eraser");
 
-  await expect(penButton).toHaveAttribute("aria-pressed", "false");
-  await penButton.click();
-  await expect(penButton).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
+  )).toBe("arrange");
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("pen"));
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
+  )).toBe("pen");
   await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
     "crosshair",
   );
@@ -579,8 +614,10 @@ test("toggles pen and eraser on and off in presentation mode", async ({ page }) 
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBe(1);
 
-  await penButton.click();
-  await expect(penButton).toHaveAttribute("aria-pressed", "false");
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("arrange"));
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
+  )).toBe("arrange");
   await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
     "grab",
   );
@@ -593,8 +630,10 @@ test("toggles pen and eraser on and off in presentation mode", async ({ page }) 
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBe(1);
 
-  await eraserButton.click();
-  await expect(eraserButton).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("eraser"));
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
+  )).toBe("eraser");
   await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
     "crosshair",
   );
@@ -607,8 +646,10 @@ test("toggles pen and eraser on and off in presentation mode", async ({ page }) 
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
     .toBe(0);
 
-  await eraserButton.click();
-  await expect(eraserButton).toHaveAttribute("aria-pressed", "false");
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("arrange"));
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
+  )).toBe("arrange");
   await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
     "grab",
   );

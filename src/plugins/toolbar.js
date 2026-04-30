@@ -101,6 +101,8 @@ export class ToolbarPlugin extends BasePlugin {
       arrangeControlsEl,
       brushControlsEl,
       brushTypeControlsEl,
+      connectSelectionEl,
+      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -127,6 +129,8 @@ export class ToolbarPlugin extends BasePlugin {
       arrangeControlsEl,
       brushControlsEl,
       brushTypeControlsEl,
+      connectSelectionEl,
+      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -151,6 +155,7 @@ export class ToolbarPlugin extends BasePlugin {
       canTogglePositionMode: false,
       selectedNodeId: null,
     };
+    this.selectedNodes = [];
     this.brushPanelPositionFrame = null;
     this.presentationToolbarHideTimer = null;
     this.presentationToolbarAnimationFrame = null;
@@ -168,6 +173,18 @@ export class ToolbarPlugin extends BasePlugin {
       const nextMode = this.focusState.positionMode === "relative" ? "absolute" : "relative";
       this.app.commands.execute("focus:position-mode:set", nextMode);
     });
+    if (connectSelectionEl) {
+      this.listenDom(connectSelectionEl, "click", () => {
+        const selectedNode = this.getSingleSelectedNode();
+        if (!selectedNode) return;
+        this.app.commands.execute("connection:connect", selectedNode.id());
+      });
+    }
+    if (deleteSelectionEl) {
+      this.listenDom(deleteSelectionEl, "click", () => {
+        this.app.commands.execute("selection:delete");
+      });
+    }
     for (const button of brushTypeControlsEl.querySelectorAll("[data-brush-tool-id]")) {
       this.listenDom(button, "click", () => {
         const { brushToolId } = button.dataset;
@@ -224,6 +241,10 @@ export class ToolbarPlugin extends BasePlugin {
         ...this.focusState,
         ...payload,
       };
+      this.syncUi();
+    });
+    this.listen("selection:change", ({ nodes = [] } = {}) => {
+      this.selectedNodes = nodes;
       this.syncUi();
     });
     this.listen("draw:added", (payload = {}) => {
@@ -421,6 +442,32 @@ export class ToolbarPlugin extends BasePlugin {
 
   getDrawingPlugin() {
     return this.app.plugins.find((plugin) => plugin.id === "drawing") ?? null;
+  }
+
+  getConnectionsPlugin() {
+    return this.app.plugins.find((plugin) => plugin.id === "connections") ?? null;
+  }
+
+  getSelectionPlugin() {
+    return this.app.getPlugin?.("selection") ?? null;
+  }
+
+  getSelectedNodes() {
+    return this.getSelectionPlugin()?.getSelectedNodes?.() ?? this.selectedNodes;
+  }
+
+  getSingleSelectedNode() {
+    const selectedNodes = this.getSelectedNodes();
+    if (selectedNodes.length === 1) return selectedNodes[0];
+    if (!this.focusState.selectedNodeId) return null;
+    return this.app.mainLayer?.findOne?.(`#${this.focusState.selectedNodeId}`) ?? null;
+  }
+
+  canConnectSelectedNode() {
+    const selectedNode = this.getSingleSelectedNode();
+    if (!selectedNode) return false;
+    const connectionsPlugin = this.getConnectionsPlugin();
+    return connectionsPlugin?.isConnectable?.(selectedNode) ?? true;
   }
 
   getDrawingToolState(toolId = this.app.getEditorTool()) {
@@ -751,6 +798,8 @@ export class ToolbarPlugin extends BasePlugin {
       brushControlsEl,
       brushTypeControlsEl,
       shapeControlsEl,
+      connectSelectionEl,
+      deleteSelectionEl,
       saveFocusEl,
       focusPositionModeEl,
       strokeColorEl,
@@ -768,7 +817,9 @@ export class ToolbarPlugin extends BasePlugin {
     const isEraser = activeToolId === "eraser";
     const isBrushFamilyActive = this.isBrushFamilyActive(activeToolId);
     const isShapeTool = this.showsShapeControls(activeToolId);
-    const hasSelectedArrangeNode = Boolean(this.focusState.selectedNodeId);
+    const selectedArrangeNode = this.getSingleSelectedNode();
+    const hasSelectedArrangeNode = Boolean(selectedArrangeNode);
+    const canConnectSelection = this.canConnectSelectedNode();
     const showArrangeControls =
       isEdit
       && activeToolId === "arrange"
@@ -819,6 +870,14 @@ export class ToolbarPlugin extends BasePlugin {
 
     if (arrangeControlsEl) {
       arrangeControlsEl.hidden = !showArrangeControls;
+    }
+    if (connectSelectionEl) {
+      connectSelectionEl.hidden = !showArrangeControls;
+      connectSelectionEl.disabled = !showArrangeControls || !canConnectSelection;
+    }
+    if (deleteSelectionEl) {
+      deleteSelectionEl.hidden = !showArrangeControls;
+      deleteSelectionEl.disabled = !showArrangeControls;
     }
     if (brushControlsEl) {
       brushControlsEl.hidden = !showBrushControls;
