@@ -156,6 +156,126 @@
             </button>
           </div>
 
+          <div
+            id="shape-controls"
+            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel"
+            data-testid="shape-controls"
+            hidden
+          >
+            <div
+              id="shape-type-controls"
+              class="toolbar__shape-types"
+              role="group"
+              aria-label="Shape type"
+              data-testid="shape-type-controls"
+            >
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Rectangle"
+                aria-label="Rectangle"
+                data-shape-type="rectangle"
+                data-testid="shape-type-rectangle"
+              >
+                <i data-lucide="square" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Oval / Circle"
+                aria-label="Oval / Circle"
+                data-shape-type="oval"
+                data-testid="shape-type-oval"
+              >
+                <i data-lucide="circle" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Rhombus"
+                aria-label="Rhombus"
+                data-shape-type="rhombus"
+                data-testid="shape-type-rhombus"
+              >
+                <i data-lucide="diamond" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Triangle"
+                aria-label="Triangle"
+                data-shape-type="triangle"
+                data-testid="shape-type-triangle"
+              >
+                <i data-lucide="triangle" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Divider / Line"
+                aria-label="Divider / Line"
+                data-shape-type="line"
+                data-testid="shape-type-line"
+              >
+                <i data-lucide="minus" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <label class="toolbar__field" title="Shape fill color">
+              <span class="toolbar__sr-only">Shape fill color</span>
+              <input
+                id="shape-fill-color"
+                type="color"
+                value="#ffffff"
+                aria-label="Shape fill color"
+                title="Shape fill color"
+                data-testid="shape-fill-color"
+              />
+            </label>
+
+            <label class="toolbar__field toolbar__field--slider toolbar__shape-slider toolbar__shape-slider--opacity" title="Shape fill opacity">
+              <span id="shape-opacity-label" class="toolbar__sr-only">Shape opacity</span>
+              <input
+                id="shape-opacity"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value="0"
+                data-testid="shape-opacity"
+                aria-labelledby="shape-opacity-label"
+                title="Shape fill opacity"
+              />
+              <output id="shape-opacity-value" data-testid="shape-opacity-value" title="Shape fill opacity">0</output>
+            </label>
+
+            <label class="toolbar__field" title="Shape border color">
+              <span class="toolbar__sr-only">Shape border color</span>
+              <input
+                id="shape-stroke-color"
+                type="color"
+                value="#000000"
+                aria-label="Shape border color"
+                title="Shape border color"
+                data-testid="shape-stroke-color"
+              />
+            </label>
+
+            <label class="toolbar__field toolbar__field--slider toolbar__shape-slider toolbar__shape-slider--stroke-width" title="Shape border width">
+              <span id="shape-stroke-width-label" class="toolbar__sr-only">Border width</span>
+              <input
+                id="shape-stroke-width"
+                type="range"
+                min="0"
+                max="24"
+                value="2"
+                data-testid="shape-stroke-width"
+                aria-labelledby="shape-stroke-width-label"
+                title="Shape border width"
+              />
+              <output id="shape-stroke-width-value" data-testid="shape-stroke-width-value" title="Shape border width">2</output>
+            </label>
+          </div>
         </header>
 
         <div class="workspace__content">

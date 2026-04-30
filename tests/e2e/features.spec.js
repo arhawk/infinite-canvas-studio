@@ -2382,6 +2382,73 @@ test("resizes sticky notes without scaling their font", async ({ page }) => {
   expect(resized.summary.scaleY).toBeCloseTo(1, 4);
 });
 
+test("edits shape text inline and preserves shape style through resize and document load", async ({ page }) => {
+  const shape = await addComponent(page, "shape", {
+    x: 220,
+    y: 180,
+    width: 180,
+    height: 110,
+    shapeType: "oval",
+    fill: "#ecfccb",
+    stroke: "#166534",
+    strokeWidth: 5,
+    fillOpacity: 0.8,
+  });
+  await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
+
+  const center = await getNodePageCenter(page, shape.id);
+  await page.mouse.click(center.x, center.y);
+
+  const inlineEditor = page.getByTestId("canvas-shape-text-editor");
+  await expect(inlineEditor).toBeVisible();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await inlineEditor.fill("Decision point");
+  await inlineEditor.press("Control+Enter");
+
+  await expect
+    .poll(async () => (await getNode(page, shape.id))?.summary?.text ?? "")
+    .toBe("Decision point");
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect
+    .poll(async () => (await getNode(page, shape.id))?.summary?.text ?? null)
+    .toBe("");
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect
+    .poll(async () => (await getNode(page, shape.id))?.summary?.text ?? "")
+    .toBe("Decision point");
+
+  const resized = await page.evaluate(
+    ({ id, size }) => window.__APP_TEST_API__.resizeNodeBox(id, size),
+    { id: shape.id, size: { width: 260, height: 150 } },
+  );
+
+  expect(resized.summary.width).toBeCloseTo(260, 1);
+  expect(resized.summary.height).toBeCloseTo(150, 1);
+  expect(resized.summary.fontSize).toBe(18);
+  expect(resized.summary.scaleX).toBeCloseTo(1, 4);
+  expect(resized.summary.scaleY).toBeCloseTo(1, 4);
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  const restored = await getNode(page, shape.id);
+  expect(restored.summary).toEqual(expect.objectContaining({
+    shapeType: "oval",
+    fill: "#ecfccb",
+    stroke: "#166534",
+    strokeWidth: 5,
+    fillOpacity: 0.8,
+    opacity: 1,
+    text: "Decision point",
+  }));
+  expect(restored.summary.width).toBeCloseTo(260, 1);
+  expect(restored.summary.height).toBeCloseTo(150, 1);
+});
+
 test("resizes pages and deletes them from the toolbar", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 140, y: 120 });
   const center = await getNodePageCenter(page, pageNode.id);

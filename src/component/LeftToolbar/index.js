@@ -5,9 +5,10 @@ const TOOL_ICONS = {
   arrange: "mouse-pointer-2",
   pen: "pen",
   eraser: "eraser",
+  shape: "shapes",
 };
 
-const VISIBLE_TOOL_IDS = ["arrange", "pen", "eraser"];
+const VISIBLE_TOOL_IDS = ["arrange", "pen", "eraser", "shape"];
 const BRUSH_TOOL_IDS = ["pen", "pencil", "highlighter"];
 
 export class LeftToolbarPlugin extends BasePlugin {
@@ -143,7 +144,14 @@ export class LeftToolbarPlugin extends BasePlugin {
 
     for (const toolId of VISIBLE_TOOL_IDS) {
       const icon = TOOL_ICONS[toolId];
-      const label = toolId === "arrange" ? "Cursor" : toolId === "pen" ? "Brush tools" : "Eraser";
+      const label =
+        toolId === "arrange"
+          ? "Cursor"
+          : toolId === "pen"
+            ? "Brush tools"
+            : toolId === "eraser"
+              ? "Eraser"
+              : "Shapes";
 
       const btn = document.createElement("button");
       btn.type = "button";
@@ -160,7 +168,13 @@ export class LeftToolbarPlugin extends BasePlugin {
         btn.textContent = label;
       }
 
-      this.listenDom(btn, "click", () => this.app.setEditorTool(toolId));
+      this.listenDom(btn, "click", () => {
+        if (toolId === "shape" && this.app.getEditorTool() === "shape") {
+          this.app.setEditorTool("arrange");
+          return;
+        }
+        this.app.setEditorTool(toolId);
+      });
       this._toolGroupEl.appendChild(btn);
       this._toolBtns.push(btn);
     }

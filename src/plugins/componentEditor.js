@@ -360,7 +360,9 @@ export class ComponentEditorPlugin extends BasePlugin {
     const input =
       field.type === "textarea"
         ? document.createElement("textarea")
-        : document.createElement("input");
+        : field.type === "select"
+          ? document.createElement("select")
+          : document.createElement("input");
 
     input.id = inputId;
     input.name = field.id;
@@ -374,6 +376,23 @@ export class ComponentEditorPlugin extends BasePlugin {
     } else if (field.type === "checkbox") {
       input.type = "checkbox";
       input.checked = value === true;
+    } else if (field.type === "select") {
+      input.value = value ?? "";
+      for (const optionDefinition of field.options ?? []) {
+        const option = document.createElement("option");
+        const optionValue =
+          typeof optionDefinition === "object"
+            ? optionDefinition.value
+            : optionDefinition;
+        const optionLabel =
+          typeof optionDefinition === "object"
+            ? optionDefinition.label ?? optionDefinition.value
+            : optionDefinition;
+        option.value = String(optionValue ?? "");
+        option.textContent = String(optionLabel ?? option.value);
+        option.selected = option.value === String(value ?? "");
+        input.append(option);
+      }
     } else if (field.type === "file") {
       const wrapper = document.createElement("div");
       wrapper.className = "component-editor-modal__file-wrapper";

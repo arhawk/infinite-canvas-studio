@@ -149,7 +149,7 @@ export class App {
       return;
     }
 
-    if (["pen", "pencil", "highlighter", "eraser"].includes(activeToolId)) {
+    if (["pen", "pencil", "highlighter", "eraser", "shape"].includes(activeToolId)) {
       container.style.cursor = "crosshair";
       return;
     }

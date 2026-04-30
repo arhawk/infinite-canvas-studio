@@ -26,6 +26,7 @@ class DeleteSelectionCommand extends BaseCommand {
     edit: {
       tools: {
         arrange: {},
+        shape: {},
       },
     },
   };
@@ -416,7 +417,10 @@ export class SelectionPlugin extends BasePlugin {
       if (this.app.getMode() !== "edit") {
         this.app.setMode("edit");
       }
-      if (this.app.getEditorTool() !== "arrange") {
+      const shouldKeepShapeTool =
+        this.app.getEditorTool() === "shape" &&
+        node.getAttr("componentType") === "shape";
+      if (!shouldKeepShapeTool && this.app.getEditorTool() !== "arrange") {
         this.app.setEditorTool("arrange");
       }
     });
@@ -459,7 +463,15 @@ export class SelectionPlugin extends BasePlugin {
 
   syncMode() {
     const enabled = this.isEnabled();
+    const shapeToolActive = this.app.getEditorTool() === "shape";
     if (!enabled && this.selectedNodes.length) {
+      this.clearSelection();
+    }
+    if (
+      enabled &&
+      shapeToolActive &&
+      this.selectedNodes.some((node) => node.getAttr("componentType") !== "shape")
+    ) {
       this.clearSelection();
     }
     if (!enabled) {
@@ -560,7 +572,8 @@ export class SelectionPlugin extends BasePlugin {
       primaryType === "sticky" ||
       primaryType === "page" ||
       primaryType === "iframe" ||
-      primaryType === "javascriptEditor"
+      primaryType === "javascriptEditor" ||
+      primaryType === "shape"
     );
     const isMultiSelection = transformableNodes.length > 1;
 
@@ -955,7 +968,9 @@ export class SelectionPlugin extends BasePlugin {
 
   syncNodeInteractivity(node) {
     if (!node?.hasName?.("selectable")) return;
-    node.draggable(Boolean(node.getAttr("baseDraggable")) && this.isEnabled());
+    const shapeToolActive = this.app.getEditorTool() === "shape";
+    const canUseSelection = this.isEnabled() && !shapeToolActive;
+    node.draggable(Boolean(node.getAttr("baseDraggable")) && canUseSelection);
   }
 
   bindNodeChangeSync(node) {
@@ -977,7 +992,8 @@ export class SelectionPlugin extends BasePlugin {
           node.getAttr("componentType") === "sticky" ||
           node.getAttr("componentType") === "page" ||
           node.getAttr("componentType") === "iframe" ||
-          node.getAttr("componentType") === "javascriptEditor"
+          node.getAttr("componentType") === "javascriptEditor" ||
+          node.getAttr("componentType") === "shape"
         )
       ) {
         this.transformer.forceUpdate();
@@ -1241,7 +1257,18 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   handleClick(event) {
-    if (this.app.tools.getActive() !== "arrange") return;
+    const activeTool = this.app.tools.getActive();
+    if (activeTool !== "arrange" && activeTool !== "shape") return;
+    const selectedShape =
+      activeTool === "shape" &&
+      this.selectedNodes.length === 1 &&
+      this.selectedNodes[0]?.getAttr?.("componentType") === "shape"
+        ? this.selectedNodes[0]
+        : null;
+    if (selectedShape && this.isPointerInsideNode(selectedShape)) {
+      selectedShape.openInlineEditor?.(event);
+      return;
+    }
     let targetNode = event.target;
     if (targetNode === this.stage && typeof this.stage?.getIntersection === "function") {
       const pointer = this.stage.getPointerPosition() ?? (() => {
@@ -1288,6 +1315,9 @@ export class SelectionPlugin extends BasePlugin {
     const target = this.getSelectable(targetNode);
     if (!target) {
       this.clearSelection();
+      return;
+    }
+    if (activeTool === "shape" && target.getAttr("componentType") !== "shape") {
       return;
     }
     const isMulti = Boolean(event.evt?.metaKey || event.evt?.ctrlKey);

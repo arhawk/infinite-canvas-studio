@@ -509,6 +509,24 @@ export class CheckboxEditorField extends BaseComponentEditorField {
   }
 }
 
+export class SelectEditorField extends BaseComponentEditorField {
+  static fieldType = "select";
+
+  constructor(options = {}) {
+    super(options);
+    this.options = Array.isArray(options.options) ? options.options : [];
+  }
+
+  normalize(value, node) {
+    const stringValue = String(value ?? "");
+    const allowedValues = this.options.map((option) => String(option.value ?? option));
+    if (!allowedValues.length || allowedValues.includes(stringValue)) {
+      return stringValue;
+    }
+    return String(this.read(node) ?? allowedValues[0] ?? "");
+  }
+}
+
 export class FileEditorField extends BaseComponentEditorField {
   static fieldType = "file";
 

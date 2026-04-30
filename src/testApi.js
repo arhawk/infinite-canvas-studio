@@ -12,12 +12,24 @@ function getNodeById(app, id) {
 }
 
 function getNodeBounds(app, node) {
-  const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
+  const anchorNode =
+    node?.findOne?.(".container-bg") ??
+    node?.findOne?.(".button-bg") ??
+    getActiveShapeVisual(node) ??
+    node;
   return anchorNode?.getClientRect({ relativeTo: app.stage }) ?? null;
 }
 
 function getConnectionLine(node) {
   return node?.findOne?.(".connection-line") ?? null;
+}
+
+function getActiveShapeVisual(node) {
+  if (node?.getAttr?.("componentType") !== "shape") return null;
+  const shapeType = node.getAttr("shapeType");
+  return collectionToArray(node.getChildren?.()).find((child) => (
+    child?.getAttr?.("shapeVisualType") === shapeType
+  )) ?? null;
 }
 
 function clonePlainData(value) {
@@ -162,6 +174,28 @@ function getNodeSummary(node) {
       stroke: node.findOne(".button-bg")?.stroke() ?? null,
       width: node.findOne(".button-bg")?.width() ?? node.width?.() ?? null,
       height: node.findOne(".button-bg")?.height() ?? node.height?.() ?? null,
+    };
+  }
+
+  if (componentType === "shape") {
+    const visual = getActiveShapeVisual(node);
+    const label = node.findOne(".shape-text");
+    return {
+      shapeType: node.getAttr("shapeType") ?? null,
+      fill: node.getAttr("shapeFill") ?? null,
+      renderedFill: visual?.fill?.() ?? null,
+      fillOpacity: node.getAttr("shapeFillOpacity") ?? null,
+      stroke: node.getAttr("shapeStroke") ?? visual?.stroke?.() ?? null,
+      strokeWidth: node.getAttr("shapeStrokeWidth") ?? visual?.strokeWidth?.() ?? null,
+      opacity: node.opacity?.() ?? null,
+      text: label?.text?.() ?? "",
+      textColor: node.getAttr("shapeTextColor") ?? label?.fill?.() ?? null,
+      fontSize: node.getAttr("shapeFontSize") ?? label?.fontSize?.() ?? null,
+      width: node.width?.() ?? null,
+      height: node.height?.() ?? null,
+      rotation: node.rotation?.() ?? null,
+      scaleX: node.scaleX?.() ?? null,
+      scaleY: node.scaleY?.() ?? null,
     };
   }
 

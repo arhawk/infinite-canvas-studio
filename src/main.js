@@ -6,6 +6,7 @@ import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
 import { DrawingPlugin } from "./plugins/drawing.js";
+import { ShapesPlugin } from "./plugins/shapes.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
@@ -42,6 +43,7 @@ import { CatalogComponent } from "./component/catalog.js";
 import { RankingBoxComponent } from "./component/rankingBox.js";
 import { JavaScriptEditorComponent } from "./component/javascriptEditor.js";
 import { VideoComponent } from "./component/video.js";
+import { ShapeComponent } from "./component/shape.js";
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
@@ -81,6 +83,14 @@ const ui = {
   strokeWidth: getRequiredElement("#stroke-width"),
   strokeWidthValue: getRequiredElement("#stroke-width-value"),
   clearStrokes: getRequiredElement("#clear-strokes"),
+  shapeControls: getRequiredElement("#shape-controls"),
+  shapeTypeControls: getRequiredElement("#shape-type-controls"),
+  shapeFillColor: getRequiredElement("#shape-fill-color"),
+  shapeStrokeColor: getRequiredElement("#shape-stroke-color"),
+  shapeStrokeWidth: getRequiredElement("#shape-stroke-width"),
+  shapeStrokeWidthValue: getRequiredElement("#shape-stroke-width-value"),
+  shapeOpacity: getRequiredElement("#shape-opacity"),
+  shapeOpacityValue: getRequiredElement("#shape-opacity-value"),
   catalogPanel: getRequiredElement("#catalog-panel"),
   modeCapsuleEdit: getRequiredElement("#mode-capsule-edit"),
   modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
@@ -106,6 +116,7 @@ const app = new App({
   RankingBoxComponent,
   JavaScriptEditorComponent,
   VideoComponent,
+  ShapeComponent,
 ].forEach((ComponentClass) => app.components.register(new ComponentClass(app)));
 
 // Register LeftToolbarPlugin first so its button elements can be passed to other plugins
@@ -115,6 +126,7 @@ const leftToolbar = app.use(LeftToolbarPlugin);
 app.use(SelectionPlugin);
 app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
+app.use(ShapesPlugin);
 app.use(AnnotatorPlugin);
 app.use(ComponentEditorPlugin);
 app.use(PageComparePlugin);
@@ -134,6 +146,14 @@ app.use(ToolbarPlugin, {
   strokeWidthEl: ui.strokeWidth,
   strokeWidthValueEl: ui.strokeWidthValue,
   clearStrokesEl: ui.clearStrokes,
+  shapeControlsEl: ui.shapeControls,
+  shapeTypeControlsEl: ui.shapeTypeControls,
+  shapeFillColorEl: ui.shapeFillColor,
+  shapeStrokeColorEl: ui.shapeStrokeColor,
+  shapeStrokeWidthEl: ui.shapeStrokeWidth,
+  shapeStrokeWidthValueEl: ui.shapeStrokeWidthValue,
+  shapeOpacityEl: ui.shapeOpacity,
+  shapeOpacityValueEl: ui.shapeOpacityValue,
 });
 
 // Components dropdown — replaces the old sidebar palette
