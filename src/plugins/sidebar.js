@@ -1,4 +1,5 @@
 import { BasePlugin } from "../core/baseClasses.js";
+import { getCenteredComponentPlacementPoint } from "../lib/componentPlacement.js";
 import { renderIcons } from "../lib/icons.js";
 import { Konva } from "../lib/konva.js";
 
@@ -172,7 +173,7 @@ export class SidebarPlugin extends BasePlugin {
 
       this.listenDom(card, "click", async () => {
         if (!this.isEnabled()) return;
-        const point = { x: 180, y: 180 };
+        const point = await getCenteredComponentPlacementPoint(this.app, item.type);
         await this.app.addComponent(item.type, point);
       });
 

@@ -1,4 +1,5 @@
 import { BasePlugin } from "../../core/baseClasses.js";
+import { getCenteredComponentPlacementPoint } from "../../lib/componentPlacement.js";
 import { renderIcons } from "../../lib/icons.js";
 import { Konva } from "../../lib/konva.js";
 
@@ -49,34 +50,6 @@ function generatePreviewDataUrl(node, width, height) {
   stage.destroy();
   container.remove();
   return dataUrl;
-}
-
-async function getCenterPlacementPoint(app, type) {
-  const viewport = app.stageApi.getViewportBounds();
-  const targetCenter = {
-    x: viewport.x + viewport.width / 2,
-    y: viewport.y + viewport.height / 2,
-  };
-
-  const component = app.components.get(type);
-  if (!component?.createNode) {
-    return targetCenter;
-  }
-
-  const probeNode = await component.createNode({ x: 0, y: 0 });
-  try {
-    if (!probeNode?.getClientRect) {
-      return targetCenter;
-    }
-
-    const box = probeNode.getClientRect({ skipTransform: true });
-    return {
-      x: targetCenter.x - (box.x + box.width / 2),
-      y: targetCenter.y - (box.y + box.height / 2),
-    };
-  } finally {
-    probeNode?.destroy?.();
-  }
 }
 
 export class ComponentsDropdownPlugin extends BasePlugin {
@@ -240,7 +213,7 @@ export class ComponentsDropdownPlugin extends BasePlugin {
 
       this.listenDom(card, "click", async () => {
         if (!this.isEnabled()) return;
-        const point = await getCenterPlacementPoint(this.app, item.type);
+        const point = await getCenteredComponentPlacementPoint(this.app, item.type);
         await this.app.addComponent(item.type, point);
         this._close();
       });

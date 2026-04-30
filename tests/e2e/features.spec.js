@@ -57,6 +57,29 @@ async function listCatalogItems(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listCatalogItems());
 }
 
+function getUnionBounds(nodes = []) {
+  const bounds = nodes.map((node) => node.bounds).filter(Boolean);
+  if (!bounds.length) return null;
+
+  const minX = Math.min(...bounds.map((box) => box.x));
+  const minY = Math.min(...bounds.map((box) => box.y));
+  const maxX = Math.max(...bounds.map((box) => box.x + box.width));
+  const maxY = Math.max(...bounds.map((box) => box.y + box.height));
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function getBoundsCenter(bounds) {
+  return {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height / 2,
+  };
+}
+
 function buildIframePageUrl({
   title = "Iframe Test Page",
   buttonLabel = "Increment",
@@ -519,6 +542,26 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
     .not.toBe(JSON.stringify(originalPoints));
 });
 
+test("pastes copied components into the current viewport", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 160, y: 180 });
+  await page.evaluate((sourceId) => window.__APP_TEST_API__.selectNode(sourceId), source.id);
+  const payload = await page.evaluate(() => window.__APP_TEST_API__.createClipboardPayload());
+
+  const viewport = await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 0.75,
+    position: { x: -2400, y: -1600 },
+  }));
+
+  const pasted = await page.evaluate((clipboardPayload) => (
+    window.__APP_TEST_API__.pasteClipboardPayload(clipboardPayload)
+  ), payload);
+
+  expect(pasted).toHaveLength(1);
+  const pastedCenter = getBoundsCenter(pasted[0].bounds);
+  expect(Math.abs(pastedCenter.x - viewport.center.x)).toBeLessThan(80);
+  expect(Math.abs(pastedCenter.y - viewport.center.y)).toBeLessThan(80);
+});
+
 test("creates a connected next page from the page context menu", async ({ page }) => {
   const source = await addComponent(page, "page", { x: 120, y: 140 });
   const sourceCenter = await getNodePageCenter(page, source.id);
@@ -584,14 +627,6 @@ test("copies connections along with their selected endpoints", async ({ page }) 
     ), { sourceId: source.id, targetId: target.id }))
     .not.toBeNull();
 
-  const originalConnection = await page.evaluate(({ sourceId, targetId }) => (
-    window.__APP_TEST_API__.listNodes().find((node) => (
-      node.componentType === "connection" &&
-      node.summary.sourceNodeId === sourceId &&
-      node.summary.targetNodeId === targetId
-    )) ?? null
-  ), { sourceId: source.id, targetId: target.id });
-
   await page.evaluate(({ sourceId, targetId }) => {
     window.__APP_TEST_API__.selectNodes([sourceId, targetId]);
   }, { sourceId: source.id, targetId: target.id });
@@ -613,10 +648,12 @@ test("copies connections along with their selected endpoints", async ({ page }) 
   expect(pastedConnection.summary.targetNodeId).not.toBe(target.id);
   expect(pastedIds.has(pastedConnection.summary.sourceNodeId)).toBe(true);
   expect(pastedIds.has(pastedConnection.summary.targetNodeId)).toBe(true);
-  expect(pastedConnection.bounds.x - originalConnection.bounds.x).toBeGreaterThan(20);
-  expect(pastedConnection.bounds.x - originalConnection.bounds.x).toBeLessThan(48);
-  expect(pastedConnection.bounds.y - originalConnection.bounds.y).toBeGreaterThan(20);
-  expect(pastedConnection.bounds.y - originalConnection.bounds.y).toBeLessThan(48);
+
+  const viewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  const pastedBounds = getUnionBounds(pastedNodes);
+  const pastedCenter = getBoundsCenter(pastedBounds);
+  expect(Math.abs(pastedCenter.x - viewport.center.x)).toBeLessThan(80);
+  expect(Math.abs(pastedCenter.y - viewport.center.y)).toBeLessThan(80);
 });
 
 test("connects another component to the JavaScript editor preview", async ({ page }) => {

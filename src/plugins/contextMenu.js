@@ -71,6 +71,10 @@ export class ContextMenuPlugin extends BasePlugin {
     uiLayer.add(this.menuGroup);
 
     stage.on("contextmenu.ctxmenu", (event) => this.handleContextMenu(event));
+    stage.on("mousedown.ctxmenu", (event) => {
+      if (event.evt?.button !== 2) return;
+      this.handleContextMenu(event);
+    });
     stage.on("click.ctxmenu tap.ctxmenu dragstart.ctxmenu wheel.ctxmenu", (event) => {
       if (event.evt && event.evt.button === 2) return; // Ignore right click
       if (event.target.findAncestor?.(".context-menu", true)) return;

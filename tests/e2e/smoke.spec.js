@@ -16,6 +16,13 @@ async function listNodes(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listNodes());
 }
 
+function getBoundsCenter(bounds) {
+  return {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height / 2,
+  };
+}
+
 async function clickPaletteCard(page, componentType) {
   const card = page.getByTestId(`palette-card-${componentType}`);
   if (!(await card.isVisible())) {
@@ -184,6 +191,21 @@ test("adds a sticky note from the palette and deletes it with the keyboard", asy
   });
 
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
+});
+
+test("adds a palette-clicked component in the current viewport", async ({ page }) => {
+  const viewport = await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 0.7,
+    position: { x: -2200, y: -1400 },
+  }));
+
+  await clickPaletteCard(page, "sticky");
+
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+  const [node] = await listNodes(page);
+  const center = getBoundsCenter(node.bounds);
+  expect(Math.abs(center.x - viewport.center.x)).toBeLessThan(8);
+  expect(Math.abs(center.y - viewport.center.y)).toBeLessThan(8);
 });
 
 test("adds a ranking box from the palette", async ({ page }) => {

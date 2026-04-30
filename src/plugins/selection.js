@@ -4,6 +4,7 @@ import {
   BasePlugin,
   BaseTool,
 } from "../core/baseClasses.js";
+import { getViewportCenter } from "../lib/componentPlacement.js";
 import { Konva } from "../lib/konva.js";
 
 const GUIDE_TOLERANCE = 6;
@@ -261,6 +262,57 @@ function normalizePoint(value = {}, fallback = { x: 0, y: 0 }) {
   return {
     x: Number.isFinite(value.x) ? value.x : fallback.x,
     y: Number.isFinite(value.y) ? value.y : fallback.y,
+  };
+}
+
+function normalizeRect(rect) {
+  if (
+    !Number.isFinite(rect?.x) ||
+    !Number.isFinite(rect?.y) ||
+    !Number.isFinite(rect?.width) ||
+    !Number.isFinite(rect?.height)
+  ) {
+    return null;
+  }
+
+  return {
+    x: rect.x,
+    y: rect.y,
+    width: Math.max(0, rect.width),
+    height: Math.max(0, rect.height),
+  };
+}
+
+function pointRect(point) {
+  const normalized = normalizePoint(point);
+  return {
+    x: normalized.x,
+    y: normalized.y,
+    width: 0,
+    height: 0,
+  };
+}
+
+function unionRects(rects = []) {
+  const validRects = rects.map(normalizeRect).filter(Boolean);
+  if (!validRects.length) return null;
+
+  const minX = Math.min(...validRects.map((rect) => rect.x));
+  const minY = Math.min(...validRects.map((rect) => rect.y));
+  const maxX = Math.max(...validRects.map((rect) => rect.x + rect.width));
+  const maxY = Math.max(...validRects.map((rect) => rect.y + rect.height));
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function rectCenter(rect) {
+  return {
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
   };
 }
 
@@ -815,7 +867,55 @@ export class SelectionPlugin extends BasePlugin {
       .map((snapshot) => clonePlainData(snapshot));
   }
 
-  prepareSnapshotsForPaste(snapshots = []) {
+  async getSnapshotCanvasBounds(snapshot = {}) {
+    const fallback = pointRect(snapshot);
+    const component = this.app.components.get(snapshot.type);
+    if (!component?.createNode) return fallback;
+
+    let probeNode = null;
+    try {
+      const payload = typeof component.getRestorePayload === "function"
+        ? component.getRestorePayload(snapshot)
+        : {
+            x: snapshot.x ?? 0,
+            y: snapshot.y ?? 0,
+            ...(clonePlainData(snapshot.data) ?? {}),
+          };
+
+      probeNode = await component.createNode(payload);
+      if (!probeNode?.getClientRect) return fallback;
+
+      probeNode.position(normalizePoint(snapshot));
+      probeNode.rotation(Number.isFinite(snapshot.rotation) ? snapshot.rotation : 0);
+      probeNode.scaleX(Number.isFinite(snapshot.scaleX) ? snapshot.scaleX : 1);
+      probeNode.scaleY(Number.isFinite(snapshot.scaleY) ? snapshot.scaleY : 1);
+
+      return normalizeRect(probeNode.getClientRect()) ?? fallback;
+    } catch {
+      return fallback;
+    } finally {
+      probeNode?.destroy?.();
+    }
+  }
+
+  async getPasteOffsetForSnapshots(regularSnapshots = []) {
+    const rootSnapshots = regularSnapshots.filter((snapshot) => !snapshot.parentId);
+    if (!rootSnapshots.length) return { x: 0, y: 0 };
+
+    const bounds = unionRects(await Promise.all(
+      rootSnapshots.map((snapshot) => this.getSnapshotCanvasBounds(snapshot)),
+    ));
+    if (!bounds) return { x: 0, y: 0 };
+
+    const currentCenter = rectCenter(bounds);
+    const targetCenter = getViewportCenter(this.app);
+    return {
+      x: targetCenter.x + PASTE_OFFSET - currentCenter.x,
+      y: targetCenter.y + PASTE_OFFSET - currentCenter.y,
+    };
+  }
+
+  async prepareSnapshotsForPaste(snapshots = []) {
     const sourceIds = new Set(snapshots.map((snapshot) => snapshot.id).filter(Boolean));
     const idMap = new Map();
     sourceIds.forEach((id) => {
@@ -823,7 +923,7 @@ export class SelectionPlugin extends BasePlugin {
       idMap.set(id, `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
     });
 
-    return snapshots
+    const prepared = snapshots
       .filter((snapshot) => {
         if (!isConnectionSnapshot(snapshot)) return true;
         return sourceIds.has(snapshot.data?.sourceNodeId) && sourceIds.has(snapshot.data?.targetNodeId);
@@ -842,17 +942,32 @@ export class SelectionPlugin extends BasePlugin {
             targetNodeId: idMap.get(snapshot.data?.targetNodeId),
           };
         } else {
-          next.x = (Number.isFinite(snapshot.x) ? snapshot.x : 0) + PASTE_OFFSET;
-          next.y = (Number.isFinite(snapshot.y) ? snapshot.y : 0) + PASTE_OFFSET;
+          next.x = Number.isFinite(snapshot.x) ? snapshot.x : 0;
+          next.y = Number.isFinite(snapshot.y) ? snapshot.y : 0;
         }
 
         return next;
       });
+
+    const regularSnapshots = prepared.filter((snapshot) => !isConnectionSnapshot(snapshot));
+    const offset = await this.getPasteOffsetForSnapshots(regularSnapshots);
+
+    return prepared.map((snapshot) => {
+      if (isConnectionSnapshot(snapshot) || snapshot.parentId) {
+        return snapshot;
+      }
+
+      return {
+        ...snapshot,
+        x: (Number.isFinite(snapshot.x) ? snapshot.x : 0) + offset.x,
+        y: (Number.isFinite(snapshot.y) ? snapshot.y : 0) + offset.y,
+      };
+    });
   }
 
   async pasteSnapshots(snapshots = []) {
     if (!this.isEnabled()) return [];
-    const prepared = this.prepareSnapshotsForPaste(snapshots);
+    const prepared = await this.prepareSnapshotsForPaste(snapshots);
     if (!prepared.length) return [];
 
     const regularSnapshots = prepared.filter((snapshot) => !isConnectionSnapshot(snapshot));
