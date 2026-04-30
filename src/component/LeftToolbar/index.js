@@ -167,6 +167,10 @@ export class LeftToolbarPlugin extends BasePlugin {
       });
       this._toolGroupEl.appendChild(btn);
       this._toolBtns.push(btn);
+      if (toolId === "pen") this.penBtn = btn;
+      if (toolId === "eraser") this.eraserBtn = btn;
+      if (toolId === "shape") this.shapeBtn = btn;
+      if (toolId === "arrange") this.arrangeBtn = btn;
     }
 
     renderIcons(this._toolGroupEl, { width: 18, height: 18, "stroke-width": 2 });

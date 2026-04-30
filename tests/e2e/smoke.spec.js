@@ -553,9 +553,9 @@ test("clears all drawn strokes from the eraser controls and supports undo and re
     .toBe(2);
 
   await page.getByTestId("tool-button-eraser").click();
-  await expect(page.locator("#stroke-width-label")).toHaveText("Radius");
-  await expect(page.getByTestId("stroke-width")).toHaveAttribute("min", "4");
-  await expect(page.getByTestId("stroke-width")).toHaveAttribute("max", "48");
+  await expect(page.getByTestId("eraser-controls")).toBeVisible();
+  await expect(page.getByTestId("eraser-radius")).toHaveAttribute("min", "4");
+  await expect(page.getByTestId("eraser-radius")).toHaveAttribute("max", "48");
   await expect(page.getByTestId("clear-strokes")).toBeVisible();
   await expect(page.getByTestId("clear-strokes")).toBeEnabled();
 
@@ -575,40 +575,50 @@ test("clears all drawn strokes from the eraser controls and supports undo and re
     .toBe(0);
 });
 
-test("draws and erases strokes in presentation mode", async ({ page }) => {
+test("does not allow pen or eraser activation in presentation mode", async ({ page }) => {
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "arrange",
+  );
 
   await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("pen"));
-  await expect(page.getByTestId("stroke-width")).toBeEnabled();
-
-  const { start, end } = await drawStroke(page, {
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "arrange",
+  );
+  await drawStroke(page, {
     xRatio: 0.38,
     yRatio: 0.42,
     dx: 140,
     dy: 72,
-    steps: 12,
   });
-
-  await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
-    .toBeGreaterThan(0);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables())).toBe(0);
 
   await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("eraser"));
-  await expect(page.getByTestId("stroke-width")).toBeEnabled();
-  await expect(page.getByTestId("clear-strokes")).toBeVisible();
-
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(end.x, end.y, { steps: 12 });
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
-    .toBe(0);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
+    "arrange",
+  );
 });
 
-test("toggles pen and eraser on and off in presentation mode", async ({ page }) => {
+test("hides brush controls after switching from edit to presentation", async ({ page }) => {
+  await page.getByTestId("tool-button-pen").click();
+  await expect(page.getByTestId("pen-dropdown")).toBeVisible();
+  await page.getByTestId("pen-preset-0").click();
+  await expect(page.getByTestId("pen-preset-editor")).toBeVisible();
+
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("pen-dropdown")).toBeHidden();
+  await expect(page.getByTestId("pen-preset-editor")).toBeHidden();
+
+  await page.getByTestId("mode-capsule-edit").click();
+  await page.getByTestId("tool-button-eraser").click();
+  await expect(page.getByTestId("eraser-controls")).toBeVisible();
+
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("eraser-controls")).toBeHidden();
+});
+
+test("ignores pen and eraser toolbar selection in presentation mode", async ({ page }) => {
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
 
@@ -620,21 +630,10 @@ test("toggles pen and eraser on and off in presentation mode", async ({ page }) 
   await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("pen"));
   await expect.poll(async () => (
     page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
-  )).toBe("pen");
+  )).toBe("arrange");
   await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
-    "crosshair",
+    "grab",
   );
-
-  const firstStroke = await drawStroke(page, {
-    xRatio: 0.34,
-    yRatio: 0.4,
-    dx: 110,
-    dy: 58,
-    steps: 10,
-  });
-  await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
-    .toBe(1);
 
   await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("arrange"));
   await expect.poll(async () => (
@@ -644,31 +643,7 @@ test("toggles pen and eraser on and off in presentation mode", async ({ page }) 
     "grab",
   );
 
-  await page.mouse.move(firstStroke.start.x, firstStroke.start.y);
-  await page.mouse.down();
-  await page.mouse.move(firstStroke.end.x, firstStroke.end.y, { steps: 10 });
-  await page.mouse.up();
-  await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
-    .toBe(1);
-
   await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("eraser"));
-  await expect.poll(async () => (
-    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
-  )).toBe("eraser");
-  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
-    "crosshair",
-  );
-
-  await page.mouse.move(firstStroke.start.x, firstStroke.start.y);
-  await page.mouse.down();
-  await page.mouse.move(firstStroke.end.x, firstStroke.end.y, { steps: 10 });
-  await page.mouse.up();
-  await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))
-    .toBe(0);
-
-  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("arrange"));
   await expect.poll(async () => (
     page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
   )).toBe("arrange");

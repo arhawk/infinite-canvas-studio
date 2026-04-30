@@ -8,24 +8,10 @@ import {
 } from "../component/shapeModel.js";
 import { renderIcons } from "../lib/icons.js";
 
-const TOOL_ICONS = {
-  arrange: "mouse-pointer-2",
-  pen: "pen",
-  pencil: "pencil",
-  highlighter: "highlighter",
-  eraser: "eraser",
-  shape: "shapes",
-  annotate: "text-cursor",
-};
-
 const DRAWING_TOOL_IDS = ["pen", "pencil", "highlighter"];
-const BRUSH_CONTROL_TOOL_IDS = [...DRAWING_TOOL_IDS, "eraser"];
-const HIDDEN_MAIN_TOOL_BUTTON_IDS = new Set(["pencil", "highlighter", "annotate"]);
-
 const DEFAULT_ERASER_STATE = {
   radius: 12,
 };
-
 const DEFAULT_SHAPE_TOOL_STATE = {
   shapeType: "rectangle",
   fill: DEFAULT_SHAPE_FILL,
@@ -37,22 +23,31 @@ const PRESENTATION_TOOLBAR_HIDE_DELAY_MS = 100;
 
 const DEFAULT_DRAWING_TOOL_STATE = {
   pen: {
-    color: "#1f6feb",
-    width: 4,
     opacity: 1,
-    recentColors: ["#1f6feb"],
+    activePresetIndex: 0,
+    presets: [
+      { color: "#1f6feb", width: 4 },
+      { color: "#d7612f", width: 8 },
+      { color: "#18875d", width: 12 },
+    ],
   },
   pencil: {
-    color: "#4a4a4a",
-    width: 3,
     opacity: 0.55,
-    recentColors: ["#4a4a4a"],
+    activePresetIndex: 0,
+    presets: [
+      { color: "#4a4a4a", width: 3 },
+      { color: "#8b5e3c", width: 5 },
+      { color: "#1f6feb", width: 2 },
+    ],
   },
   highlighter: {
-    color: "#f6d32d",
-    width: 16,
     opacity: 0.25,
-    recentColors: ["#f6d32d"],
+    activePresetIndex: 0,
+    presets: [
+      { color: "#f6d32d", width: 16 },
+      { color: "#ff7aa2", width: 14 },
+      { color: "#7ed7a1", width: 20 },
+    ],
   },
 };
 
@@ -62,10 +57,14 @@ function cloneDrawingToolState() {
       toolId,
       {
         ...config,
-        recentColors: [...config.recentColors],
+        presets: config.presets.map((preset) => ({ ...preset })),
       },
     ]),
   );
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function formatOpacityValue(value) {
@@ -84,7 +83,6 @@ class TogglePresentationBoardFullscreenCommand extends BaseCommand {
   }
 }
 
-
 export class ToolbarPlugin extends BasePlugin {
   static pluginId = "toolbar";
 
@@ -98,16 +96,8 @@ export class ToolbarPlugin extends BasePlugin {
       modeCapsuleEditEl,
       modeCapsulePresentEl,
       drawingVisibilityToggleEl,
-      brushControlsEl,
-      brushTypeControlsEl,
       saveFocusEl,
       focusPositionModeEl,
-      strokeColorEl,
-      recentColorsEl,
-      strokeWidthLabelEl,
-      strokeWidthEl,
-      strokeWidthValueEl,
-      clearStrokesEl,
       shapeControlsEl,
       shapeTypeControlsEl,
       shapeFillColorEl,
@@ -116,6 +106,8 @@ export class ToolbarPlugin extends BasePlugin {
       shapeStrokeWidthValueEl,
       shapeOpacityEl,
       shapeOpacityValueEl,
+      penDropdownPlugin,
+      eraserTriggerEl,
     } = this.options;
 
     this.ui = {
@@ -123,16 +115,8 @@ export class ToolbarPlugin extends BasePlugin {
       modeCapsuleEditEl,
       modeCapsulePresentEl,
       drawingVisibilityToggleEl,
-      brushControlsEl,
-      brushTypeControlsEl,
       saveFocusEl,
       focusPositionModeEl,
-      strokeColorEl,
-      recentColorsEl,
-      strokeWidthLabelEl,
-      strokeWidthEl,
-      strokeWidthValueEl,
-      clearStrokesEl,
       shapeControlsEl,
       shapeTypeControlsEl,
       shapeFillColorEl,
@@ -143,21 +127,27 @@ export class ToolbarPlugin extends BasePlugin {
       shapeOpacityValueEl,
     };
     this.toolbarEl = document.querySelector(".toolbar");
+    this.penDropdown = penDropdownPlugin ?? null;
+    this.eraserTriggerEl = eraserTriggerEl ?? null;
     this.focusState = {
       positionMode: "absolute",
       canSave: false,
       canTogglePositionMode: false,
       selectedNodeId: null,
     };
-    this.brushPanelPositionFrame = null;
     this.presentationToolbarHideTimer = null;
     this.presentationToolbarAnimationFrame = null;
     this.isHoveringPresentationToolbarZone = false;
     this.isHoveringPresentationToolbar = false;
-
+    this.eraserPanelOpen = false;
+    this.lastBrushToolId = "pen";
     this.drawingToolState = cloneDrawingToolState();
     this.eraserState = { ...DEFAULT_ERASER_STATE };
     this.shapeToolState = { ...DEFAULT_SHAPE_TOOL_STATE };
+
+    this.buildEraserPanel();
+    this.setupPenDropdown();
+    this.setupEraserPanel();
 
     if (saveFocusEl) {
       this.listenDom(saveFocusEl, "click", () => {
@@ -170,13 +160,6 @@ export class ToolbarPlugin extends BasePlugin {
         this.app.commands.execute("focus:position-mode:set", nextMode);
       });
     }
-    for (const button of brushTypeControlsEl.querySelectorAll("[data-brush-tool-id]")) {
-      this.listenDom(button, "click", () => {
-        const { brushToolId } = button.dataset;
-        if (!brushToolId) return;
-        this.app.setEditorTool(brushToolId);
-      });
-    }
     for (const button of (shapeTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? [])) {
       this.listenDom(button, "click", () => {
         this.shapeToolState.shapeType = normalizeShapeType(button.dataset.shapeType);
@@ -184,9 +167,6 @@ export class ToolbarPlugin extends BasePlugin {
         this.emitShapeStyleChange({ applyToSelection: true });
       });
     }
-    this.listenDom(window, "resize", () => this.queueBrushPanelPositionSync());
-    this.listenDom(strokeColorEl, "input", () => this.emitStrokeChange());
-    this.listenDom(strokeWidthEl, "input", () => this.emitStrokeChange());
     if (shapeFillColorEl) {
       this.listenDom(shapeFillColorEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
     }
@@ -199,10 +179,6 @@ export class ToolbarPlugin extends BasePlugin {
     if (shapeOpacityEl) {
       this.listenDom(shapeOpacityEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
     }
-    this.listenDom(clearStrokesEl, "click", () => {
-      this.app.commands.execute("drawing:clear-strokes");
-      this.syncUi();
-    });
     this.listenDom(drawingVisibilityToggleEl, "click", () => {
       this.getDrawingPlugin()?.toggleDrawLayerVisibility?.();
       this.syncUi();
@@ -214,13 +190,11 @@ export class ToolbarPlugin extends BasePlugin {
       this.syncShapeUiToActiveTool();
       this.syncUi();
     });
-
     this.listen("interaction:change", () => {
       this.syncDrawingUiToActiveTool();
       this.syncShapeUiToActiveTool();
       this.syncUi();
     });
-
     this.listen("focus:state-change", (payload = {}) => {
       this.focusState = {
         ...this.focusState,
@@ -228,36 +202,172 @@ export class ToolbarPlugin extends BasePlugin {
       };
       this.syncUi();
     });
-    this.listen("draw:added", (payload = {}) => {
-      this.recordRecentColorFromStroke(payload);
-      this.syncUi();
-    });
+    this.listen("draw:added", () => this.syncUi());
     this.listen("draw:removed", () => this.syncUi());
 
     this.setupModeToggle();
     this.setupPresentationToolbarAutoHide();
     this.renderToolButtons();
-
-    this.loadDrawingUiFromTool("pen");
-    this.renderRecentColors("pen");
     this.loadShapeUi();
-
-    this.emitStrokeChange();
+    this.syncDrawingUiToActiveTool();
+    this.emitStrokeChange("pen");
     this.emitShapeStyleChange();
     this.syncUi();
 
     this.cleanups.push(() => {
       this.app.keybindings.unregister("Mod+Shift+F");
-      if (this.brushPanelPositionFrame != null) {
-        window.cancelAnimationFrame(this.brushPanelPositionFrame);
-        this.brushPanelPositionFrame = null;
-      }
       this.clearPresentationToolbarHideTimer();
       if (this.presentationToolbarAnimationFrame != null) {
         window.cancelAnimationFrame(this.presentationToolbarAnimationFrame);
         this.presentationToolbarAnimationFrame = null;
       }
+      this.eraserPanelEl?.remove();
     });
+  }
+
+  buildEraserPanel() {
+    const shell = document.querySelector(".app-shell");
+    if (!shell) return;
+
+    const panel = document.createElement("div");
+    panel.className = "toolbar__eraser-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Eraser");
+    panel.dataset.testid = "eraser-controls";
+    panel.hidden = true;
+
+    const sliderRow = document.createElement("label");
+    sliderRow.className = "toolbar__field toolbar__field--slider toolbar__eraser-slider";
+    sliderRow.setAttribute("for", "eraser-radius");
+
+    const srOnly = document.createElement("span");
+    srOnly.id = "eraser-radius-label";
+    srOnly.className = "toolbar__sr-only";
+    srOnly.textContent = "Eraser radius";
+
+    this.eraserRadiusEl = document.createElement("input");
+    this.eraserRadiusEl.id = "eraser-radius";
+    this.eraserRadiusEl.type = "range";
+    this.eraserRadiusEl.min = "4";
+    this.eraserRadiusEl.max = "48";
+    this.eraserRadiusEl.value = String(this.eraserState.radius);
+    this.eraserRadiusEl.dataset.testid = "eraser-radius";
+    this.eraserRadiusEl.setAttribute("aria-labelledby", "eraser-radius-label");
+
+    this.eraserRadiusValueEl = document.createElement("output");
+    this.eraserRadiusValueEl.id = "eraser-radius-value";
+    this.eraserRadiusValueEl.dataset.testid = "eraser-radius-value";
+    this.eraserRadiusValueEl.textContent = String(this.eraserState.radius);
+
+    sliderRow.append(srOnly, this.eraserRadiusEl, this.eraserRadiusValueEl);
+
+    this.clearStrokesEl = document.createElement("button");
+    this.clearStrokesEl.id = "clear-strokes";
+    this.clearStrokesEl.type = "button";
+    this.clearStrokesEl.className = "ghost-button toolbar__eraser-clear";
+    this.clearStrokesEl.dataset.testid = "clear-strokes";
+    this.clearStrokesEl.textContent = "Clear Strokes";
+
+    panel.append(sliderRow, this.clearStrokesEl);
+    shell.append(panel);
+    this.eraserPanelEl = panel;
+
+    this.listenDom(this.eraserRadiusEl, "input", () => {
+      this.eraserState.radius = Number(this.eraserRadiusEl.value);
+      this.eraserRadiusValueEl.textContent = this.eraserRadiusEl.value;
+      this.emitStrokeChange("eraser");
+    });
+    this.listenDom(this.clearStrokesEl, "click", () => {
+      this.app.commands.execute("drawing:clear-strokes");
+      this.syncUi();
+    });
+  }
+
+  setupPenDropdown() {
+    if (!this.penDropdown) return;
+
+    this.penDropdown.setCallbacks({
+      onBrushToolSelect: (toolId) => {
+        this.app.setEditorTool(toolId);
+      },
+      onPresetActivate: (toolId, presetIndex) => {
+        this.setActivePresetIndex(toolId, presetIndex);
+        if (this.app.getEditorTool() !== toolId) {
+          this.app.setEditorTool(toolId);
+        } else {
+          this.syncDrawingUiToActiveTool();
+          this.emitStrokeChange(toolId);
+          this.syncUi();
+        }
+      },
+      onPresetWidthChange: (toolId, presetIndex, width) => {
+        this.updatePreset(toolId, presetIndex, { width });
+        this.syncDrawingUiToActiveTool();
+        this.emitStrokeChange(toolId);
+        this.syncUi();
+      },
+      onPresetColorChange: (toolId, presetIndex, color) => {
+        this.updatePreset(toolId, presetIndex, { color });
+        this.syncDrawingUiToActiveTool();
+        this.emitStrokeChange(toolId);
+        this.syncUi();
+      },
+    });
+  }
+
+  setupEraserPanel() {
+    if (!this.eraserTriggerEl) return;
+
+    this.listenDom(this.eraserTriggerEl, "click", (event) => {
+      event.stopPropagation();
+      if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "eraser") {
+        this.closeEraserPanel();
+        return;
+      }
+      if (this.eraserPanelOpen) {
+        this.closeEraserPanel();
+      } else {
+        this.openEraserPanel();
+      }
+    });
+
+    this.listenDom(document, "mousedown", (event) => {
+      if (!this.eraserPanelOpen) return;
+      const target = event.target;
+      if (this.eraserPanelEl?.contains(target) || this.eraserTriggerEl?.contains(target)) return;
+      this.closeEraserPanel();
+    }, true);
+    this.listenDom(document, "keydown", (event) => {
+      if (event.key === "Escape" && this.eraserPanelOpen) {
+        this.closeEraserPanel();
+      }
+    });
+    this.listenDom(window, "resize", () => {
+      if (this.eraserPanelOpen) this.positionEraserPanel();
+    });
+  }
+
+  openEraserPanel() {
+    if (!this.eraserPanelEl) return;
+    this.eraserPanelOpen = true;
+    this.eraserPanelEl.hidden = false;
+    this.positionEraserPanel();
+  }
+
+  closeEraserPanel() {
+    this.eraserPanelOpen = false;
+    if (this.eraserPanelEl) {
+      this.eraserPanelEl.hidden = true;
+    }
+  }
+
+  positionEraserPanel() {
+    if (!this.eraserPanelEl || !this.eraserTriggerEl) return;
+    const shellRect = document.querySelector(".app-shell")?.getBoundingClientRect?.();
+    const triggerRect = this.eraserTriggerEl.getBoundingClientRect();
+    if (!shellRect) return;
+    this.eraserPanelEl.style.left = `${triggerRect.right - shellRect.left + 4}px`;
+    this.eraserPanelEl.style.top = `${triggerRect.top - shellRect.top}px`;
   }
 
   getBoardFullscreenTarget() {
@@ -327,7 +437,6 @@ export class ToolbarPlugin extends BasePlugin {
 
   setPresentationToolbarVisible(visible) {
     if (!this.toolbarEl || this.app.getMode() !== "presentation") return;
-
     this.clearPresentationToolbarHideTimer();
     this.toolbarEl.classList.toggle("is-visible", visible);
   }
@@ -348,7 +457,6 @@ export class ToolbarPlugin extends BasePlugin {
     if (!this.toolbarEl || !presentationToolbarHoverZoneEl) return;
 
     const isPresentation = this.app.getMode() === "presentation";
-
     presentationToolbarHoverZoneEl.hidden = !isPresentation;
 
     if (!isPresentation) {
@@ -382,145 +490,70 @@ export class ToolbarPlugin extends BasePlugin {
     return this.isDrawingTool(toolId);
   }
 
-  showsBrushControls(toolId) {
-    return BRUSH_CONTROL_TOOL_IDS.includes(toolId);
-  }
-
   showsShapeControls(toolId) {
     return toolId === "shape";
   }
 
   isToolAvailableInPresentation(toolId) {
-    return toolId === "arrange" || this.showsBrushControls(toolId);
-  }
-
-  isMainToolButtonActive(buttonToolId, activeToolId) {
-    if (this.app.getMode() === "presentation" && buttonToolId === "arrange") {
-      return false;
-    }
-
-    if (buttonToolId === "pen") {
-      return this.isBrushFamilyActive(activeToolId);
-    }
-
-    return buttonToolId === activeToolId;
-  }
-
-  handleMainToolButtonClick(toolId) {
-    if (this.app.getMode() === "presentation") {
-      const activeToolId = this.app.getEditorTool();
-      const isPenFamilyButton = toolId === "pen" && this.isBrushFamilyActive(activeToolId);
-      const isSameStandaloneTool = toolId !== "pen" && activeToolId === toolId;
-
-      if (isPenFamilyButton || isSameStandaloneTool) {
-        this.app.setEditorTool("arrange");
-        return;
-      }
-    }
-
-    this.app.setEditorTool(toolId);
+    return toolId === "arrange";
   }
 
   getDrawingPlugin() {
     return this.app.plugins.find((plugin) => plugin.id === "drawing") ?? null;
   }
 
-  getDrawingToolState(toolId = this.app.getEditorTool()) {
+  getDrawingToolState(toolId = this.lastBrushToolId) {
     if (!this.isDrawingTool(toolId)) return null;
     return this.drawingToolState[toolId] ?? null;
   }
 
-  loadDrawingUiFromTool(toolId = this.app.getEditorTool()) {
-    const {
-      strokeColorEl,
-      strokeWidthLabelEl,
-      strokeWidthEl,
-      strokeWidthValueEl,
-    } = this.ui;
-
-    if (toolId === "eraser") {
-      strokeWidthLabelEl.textContent = "Radius";
-      strokeWidthEl.setAttribute("aria-label", "Radius");
-      strokeColorEl.setAttribute("aria-label", "Brush color");
-      strokeWidthEl.min = "4";
-      strokeWidthEl.max = "48";
-      strokeWidthEl.value = String(this.eraserState.radius);
-      strokeWidthValueEl.value = String(this.eraserState.radius);
-      return;
-    }
-
-    const toolState = this.getDrawingToolState(toolId);
-    if (!toolState) return;
-
-    strokeWidthLabelEl.textContent = `${toolId} width`;
-    strokeWidthEl.setAttribute("aria-label", `${toolId} width`);
-    strokeColorEl.setAttribute("aria-label", `${toolId} color`);
-    strokeWidthEl.min = "1";
-    strokeWidthEl.max = "24";
-    strokeColorEl.value = toolState.color;
-    strokeWidthEl.value = String(toolState.width);
-    strokeWidthValueEl.value = String(toolState.width);
-  }
-
-  saveDrawingUiToTool(toolId = this.app.getEditorTool()) {
+  getActivePreset(toolId = this.lastBrushToolId) {
     const toolState = this.getDrawingToolState(toolId);
     if (!toolState) return null;
-
-    const { strokeColorEl, strokeWidthEl } = this.ui;
-    toolState.color = strokeColorEl.value;
-    toolState.width = Number(strokeWidthEl.value);
-    return toolState;
+    return toolState.presets[toolState.activePresetIndex] ?? null;
   }
 
-  renderRecentColors(toolId = this.app.getEditorTool()) {
+  setActivePresetIndex(toolId, presetIndex) {
     const toolState = this.getDrawingToolState(toolId);
-    const { recentColorsEl } = this.ui;
-    if (!toolState || !recentColorsEl) return;
-
-    recentColorsEl.innerHTML = "";
-
-    for (const color of toolState.recentColors) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "recent-color-swatch";
-      button.dataset.color = color;
-      button.dataset.testid = `recent-color-${color.slice(1)}`;
-      button.title = color;
-      button.setAttribute("aria-label", `Recent color ${color}`);
-      button.style.backgroundColor = color;
-
-      this.listenDom(button, "click", () => {
-        const { strokeColorEl } = this.ui;
-        strokeColorEl.value = color;
-        this.pushRecentColor(toolId, color);
-        this.renderRecentColors(toolId);
-        this.emitStrokeChange();
-      });
-
-      recentColorsEl.append(button);
-    }
+    if (!toolState) return;
+    toolState.activePresetIndex = clamp(
+      Math.round(presetIndex),
+      0,
+      Math.max(toolState.presets.length - 1, 0),
+    );
   }
 
-  pushRecentColor(toolId, color) {
+  updatePreset(toolId, presetIndex, patch = {}) {
     const toolState = this.getDrawingToolState(toolId);
-    if (!toolState || typeof color !== "string" || !color) return;
-
-    toolState.recentColors = [
-      color,
-      ...toolState.recentColors.filter((item) => item !== color),
-    ].slice(0, 3);
+    const preset = toolState?.presets?.[presetIndex];
+    if (!preset) return;
+    preset.color = patch.color ?? preset.color;
+    preset.width = Number.isFinite(patch.width) ? patch.width : preset.width;
+    toolState.activePresetIndex = presetIndex;
   }
 
-  recordRecentColorFromStroke({ node, toolId, color } = {}) {
-    const drawingToolId = toolId ?? node?.getAttr?.("drawingToolId");
-    if (!this.isDrawingTool(drawingToolId)) return;
+  buildPenDropdownState() {
+    return {
+      activeToolId: this.lastBrushToolId,
+      presetsByTool: Object.fromEntries(
+        DRAWING_TOOL_IDS.map((toolId) => [
+          toolId,
+          this.getDrawingToolState(toolId)?.presets?.map((preset) => ({ ...preset })) ?? [],
+        ]),
+      ),
+      activePresetIndexByTool: Object.fromEntries(
+        DRAWING_TOOL_IDS.map((toolId) => [
+          toolId,
+          this.getDrawingToolState(toolId)?.activePresetIndex ?? 0,
+        ]),
+      ),
+    };
+  }
 
-    const strokeColor = color ?? node?.stroke?.();
-    this.pushRecentColor(drawingToolId, strokeColor);
-
-    if (this.app.getEditorTool() === drawingToolId) {
-      this.renderRecentColors(drawingToolId);
-    }
+  syncEraserUi() {
+    if (!this.eraserRadiusEl || !this.eraserRadiusValueEl) return;
+    this.eraserRadiusEl.value = String(this.eraserState.radius);
+    this.eraserRadiusValueEl.textContent = String(this.eraserState.radius);
   }
 
   loadShapeUi() {
@@ -615,20 +648,23 @@ export class ToolbarPlugin extends BasePlugin {
     shapeStrokeWidthEl.closest("label")?.setAttribute("title", strokeWidthTitle);
   }
 
-
   syncDrawingUiToActiveTool() {
     const activeToolId = this.app.getEditorTool();
-    if (!this.showsBrushControls(activeToolId)) return;
-
-    this.loadDrawingUiFromTool(activeToolId);
-
     if (this.isDrawingTool(activeToolId)) {
-      this.renderRecentColors(activeToolId);
-    } else {
-      this.ui.recentColorsEl.innerHTML = "";
+      this.lastBrushToolId = activeToolId;
     }
 
-    this.emitStrokeChange();
+    this.penDropdown?.setState(this.buildPenDropdownState());
+    this.syncEraserUi();
+
+    if (activeToolId === "eraser") {
+      this.emitStrokeChange("eraser");
+      return;
+    }
+
+    if (this.isDrawingTool(activeToolId)) {
+      this.emitStrokeChange(activeToolId);
+    }
   }
 
   setupModeToggle() {
@@ -642,15 +678,6 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   renderToolButtons() {
-    const { brushTypeControlsEl } = this.ui;
-
-    if (brushTypeControlsEl) {
-      renderIcons(brushTypeControlsEl, {
-        width: 16,
-        height: 16,
-        "stroke-width": 2,
-      });
-    }
     if (this.ui.shapeTypeControlsEl) {
       renderIcons(this.ui.shapeTypeControlsEl, {
         width: 16,
@@ -658,46 +685,10 @@ export class ToolbarPlugin extends BasePlugin {
         "stroke-width": 2,
       });
     }
-
-    this.queueBrushPanelPositionSync();
   }
 
-  queueBrushPanelPositionSync() {
-    if (this.brushPanelPositionFrame != null) return;
-
-    this.brushPanelPositionFrame = window.requestAnimationFrame(() => {
-      this.brushPanelPositionFrame = null;
-      this.syncBrushPanelPosition();
-    });
-  }
-
-  syncBrushPanelPosition() {
-    const { brushControlsEl, toolButtonsEl } = this.ui;
-    if (!brushControlsEl || brushControlsEl.hidden) return;
-
-    const anchorButton = toolButtonsEl?.querySelector?.('[data-tool-id="pen"]');
-    const toolbarRect = brushControlsEl.parentElement?.getBoundingClientRect?.();
-    const buttonRect = anchorButton?.getBoundingClientRect?.();
-    const panelWidth = brushControlsEl.offsetWidth;
-
-    if (!toolbarRect || !buttonRect || !panelWidth) return;
-
-    const horizontalPadding = 16;
-    const anchorCenter = buttonRect.left - toolbarRect.left + buttonRect.width / 2;
-    let left = anchorCenter - panelWidth / 2;
-    left = Math.max(horizontalPadding, Math.min(left, toolbarRect.width - panelWidth - horizontalPadding));
-
-    brushControlsEl.style.left = `${left}px`;
-  }
-
-  emitStrokeChange() {
-    const { strokeWidthEl, strokeWidthValueEl } = this.ui;
-    strokeWidthValueEl.value = strokeWidthEl.value;
-
-    const activeToolId = this.app.getEditorTool();
-
-    if (activeToolId === "eraser") {
-      this.eraserState.radius = Number(strokeWidthEl.value);
+  emitStrokeChange(toolId = this.app.getEditorTool()) {
+    if (toolId === "eraser") {
       this.app.events.emit("stroke:change", {
         toolId: "eraser",
         radius: this.eraserState.radius,
@@ -705,13 +696,14 @@ export class ToolbarPlugin extends BasePlugin {
       return;
     }
 
-    const toolState = this.saveDrawingUiToTool(activeToolId);
-    if (!toolState) return;
+    const toolState = this.getDrawingToolState(toolId);
+    const preset = this.getActivePreset(toolId);
+    if (!toolState || !preset) return;
 
     this.app.events.emit("stroke:change", {
-      toolId: activeToolId,
-      color: toolState.color,
-      width: toolState.width,
+      toolId,
+      color: preset.color,
+      width: preset.width,
       opacity: toolState.opacity,
     });
   }
@@ -739,16 +731,9 @@ export class ToolbarPlugin extends BasePlugin {
 
   syncUi() {
     const {
-      brushControlsEl,
-      brushTypeControlsEl,
       shapeControlsEl,
       saveFocusEl,
       focusPositionModeEl,
-      strokeColorEl,
-      recentColorsEl,
-      strokeWidthEl,
-      strokeWidthValueEl,
-      clearStrokesEl,
       drawingVisibilityToggleEl,
       modeCapsuleEditEl,
       modeCapsulePresentEl,
@@ -756,14 +741,8 @@ export class ToolbarPlugin extends BasePlugin {
 
     const isEdit = this.app.getMode() === "edit";
     const activeToolId = this.app.getEditorTool();
-    const isEraser = activeToolId === "eraser";
-    const isBrushFamilyActive = this.isBrushFamilyActive(activeToolId);
     const isShapeTool = this.showsShapeControls(activeToolId);
-    const showBrushControls = this.showsBrushControls(activeToolId);
-    const showBrushTypeControls = isBrushFamilyActive;
     const showShapeControls = isEdit && isShapeTool;
-    const canUseSelectedToolInCurrentMode =
-      isEdit || this.isToolAvailableInPresentation(activeToolId);
     const drawingPlugin = this.getDrawingPlugin();
     const isPresentation = !isEdit;
     const drawLayerVisible = drawingPlugin?.isDrawLayerVisible?.() !== false;
@@ -779,12 +758,6 @@ export class ToolbarPlugin extends BasePlugin {
       modeCapsulePresentEl.setAttribute("aria-pressed", String(!isEdit));
     }
 
-    for (const button of (brushTypeControlsEl?.querySelectorAll("[data-brush-tool-id]") ?? [])) {
-      const { brushToolId } = button.dataset;
-      button.setAttribute("aria-pressed", String(brushToolId === activeToolId));
-      button.disabled = !canUseSelectedToolInCurrentMode || isEraser;
-    }
-
     if (drawingVisibilityToggleEl) {
       drawingVisibilityToggleEl.hidden = !isPresentation;
       drawingVisibilityToggleEl.setAttribute("aria-pressed", String(drawLayerVisible));
@@ -795,7 +768,6 @@ export class ToolbarPlugin extends BasePlugin {
       drawingVisibilityToggleEl.title = drawLayerVisible ? "Hide drawings" : "Show drawings";
       drawingVisibilityToggleEl.innerHTML =
         `<i data-lucide="${drawLayerVisible ? "eye" : "eye-off"}" aria-hidden="true"></i>`;
-
       renderIcons(drawingVisibilityToggleEl, {
         width: 16,
         height: 16,
@@ -803,25 +775,28 @@ export class ToolbarPlugin extends BasePlugin {
       });
     }
 
-    if (brushControlsEl) {
-      brushControlsEl.hidden = !showBrushControls;
-    }
     if (shapeControlsEl) {
       shapeControlsEl.hidden = !showShapeControls;
     }
-    if (brushTypeControlsEl) {
-      brushTypeControlsEl.hidden = !showBrushTypeControls;
+
+    if (!isEdit || !this.isBrushFamilyActive(activeToolId)) {
+      this.penDropdown?.close();
     }
-    const colorFieldEl = strokeColorEl.closest(".toolbar__field");
-    if (colorFieldEl) {
-      colorFieldEl.hidden = !isBrushFamilyActive;
+    if (!isEdit || activeToolId !== "eraser") {
+      this.closeEraserPanel();
     }
-    if (recentColorsEl) {
-      recentColorsEl.hidden = !isBrushFamilyActive;
+
+    if (this.eraserPanelEl) {
+      this.eraserPanelEl.hidden = !this.eraserPanelOpen;
     }
-    if (clearStrokesEl) {
-      clearStrokesEl.hidden = !isEraser;
-      clearStrokesEl.disabled = !isEraser || !drawingPlugin?.hasDrawings?.();
+    if (this.clearStrokesEl) {
+      this.clearStrokesEl.disabled = !drawingPlugin?.hasDrawings?.();
+    }
+    if (this.eraserRadiusEl) {
+      this.eraserRadiusEl.disabled = !(isEdit && activeToolId === "eraser");
+    }
+    if (this.eraserRadiusValueEl) {
+      this.eraserRadiusValueEl.disabled = !(isEdit && activeToolId === "eraser");
     }
 
     if (saveFocusEl) {
@@ -832,13 +807,6 @@ export class ToolbarPlugin extends BasePlugin {
       focusPositionModeEl.hidden = true;
       focusPositionModeEl.disabled = true;
     }
-
-    const brushControlsEnabled =
-      canUseSelectedToolInCurrentMode && this.showsBrushControls(activeToolId);
-
-    strokeColorEl.disabled = !brushControlsEnabled || isEraser;
-    strokeWidthEl.disabled = !brushControlsEnabled;
-    strokeWidthValueEl.disabled = !brushControlsEnabled;
 
     const shapeControlsEnabled = isEdit && isShapeTool;
     for (const control of [
@@ -851,10 +819,6 @@ export class ToolbarPlugin extends BasePlugin {
       ...(this.ui.shapeTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? []),
     ]) {
       if (control) control.disabled = !shapeControlsEnabled;
-    }
-
-    if (showBrushControls) {
-      this.queueBrushPanelPositionSync();
     }
   }
 }

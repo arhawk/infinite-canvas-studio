@@ -2,6 +2,7 @@ import "./styles.css";
 import { App } from "./core/app.js";
 import { LeftToolbarPlugin } from "./component/LeftToolbar/index.js";
 import { ComponentsDropdownPlugin } from "./component/ComponentsDropdown/index.js";
+import { PenDropdownPlugin } from "./component/PenDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
@@ -72,14 +73,6 @@ const ui = {
   timerDurationRow: getRequiredElement("#timer-duration-row"),
   timerClose: getRequiredElement("#timer-close"),
   timerHeader: getRequiredElement("#timer-header"),
-  brushControls: getRequiredElement("#brush-controls"),
-  brushTypeControls: getRequiredElement("#brush-type-controls"),
-  strokeColor: getRequiredElement("#stroke-color"),
-  recentColors: getRequiredElement("#recent-colors"),
-  strokeWidthLabel: getRequiredElement("#stroke-width-label"),
-  strokeWidth: getRequiredElement("#stroke-width"),
-  strokeWidthValue: getRequiredElement("#stroke-width-value"),
-  clearStrokes: getRequiredElement("#clear-strokes"),
   shapeControls: getRequiredElement("#shape-controls"),
   shapeTypeControls: getRequiredElement("#shape-type-controls"),
   shapeFillColor: getRequiredElement("#shape-fill-color"),
@@ -127,19 +120,13 @@ app.use(ShapesPlugin);
 app.use(AnnotatorPlugin);
 app.use(ComponentEditorPlugin);
 app.use(PageComparePlugin);
+const penDropdown = app.use(PenDropdownPlugin);
+penDropdown.wireTrigger(leftToolbar.penBtn);
 app.use(ToolbarPlugin, {
   presentationToolbarHoverZoneEl: ui.presentationToolbarHoverZone,
   modeCapsuleEditEl: ui.modeCapsuleEdit,
   modeCapsulePresentEl: ui.modeCapsulePresent,
   drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
-  brushControlsEl: ui.brushControls,
-  brushTypeControlsEl: ui.brushTypeControls,
-  strokeColorEl: ui.strokeColor,
-  recentColorsEl: ui.recentColors,
-  strokeWidthLabelEl: ui.strokeWidthLabel,
-  strokeWidthEl: ui.strokeWidth,
-  strokeWidthValueEl: ui.strokeWidthValue,
-  clearStrokesEl: ui.clearStrokes,
   shapeControlsEl: ui.shapeControls,
   shapeTypeControlsEl: ui.shapeTypeControls,
   shapeFillColorEl: ui.shapeFillColor,
@@ -148,6 +135,9 @@ app.use(ToolbarPlugin, {
   shapeStrokeWidthValueEl: ui.shapeStrokeWidthValue,
   shapeOpacityEl: ui.shapeOpacity,
   shapeOpacityValueEl: ui.shapeOpacityValue,
+  penDropdownPlugin: penDropdown,
+  penTriggerEl: leftToolbar.penBtn,
+  eraserTriggerEl: leftToolbar.eraserBtn,
 });
 
 // Components dropdown — replaces the old sidebar palette

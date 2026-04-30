@@ -3,53 +3,51 @@ import { ToolbarPlugin } from "../../../src/plugins/toolbar.js";
 
 function createToolbarDom() {
   document.body.innerHTML = `
-    <main class="workspace">
-      <div
-        id="presentation-toolbar-hover-zone"
-        class="presentation-toolbar-hover-zone"
-        aria-hidden="true"
-      ></div>
-      <header class="toolbar" data-testid="toolbar">
-        <div class="toolbar__title-area">
-          <span class="toolbar__project-title" id="project-title">Untitled</span>
-        </div>
-        <div class="toolbar__center">
-          <button
-            id="drawing-visibility-toggle"
-            class="toolbar__icon-button toolbar__present-tool"
-            type="button"
-            aria-label="Hide drawings"
-            title="Hide drawings"
-            aria-pressed="true"
-            hidden
-          ></button>
-          <div class="mode-capsule" id="mode-capsule">
-            <button type="button" id="mode-capsule-edit" aria-pressed="true">Edit</button>
-            <button type="button" id="mode-capsule-present" aria-pressed="false">Present</button>
+    <div class="app-shell">
+      <main class="workspace">
+        <div
+          id="presentation-toolbar-hover-zone"
+          class="presentation-toolbar-hover-zone"
+          aria-hidden="true"
+        ></div>
+        <header class="toolbar" data-testid="toolbar">
+          <div class="toolbar__title-area">
+            <span class="toolbar__project-title" id="project-title">Untitled</span>
           </div>
+          <div class="toolbar__center">
+            <button
+              id="drawing-visibility-toggle"
+              class="toolbar__icon-button toolbar__present-tool"
+              type="button"
+              aria-label="Hide drawings"
+              title="Hide drawings"
+              aria-pressed="true"
+              hidden
+            ></button>
+            <div class="mode-capsule" id="mode-capsule">
+              <button type="button" id="mode-capsule-edit" aria-pressed="true">Edit</button>
+              <button type="button" id="mode-capsule-present" aria-pressed="false">Present</button>
+            </div>
+          </div>
+          <div class="toolbar__actions">
+            <button type="button" class="toolbar__share-btn" id="share-btn">Share</button>
+          </div>
+        </header>
+        <div id="shape-controls" hidden></div>
+        <div id="shape-type-controls">
+          <button type="button" data-shape-type="rectangle"></button>
         </div>
-        <div class="toolbar__actions">
-          <button type="button" class="toolbar__share-btn" id="share-btn">Share</button>
-        </div>
-        <div id="arrange-controls" hidden></div>
-        <div id="brush-controls" hidden></div>
-      </header>
-      <div id="brush-type-controls">
-        <button type="button" data-brush-tool-id="pen"></button>
-        <button type="button" data-brush-tool-id="pencil"></button>
-        <button type="button" data-brush-tool-id="highlighter"></button>
-      </div>
-      <button id="save-focus" type="button"></button>
-      <button id="focus-position-mode" type="button"></button>
-      <label class="toolbar__field">
-        <input id="stroke-color" type="color" value="#1f6feb" />
-      </label>
-      <div id="recent-colors"></div>
-      <span id="stroke-width-label">Brush width</span>
-      <input id="stroke-width" type="range" min="1" max="24" value="4" />
-      <output id="stroke-width-value">4</output>
-      <button id="clear-strokes" type="button" hidden></button>
-    </main>
+        <button id="save-focus" type="button"></button>
+        <button id="focus-position-mode" type="button"></button>
+        <input id="shape-fill-color" type="color" value="#ffffff" />
+        <input id="shape-stroke-color" type="color" value="#000000" />
+        <input id="shape-stroke-width" type="range" min="0" max="24" value="2" />
+        <output id="shape-stroke-width-value">2</output>
+        <input id="shape-opacity" type="range" min="0" max="1" step="0.05" value="0" />
+        <output id="shape-opacity-value">0</output>
+        <button id="eraser-trigger" type="button"></button>
+      </main>
+    </div>
   `;
 }
 
@@ -101,22 +99,29 @@ function createApp(mode = "edit") {
 }
 
 function createPlugin(app) {
+  const penDropdownPlugin = {
+    setCallbacks: vi.fn(),
+    setState: vi.fn(),
+    close: vi.fn(),
+  };
+
   return new ToolbarPlugin(app, {
     presentationToolbarHoverZoneEl: document.querySelector("#presentation-toolbar-hover-zone"),
     modeCapsuleEditEl: document.querySelector("#mode-capsule-edit"),
     modeCapsulePresentEl: document.querySelector("#mode-capsule-present"),
     drawingVisibilityToggleEl: document.querySelector("#drawing-visibility-toggle"),
-    arrangeControlsEl: document.querySelector("#arrange-controls"),
-    brushControlsEl: document.querySelector("#brush-controls"),
-    brushTypeControlsEl: document.querySelector("#brush-type-controls"),
     saveFocusEl: document.querySelector("#save-focus"),
     focusPositionModeEl: document.querySelector("#focus-position-mode"),
-    strokeColorEl: document.querySelector("#stroke-color"),
-    recentColorsEl: document.querySelector("#recent-colors"),
-    strokeWidthLabelEl: document.querySelector("#stroke-width-label"),
-    strokeWidthEl: document.querySelector("#stroke-width"),
-    strokeWidthValueEl: document.querySelector("#stroke-width-value"),
-    clearStrokesEl: document.querySelector("#clear-strokes"),
+    shapeControlsEl: document.querySelector("#shape-controls"),
+    shapeTypeControlsEl: document.querySelector("#shape-type-controls"),
+    shapeFillColorEl: document.querySelector("#shape-fill-color"),
+    shapeStrokeColorEl: document.querySelector("#shape-stroke-color"),
+    shapeStrokeWidthEl: document.querySelector("#shape-stroke-width"),
+    shapeStrokeWidthValueEl: document.querySelector("#shape-stroke-width-value"),
+    shapeOpacityEl: document.querySelector("#shape-opacity"),
+    shapeOpacityValueEl: document.querySelector("#shape-opacity-value"),
+    penDropdownPlugin,
+    eraserTriggerEl: document.querySelector("#eraser-trigger"),
   });
 }
 
@@ -297,5 +302,23 @@ describe("ToolbarPlugin", () => {
 
     vi.runOnlyPendingTimers();
     expect(toolbarEl.classList.contains("toolbar--no-transition")).toBe(false);
+  });
+
+  it("closes pen and eraser popups after switching to presentation mode", () => {
+    const app = createApp("edit");
+    app.editorTool = "pen";
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    plugin.penDropdown.open = vi.fn();
+    plugin.penDropdown.close = vi.fn();
+    plugin.openEraserPanel();
+
+    app.mode = "presentation";
+    app.editorTool = "arrange";
+    plugin.syncUi();
+
+    expect(plugin.penDropdown.close).toHaveBeenCalled();
+    expect(plugin.eraserPanelOpen).toBe(false);
   });
 });

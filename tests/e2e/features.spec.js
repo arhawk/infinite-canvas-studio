@@ -307,12 +307,6 @@ async function dispatchClipboardImagePaste(page, {
   await waitForPaint(page);
 }
 
-async function listRecentColors(page) {
-  return page.getByTestId("recent-colors").locator(".recent-color-swatch").evaluateAll(
-    (items) => items.map((item) => item.dataset.color),
-  );
-}
-
 function getExpectedAutoFocus(nodeSnapshot, canvasRect) {
   const bounds = nodeSnapshot?.bounds;
   if (!bounds) return null;
@@ -3245,61 +3239,50 @@ test("undoes and redoes a node move", async ({ page }) => {
     .toBeGreaterThan((beforeMove?.bounds?.x ?? 0) + 300);
 });
 
-test("keeps drawing tool settings separate and restores recent colors per tool", async ({ page }) => {
-  const strokeColor = page.getByTestId("stroke-color");
-  const strokeWidth = page.getByTestId("stroke-width");
-
+test("keeps pen preset settings separate for each brush tool", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
-  await strokeColor.fill("#ff0000");
-  await strokeWidth.fill("6");
-  await expect(page.getByTestId("recent-color-ff0000")).toHaveCount(0);
+  await page.getByTestId("pen-preset-0").click();
+
+  await page.getByTestId("pen-r-input").fill("255");
+  await page.getByTestId("pen-g-input").fill("0");
+  await page.getByTestId("pen-b-input").fill("0");
+  await page.getByTestId("pen-preset-width").fill("6");
   await drawStroke(page);
 
-  await strokeColor.fill("#00ff00");
-  await expect(page.getByTestId("recent-color-00ff00")).toHaveCount(0);
-  await strokeColor.fill("#0000ff");
-  await drawStroke(page, { xRatio: 0.52, yRatio: 0.5, dx: 70, dy: -30 });
-
+  await page.getByTestId("tool-button-pen").click();
   await page.getByTestId("brush-type-pencil").click();
-  await expect(strokeColor).toHaveValue("#4a4a4a");
-  await expect(strokeWidth).toHaveValue("3");
+  await page.getByTestId("pen-preset-0").click();
+  await expect(page.getByTestId("pen-r-input")).toHaveValue("74");
+  await expect(page.getByTestId("pen-g-input")).toHaveValue("74");
+  await expect(page.getByTestId("pen-b-input")).toHaveValue("74");
+  await expect(page.getByTestId("pen-preset-width")).toHaveValue("3");
 
-  await strokeColor.fill("#123456");
-  await strokeWidth.fill("2");
-  await expect(page.getByTestId("recent-color-123456")).toHaveCount(0);
+  await page.getByTestId("pen-r-input").fill("18");
+  await page.getByTestId("pen-g-input").fill("52");
+  await page.getByTestId("pen-b-input").fill("86");
+  await page.getByTestId("pen-preset-width").fill("2");
   await drawStroke(page, { xRatio: 0.38, yRatio: 0.55, dx: 70, dy: 24 });
 
   await page.getByTestId("tool-button-pen").click();
-  await expect(strokeColor).toHaveValue("#0000ff");
-  await expect(strokeWidth).toHaveValue("6");
-
-  await expect(page.getByTestId("recent-color-0000ff")).toBeVisible();
-  await expect(page.getByTestId("recent-color-00ff00")).toHaveCount(0);
-  await expect(page.getByTestId("recent-color-ff0000")).toBeVisible();
+  await page.getByTestId("pen-preset-0").click();
+  await expect(page.getByTestId("pen-r-input")).toHaveValue("255");
+  await expect(page.getByTestId("pen-g-input")).toHaveValue("0");
+  await expect(page.getByTestId("pen-b-input")).toHaveValue("0");
+  await expect(page.getByTestId("pen-preset-width")).toHaveValue("6");
 
   await page.getByTestId("brush-type-pencil").click();
-  await expect(strokeColor).toHaveValue("#123456");
-  await expect(strokeWidth).toHaveValue("2");
-
-  await expect(page.getByTestId("recent-color-123456")).toBeVisible();
-  await expect(page.getByTestId("recent-color-4a4a4a")).toBeVisible();
-
-  await page.getByTestId("tool-button-pen").click();
-  await page.getByTestId("recent-color-ff0000").click();
-  await expect(strokeColor).toHaveValue("#ff0000");
-  await expect.poll(() => listRecentColors(page)).toEqual([
-    "#ff0000",
-    "#0000ff",
-    "#1f6feb",
-  ]);
+  await page.getByTestId("pen-preset-0").click();
+  await expect(page.getByTestId("pen-r-input")).toHaveValue("18");
+  await expect(page.getByTestId("pen-g-input")).toHaveValue("52");
+  await expect(page.getByTestId("pen-b-input")).toHaveValue("86");
+  await expect(page.getByTestId("pen-preset-width")).toHaveValue("2");
 });
 
-test("hides color controls when the eraser is active", async ({ page }) => {
+test("closes the pen dropdown and shows the eraser popup when eraser becomes active", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
-  await expect(page.getByTestId("stroke-color")).toBeVisible();
-  await expect(page.getByTestId("recent-colors")).toBeVisible();
+  await expect(page.getByTestId("pen-dropdown")).toBeVisible();
 
   await page.getByTestId("tool-button-eraser").click();
-  await expect(page.getByTestId("stroke-color")).toBeHidden();
-  await expect(page.getByTestId("recent-colors")).toBeHidden();
+  await expect(page.getByTestId("pen-dropdown")).toBeHidden();
+  await expect(page.getByTestId("eraser-controls")).toBeVisible();
 });

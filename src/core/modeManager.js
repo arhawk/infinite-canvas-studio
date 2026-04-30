@@ -135,13 +135,16 @@ export class ModeManager {
     if (!["presentation", "edit"].includes(mode) || mode === this.mode) return;
     this.#transition(() => {
       this.mode = mode;
+      this.editorTool = this.#normalizeEditorTool(this.editorTool, mode);
     });
   }
 
   setEditorTool(toolId) {
-    if (!this.toolRegistry.has(toolId) || toolId === this.editorTool) return;
+    if (!this.toolRegistry.has(toolId)) return;
+    const nextToolId = this.#normalizeEditorTool(toolId, this.mode);
+    if (nextToolId === this.editorTool) return;
     this.#transition(() => {
-      this.editorTool = toolId;
+      this.editorTool = nextToolId;
     });
   }
 
@@ -207,5 +210,10 @@ export class ModeManager {
       previousConfig: previousState?.config ?? {},
       manager: this,
     };
+  }
+
+  #normalizeEditorTool(toolId, mode) {
+    if (mode !== "presentation") return toolId;
+    return "arrange";
   }
 }
