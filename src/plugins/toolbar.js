@@ -5,7 +5,7 @@ import {
   DEFAULT_SHAPE_STROKE,
   SHAPE_TYPES,
   normalizeShapeType,
-} from "../component/shape.js";
+} from "../component/shapeModel.js";
 import { renderIcons } from "../lib/icons.js";
 
 const TOOL_ICONS = {
@@ -159,7 +159,7 @@ export class ToolbarPlugin extends BasePlugin {
         this.app.setEditorTool(brushToolId);
       });
     }
-    for (const button of shapeTypeControlsEl.querySelectorAll("[data-shape-type]")) {
+    for (const button of (shapeTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? [])) {
       this.listenDom(button, "click", () => {
         this.shapeToolState.shapeType = normalizeShapeType(button.dataset.shapeType);
         this.syncShapeTypeControls();
@@ -169,10 +169,18 @@ export class ToolbarPlugin extends BasePlugin {
     this.listenDom(window, "resize", () => this.queueBrushPanelPositionSync());
     this.listenDom(strokeColorEl, "input", () => this.emitStrokeChange());
     this.listenDom(strokeWidthEl, "input", () => this.emitStrokeChange());
-    this.listenDom(shapeFillColorEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
-    this.listenDom(shapeStrokeColorEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
-    this.listenDom(shapeStrokeWidthEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
-    this.listenDom(shapeOpacityEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
+    if (shapeFillColorEl) {
+      this.listenDom(shapeFillColorEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
+    }
+    if (shapeStrokeColorEl) {
+      this.listenDom(shapeStrokeColorEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
+    }
+    if (shapeStrokeWidthEl) {
+      this.listenDom(shapeStrokeWidthEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
+    }
+    if (shapeOpacityEl) {
+      this.listenDom(shapeOpacityEl, "input", () => this.emitShapeStyleChange({ applyToSelection: true }));
+    }
     this.listenDom(clearStrokesEl, "click", () => {
       this.app.commands.execute("drawing:clear-strokes");
       this.syncUi();
@@ -479,12 +487,16 @@ export class ToolbarPlugin extends BasePlugin {
       shapeOpacityValueEl,
     } = this.ui;
 
-    shapeFillColorEl.value = this.shapeToolState.fill;
-    shapeStrokeColorEl.value = this.shapeToolState.stroke;
-    shapeStrokeWidthEl.value = String(this.shapeToolState.strokeWidth);
-    shapeStrokeWidthValueEl.value = String(this.shapeToolState.strokeWidth);
-    shapeOpacityEl.value = String(this.shapeToolState.fillOpacity);
-    shapeOpacityValueEl.value = formatOpacityValue(this.shapeToolState.fillOpacity);
+    if (shapeFillColorEl) shapeFillColorEl.value = this.shapeToolState.fill;
+    if (shapeStrokeColorEl) shapeStrokeColorEl.value = this.shapeToolState.stroke;
+    if (shapeStrokeWidthEl) shapeStrokeWidthEl.value = String(this.shapeToolState.strokeWidth);
+    if (shapeStrokeWidthValueEl) {
+      shapeStrokeWidthValueEl.value = String(this.shapeToolState.strokeWidth);
+    }
+    if (shapeOpacityEl) shapeOpacityEl.value = String(this.shapeToolState.fillOpacity);
+    if (shapeOpacityValueEl) {
+      shapeOpacityValueEl.value = formatOpacityValue(this.shapeToolState.fillOpacity);
+    }
     this.syncShapeControlTooltips();
     this.syncShapeTypeControls();
   }
@@ -499,10 +511,10 @@ export class ToolbarPlugin extends BasePlugin {
 
     this.shapeToolState = {
       ...this.shapeToolState,
-      fill: shapeFillColorEl.value,
-      stroke: shapeStrokeColorEl.value,
-      strokeWidth: Number(shapeStrokeWidthEl.value),
-      fillOpacity: Number(shapeOpacityEl.value),
+      fill: shapeFillColorEl?.value ?? this.shapeToolState.fill,
+      stroke: shapeStrokeColorEl?.value ?? this.shapeToolState.stroke,
+      strokeWidth: Number(shapeStrokeWidthEl?.value ?? this.shapeToolState.strokeWidth),
+      fillOpacity: Number(shapeOpacityEl?.value ?? this.shapeToolState.fillOpacity),
     };
     return this.shapeToolState;
   }
@@ -515,7 +527,7 @@ export class ToolbarPlugin extends BasePlugin {
       this.shapeToolState.shapeType = "rectangle";
     }
 
-    for (const button of shapeTypeControlsEl.querySelectorAll("[data-shape-type]")) {
+    for (const button of (shapeTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? [])) {
       button.setAttribute(
         "aria-pressed",
         String(button.dataset.shapeType === this.shapeToolState.shapeType),
@@ -538,20 +550,22 @@ export class ToolbarPlugin extends BasePlugin {
       shapeOpacityEl,
       shapeOpacityValueEl,
     } = this.ui;
-    const fillTitle = `Shape fill color: ${shapeFillColorEl.value}`;
-    const opacityTitle = `Shape fill opacity: ${formatOpacityValue(shapeOpacityEl.value)}`;
-    const strokeTitle = `Shape border color: ${shapeStrokeColorEl.value}`;
-    const strokeWidthTitle = `Shape border width: ${shapeStrokeWidthEl.value}`;
+    const fillTitle = `Shape fill color: ${shapeFillColorEl?.value ?? this.shapeToolState.fill}`;
+    const opacityTitle = `Shape fill opacity: ${formatOpacityValue(shapeOpacityEl?.value ?? this.shapeToolState.fillOpacity)}`;
+    const strokeTitle = `Shape border color: ${shapeStrokeColorEl?.value ?? this.shapeToolState.stroke}`;
+    const strokeWidthTitle = `Shape border width: ${shapeStrokeWidthEl?.value ?? this.shapeToolState.strokeWidth}`;
+
+    if (!shapeFillColorEl || !shapeStrokeColorEl || !shapeStrokeWidthEl || !shapeOpacityEl) return;
 
     shapeFillColorEl.title = fillTitle;
     shapeFillColorEl.closest("label")?.setAttribute("title", fillTitle);
     shapeOpacityEl.title = opacityTitle;
-    shapeOpacityValueEl.title = opacityTitle;
+    if (shapeOpacityValueEl) shapeOpacityValueEl.title = opacityTitle;
     shapeOpacityEl.closest("label")?.setAttribute("title", opacityTitle);
     shapeStrokeColorEl.title = strokeTitle;
     shapeStrokeColorEl.closest("label")?.setAttribute("title", strokeTitle);
     shapeStrokeWidthEl.title = strokeWidthTitle;
-    shapeStrokeWidthValueEl.title = strokeWidthTitle;
+    if (shapeStrokeWidthValueEl) shapeStrokeWidthValueEl.title = strokeWidthTitle;
     shapeStrokeWidthEl.closest("label")?.setAttribute("title", strokeWidthTitle);
   }
 
@@ -673,8 +687,8 @@ export class ToolbarPlugin extends BasePlugin {
     } = this.ui;
     const state = this.saveShapeUiToState();
 
-    shapeStrokeWidthValueEl.value = String(state.strokeWidth);
-    shapeOpacityValueEl.value = formatOpacityValue(state.fillOpacity);
+    if (shapeStrokeWidthValueEl) shapeStrokeWidthValueEl.value = String(state.strokeWidth);
+    if (shapeOpacityValueEl) shapeOpacityValueEl.value = formatOpacityValue(state.fillOpacity);
     this.syncShapeControlTooltips();
 
     this.app.events.emit("shape:style-change", {
@@ -809,7 +823,7 @@ export class ToolbarPlugin extends BasePlugin {
       this.ui.shapeOpacityValueEl,
       ...(this.ui.shapeTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? []),
     ]) {
-      control.disabled = !shapeControlsEnabled;
+      if (control) control.disabled = !shapeControlsEnabled;
     }
 
     if (showBrushControls) {

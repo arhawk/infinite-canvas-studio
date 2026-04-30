@@ -1083,6 +1083,8 @@ body.is-presentation-mode .toolbar__share-btn {
   flex-basis: 7.2rem;
   width: 7.2rem;
   min-width: 6.6rem;
+}
+
 .background-panel {
   position: absolute;
   top: 9.9rem;

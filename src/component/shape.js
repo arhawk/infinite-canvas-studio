@@ -7,34 +7,27 @@ import {
 } from "../core/baseClasses.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import {
+  DEFAULT_SHAPE_FILL as DEFAULT_FILL,
+  DEFAULT_SHAPE_FILL_OPACITY as DEFAULT_FILL_OPACITY,
+  DEFAULT_SHAPE_FONT_SIZE as DEFAULT_FONT_SIZE,
+  DEFAULT_SHAPE_HEIGHT as DEFAULT_HEIGHT,
+  DEFAULT_SHAPE_LINE_HEIGHT as DEFAULT_LINE_HEIGHT,
+  DEFAULT_SHAPE_STROKE as DEFAULT_STROKE,
+  DEFAULT_SHAPE_TEXT_COLOR as DEFAULT_TEXT_COLOR,
+  DEFAULT_SHAPE_WIDTH as DEFAULT_WIDTH,
+  MIN_SHAPE_HEIGHT as MIN_HEIGHT,
+  MIN_SHAPE_LINE_HEIGHT as MIN_LINE_HEIGHT,
+  MIN_SHAPE_WIDTH as MIN_WIDTH,
+  SHAPE_TYPES,
+  normalizeShapeType,
+} from "./shapeModel.js";
 
-export const SHAPE_TYPES = [
-  { value: "rectangle", label: "Rectangle" },
-  { value: "oval", label: "Oval / Circle" },
-  { value: "rhombus", label: "Rhombus" },
-  { value: "triangle", label: "Triangle" },
-  { value: "line", label: "Divider / Line" },
-];
-
-const DEFAULT_WIDTH = 160;
-const DEFAULT_HEIGHT = 96;
-const DEFAULT_LINE_HEIGHT = 18;
-const MIN_WIDTH = 24;
-const MIN_HEIGHT = 24;
-const MIN_LINE_HEIGHT = 12;
-const DEFAULT_FILL = "#ffffff";
-const DEFAULT_FILL_OPACITY = 0;
-const DEFAULT_STROKE = "#000000";
-const DEFAULT_TEXT_COLOR = "#2d2d2d";
-const DEFAULT_FONT_SIZE = 18;
+export { SHAPE_TYPES, normalizeShapeType } from "./shapeModel.js";
 
 function clampNumber(value, fallback, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) {
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeShapeType(value) {
-  return SHAPE_TYPES.some((entry) => entry.value === value) ? value : "rectangle";
 }
 
 function normalizeColor(value, fallback) {
@@ -633,6 +626,5 @@ export {
   MIN_LINE_HEIGHT as MIN_SHAPE_LINE_HEIGHT,
   MIN_WIDTH as MIN_SHAPE_WIDTH,
   getShapeData,
-  normalizeShapeType,
   syncShapeVisuals,
 };
