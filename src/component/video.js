@@ -241,11 +241,65 @@ export class VideoComponent extends BaseComponent {
     stageContainer.append(overlay);
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
+    const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
+    const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
     let dragging = false;
     let dragStartX = 0;
     let dragStartY = 0;
     let nodeStartX = 0;
     let nodeStartY = 0;
+
+    const isEditableInteraction = () => (
+      !this.app.isReadOnly?.() &&
+      this.app.modeManager?.matches?.({ mode: "edit", editorTool: "arrange" }) === true
+    );
+
+    const hideContextMenu = () => {
+      contextMenuPlugin?.hideMenu?.();
+    };
+
+    const openContextMenu = (clientPoint) => {
+      if (!isEditableInteraction()) return;
+      if (!contextMenuPlugin?.showMenu || contextMenuPlugin.isEnabled?.() === false) return;
+
+      const items = this.app.contextMenu?.getItems?.(node) ?? [];
+      if (!items.length) return;
+
+      contextMenuPlugin.showMenu(node, clientPoint);
+    };
+
+    const completePendingConnectionToSelf = () => {
+      if (!connectionsPlugin?.connectingFromId) return false;
+      if (typeof connectionsPlugin.completeConnectingTo !== "function") return false;
+
+      void connectionsPlugin.completeConnectingTo(node);
+      return true;
+    };
+
+    const handleOverlayMouseDown = (event) => {
+      hideContextMenu();
+
+      if (event.button === 0 && completePendingConnectionToSelf()) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      if (!isEditableInteraction()) return;
+      if (event.target.closest("button")) return;
+
+      selectionPlugin?.setSelected?.([node]);
+    };
+
+    const handleOverlayContextMenu = (event) => {
+      if (!isEditableInteraction()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    };
 
     const beginDrag = (event) => {
       if (event.target.closest("button")) return;
@@ -282,6 +336,8 @@ export class VideoComponent extends BaseComponent {
       this.app.events.emit("node:changed", { node });
     };
 
+    overlay.addEventListener("mousedown", handleOverlayMouseDown, true);
+    overlay.addEventListener("contextmenu", handleOverlayContextMenu, true);
     topbar.addEventListener("mousedown", beginDrag);
     document.addEventListener("mousemove", onDragMove);
     document.addEventListener("mouseup", endDrag);
@@ -307,6 +363,8 @@ export class VideoComponent extends BaseComponent {
 
     node._videoOverlayEl = overlay;
     node._videoOverlayCleanup = () => {
+      overlay.removeEventListener("mousedown", handleOverlayMouseDown, true);
+      overlay.removeEventListener("contextmenu", handleOverlayContextMenu, true);
       document.removeEventListener("mousemove", onDragMove);
       document.removeEventListener("mouseup", endDrag);
       document.body.style.userSelect = "";

@@ -20,6 +20,7 @@ export class ContextMenuPlugin extends BasePlugin {
     this.menuCanvasPoint = null;
     this.menuState = [];
     this.activeTooltipLabel = null;
+    this.uiCanvasPreviousStyle = null;
 
     this.itemHeight = 38;
     this.paddingY = 6;
@@ -82,6 +83,7 @@ export class ContextMenuPlugin extends BasePlugin {
     });
 
     this.cleanups.push(() => {
+      this.restoreUiLayerStacking();
       stage.off(".ctxmenu");
       this.menuGroup.destroy();
     });
@@ -94,11 +96,41 @@ export class ContextMenuPlugin extends BasePlugin {
   hideMenu() {
     this.menuGroup.visible(false);
     this.hideTooltip();
+    this.restoreUiLayerStacking();
     this.uiLayer.batchDraw();
     this.contextTarget = null;
     this.menuCanvasPoint = null;
     this.menuState = [];
     this.app.syncCursor();
+  }
+
+  getUiLayerCanvasElement() {
+    return this.uiLayer?.getCanvas?.()?._canvas
+      ?? this.uiLayer?.getNativeCanvasElement?.()
+      ?? null;
+  }
+
+  elevateUiLayerStacking() {
+    const canvas = this.getUiLayerCanvasElement();
+    if (!canvas || this.uiCanvasPreviousStyle) return;
+
+    this.uiCanvasPreviousStyle = {
+      position: canvas.style.position,
+      zIndex: canvas.style.zIndex,
+    };
+    if (!canvas.style.position) {
+      canvas.style.position = "absolute";
+    }
+    canvas.style.zIndex = "80";
+  }
+
+  restoreUiLayerStacking() {
+    const canvas = this.getUiLayerCanvasElement();
+    if (!canvas || !this.uiCanvasPreviousStyle) return;
+
+    canvas.style.position = this.uiCanvasPreviousStyle.position;
+    canvas.style.zIndex = this.uiCanvasPreviousStyle.zIndex;
+    this.uiCanvasPreviousStyle = null;
   }
 
   hideTooltip() {
@@ -277,6 +309,7 @@ export class ContextMenuPlugin extends BasePlugin {
     const items = this.app.contextMenu.getItems(node);
     if (!items.length) return;
 
+    this.elevateUiLayerStacking();
     this.buildMenu(node, items);
     this.syncMenuPosition();
     this.menuGroup.visible(true);
