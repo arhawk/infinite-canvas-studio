@@ -586,6 +586,7 @@ export class ShapesPlugin extends BasePlugin {
     const node = await this.app.addComponent("shape", payload);
     if (node) {
       this.app.getPlugin("selection")?.setSelected?.([node]);
+      this.app.setEditorTool("arrange");
     }
   }
 }
