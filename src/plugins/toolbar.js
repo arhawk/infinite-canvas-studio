@@ -46,8 +46,23 @@ const DEFAULT_SHAPE_PANEL_STATE = {
   textColor: DEFAULT_SHAPE_TEXT_COLOR,
   fontSize: DEFAULT_SHAPE_FONT_SIZE,
 };
+const SHAPE_LAYER_ACTIONS = [
+  {
+    id: "bring-forward",
+    label: "Bring Forward",
+    run: "bringForward",
+    canRun: "canBringForward",
+  },
+  {
+    id: "send-backward",
+    label: "Send Backward",
+    run: "sendBackward",
+    canRun: "canSendBackward",
+  },
+];
 const SHAPE_PANEL_VIEWPORT_MARGIN = 12;
 const SHAPE_PANEL_ANCHOR_GAP = 64;
+const SHAPE_LAYER_CONTEXT_PENDING_MS = 800;
 const PRESENTATION_TOOLBAR_HIDE_DELAY_MS = 100;
 
 const DEFAULT_BUTTON_PANEL_STATE = {
@@ -73,6 +88,59 @@ const BUTTON_STYLE_SWATCHES = [
   "#ddd6fe",
   "#1d1b16",
 ];
+
+function resolveSelectable(target) {
+  if (!target) return null;
+  if (target.hasName?.("selectable")) return target;
+  return target.findAncestor?.(".selectable", true) ?? null;
+}
+
+function getStagePointerFromNativeEvent(app, nativeEvent) {
+  const stage = app?.stage;
+  if (!stage || !nativeEvent) return null;
+
+  if (typeof stage.setPointersPositions === "function") {
+    stage.setPointersPositions(nativeEvent);
+  }
+
+  const pointer = stage.getPointerPosition?.() ?? null;
+  if (pointer) return pointer;
+
+  const rect = stage.container?.()?.getBoundingClientRect?.() ?? null;
+  const { clientX, clientY } = nativeEvent;
+  if (
+    !rect ||
+    !Number.isFinite(clientX) ||
+    !Number.isFinite(clientY)
+  ) {
+    return null;
+  }
+
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top,
+  };
+}
+
+function resolveSelectableFromNativeEvent(app, nativeEvent) {
+  const stage = app?.stage;
+  const pointer = getStagePointerFromNativeEvent(app, nativeEvent);
+  const intersection = pointer && typeof stage?.getIntersection === "function"
+    ? stage.getIntersection(pointer)
+    : null;
+  return resolveSelectable(intersection);
+}
+
+function resolveSelectableFromStageEvent(app, event) {
+  const directTarget = resolveSelectable(event?.target);
+  if (directTarget) return directTarget;
+
+  const stage = app?.stage;
+  const nativeEvent = event?.evt;
+  if (!stage || event?.target !== stage) return null;
+
+  return resolveSelectableFromNativeEvent(app, nativeEvent);
+}
 
 const DEFAULT_DRAWING_TOOL_STATE = {
   pen: {
@@ -402,7 +470,10 @@ export class ToolbarPlugin extends BasePlugin {
       buttonOpacityEl,
       buttonOpacityValueEl,
     };
-    if (buttonControlsEl?.parentElement && buttonControlsEl.parentElement !== document.body) {
+    this.floatingToolbar = this.app.floatingToolbar ?? null;
+    this.pendingShapeLayerContextMenu = null;
+
+    if (!this.floatingToolbar && buttonControlsEl?.parentElement && buttonControlsEl.parentElement !== document.body) {
       const originalParent = buttonControlsEl.parentElement;
       const originalNextSibling = buttonControlsEl.nextSibling;
       document.body.append(buttonControlsEl);
@@ -415,7 +486,7 @@ export class ToolbarPlugin extends BasePlugin {
         }
       });
     }
-    if (shapePanelEl?.parentElement && shapePanelEl.parentElement !== document.body) {
+    if (!this.floatingToolbar && shapePanelEl?.parentElement && shapePanelEl.parentElement !== document.body) {
       const originalParent = shapePanelEl.parentElement;
       const originalNextSibling = shapePanelEl.nextSibling;
       document.body.append(shapePanelEl);
@@ -464,6 +535,7 @@ export class ToolbarPlugin extends BasePlugin {
     };
     this.buttonCustomPickers = new Map();
     this.activeButtonCustomPickerTarget = null;
+    this.registerFloatingPanels();
 
     this.buildEraserPanel();
     this.setupPenDropdown();
@@ -514,7 +586,42 @@ export class ToolbarPlugin extends BasePlugin {
     if (shapeStrokeWidthEl) {
       this.listenDom(shapeStrokeWidthEl, "input", () => this.emitShapePanelChange());
     }
+    const shapeLayerTriggerEl = shapePanelEl?.querySelector("#shape-layer-menu-trigger") ?? null;
+    if (shapeLayerTriggerEl) {
+      let closeShapeLayerMenuOnClick = false;
+      this.listenDom(shapeLayerTriggerEl, "pointerdown", (event) => {
+        closeShapeLayerMenuOnClick = this.isShapeLayerMenuOpen();
+        if (closeShapeLayerMenuOnClick) {
+          event.preventDefault();
+        } else {
+          this.clearShapeLayerContextPosition();
+        }
+      });
+      this.listenDom(shapeLayerTriggerEl, "click", (event) => {
+        if (!closeShapeLayerMenuOnClick) return;
+
+        event.preventDefault();
+        closeShapeLayerMenuOnClick = false;
+        this.closeShapeLayerMenu();
+      });
+    }
+    for (const button of (shapePanelEl?.querySelectorAll("[data-shape-layer-action]") ?? [])) {
+      this.listenDom(button, "click", () => {
+        this.runShapeLayerAction(button.dataset.shapeLayerAction);
+        button.blur();
+      });
+    }
     if (shapePanelEl) {
+      this.app.stage?.on?.("contextmenu.shapeLayerMenu mousedown.shapeLayerMenu", (event) => {
+        this.handleShapeLayerContextMenu(event);
+      });
+      const captureOptions = { capture: true };
+      this.listenDom(document, "contextmenu", (event) => {
+        this.handleShapeLayerNativeContextMenu(event);
+      }, captureOptions);
+      this.listenDom(document, "mousedown", (event) => {
+        this.handleShapeLayerNativeContextMenu(event);
+      }, captureOptions);
       this.listenDom(shapePanelEl, "focusin", () => {
         this.syncShapePopoverOpenState();
         this.queueShapePanelPositionSync();
@@ -522,6 +629,9 @@ export class ToolbarPlugin extends BasePlugin {
       this.listenDom(shapePanelEl, "focusout", () => {
         window.setTimeout(() => {
           this.syncShapePopoverOpenState();
+          if (!shapePanelEl.querySelector(".toolbar__shape-layer-tool:focus-within")) {
+            this.clearShapeLayerContextPosition();
+          }
           this.queueShapePanelPositionSync();
         }, 0);
       });
@@ -675,6 +785,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncUi();
 
     this.cleanups.push(() => {
+      this.app.stage?.off?.(".shapeLayerMenu");
       this.app.keybindings.unregister("Mod+Shift+F");
       if (this.brushPanelPositionFrame != null) {
         window.cancelAnimationFrame(this.brushPanelPositionFrame);
@@ -695,6 +806,57 @@ export class ToolbarPlugin extends BasePlugin {
       }
       this.eraserPanelEl?.remove();
     });
+  }
+
+  registerFloatingPanels() {
+    if (!this.floatingToolbar) return;
+
+    const popoverConfig = {
+      nodeClearance: BUTTON_POPOVER_NODE_CLEARANCE,
+    };
+
+    if (this.ui.shapePanelEl) {
+      this.floatingToolbar.registerPanel({
+        id: "shape-panel",
+        element: this.ui.shapePanelEl,
+        getAnchorNode: () => this.selectedShapeNode,
+        viewportMargin: SHAPE_PANEL_VIEWPORT_MARGIN,
+        anchorGap: SHAPE_PANEL_ANCHOR_GAP,
+        popover: popoverConfig,
+      });
+      this.cleanups.push(() => this.floatingToolbar?.unregisterPanel("shape-panel"));
+
+      for (const button of (this.ui.shapePanelTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? [])) {
+        this.floatingToolbar.registerButton("shape-panel", button.dataset.shapeType, button);
+      }
+      for (const button of (this.ui.shapePanelEl.querySelectorAll("[data-shape-layer-action]") ?? [])) {
+        this.floatingToolbar.registerButton(
+          "shape-panel",
+          `layer:${button.dataset.shapeLayerAction}`,
+          button,
+        );
+      }
+    }
+
+    if (this.ui.buttonControlsEl) {
+      this.floatingToolbar.registerPanel({
+        id: "button-panel",
+        element: this.ui.buttonControlsEl,
+        getAnchorNode: () => this.selectedButtonNode,
+        getAnchorRect: (node) => {
+          const anchorNode = node?.findOne?.(".button-bg") ?? node;
+          return anchorNode?.getClientRect?.({ relativeTo: this.app.stage }) ?? null;
+        },
+        viewportMargin: BUTTON_PANEL_VIEWPORT_MARGIN,
+        anchorGap: BUTTON_PANEL_ANCHOR_GAP,
+        popover: popoverConfig,
+      });
+      this.cleanups.push(() => this.floatingToolbar?.unregisterPanel("button-panel"));
+
+      for (const button of (this.ui.buttonTypeControlsEl?.querySelectorAll("[data-button-shape-type]") ?? [])) {
+        this.floatingToolbar.registerButton("button-panel", button.dataset.buttonShapeType, button);
+      }
+    }
   }
 
   buildEraserPanel() {
@@ -974,6 +1136,240 @@ export class ToolbarPlugin extends BasePlugin {
     return this.app.plugins.find((plugin) => plugin.id === "drawing") ?? null;
   }
 
+  getSelectionPlugin() {
+    return this.app.getPlugin?.("selection")
+      ?? this.app.plugins.find((plugin) => plugin.id === "selection")
+      ?? null;
+  }
+
+  runShapeLayerAction(actionId) {
+    const action = SHAPE_LAYER_ACTIONS.find((entry) => entry.id === actionId);
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedShapeNode;
+    if (!action || !selection || node?.getAttr?.("componentType") !== "shape") return;
+
+    selection[action.run]?.(node);
+    this.syncShapeLayerActions();
+    this.queueShapePanelPositionSync();
+  }
+
+  handleShapeLayerContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.evt?.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit") return;
+
+    const node = resolveSelectableFromStageEvent(this.app, event);
+    if (node?.getAttr?.("componentType") !== "shape") return;
+
+    event.evt?.preventDefault?.();
+    event.evt?.stopPropagation?.();
+    event.cancelBubble = true;
+    if (isRightMouseDown) {
+      return;
+    }
+
+    this.openShapeLayerMenu(node, this.getShapeLayerContextPoint(event));
+  }
+
+  handleShapeLayerNativeContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit") return;
+
+    const point = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    const directNode = resolveSelectableFromNativeEvent(this.app, event);
+    const pending = isContextMenuEvent ? this.getPendingShapeLayerContextMenu() : null;
+    const node = directNode?.getAttr?.("componentType") === "shape"
+      ? directNode
+      : pending?.node;
+    if (node?.getAttr?.("componentType") !== "shape") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (isRightMouseDown) {
+      this.pendingShapeLayerContextMenu = {
+        node,
+        point,
+        time: this.getNow(),
+      };
+      return;
+    }
+
+    this.pendingShapeLayerContextMenu = null;
+    this.openShapeLayerMenu(node, {
+      x: Number.isFinite(point.x) ? point.x : pending?.point?.x,
+      y: Number.isFinite(point.y) ? point.y : pending?.point?.y,
+    });
+  }
+
+  getNow() {
+    return window.performance?.now?.() ?? Date.now();
+  }
+
+  getPendingShapeLayerContextMenu() {
+    const pending = this.pendingShapeLayerContextMenu;
+    if (!pending) return null;
+
+    if (
+      !pending.node?.getStage?.() ||
+      this.getNow() - pending.time > SHAPE_LAYER_CONTEXT_PENDING_MS
+    ) {
+      this.pendingShapeLayerContextMenu = null;
+      return null;
+    }
+
+    return pending;
+  }
+
+  getShapeLayerContextPoint(event) {
+    const { clientX, clientY } = event?.evt ?? {};
+    if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+      return {
+        x: clientX,
+        y: clientY,
+      };
+    }
+
+    const pointer = this.app.stage?.getPointerPosition?.() ?? null;
+    const rect = this.app.stage?.container?.()?.getBoundingClientRect?.() ?? null;
+    if (
+      pointer &&
+      rect &&
+      Number.isFinite(pointer.x) &&
+      Number.isFinite(pointer.y)
+    ) {
+      return {
+        x: rect.left + pointer.x,
+        y: rect.top + pointer.y,
+      };
+    }
+
+    return {
+      x: event.evt?.clientX,
+      y: event.evt?.clientY,
+    };
+  }
+
+  openShapeLayerMenu(node, clientPoint = null) {
+    if (node?.getAttr?.("componentType") !== "shape") return;
+
+    this.app.getPlugin?.("context-menu")?.hideMenu?.();
+    this.getSelectionPlugin()?.setSelected?.([node]);
+    this.selectedShapeNode = node;
+    this.loadShapeUiFromSelection();
+    this.syncUi();
+    this.floatingToolbar?.setPanelVisible?.("shape-panel", true);
+    this.queueShapePanelPositionSync();
+
+    window.requestAnimationFrame(() => {
+      const trigger = this.ui.shapePanelEl?.querySelector?.("#shape-layer-menu-trigger");
+      trigger?.focus?.({ preventScroll: true });
+      if (clientPoint) {
+        this.positionShapeLayerMenuAtPoint(clientPoint);
+      }
+      this.syncShapePopoverOpenState();
+      this.queueShapePanelPositionSync();
+    });
+  }
+
+  getShapeLayerToolEl() {
+    return this.ui.shapePanelEl?.querySelector?.(".toolbar__shape-layer-tool") ?? null;
+  }
+
+  getShapeLayerPopoverEl() {
+    return this.ui.shapePanelEl?.querySelector?.(".toolbar__shape-layer-popover") ?? null;
+  }
+
+  isShapeLayerMenuOpen() {
+    const tool = this.getShapeLayerToolEl();
+    return Boolean(tool?.matches?.(":focus-within"));
+  }
+
+  closeShapeLayerMenu() {
+    const tool = this.getShapeLayerToolEl();
+    const activeElement = document.activeElement;
+    if (tool?.contains?.(activeElement)) {
+      activeElement.blur?.();
+    }
+    this.clearShapeLayerContextPosition();
+    this.syncShapePopoverOpenState();
+    this.queueShapePanelPositionSync();
+  }
+
+  clearShapeLayerContextPosition() {
+    const tool = this.getShapeLayerToolEl();
+    const popover = this.getShapeLayerPopoverEl();
+    if (!tool) return;
+
+    tool.classList.remove("is-context-open");
+    tool.style.removeProperty("--shape-layer-menu-left");
+    tool.style.removeProperty("--shape-layer-menu-top");
+    popover?.style.removeProperty("position");
+    popover?.style.removeProperty("top");
+    popover?.style.removeProperty("right");
+    popover?.style.removeProperty("left");
+    popover?.style.removeProperty("transform");
+    popover?.style.removeProperty("z-index");
+  }
+
+  positionShapeLayerMenuAtPoint(point) {
+    const tool = this.getShapeLayerToolEl();
+    const popover = this.getShapeLayerPopoverEl();
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!tool || !popover || !Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    tool.classList.add("is-context-open");
+    const margin = 8;
+    const width = popover.offsetWidth || popover.getBoundingClientRect().width || 140;
+    const height = popover.offsetHeight || popover.getBoundingClientRect().height || 60;
+    const left = clamp(x, margin, Math.max(margin, window.innerWidth - width - margin));
+    const top = clamp(y, margin, Math.max(margin, window.innerHeight - height - margin));
+
+    tool.style.setProperty("--shape-layer-menu-left", `${Math.round(left)}px`);
+    tool.style.setProperty("--shape-layer-menu-top", `${Math.round(top)}px`);
+    const toolRect = tool.getBoundingClientRect();
+    popover.style.setProperty("position", "absolute", "important");
+    popover.style.setProperty("top", `${Math.round(top - toolRect.top)}px`, "important");
+    popover.style.setProperty("right", "auto", "important");
+    popover.style.setProperty("left", `${Math.round(left - toolRect.left)}px`, "important");
+    popover.style.setProperty("transform", "none", "important");
+    popover.style.setProperty("z-index", "100", "important");
+  }
+
+  syncShapeLayerActions() {
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedShapeNode;
+    const canTargetShape = Boolean(
+      selection &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "shape",
+    );
+
+    for (const action of SHAPE_LAYER_ACTIONS) {
+      const button = this.ui.shapePanelEl
+        ?.querySelector?.(`[data-shape-layer-action="${action.id}"]`) ?? null;
+      const disabled = !canTargetShape || !selection[action.canRun]?.(node);
+      if (!this.floatingToolbar?.setButtonState?.("shape-panel", `layer:${action.id}`, {
+        disabled,
+        title: action.label,
+        label: action.label,
+      })) {
+        if (button) {
+          button.disabled = disabled;
+          button.setAttribute("aria-disabled", String(disabled));
+          button.title = action.label;
+          button.setAttribute("aria-label", action.label);
+        }
+      }
+    }
+  }
+
   getDrawingToolState(toolId = this.lastBrushToolId) {
     if (!this.isDrawingTool(toolId)) return null;
     return this.drawingToolState[toolId] ?? null;
@@ -1136,6 +1532,7 @@ export class ToolbarPlugin extends BasePlugin {
     if (shapeStrokeWidthValueEl) shapeStrokeWidthValueEl.value = String(this.shapePanelState.strokeWidth);
     this.syncShapePanelTypeControls();
     this.syncShapeControlTooltips();
+    this.syncShapeLayerActions();
   }
 
   saveShapePanelUiToState() {
@@ -1199,10 +1596,10 @@ export class ToolbarPlugin extends BasePlugin {
     }
 
     for (const button of (shapePanelTypeControlsEl?.querySelectorAll("[data-shape-type]") ?? [])) {
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.shapeType === this.shapePanelState.shapeType),
-      );
+      const pressed = button.dataset.shapeType === this.shapePanelState.shapeType;
+      if (!this.floatingToolbar?.setButtonState?.("shape-panel", button.dataset.shapeType, { pressed })) {
+        button.setAttribute("aria-pressed", String(pressed));
+      }
     }
   }
 
@@ -1614,6 +2011,10 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncShapePopoverOpenState() {
+    if (this.floatingToolbar?.hasPanel?.("shape-panel")) {
+      return this.floatingToolbar.syncPopoverOpenState("shape-panel");
+    }
+
     const { shapePanelEl } = this.ui;
     if (!shapePanelEl) return false;
 
@@ -1625,6 +2026,16 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncShapePopoverOffset({ nodeLeft, nodeRight, placement, stageRect }) {
+    if (this.floatingToolbar?.hasPanel?.("shape-panel")) {
+      this.floatingToolbar.syncPopoverOffset("shape-panel", {
+        nodeLeft,
+        nodeRight,
+        placement,
+        stageRect,
+      });
+      return;
+    }
+
     const { shapePanelEl } = this.ui;
     if (!shapePanelEl) return;
 
@@ -1685,6 +2096,11 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncShapePanelPosition() {
+    if (this.floatingToolbar?.hasPanel?.("shape-panel")) {
+      this.floatingToolbar.updatePanelPosition("shape-panel");
+      return;
+    }
+
     const { shapePanelEl } = this.ui;
     const node = this.selectedShapeNode;
     const stageContainer = this.app.stage?.container?.();
@@ -1746,6 +2162,11 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   queueShapePanelPositionSync() {
+    if (this.floatingToolbar?.hasPanel?.("shape-panel")) {
+      this.floatingToolbar.queuePanelPosition("shape-panel");
+      return;
+    }
+
     if (this.shapePanelPositionFrame != null) return;
     this.shapePanelPositionFrame = window.requestAnimationFrame(() => {
       this.shapePanelPositionFrame = null;
@@ -1819,10 +2240,10 @@ export class ToolbarPlugin extends BasePlugin {
     }
 
     for (const button of buttonTypeControlsEl.querySelectorAll("[data-button-shape-type]")) {
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.buttonShapeType === this.buttonPanelState.shapeType),
-      );
+      const pressed = button.dataset.buttonShapeType === this.buttonPanelState.shapeType;
+      if (!this.floatingToolbar?.setButtonState?.("button-panel", button.dataset.buttonShapeType, { pressed })) {
+        button.setAttribute("aria-pressed", String(pressed));
+      }
     }
   }
 
@@ -2382,6 +2803,11 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   queueButtonPanelPositionSync() {
+    if (this.floatingToolbar?.hasPanel?.("button-panel")) {
+      this.floatingToolbar.queuePanelPosition("button-panel");
+      return;
+    }
+
     if (this.buttonPanelPositionFrame != null) return;
 
     this.buttonPanelPositionFrame = window.requestAnimationFrame(() => {
@@ -2391,6 +2817,10 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncButtonPopoverOpenState() {
+    if (this.floatingToolbar?.hasPanel?.("button-panel")) {
+      return this.floatingToolbar.syncPopoverOpenState("button-panel");
+    }
+
     const { buttonControlsEl } = this.ui;
     if (!buttonControlsEl) return false;
 
@@ -2402,6 +2832,16 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncButtonPopoverOffset({ nodeLeft, nodeRight, placement, stageRect }) {
+    if (this.floatingToolbar?.hasPanel?.("button-panel")) {
+      this.floatingToolbar.syncPopoverOffset("button-panel", {
+        nodeLeft,
+        nodeRight,
+        placement,
+        stageRect,
+      });
+      return;
+    }
+
     const { buttonControlsEl } = this.ui;
     if (!buttonControlsEl) return;
 
@@ -2490,6 +2930,11 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncButtonPanelPosition() {
+    if (this.floatingToolbar?.hasPanel?.("button-panel")) {
+      this.floatingToolbar.updatePanelPosition("button-panel");
+      return;
+    }
+
     const { buttonControlsEl } = this.ui;
     const node = this.selectedButtonNode;
     const stageContainer = this.app.stage?.container?.();
@@ -2664,12 +3109,17 @@ export class ToolbarPlugin extends BasePlugin {
     }
 
     if (shapePanelEl) {
-      shapePanelEl.hidden = !showShapePanel;
-      if (showShapePanel) this.queueShapePanelPositionSync();
+      if (!this.floatingToolbar?.setPanelVisible?.("shape-panel", showShapePanel)) {
+        shapePanelEl.hidden = !showShapePanel;
+        if (showShapePanel) this.queueShapePanelPositionSync();
+      }
     }
     if (buttonControlsEl) {
-      buttonControlsEl.hidden = !showButtonControls;
+      if (!this.floatingToolbar?.setPanelVisible?.("button-panel", showButtonControls)) {
+        buttonControlsEl.hidden = !showButtonControls;
+      }
     }
+    this.syncShapeLayerActions();
     if (!isEdit || !this.isBrushFamilyActive(activeToolId)) {
       this.penDropdown?.close();
     }
@@ -2713,6 +3163,11 @@ export class ToolbarPlugin extends BasePlugin {
       ...(this.ui.buttonTypeControlsEl?.querySelectorAll("[data-button-shape-type]") ?? []),
     ]) {
       control.disabled = !buttonControlsEnabled;
+    }
+    for (const button of (this.ui.buttonTypeControlsEl?.querySelectorAll("[data-button-shape-type]") ?? [])) {
+      this.floatingToolbar?.setButtonState?.("button-panel", button.dataset.buttonShapeType, {
+        disabled: !buttonControlsEnabled,
+      });
     }
 
     if (this.isBrushFamilyActive(activeToolId)) {

@@ -109,6 +109,7 @@ async function expectShapePanelLayout(page) {
     "shape-style-text-color",
     "shape-style-fill",
     "shape-style-border",
+    "shape-layer-menu",
   ];
   for (const id of ids) {
     const box = await page.getByTestId(id).boundingBox();

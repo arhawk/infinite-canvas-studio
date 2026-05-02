@@ -1,10 +1,4 @@
-import {
-  BaseComponent,
-  ColorEditorField,
-  NumberEditorField,
-  SelectEditorField,
-  TextareaEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 import {
@@ -17,7 +11,6 @@ import {
   DEFAULT_SHAPE_WIDTH as DEFAULT_WIDTH,
   MIN_SHAPE_HEIGHT as MIN_HEIGHT,
   MIN_SHAPE_WIDTH as MIN_WIDTH,
-  SHAPE_TYPES,
   normalizeShapeType,
 } from "./shapeModel.js";
 
@@ -427,92 +420,6 @@ export class ShapeComponent extends BaseComponent {
   static label = "Shape";
   static description = "Resizable geometric shape";
   static palette = false;
-
-  getEditorTitle() {
-    return "Shape";
-  }
-
-  editorFields() {
-    return [
-      new SelectEditorField({
-        id: "shapeType",
-        label: "Shape",
-        options: SHAPE_TYPES,
-        getValue: (node) => getShapeData(node).shapeType,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          shapeType: value,
-        }),
-      }),
-      new TextareaEditorField({
-        id: "text",
-        label: "Text",
-        rows: 4,
-        getValue: (node) => getShapeData(node).text,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          text: value,
-        }),
-      }),
-      new ColorEditorField({
-        id: "fill",
-        label: "Fill Color",
-        getValue: (node) => getShapeData(node).fill,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          fill: value,
-        }),
-      }),
-      new ColorEditorField({
-        id: "stroke",
-        label: "Border Color",
-        getValue: (node) => getShapeData(node).stroke,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          stroke: value,
-        }),
-      }),
-      new NumberEditorField({
-        id: "strokeWidth",
-        label: "Border Width",
-        input: { min: 0, max: 24, step: 1 },
-        getValue: (node) => getShapeData(node).strokeWidth,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          strokeWidth: value,
-        }),
-      }),
-      new NumberEditorField({
-        id: "fillOpacity",
-        label: "Opacity",
-        input: { min: 0, max: 1, step: 0.05 },
-        getValue: (node) => getShapeData(node).fillOpacity,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          fillOpacity: value,
-        }),
-      }),
-      new ColorEditorField({
-        id: "textColor",
-        label: "Text Color",
-        getValue: (node) => getShapeData(node).textColor,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          textColor: value,
-        }),
-      }),
-      new NumberEditorField({
-        id: "fontSize",
-        label: "Font Size",
-        input: { min: 10, max: 96, step: 1 },
-        getValue: (node) => getShapeData(node).fontSize,
-        setValue: (node, value) => syncShapeVisuals(node, {
-          ...getShapeData(node),
-          fontSize: value,
-        }),
-      }),
-    ];
-  }
 
   createVisualNode(shapeVisualType, node) {
     node.setAttr("shapeVisualType", shapeVisualType);

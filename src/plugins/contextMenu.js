@@ -317,6 +317,10 @@ export class ContextMenuPlugin extends BasePlugin {
   }
 
   handleContextMenu(event) {
+    if (event.cancelBubble || event.evt?.defaultPrevented) {
+      return;
+    }
+
     if (!this.isEnabled()) {
       this.hideMenu();
       return;

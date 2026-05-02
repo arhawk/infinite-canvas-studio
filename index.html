@@ -260,6 +260,40 @@
                   </div>
                 </div>
               </div>
+
+              <div
+                class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__shape-layer-tool"
+                data-popover-offset="none"
+              >
+                <button
+                  id="shape-layer-menu-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Layer order"
+                  aria-label="Layer order"
+                  data-testid="shape-layer-menu"
+                >
+                  <i data-lucide="ellipsis" aria-hidden="true"></i>
+                </button>
+                <div class="toolbar__button-style-popover toolbar__shape-layer-popover" role="menu" aria-label="Shape layer order">
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-shape-layer-action="bring-forward"
+                    data-testid="shape-layer-bring-forward"
+                  >
+                    Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-shape-layer-action="send-backward"
+                    data-testid="shape-layer-send-backward"
+                  >
+                    Send Backward
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

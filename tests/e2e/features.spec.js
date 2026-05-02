@@ -3044,6 +3044,109 @@ test("edits shape text inline and preserves shape style through resize and docum
   expect(restored.summary.height).toBeCloseTo(150, 1);
 });
 
+test("reorders a selected shape from the floating toolbar layer menu", async ({ page }) => {
+  const backShape = await addComponent(page, "shape", {
+    x: 180,
+    y: 170,
+    width: 160,
+    height: 110,
+    fill: "#dbeafe",
+  });
+  const frontShape = await addComponent(page, "shape", {
+    x: 230,
+    y: 210,
+    width: 160,
+    height: 110,
+    fill: "#fee2e2",
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), backShape.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("shape-panel")).toBeVisible();
+  await expect(page.getByTestId("shape-layer-menu")).toBeVisible();
+  await expect(page.getByTestId("shape-layer-menu").locator("svg")).toBeVisible();
+  await expect.poll(async () => getNodeOrder(page, [backShape.id, frontShape.id]))
+    .toEqual([backShape.id, frontShape.id]);
+
+  await page.getByTestId("shape-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__shape-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(Math.abs(
+    (layerMenuBox.x + layerMenuBox.width) -
+    (layerButtonBox.x + layerButtonBox.width),
+  )).toBeLessThan(4);
+  expect(layerMenuBox.y).toBeGreaterThanOrEqual(layerButtonBox.y + layerButtonBox.height - 1);
+  await page.getByTestId("shape-layer-menu").click();
+  await expect.poll(async () => (
+    page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.matches(":focus-within"))
+  )).toBe(false);
+  await expect(page.locator(".toolbar__shape-layer-popover")).toHaveCSS("pointer-events", "none");
+
+  await page.getByTestId("shape-layer-menu").click();
+  await expect(page.getByTestId("shape-layer-bring-forward")).toBeEnabled();
+  await page.getByTestId("shape-layer-bring-forward").click();
+
+  await expect.poll(async () => getNodeOrder(page, [backShape.id, frontShape.id]))
+    .toEqual([frontShape.id, backShape.id]);
+
+  await page.getByTestId("shape-layer-menu").click();
+  await expect(page.getByTestId("shape-layer-bring-forward")).toBeDisabled();
+  await expect(page.getByTestId("shape-layer-send-backward")).toBeEnabled();
+});
+
+test("omits the shape edit action from the context menu while keeping double-click text editing", async ({ page }) => {
+  const shape = await addComponent(page, "shape", {
+    x: 220,
+    y: 180,
+    width: 180,
+    height: 110,
+    text: "Toolbar styles",
+  });
+  await addComponent(page, "shape", {
+    x: 460,
+    y: 180,
+    width: 160,
+    height: 100,
+  });
+  const center = await getNodePageCenter(page, shape.id);
+
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("canvas-shape-text-editor")).toBeVisible();
+  await page.getByTestId("canvas-shape-text-editor").press("Escape");
+  await expect(page.getByTestId("canvas-shape-text-editor")).toBeHidden();
+
+  await page.evaluate(() => {
+    window.__shapeContextMenuPrevented = null;
+    document.addEventListener("contextmenu", (event) => {
+      window.setTimeout(() => {
+        window.__shapeContextMenuPrevented = event.defaultPrevented;
+      }, 0);
+    }, { capture: true, once: true });
+    window.__APP_TEST_API__.setEditorTool("shape");
+  });
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__shapeContextMenuPrevented)).toBe(true);
+  await expect.poll(async () => (
+    page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.classList.contains("is-context-open"))
+  )).toBe(true);
+  await expect.poll(async () => {
+    const box = await page.locator(".toolbar__shape-layer-popover").boundingBox();
+    return Math.abs(box.x - center.x);
+  }).toBeLessThan(8);
+  await expect.poll(async () => {
+    const box = await page.locator(".toolbar__shape-layer-popover").boundingBox();
+    return Math.abs(box.y - center.y);
+  }).toBeLessThan(8);
+  await expect.poll(async () => (
+    page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.matches(":focus-within"))
+  )).toBe(true);
+  await expect(page.locator(".toolbar__shape-layer-popover")).toHaveCSS("pointer-events", "auto");
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
+    .toBe(false);
+});
+
 test("resizes pages and deletes them with the keyboard", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 140, y: 120 });
   const center = await getNodePageCenter(page, pageNode.id);

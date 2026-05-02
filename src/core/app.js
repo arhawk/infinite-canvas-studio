@@ -6,6 +6,7 @@ import { CommandRegistry } from "./commandRegistry.js";
 import { KeybindingRegistry } from "./keybindingRegistry.js";
 import { ContextMenuRegistry } from "./contextMenuRegistry.js";
 import { ComponentRegistry } from "./componentRegistry.js";
+import { FloatingToolbarManager } from "./floatingToolbar.js";
 
 function isSelectableNode(node) {
   return !!node?.hasName?.("selectable");
@@ -23,6 +24,7 @@ export class App {
     this.keybindings = new KeybindingRegistry(this.commands);
     this.contextMenu = new ContextMenuRegistry(this);
     this.components = new ComponentRegistry();
+    this.floatingToolbar = new FloatingToolbarManager(this);
 
     this.stageApi = new StageController(container, {
       onZoomChange: (zoom) => {
@@ -83,6 +85,7 @@ export class App {
     }
     this.plugins.length = 0;
     this.keybindings.destroy();
+    this.floatingToolbar.destroy();
     this.stageApi.destroy();
   }
 
@@ -135,7 +138,7 @@ export class App {
     const node = await this.components.create(type, payload);
     if (!node) return null;
     this.mainLayer.add(node);
-    this.mainLayer.batchDraw();
+    this.mainLayer.draw();
     this.events.emit("node:added", { node });
     return node;
   }
