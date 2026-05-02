@@ -254,9 +254,11 @@ function getNodeSummary(node) {
   }
 
   if (componentType === "image") {
+    const src = node.getAttr("imageSrc") ?? null;
     return {
       hasImageNode: Boolean(node.findOne(".image-node")),
       hasPlaceholder: Boolean(node.findOne(".placeholder-rect")),
+      srcLength: typeof src === "string" ? src.length : 0,
     };
   }
 

@@ -6,11 +6,15 @@ import {
 import { AttachmentsInlineController } from "../attachments/inlineController.js";
 
 const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
+  "image",
   "sticky",
 ]);
 
 function isFloatingToolbarMigrated(node) {
-  return MIGRATED_FLOATING_TOOLBAR_COMPONENTS.has(node?.getAttr?.("componentType"));
+  const selectable = node?.hasName?.("selectable")
+    ? node
+    : node?.findAncestor?.(".selectable", true) ?? null;
+  return MIGRATED_FLOATING_TOOLBAR_COMPONENTS.has(selectable?.getAttr?.("componentType"));
 }
 
 class OpenComponentEditorCommand extends BaseCommand {

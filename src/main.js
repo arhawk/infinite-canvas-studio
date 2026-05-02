@@ -5,6 +5,7 @@ import { ComponentsDropdownPlugin } from "./component/ComponentsDropdown/index.j
 import { PenDropdownPlugin } from "./component/PenDropdown/index.js";
 import { ShapeDropdownPlugin } from "./component/ShapeDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
+import { ImageToolbarPlugin } from "./plugins/imageToolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
 import { DrawingPlugin } from "./plugins/drawing.js";
@@ -180,6 +181,7 @@ app.use(ToolbarPlugin, {
   stickyTextColorEl: ui.stickyTextColor,
   stickyFillColorEl: ui.stickyFillColor,
 });
+app.use(ImageToolbarPlugin);
 
 // Components dropdown — replaces the old sidebar palette
 app.use(BackgroundPlugin, {

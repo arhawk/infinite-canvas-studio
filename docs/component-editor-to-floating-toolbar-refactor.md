@@ -446,7 +446,7 @@ Use this list as the source of truth for migration scope. Do not invent addition
 - [ ] OIP-133 js code runner (`javascriptEditor`)
 - [ ] OIP-134 ranking box (`rankingBox`)
 - [ ] OIP-135 iframe (`iframe`)
-- [ ] OIP-136 image (`image`)
+- [x] OIP-136 image (`image`)
 - [ ] OIP-137 page (`page`)
 - [ ] OIP-138 text (`text`)
 - [x] OIP-139 note (`sticky`)

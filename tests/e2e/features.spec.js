@@ -545,6 +545,104 @@ test("pastes a clipboard image directly into the canvas", async ({ page }) => {
     .toBeLessThan(24);
 });
 
+test("edits image sources from the floating toolbar", async ({ page }) => {
+  const image = await addComponent(page, "image", { x: 180, y: 160 });
+  const center = await getNodePageCenter(page, image.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), image.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("image-panel")).toBeVisible();
+  await expect(page.getByTestId("image-upload")).toBeVisible();
+  await expect(page.getByTestId("image-upload").locator("svg")).toBeVisible();
+  await expect(page.getByTestId("image-connect")).toBeVisible();
+  await expect(page.getByTestId("image-layer-menu")).toBeVisible();
+
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), image.id);
+  expect(opened).toBe(false);
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="48">
+    <rect width="80" height="48" fill="#38bdf8"/>
+    <circle cx="52" cy="24" r="14" fill="#f97316"/>
+  </svg>`;
+  await page.getByTestId("image-upload-input").setInputFiles({
+    name: "toolbar-image.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from(svg),
+  });
+
+  await expect.poll(async () => (await getNode(page, image.id)).summary).toEqual(
+    expect.objectContaining({
+      hasImageNode: true,
+      hasPlaceholder: false,
+    }),
+  );
+  const uploaded = await getNode(page, image.id);
+  expect(uploaded.summary.srcLength).toBeGreaterThan(100);
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect.poll(async () => (await getNode(page, image.id)).summary).toEqual(
+    expect.objectContaining({
+      hasImageNode: false,
+      hasPlaceholder: true,
+      srcLength: 0,
+    }),
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect.poll(async () => (await getNode(page, image.id)).summary).toEqual(
+    expect.objectContaining({
+      hasImageNode: true,
+      hasPlaceholder: false,
+    }),
+  );
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  const restored = await getNode(page, image.id);
+  expect(restored.summary.hasImageNode).toBe(true);
+  expect(restored.summary.hasPlaceholder).toBe(false);
+  expect(restored.summary.srcLength).toBeGreaterThan(100);
+});
+
+test("opens image layer actions from the floating toolbar and right click", async ({ page }) => {
+  const image = await addComponent(page, "image", { x: 180, y: 160 });
+  const sticky = await addComponent(page, "sticky", { x: 480, y: 190 });
+  const center = await getNodePageCenter(page, image.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), image.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("image-panel")).toBeVisible();
+  await expect.poll(async () => getNodeOrder(page, [image.id, sticky.id]))
+    .toEqual([image.id, sticky.id]);
+
+  await page.getByTestId("image-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("image-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__image-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
+  await expect(page.locator(".toolbar__image-layer-popover")).toHaveCSS("pointer-events", "auto");
+  await expect(page.getByTestId("image-layer-bring-forward")).toBeEnabled();
+  await page.getByTestId("image-layer-menu").click();
+  await expect(page.locator(".toolbar__image-layer-popover")).toHaveCSS("pointer-events", "none");
+
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect(page.locator(".toolbar__image-layer-popover")).toHaveCSS("pointer-events", "auto");
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+
+  await page.getByTestId("image-layer-bring-forward").click();
+  await expect.poll(async () => getNodeOrder(page, [image.id, sticky.id]))
+    .toEqual([sticky.id, image.id]);
+});
+
 test("does not create an image component when image paste targets an input", async ({ page }) => {
   const editor = await addComponent(page, "javascriptEditor", {
     x: 120,

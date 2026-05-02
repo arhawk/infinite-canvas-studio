@@ -14,7 +14,7 @@ function loadImage(src) {
   });
 }
 
-function readFileAsDataUrl(file) {
+export function readImageFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ""));
@@ -42,7 +42,7 @@ export class ImageComponent extends BaseComponent {
         getValue: () => null,
         setValue: async (node, file) => {
           if (file instanceof File) {
-            const src = await readFileAsDataUrl(file);
+            const src = await readImageFileAsDataUrl(file);
             await this.updateNode(node, src);
           }
         },
@@ -88,7 +88,7 @@ export class ImageComponent extends BaseComponent {
     });
 
     const text = new Konva.Text({
-      text: "Double-click to\nedit image",
+      text: "Use toolbar to\nupload image",
       width,
       height,
       align: "center",
