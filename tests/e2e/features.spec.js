@@ -1665,42 +1665,168 @@ test("does not show presentation navigation buttons for hidden connections", asy
     .toBe(0);
 });
 
-test("opens the component editor and applies sticky text changes", async ({ page }) => {
+test("edits sticky notes from the floating toolbar and inline text editor", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 220, y: 220 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), sticky.id);
+  await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.resizeNodeBox(nodeId, { width: 360, height: 260 }),
+    sticky.id,
+  );
+  const center = await getNodePageCenter(page, sticky.id);
 
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await expect(page.getByTestId("component-editor-title")).toHaveText("Sticky Note");
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+  await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
+  await waitForPaint(page);
 
-  const textarea = page.getByTestId("component-editor-input-text");
-  await textarea.fill("Updated from Playwright");
-  await page.getByTestId("component-editor-apply").click();
+  await expect(page.getByTestId("sticky-panel")).toBeVisible();
+  await expect(page.getByTestId("sticky-font-size")).toHaveValue("20");
+  await expect(page.getByTestId("sticky-fill-color")).toHaveValue("#ffe082");
+  await expect(page.getByTestId("sticky-text-color")).toHaveValue("#47361c");
+  await page.getByTestId("sticky-style-fill").click();
+  await expect(page.locator("#sticky-fill-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#sticky-fill-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  const fillPopoverLeft = await page.locator(
+    "#sticky-fill-style-trigger + .toolbar__button-style-popover",
+  ).evaluate((element) => Math.round(element.getBoundingClientRect().left));
+  await page.getByTestId("sticky-style-text-color").click();
+  const switchedPopoverState = await page.evaluate(() => {
+    const fillPopover = document.querySelector(
+      "#sticky-fill-style-trigger + .toolbar__button-style-popover",
+    );
+    const textPopover = document.querySelector(
+      "#sticky-text-style-trigger + .toolbar__button-style-popover",
+    );
+    return {
+      fillOpacity: getComputedStyle(fillPopover).opacity,
+      fillPointerEvents: getComputedStyle(fillPopover).pointerEvents,
+      textLeft: Math.round(textPopover.getBoundingClientRect().left),
+      textActive: document.activeElement?.id === "sticky-text-style-trigger",
+    };
+  });
+  expect(switchedPopoverState).toEqual(expect.objectContaining({
+    fillOpacity: "0",
+    fillPointerEvents: "none",
+    textActive: true,
+  }));
+  expect(Math.abs(switchedPopoverState.textLeft - fillPopoverLeft)).toBeLessThanOrEqual(120);
+  await expect(page.locator("#sticky-text-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#sticky-text-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  const layerBox = await page.getByTestId("sticky-layer-menu").boundingBox();
+  await page.mouse.move(layerBox.x + layerBox.width / 2, layerBox.y + layerBox.height / 2);
+  await page.mouse.down();
+  const layerSwitchState = await page.evaluate(() => {
+    const textPopover = document.querySelector(
+      "#sticky-text-style-trigger + .toolbar__button-style-popover",
+    );
+    const layerTrigger = document.querySelector("#sticky-layer-menu-trigger");
+    const layerPopover = document.querySelector(".toolbar__sticky-layer-popover");
+    const triggerRect = layerTrigger.getBoundingClientRect();
+    const layerRect = layerPopover.getBoundingClientRect();
+    return {
+      textOpacity: getComputedStyle(textPopover).opacity,
+      textPointerEvents: getComputedStyle(textPopover).pointerEvents,
+      layerOpacity: getComputedStyle(layerPopover).opacity,
+      layerActive: document.activeElement?.id === "sticky-layer-menu-trigger",
+      layerLeft: Math.round(layerRect.left),
+      triggerRight: Math.round(triggerRect.right),
+    };
+  });
+  expect(layerSwitchState).toEqual(expect.objectContaining({
+    textOpacity: "0",
+    textPointerEvents: "none",
+    layerOpacity: "1",
+    layerActive: true,
+  }));
+  expect(layerSwitchState.layerLeft).toBeGreaterThanOrEqual(layerSwitchState.triggerRight);
+  await page.mouse.up();
 
+  await page.getByTestId("sticky-font-size").evaluate((input) => {
+    input.value = "30";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.getByTestId("sticky-fill-color").evaluate((input) => {
+    input.value = "#bbf7d0";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.getByTestId("sticky-text-color").evaluate((input) => {
+    input.value = "#14532d";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      fill: "#bbf7d0",
+      textColor: "#14532d",
+      fontSize: 30,
+    }));
+
+  await page.evaluate(() => {
+    window.__APP_TEST_API__.undo();
+    window.__APP_TEST_API__.undo();
+    window.__APP_TEST_API__.undo();
+    window.__APP_TEST_API__.undo();
+  });
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      fill: "#ffe082",
+      textColor: "#47361c",
+      fontSize: 20,
+    }));
+
+  await page.evaluate(() => {
+    window.__APP_TEST_API__.redo();
+    window.__APP_TEST_API__.redo();
+    window.__APP_TEST_API__.redo();
+    window.__APP_TEST_API__.redo();
+  });
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      fill: "#bbf7d0",
+      textColor: "#14532d",
+      fontSize: 30,
+    }));
+
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
+  await page.getByTestId("canvas-text-editor").fill("Updated from Playwright");
+  await page.getByTestId("canvas-text-editor").press("Control+Enter");
   await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect
-    .poll(async () => {
-      const node = await getNode(page, sticky.id);
-      return node?.summary?.text ?? "";
-    })
+    .poll(async () => (await getNode(page, sticky.id))?.summary?.text ?? "")
     .toBe("Updated from Playwright");
 
-  await page.getByTestId("undo-action").click();
-  await expect(page.getByTestId("history-action-toast")).toHaveText("Undid editing Sticky Note");
-  await expect
-    .poll(async () => {
-      const node = await getNode(page, sticky.id);
-      return node?.summary?.text ?? "";
-    })
-    .toBe("Sticky note");
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), sticky.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
-  await page.getByTestId("redo-action").click();
-  await expect(page.getByTestId("history-action-toast")).toHaveText("Redid editing Sticky Note");
+  await page.evaluate(() => {
+    window.__stickyContextMenuPrevented = null;
+    document.addEventListener("contextmenu", (event) => {
+      window.setTimeout(() => {
+        window.__stickyContextMenuPrevented = event.defaultPrevented;
+      }, 0);
+    }, { capture: true, once: true });
+  });
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__stickyContextMenuPrevented)).toBe(true);
+  await expect.poll(async () => (
+    page.locator(".toolbar__sticky-layer-tool").evaluate((element) => element.matches(":focus-within"))
+  )).toBe(true);
+  await expect(page.getByTestId("sticky-layer-bring-forward")).toBeDisabled();
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
   await expect
-    .poll(async () => {
-      const node = await getNode(page, sticky.id);
-      return node?.summary?.text ?? "";
-    })
-    .toBe("Updated from Playwright");
+    .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      text: "Updated from Playwright",
+      fill: "#bbf7d0",
+      textColor: "#14532d",
+      fontSize: 30,
+    }));
 });
 
 test("runs JavaScript editor snippets and restores code edits through undo/redo", async ({ page }) => {
@@ -3073,11 +3199,8 @@ test("reorders a selected shape from the floating toolbar layer menu", async ({ 
   const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__shape-layer-popover").boundingBox();
   expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
-  expect(Math.abs(
-    (layerMenuBox.x + layerMenuBox.width) -
-    (layerButtonBox.x + layerButtonBox.width),
-  )).toBeLessThan(4);
-  expect(layerMenuBox.y).toBeGreaterThanOrEqual(layerButtonBox.y + layerButtonBox.height - 1);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await page.getByTestId("shape-layer-menu").click();
   await expect.poll(async () => (
     page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.matches(":focus-within"))

@@ -4,6 +4,7 @@ import {
   NumberEditorField,
   TextareaEditorField,
 } from "../core/baseClasses.js";
+import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 import {
@@ -18,6 +19,9 @@ const MIN_WIDTH = 96;
 const MIN_HEIGHT = 84;
 const MIN_TEXT_WIDTH = 60;
 const MIN_TEXT_HEIGHT = 40;
+export const DEFAULT_STICKY_FILL = "#ffe082";
+export const DEFAULT_STICKY_TEXT_COLOR = "#47361c";
+export const DEFAULT_STICKY_FONT_SIZE = DEFAULT_FONT_SIZE;
 
 function normalizeDimension(value, fallback, minimum) {
   return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
@@ -27,9 +31,9 @@ function syncStickyVisuals(node, data = {}) {
   const width = normalizeDimension(data.width, DEFAULT_WIDTH, MIN_WIDTH);
   const height = normalizeDimension(data.height, DEFAULT_HEIGHT, MIN_HEIGHT);
   const text = typeof data.text === "string" && data.text ? data.text : "Sticky note";
-  const fill = typeof data.fill === "string" && data.fill ? data.fill : "#ffe082";
-  const textColor = typeof data.textColor === "string" && data.textColor ? data.textColor : "#47361c";
-  const fontSize = normalizeDimension(data.fontSize, DEFAULT_FONT_SIZE, 12);
+  const fill = typeof data.fill === "string" && data.fill ? data.fill : DEFAULT_STICKY_FILL;
+  const textColor = typeof data.textColor === "string" && data.textColor ? data.textColor : DEFAULT_STICKY_TEXT_COLOR;
+  const fontSize = normalizeDimension(data.fontSize, DEFAULT_STICKY_FONT_SIZE, 12);
   const rect = node.findOne(".sticky-bg");
   const textNode = node.findOne(".sticky-text");
 
@@ -51,6 +55,28 @@ function syncStickyVisuals(node, data = {}) {
     textNode.wrap("word");
     textNode.verticalAlign("top");
   }
+}
+
+export function getStickyData(node) {
+  const rect = node?.findOne?.(".sticky-bg");
+  const textNode = node?.findOne?.(".sticky-text");
+
+  return {
+    width: rect?.width() ?? node?.width?.() ?? DEFAULT_WIDTH,
+    height: rect?.height() ?? node?.height?.() ?? DEFAULT_HEIGHT,
+    text: textNode?.text() ?? "Sticky note",
+    fill: rect?.fill() ?? DEFAULT_STICKY_FILL,
+    textColor: textNode?.fill() ?? DEFAULT_STICKY_TEXT_COLOR,
+    fontSize: textNode?.fontSize() ?? DEFAULT_STICKY_FONT_SIZE,
+    annotations: serializeNodeTextAnnotations(node),
+  };
+}
+
+export function applyStickyStyle(node, patch = {}) {
+  syncStickyVisuals(node, {
+    ...getStickyData(node),
+    ...patch,
+  });
 }
 
 function installStickyResize(group) {
@@ -140,9 +166,9 @@ export class StickyComponent extends BaseComponent {
     width = DEFAULT_WIDTH,
     height = DEFAULT_HEIGHT,
     text = "Sticky note",
-    fill = "#ffe082",
-    textColor = "#47361c",
-    fontSize = DEFAULT_FONT_SIZE,
+    fill = DEFAULT_STICKY_FILL,
+    textColor = DEFAULT_STICKY_TEXT_COLOR,
+    fontSize = DEFAULT_STICKY_FONT_SIZE,
   }) {
     const group = new Konva.Group({
       x,
@@ -178,6 +204,10 @@ export class StickyComponent extends BaseComponent {
       wrap: "word",
       verticalAlign: "top",
     });
+    EditableTextBehavior.attach(textNode, {
+      fallbackText: "Sticky note",
+      getHistoryNode: () => group,
+    });
 
     group.add(rect, textNode);
     installStickyResize(group);
@@ -194,18 +224,7 @@ export class StickyComponent extends BaseComponent {
   }
 
   serializeNode(node) {
-    const rect = node.findOne(".sticky-bg");
-    const textNode = node.findOne(".sticky-text");
-
-    return {
-      width: rect?.width() ?? node.width() ?? DEFAULT_WIDTH,
-      height: rect?.height() ?? node.height() ?? DEFAULT_HEIGHT,
-      text: textNode?.text() ?? "Sticky note",
-      fill: rect?.fill() ?? "#ffe082",
-      textColor: textNode?.fill() ?? "#47361c",
-      fontSize: textNode?.fontSize() ?? DEFAULT_FONT_SIZE,
-      annotations: serializeNodeTextAnnotations(node),
-    };
+    return getStickyData(node);
   }
 
   async applySerializedData(node, data = {}) {

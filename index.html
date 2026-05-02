@@ -511,6 +511,140 @@
               </div>
             </div>
           </div>
+
+          <div
+            id="sticky-panel"
+            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel toolbar__button-panel"
+            data-testid="sticky-panel"
+            hidden
+          >
+            <div
+              class="toolbar__button-tools"
+              role="group"
+              aria-label="Sticky note appearance"
+            >
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--font-size">
+                <button
+                  id="sticky-font-size-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Font size"
+                  aria-label="Font size"
+                  data-testid="sticky-style-font-size"
+                >
+                  <span class="toolbar__button-font-size-icon" aria-hidden="true">
+                    <span class="toolbar__button-font-size-a">A</span>
+                    <span class="toolbar__button-font-size-mark"></span>
+                  </span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note font size settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="sticky-font-size-label">Font size</span>
+                    <input
+                      id="sticky-font-size"
+                      type="range"
+                      min="12"
+                      max="72"
+                      step="1"
+                      value="20"
+                      data-testid="sticky-font-size"
+                      aria-labelledby="sticky-font-size-label"
+                      title="Font size: 20"
+                    />
+                    <output id="sticky-font-size-value" data-testid="sticky-font-size-value" title="Font size: 20">20</output>
+                  </label>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color">
+                <button
+                  id="sticky-text-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Text color"
+                  aria-label="Text color"
+                  data-testid="sticky-style-text-color"
+                >
+                  <span class="toolbar__button-text-icon" aria-hidden="true">A</span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note text color settings">
+                  <div class="toolbar__button-color-grid" id="sticky-text-swatches" aria-label="Sticky note text colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom text color">
+                    <span class="toolbar__sr-only">Custom text color</span>
+                    <input
+                      id="sticky-text-color"
+                      type="color"
+                      value="#47361c"
+                      aria-label="Custom text color"
+                      title="Text color"
+                      data-testid="sticky-text-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color">
+                <button
+                  id="sticky-fill-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Card color"
+                  aria-label="Card color"
+                  data-testid="sticky-style-fill"
+                >
+                  <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note card color settings">
+                  <div class="toolbar__button-color-grid" id="sticky-fill-swatches" aria-label="Sticky note card colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom card color">
+                    <span class="toolbar__sr-only">Custom card color</span>
+                    <input
+                      id="sticky-fill-color"
+                      type="color"
+                      value="#ffe082"
+                      aria-label="Custom card color"
+                      title="Card color"
+                      data-testid="sticky-fill-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__sticky-layer-tool"
+                data-popover-offset="none"
+              >
+                <button
+                  id="sticky-layer-menu-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Layer order"
+                  aria-label="Layer order"
+                  data-testid="sticky-layer-menu"
+                >
+                  <i data-lucide="ellipsis" aria-hidden="true"></i>
+                </button>
+                <div class="toolbar__button-style-popover toolbar__sticky-layer-popover" role="menu" aria-label="Sticky note layer order">
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-sticky-layer-action="bring-forward"
+                    data-testid="sticky-layer-bring-forward"
+                  >
+                    Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-sticky-layer-action="send-backward"
+                    data-testid="sticky-layer-send-backward"
+                  >
+                    Send Backward
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </header>
 
         <div class="workspace__content">

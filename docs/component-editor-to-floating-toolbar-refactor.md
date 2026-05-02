@@ -188,6 +188,8 @@ Clicking the trigger should toggle the menu:
 
 - If closed, focus opens it through `:focus-within`.
 - If already open, blur the active element and clear any context-menu positioning.
+- Normal click opens the layer menu to the right of the `...` button, not below the toolbar.
+- Keep this menu compact. It should not cover the toolbar-to-node selection handle when there is room to open sideways.
 
 Right-click behavior is separate:
 
@@ -203,6 +205,20 @@ Use the shape code in `src/plugins/toolbar.js` as the reference for this, especi
 - `closeShapeLayerMenu`
 - `positionShapeLayerMenuAtPoint`
 - `syncShapeLayerActions`
+
+Regular style popovers such as font size and colors should stay visually near their trigger. The shared floating toolbar positioning may flip a popover above the toolbar when it would cover the selected node, and only falls back to horizontal avoidance when both the default and flipped placements would collide.
+
+### Shared Color Picker
+
+Do not create one-off color palette implementations for migrated components.
+
+Use `src/lib/colorToolbar.js`:
+
+- `ColorToolbarController`
+- `DEFAULT_COLOR_SWATCHES`
+- `normalizeHexColor`
+
+The shape, button, and sticky toolbars all use this controller. New toolbar color controls should register their target inputs and swatch containers with `ColorToolbarController` instead of hand-writing swatch grids, custom color popovers, eyedropper wiring, or recent color state.
 
 ## Migration Recipe
 
@@ -415,7 +431,7 @@ Behavior that should be copied:
 - Layer actions are in `...`, not visible as top-level buttons.
 - Disabled states are computed from the current selection.
 - Right-click opens the same menu as `...`.
-- Normal click `...` is anchored to the button.
+- Normal click `...` opens to the right of the button.
 - Right-click menu is anchored to the mouse.
 - The menu is toggleable.
 
@@ -430,7 +446,7 @@ Use this list as the source of truth for migration scope. Do not invent addition
 - [ ] OIP-136 image (`image`)
 - [ ] OIP-137 page (`page`)
 - [ ] OIP-138 text (`text`)
-- [ ] OIP-139 note (`sticky`)
+- [x] OIP-139 note (`sticky`)
 
 ## Definition Of Done For One Component
 

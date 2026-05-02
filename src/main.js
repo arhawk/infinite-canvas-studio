@@ -96,6 +96,11 @@ const ui = {
   buttonStrokeWidthValue: getRequiredElement("#button-stroke-width-value"),
   buttonOpacity: getRequiredElement("#button-opacity"),
   buttonOpacityValue: getRequiredElement("#button-opacity-value"),
+  stickyPanel: getRequiredElement("#sticky-panel"),
+  stickyFontSize: getRequiredElement("#sticky-font-size"),
+  stickyFontSizeValue: getRequiredElement("#sticky-font-size-value"),
+  stickyTextColor: getRequiredElement("#sticky-text-color"),
+  stickyFillColor: getRequiredElement("#sticky-fill-color"),
   catalogPanel: getRequiredElement("#catalog-panel"),
   modeCapsuleEdit: getRequiredElement("#mode-capsule-edit"),
   modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
@@ -169,6 +174,11 @@ app.use(ToolbarPlugin, {
   buttonStrokeWidthValueEl: ui.buttonStrokeWidthValue,
   buttonOpacityEl: ui.buttonOpacity,
   buttonOpacityValueEl: ui.buttonOpacityValue,
+  stickyPanelEl: ui.stickyPanel,
+  stickyFontSizeEl: ui.stickyFontSize,
+  stickyFontSizeValueEl: ui.stickyFontSizeValue,
+  stickyTextColorEl: ui.stickyTextColor,
+  stickyFillColorEl: ui.stickyFillColor,
 });
 
 // Components dropdown — replaces the old sidebar palette

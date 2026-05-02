@@ -5,6 +5,14 @@ import {
 } from "../core/baseClasses.js";
 import { AttachmentsInlineController } from "../attachments/inlineController.js";
 
+const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
+  "sticky",
+]);
+
+function isFloatingToolbarMigrated(node) {
+  return MIGRATED_FLOATING_TOOLBAR_COMPONENTS.has(node?.getAttr?.("componentType"));
+}
+
 class OpenComponentEditorCommand extends BaseCommand {
   static commandId = "component:edit";
   static label = "Edit Component";
@@ -33,7 +41,7 @@ class OpenComponentEditorMenuItem extends BaseContextMenuItem {
   };
 
   condition(node) {
-    return !!this.app.components.getEditor(node);
+    return !isFloatingToolbarMigrated(node) && !!this.app.components.getEditor(node);
   }
 
   execute(node) {
@@ -139,6 +147,10 @@ export class ComponentEditorPlugin extends BasePlugin {
       }
       if (selectable?.getAttr?.("componentType") === "text") {
         selectable.openInlineEditor?.(event);
+        return;
+      }
+      if (selectable?.getAttr?.("componentType") === "sticky") {
+        selectable.findOne?.(".sticky-text")?.openInlineEditor?.(event);
         return;
       }
 
@@ -294,6 +306,7 @@ export class ComponentEditorPlugin extends BasePlugin {
   }
 
   open(node) {
+    if (isFloatingToolbarMigrated(node)) return;
     const editor = this.app.components.getEditor(node);
     if (!editor) return;
 

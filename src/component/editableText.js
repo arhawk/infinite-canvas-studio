@@ -1,5 +1,5 @@
 export class EditableTextBehavior {
-  static attach(textNode, { fallbackText = "Text" } = {}) {
+  static attach(textNode, { fallbackText = "Text", getHistoryNode = null } = {}) {
     const openInlineEditor = (event = {}) => {
       if (textNode.getAttr("inlineEditing")) return;
 
@@ -81,10 +81,11 @@ export class EditableTextBehavior {
 
         const nextText = area.value || fallbackText;
         restoreNodeState();
+        const historyNode = getHistoryNode?.(textNode) ?? textNode;
         if (nextText !== currentText) {
-          app?.events.emit("node:change:start", { node: textNode });
+          app?.events.emit("node:change:start", { node: historyNode });
           textNode.text(nextText);
-          app?.events.emit("node:changed", { node: textNode });
+          app?.events.emit("node:changed", { node: historyNode });
         }
 
         textNode.getLayer()?.batchDraw();

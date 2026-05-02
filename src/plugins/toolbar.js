@@ -24,6 +24,17 @@ import {
   getButtonData,
   normalizeButtonShapeType,
 } from "../component/button.js";
+import {
+  DEFAULT_STICKY_FILL,
+  DEFAULT_STICKY_FONT_SIZE,
+  DEFAULT_STICKY_TEXT_COLOR,
+  applyStickyStyle,
+  getStickyData,
+} from "../component/sticky.js";
+import {
+  ColorToolbarController,
+  DEFAULT_COLOR_SWATCHES,
+} from "../lib/colorToolbar.js";
 import { renderIcons } from "../lib/icons.js";
 
 const DRAWING_TOOL_IDS = ["pen", "pencil", "highlighter"];
@@ -74,20 +85,15 @@ const DEFAULT_BUTTON_PANEL_STATE = {
   textColor: DEFAULT_BUTTON_TEXT_COLOR,
   fontSize: DEFAULT_BUTTON_FONT_SIZE,
 };
+const DEFAULT_STICKY_PANEL_STATE = {
+  fill: DEFAULT_STICKY_FILL,
+  textColor: DEFAULT_STICKY_TEXT_COLOR,
+  fontSize: DEFAULT_STICKY_FONT_SIZE,
+};
 const BUTTON_PANEL_VIEWPORT_MARGIN = 12;
 const BUTTON_PANEL_ANCHOR_GAP = 64;
 const BUTTON_POPOVER_NODE_CLEARANCE = 10;
-const BUTTON_STYLE_SWATCHES = [
-  "transparent",
-  "#ffffff",
-  "#fff1b8",
-  "#fed7aa",
-  "#fecaca",
-  "#bbf7d0",
-  "#bfdbfe",
-  "#ddd6fe",
-  "#1d1b16",
-];
+const BUTTON_STYLE_SWATCHES = DEFAULT_COLOR_SWATCHES;
 
 function resolveSelectable(target) {
   if (!target) return null;
@@ -197,186 +203,6 @@ function formatPercentValue(value) {
   return `${Math.round((Number.isFinite(numeric) ? numeric : 0) * 100)}%`;
 }
 
-function normalizeHexColor(value, fallback = "#000000") {
-  const text = typeof value === "string" ? value.trim() : "";
-  const shortMatch = text.match(/^#([0-9a-f]{3})$/i);
-  if (shortMatch) {
-    return `#${shortMatch[1].split("").map((char) => `${char}${char}`).join("")}`.toLowerCase();
-  }
-
-  if (/^#[0-9a-f]{6}$/i.test(text)) {
-    return text.toLowerCase();
-  }
-
-  return fallback;
-}
-
-function hexToRgb(value) {
-  const hex = normalizeHexColor(value).slice(1);
-  return {
-    r: Number.parseInt(hex.slice(0, 2), 16),
-    g: Number.parseInt(hex.slice(2, 4), 16),
-    b: Number.parseInt(hex.slice(4, 6), 16),
-  };
-}
-
-function rgbToHex({ r, g, b }) {
-  const toHex = (channel) => {
-    const numeric = Number(channel);
-    const safe = Number.isFinite(numeric) ? clamp(numeric, 0, 255) : 0;
-    return Math.round(safe).toString(16).padStart(2, "0");
-  };
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function rgbToHsv({ r, g, b }) {
-  const red = clamp(Number(r), 0, 255) / 255;
-  const green = clamp(Number(g), 0, 255) / 255;
-  const blue = clamp(Number(b), 0, 255) / 255;
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const delta = max - min;
-  let h = 0;
-
-  if (delta !== 0) {
-    if (max === red) {
-      h = 60 * (((green - blue) / delta) % 6);
-    } else if (max === green) {
-      h = 60 * ((blue - red) / delta + 2);
-    } else {
-      h = 60 * ((red - green) / delta + 4);
-    }
-  }
-
-  if (h < 0) h += 360;
-
-  return {
-    h,
-    s: max === 0 ? 0 : delta / max,
-    v: max,
-  };
-}
-
-function rgbToHsl({ r, g, b }) {
-  const red = clamp(Number(r), 0, 255) / 255;
-  const green = clamp(Number(g), 0, 255) / 255;
-  const blue = clamp(Number(b), 0, 255) / 255;
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const delta = max - min;
-  const lightness = (max + min) / 2;
-  let hue = 0;
-  let saturation = 0;
-
-  if (delta !== 0) {
-    saturation = delta / (1 - Math.abs(2 * lightness - 1));
-    if (max === red) {
-      hue = 60 * (((green - blue) / delta) % 6);
-    } else if (max === green) {
-      hue = 60 * ((blue - red) / delta + 2);
-    } else {
-      hue = 60 * ((red - green) / delta + 4);
-    }
-  }
-
-  if (hue < 0) hue += 360;
-
-  return {
-    h: Math.round(hue),
-    s: Math.round(saturation * 100),
-    l: Math.round(lightness * 100),
-  };
-}
-
-function hslToRgb({ h, s, l }) {
-  const hue = ((Number(h) % 360) + 360) % 360;
-  const saturation = clamp(Number(s), 0, 100) / 100;
-  const lightness = clamp(Number(l), 0, 100) / 100;
-  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = lightness - chroma / 2;
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-
-  if (hue < 60) {
-    red = chroma;
-    green = x;
-  } else if (hue < 120) {
-    red = x;
-    green = chroma;
-  } else if (hue < 180) {
-    green = chroma;
-    blue = x;
-  } else if (hue < 240) {
-    green = x;
-    blue = chroma;
-  } else if (hue < 300) {
-    red = x;
-    blue = chroma;
-  } else {
-    red = chroma;
-    blue = x;
-  }
-
-  return {
-    r: (red + m) * 255,
-    g: (green + m) * 255,
-    b: (blue + m) * 255,
-  };
-}
-
-function parseHexColorInput(value) {
-  const text = String(value ?? "").trim();
-  const withHash = text.startsWith("#") ? text : `#${text}`;
-  const shortMatch = withHash.match(/^#([0-9a-f]{3})$/i);
-  if (shortMatch) {
-    return `#${shortMatch[1].split("").map((char) => `${char}${char}`).join("")}`.toLowerCase();
-  }
-  if (/^#[0-9a-f]{6}$/i.test(withHash)) {
-    return withHash.toLowerCase();
-  }
-  return null;
-}
-
-function hsvToRgb({ h, s, v }) {
-  const hue = ((Number(h) % 360) + 360) % 360;
-  const saturation = clamp(Number(s), 0, 1);
-  const value = clamp(Number(v), 0, 1);
-  const chroma = value * saturation;
-  const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = value - chroma;
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-
-  if (hue < 60) {
-    red = chroma;
-    green = x;
-  } else if (hue < 120) {
-    red = x;
-    green = chroma;
-  } else if (hue < 180) {
-    green = chroma;
-    blue = x;
-  } else if (hue < 240) {
-    green = x;
-    blue = chroma;
-  } else if (hue < 300) {
-    red = x;
-    blue = chroma;
-  } else {
-    red = chroma;
-    blue = x;
-  }
-
-  return {
-    r: (red + m) * 255,
-    g: (green + m) * 255,
-    b: (blue + m) * 255,
-  };
-}
-
 function isFiniteRect(rect) {
   return Boolean(
     rect &&
@@ -438,6 +264,11 @@ export class ToolbarPlugin extends BasePlugin {
       buttonStrokeWidthValueEl,
       buttonOpacityEl,
       buttonOpacityValueEl,
+      stickyPanelEl,
+      stickyFontSizeEl,
+      stickyFontSizeValueEl,
+      stickyTextColorEl,
+      stickyFillColorEl,
     } = this.options;
 
     this.ui = {
@@ -469,9 +300,15 @@ export class ToolbarPlugin extends BasePlugin {
       buttonStrokeWidthValueEl,
       buttonOpacityEl,
       buttonOpacityValueEl,
+      stickyPanelEl,
+      stickyFontSizeEl,
+      stickyFontSizeValueEl,
+      stickyTextColorEl,
+      stickyFillColorEl,
     };
     this.floatingToolbar = this.app.floatingToolbar ?? null;
     this.pendingShapeLayerContextMenu = null;
+    this.pendingStickyLayerContextMenu = null;
 
     if (!this.floatingToolbar && buttonControlsEl?.parentElement && buttonControlsEl.parentElement !== document.body) {
       const originalParent = buttonControlsEl.parentElement;
@@ -499,6 +336,19 @@ export class ToolbarPlugin extends BasePlugin {
         }
       });
     }
+    if (!this.floatingToolbar && stickyPanelEl?.parentElement && stickyPanelEl.parentElement !== document.body) {
+      const originalParent = stickyPanelEl.parentElement;
+      const originalNextSibling = stickyPanelEl.nextSibling;
+      document.body.append(stickyPanelEl);
+      this.cleanups.push(() => {
+        if (!stickyPanelEl.isConnected) return;
+        if (originalNextSibling?.parentElement === originalParent) {
+          originalParent.insertBefore(stickyPanelEl, originalNextSibling);
+        } else {
+          originalParent.append(stickyPanelEl);
+        }
+      });
+    }
     this.toolbarEl = document.querySelector(".toolbar");
     this.penDropdown = penDropdownPlugin ?? null;
     this.eraserTriggerEl = eraserTriggerEl ?? null;
@@ -521,20 +371,13 @@ export class ToolbarPlugin extends BasePlugin {
     this.shapeToolState = { ...DEFAULT_SHAPE_TOOL_STATE };
     this.buttonPanelState = { ...DEFAULT_BUTTON_PANEL_STATE };
     this.shapePanelState = { ...DEFAULT_SHAPE_PANEL_STATE };
+    this.stickyPanelState = { ...DEFAULT_STICKY_PANEL_STATE };
     this.selectedNodes = [];
     this.selectedButtonNode = null;
     this.selectedShapeNode = null;
+    this.selectedStickyNode = null;
     this.shapePanelPositionFrame = null;
-    this.shapeCustomColors = { text: [], fill: [], border: [] };
-    this.shapeCustomPickers = new Map();
-    this.activeShapeCustomPickerTarget = null;
-    this.buttonCustomColors = {
-      text: [],
-      fill: [],
-      border: [],
-    };
-    this.buttonCustomPickers = new Map();
-    this.activeButtonCustomPickerTarget = null;
+    this.setupColorToolbarControllers();
     this.registerFloatingPanels();
 
     this.buildEraserPanel();
@@ -564,13 +407,13 @@ export class ToolbarPlugin extends BasePlugin {
     }
     if (shapeTextColorEl) {
       this.listenDom(shapeTextColorEl, "input", () => {
-        this.recordShapeCustomColor("text", shapeTextColorEl.value);
+        this.shapeColorToolbar?.recordCustomColor("text", shapeTextColorEl.value);
         this.emitShapePanelChange();
       });
     }
     if (shapeFillColorEl) {
       this.listenDom(shapeFillColorEl, "input", () => {
-        this.recordShapeCustomColor("fill", shapeFillColorEl.value);
+        this.shapeColorToolbar?.recordCustomColor("fill", shapeFillColorEl.value);
         this.emitShapePanelChange();
       });
     }
@@ -579,7 +422,7 @@ export class ToolbarPlugin extends BasePlugin {
     }
     if (shapeStrokeColorEl) {
       this.listenDom(shapeStrokeColorEl, "input", () => {
-        this.recordShapeCustomColor("border", shapeStrokeColorEl.value);
+        this.shapeColorToolbar?.recordCustomColor("border", shapeStrokeColorEl.value);
         this.emitShapePanelChange();
       });
     }
@@ -642,6 +485,18 @@ export class ToolbarPlugin extends BasePlugin {
         });
       }, true);
     }
+    if (stickyPanelEl) {
+      this.app.stage?.on?.("contextmenu.stickyLayerMenu mousedown.stickyLayerMenu", (event) => {
+        this.handleStickyLayerContextMenu(event);
+      });
+      const captureOptions = { capture: true };
+      this.listenDom(document, "contextmenu", (event) => {
+        this.handleStickyLayerNativeContextMenu(event);
+      }, captureOptions);
+      this.listenDom(document, "mousedown", (event) => {
+        this.handleStickyLayerNativeContextMenu(event);
+      }, captureOptions);
+    }
     for (const button of buttonTypeControlsEl.querySelectorAll("[data-button-shape-type]")) {
       this.listenDom(button, "click", () => {
         this.buttonPanelState.shapeType = normalizeButtonShapeType(button.dataset.buttonShapeType);
@@ -653,22 +508,84 @@ export class ToolbarPlugin extends BasePlugin {
       this.queueBrushPanelPositionSync();
       this.queueButtonPanelPositionSync();
       this.queueShapePanelPositionSync();
+      this.queueStickyPanelPositionSync();
     });
     this.listenDom(buttonFontSizeEl, "input", () => this.emitButtonStyleChange());
     this.listenDom(buttonTextColorEl, "input", () => {
-      this.recordButtonCustomColor("text", buttonTextColorEl.value);
+      this.buttonColorToolbar?.recordCustomColor("text", buttonTextColorEl.value);
       this.emitButtonStyleChange();
     });
     this.listenDom(buttonFillColorEl, "input", () => {
-      this.recordButtonCustomColor("fill", buttonFillColorEl.value);
+      this.buttonColorToolbar?.recordCustomColor("fill", buttonFillColorEl.value);
       this.emitButtonStyleChange();
     });
     this.listenDom(buttonStrokeColorEl, "input", () => {
-      this.recordButtonCustomColor("border", buttonStrokeColorEl.value);
+      this.buttonColorToolbar?.recordCustomColor("border", buttonStrokeColorEl.value);
       this.emitButtonStyleChange();
     });
     this.listenDom(buttonStrokeWidthEl, "input", () => this.emitButtonStyleChange());
     this.listenDom(buttonOpacityEl, "input", () => this.emitButtonStyleChange());
+    if (stickyFontSizeEl) {
+      this.listenDom(stickyFontSizeEl, "input", () => this.emitStickyStyleChange());
+    }
+    if (stickyTextColorEl) {
+      this.listenDom(stickyTextColorEl, "input", () => {
+        this.stickyColorToolbar?.recordCustomColor("text", stickyTextColorEl.value);
+        this.emitStickyStyleChange();
+      });
+    }
+    if (stickyFillColorEl) {
+      this.listenDom(stickyFillColorEl, "input", () => {
+        this.stickyColorToolbar?.recordCustomColor("fill", stickyFillColorEl.value);
+        this.emitStickyStyleChange();
+      });
+    }
+    const stickyLayerTriggerEl = stickyPanelEl?.querySelector("#sticky-layer-menu-trigger") ?? null;
+    if (stickyLayerTriggerEl) {
+      let closeStickyLayerMenuOnClick = false;
+      this.listenDom(stickyLayerTriggerEl, "pointerdown", (event) => {
+        closeStickyLayerMenuOnClick = this.isStickyLayerMenuOpen();
+        if (closeStickyLayerMenuOnClick) {
+          event.preventDefault();
+        } else {
+          this.clearStickyLayerContextPosition();
+        }
+      });
+      this.listenDom(stickyLayerTriggerEl, "click", (event) => {
+        if (!closeStickyLayerMenuOnClick) return;
+
+        event.preventDefault();
+        closeStickyLayerMenuOnClick = false;
+        this.closeStickyLayerMenu();
+      });
+    }
+    for (const button of (stickyPanelEl?.querySelectorAll("[data-sticky-layer-action]") ?? [])) {
+      this.listenDom(button, "click", () => {
+        this.runStickyLayerAction(button.dataset.stickyLayerAction);
+        button.blur();
+      });
+    }
+    if (stickyPanelEl) {
+      this.listenDom(stickyPanelEl, "focusin", () => {
+        this.syncStickyPopoverOpenState();
+        this.queueStickyPanelPositionSync();
+      });
+      this.listenDom(stickyPanelEl, "focusout", () => {
+        window.setTimeout(() => {
+          this.syncStickyPopoverOpenState();
+          if (!stickyPanelEl.querySelector(".toolbar__sticky-layer-tool:focus-within")) {
+            this.clearStickyLayerContextPosition();
+          }
+          this.queueStickyPanelPositionSync();
+        }, 0);
+      });
+      this.listenDom(stickyPanelEl, "pointerdown", () => {
+        window.requestAnimationFrame(() => {
+          this.syncStickyPopoverOpenState();
+          this.queueStickyPanelPositionSync();
+        });
+      }, true);
+    }
     if (buttonControlsEl) {
       this.listenDom(buttonControlsEl, "focusin", () => {
         this.syncButtonPopoverOpenState();
@@ -689,21 +606,22 @@ export class ToolbarPlugin extends BasePlugin {
     }
     this.setupButtonStyleSwatches();
     this.setupButtonCustomColorPickers();
+    this.setupStickyStyleSwatches();
+    this.setupStickyCustomColorPickers();
     this.listenDom(document, "pointerdown", (event) => {
-      const target = this.activeButtonCustomPickerTarget;
-      if (!target) return;
-
-      const picker = this.buttonCustomPickers.get(target);
-      if (!picker || picker.field.contains(event.target) || picker.picker.contains(event.target)) return;
-      this.setButtonCustomPickerOpen(target, false);
+      if (!this.buttonColorToolbar?.activeTarget) return;
+      if (this.buttonColorToolbar.containsActiveTarget(event.target)) return;
+      this.buttonColorToolbar.closeActive();
     }, true);
     this.listenDom(document, "pointerdown", (event) => {
-      const target = this.activeShapeCustomPickerTarget;
-      if (!target) return;
-
-      const picker = this.shapeCustomPickers.get(target);
-      if (!picker || picker.field.contains(event.target) || picker.picker.contains(event.target)) return;
-      this.setShapeCustomPickerOpen(target, false);
+      if (!this.shapeColorToolbar?.activeTarget) return;
+      if (this.shapeColorToolbar.containsActiveTarget(event.target)) return;
+      this.shapeColorToolbar.closeActive();
+    }, true);
+    this.listenDom(document, "pointerdown", (event) => {
+      if (!this.stickyColorToolbar?.activeTarget) return;
+      if (this.stickyColorToolbar.containsActiveTarget(event.target)) return;
+      this.stickyColorToolbar.closeActive();
     }, true);
     this.listenDom(drawingVisibilityToggleEl, "click", () => {
       this.getDrawingPlugin()?.toggleDrawLayerVisibility?.();
@@ -738,13 +656,19 @@ export class ToolbarPlugin extends BasePlugin {
         nodes.length === 1 && nodes[0]?.getAttr?.("componentType") === "shape"
           ? nodes[0]
           : null;
+      this.selectedStickyNode =
+        nodes.length === 1 && nodes[0]?.getAttr?.("componentType") === "sticky"
+          ? nodes[0]
+          : null;
       this.loadButtonUiFromSelection();
       this.loadShapeUiFromSelection();
+      this.loadStickyUiFromSelection();
       this.syncUi();
     });
     this.listen("viewport:change", () => {
       this.queueButtonPanelPositionSync();
       this.queueShapePanelPositionSync();
+      this.queueStickyPanelPositionSync();
     });
     this.listen("node:changing", ({ node } = {}) => {
       if (this.isSelectedButtonAffectedByNode(node)) {
@@ -752,6 +676,9 @@ export class ToolbarPlugin extends BasePlugin {
       }
       if (this.isSelectedShapeAffectedByNode(node)) {
         this.queueShapePanelPositionSync();
+      }
+      if (this.isSelectedStickyAffectedByNode(node)) {
+        this.queueStickyPanelPositionSync();
       }
     });
     this.listen("node:changed", ({ node } = {}) => {
@@ -767,6 +694,12 @@ export class ToolbarPlugin extends BasePlugin {
       } else if (this.isSelectedShapeAffectedByNode(node)) {
         this.queueShapePanelPositionSync();
       }
+      if (node === this.selectedStickyNode) {
+        this.loadStickyUiFromSelection();
+        this.syncUi();
+      } else if (this.isSelectedStickyAffectedByNode(node)) {
+        this.queueStickyPanelPositionSync();
+      }
     });
     this.listen("draw:added", () => this.syncUi());
     this.listen("draw:removed", () => this.syncUi());
@@ -780,12 +713,14 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncDrawingUiToActiveTool();
     this.loadButtonUiFromSelection();
     this.loadShapeUiFromSelection();
+    this.loadStickyUiFromSelection();
     this.emitStrokeChange("pen");
     this.emitShapeStyleChange();
     this.syncUi();
 
     this.cleanups.push(() => {
       this.app.stage?.off?.(".shapeLayerMenu");
+      this.app.stage?.off?.(".stickyLayerMenu");
       this.app.keybindings.unregister("Mod+Shift+F");
       if (this.brushPanelPositionFrame != null) {
         window.cancelAnimationFrame(this.brushPanelPositionFrame);
@@ -857,6 +792,160 @@ export class ToolbarPlugin extends BasePlugin {
         this.floatingToolbar.registerButton("button-panel", button.dataset.buttonShapeType, button);
       }
     }
+
+    if (this.ui.stickyPanelEl) {
+      this.floatingToolbar.registerPanel({
+        id: "sticky-panel",
+        element: this.ui.stickyPanelEl,
+        getAnchorNode: () => this.selectedStickyNode,
+        getAnchorRect: (node) => {
+          const anchorNode = node?.findOne?.(".sticky-bg") ?? node;
+          return anchorNode?.getClientRect?.({ relativeTo: this.app.stage }) ?? null;
+        },
+        viewportMargin: BUTTON_PANEL_VIEWPORT_MARGIN,
+        anchorGap: BUTTON_PANEL_ANCHOR_GAP,
+        popover: popoverConfig,
+      });
+      this.cleanups.push(() => this.floatingToolbar?.unregisterPanel("sticky-panel"));
+
+      for (const button of (this.ui.stickyPanelEl.querySelectorAll("[data-sticky-layer-action]") ?? [])) {
+        this.floatingToolbar.registerButton(
+          "sticky-panel",
+          `layer:${button.dataset.stickyLayerAction}`,
+          button,
+        );
+      }
+    }
+  }
+
+  setupColorToolbarControllers() {
+    const withoutTransparent = BUTTON_STYLE_SWATCHES.filter((color) => color !== "transparent");
+    const listenDom = (...args) => this.listenDom(...args);
+
+    this.shapeColorToolbar = new ColorToolbarController({
+      listenDom,
+      renderIcons,
+      targets: {
+        text: {
+          input: this.ui.shapeTextColorEl,
+          swatchesEl: this.ui.shapePanelEl?.querySelector?.("#shape-text-swatches") ?? null,
+          label: "Text color",
+          baseColors: withoutTransparent,
+          onChange: () => this.emitShapePanelChange(),
+        },
+        fill: {
+          input: this.ui.shapeFillColorEl,
+          swatchesEl: this.ui.shapePanelEl?.querySelector?.("#shape-fill-swatches") ?? null,
+          label: "Fill color",
+          baseColors: BUTTON_STYLE_SWATCHES,
+          onChange: () => this.emitShapePanelChange(),
+          onSwatch: (color, { input }) => {
+            if (!input || !this.ui.shapeOpacityEl) return;
+            if (color === "transparent") {
+              this.ui.shapeOpacityEl.value = "0";
+            } else {
+              input.value = color;
+              if (Number(this.ui.shapeOpacityEl.value) === 0) {
+                this.ui.shapeOpacityEl.value = "1";
+              }
+            }
+            this.emitShapePanelChange();
+          },
+        },
+        border: {
+          input: this.ui.shapeStrokeColorEl,
+          swatchesEl: this.ui.shapePanelEl?.querySelector?.("#shape-border-swatches") ?? null,
+          label: "Border color",
+          baseColors: BUTTON_STYLE_SWATCHES,
+          onChange: () => this.emitShapePanelChange(),
+          onSwatch: (color, { input }) => {
+            if (!input || !this.ui.shapeStrokeWidthEl) return;
+            if (color === "transparent") {
+              this.ui.shapeStrokeWidthEl.value = "0";
+            } else {
+              input.value = color;
+              if (Number(this.ui.shapeStrokeWidthEl.value) === 0) {
+                this.ui.shapeStrokeWidthEl.value = "2";
+              }
+            }
+            this.emitShapePanelChange();
+          },
+        },
+      },
+    });
+
+    this.buttonColorToolbar = new ColorToolbarController({
+      listenDom,
+      renderIcons,
+      targets: {
+        text: {
+          input: this.ui.buttonTextColorEl,
+          swatchesEl: this.ui.buttonControlsEl?.querySelector?.("#button-text-swatches") ?? null,
+          label: "Text color",
+          baseColors: withoutTransparent,
+          onChange: () => this.emitButtonStyleChange(),
+        },
+        fill: {
+          input: this.ui.buttonFillColorEl,
+          swatchesEl: this.ui.buttonControlsEl?.querySelector?.("#button-fill-swatches") ?? null,
+          label: "Fill color",
+          baseColors: BUTTON_STYLE_SWATCHES,
+          onChange: () => this.emitButtonStyleChange(),
+          onSwatch: (color, { input }) => {
+            if (!input || !this.ui.buttonOpacityEl) return;
+            if (color === "transparent") {
+              this.ui.buttonOpacityEl.value = "0";
+            } else {
+              input.value = color;
+              if (Number(this.ui.buttonOpacityEl.value) === 0) {
+                this.ui.buttonOpacityEl.value = "1";
+              }
+            }
+            this.emitButtonStyleChange();
+          },
+        },
+        border: {
+          input: this.ui.buttonStrokeColorEl,
+          swatchesEl: this.ui.buttonControlsEl?.querySelector?.("#button-border-swatches") ?? null,
+          label: "Border color",
+          baseColors: BUTTON_STYLE_SWATCHES,
+          onChange: () => this.emitButtonStyleChange(),
+          onSwatch: (color, { input }) => {
+            if (!input || !this.ui.buttonStrokeWidthEl) return;
+            if (color === "transparent") {
+              this.ui.buttonStrokeWidthEl.value = "0";
+            } else {
+              input.value = color;
+              if (Number(this.ui.buttonStrokeWidthEl.value) === 0) {
+                this.ui.buttonStrokeWidthEl.value = String(DEFAULT_BUTTON_STROKE_WIDTH);
+              }
+            }
+            this.emitButtonStyleChange();
+          },
+        },
+      },
+    });
+
+    this.stickyColorToolbar = new ColorToolbarController({
+      listenDom,
+      renderIcons,
+      targets: {
+        text: {
+          input: this.ui.stickyTextColorEl,
+          swatchesEl: this.ui.stickyPanelEl?.querySelector?.("#sticky-text-swatches") ?? null,
+          label: "Text color",
+          baseColors: withoutTransparent,
+          onChange: () => this.emitStickyStyleChange(),
+        },
+        fill: {
+          input: this.ui.stickyFillColorEl,
+          swatchesEl: this.ui.stickyPanelEl?.querySelector?.("#sticky-fill-swatches") ?? null,
+          label: "Card color",
+          baseColors: withoutTransparent,
+          onChange: () => this.emitStickyStyleChange(),
+        },
+      },
+    });
   }
 
   buildEraserPanel() {
@@ -1153,6 +1242,86 @@ export class ToolbarPlugin extends BasePlugin {
     this.queueShapePanelPositionSync();
   }
 
+  runStickyLayerAction(actionId) {
+    const action = SHAPE_LAYER_ACTIONS.find((entry) => entry.id === actionId);
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedStickyNode;
+    if (!action || !selection || node?.getAttr?.("componentType") !== "sticky") return;
+
+    selection[action.run]?.(node);
+    this.syncStickyLayerActions();
+    this.queueStickyPanelPositionSync();
+  }
+
+  handleStickyLayerContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.evt?.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit") return;
+
+    const node = resolveSelectableFromStageEvent(this.app, event);
+    if (node?.getAttr?.("componentType") !== "sticky") return;
+
+    event.evt?.preventDefault?.();
+    event.evt?.stopPropagation?.();
+    event.cancelBubble = true;
+    if (isRightMouseDown) {
+      return;
+    }
+
+    this.openStickyLayerMenu(node, this.getShapeLayerContextPoint(event));
+  }
+
+  handleStickyLayerNativeContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit") return;
+
+    const point = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    const directNode = resolveSelectableFromNativeEvent(this.app, event);
+    const pending = isContextMenuEvent ? this.getPendingStickyLayerContextMenu() : null;
+    const node = directNode?.getAttr?.("componentType") === "sticky"
+      ? directNode
+      : pending?.node;
+    if (node?.getAttr?.("componentType") !== "sticky") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (isRightMouseDown) {
+      this.pendingStickyLayerContextMenu = {
+        node,
+        point,
+        time: this.getNow(),
+      };
+      return;
+    }
+
+    this.pendingStickyLayerContextMenu = null;
+    this.openStickyLayerMenu(node, {
+      x: Number.isFinite(point.x) ? point.x : pending?.point?.x,
+      y: Number.isFinite(point.y) ? point.y : pending?.point?.y,
+    });
+  }
+
+  getPendingStickyLayerContextMenu() {
+    const pending = this.pendingStickyLayerContextMenu;
+    if (!pending) return null;
+
+    if (
+      !pending.node?.getStage?.() ||
+      this.getNow() - pending.time > SHAPE_LAYER_CONTEXT_PENDING_MS
+    ) {
+      this.pendingStickyLayerContextMenu = null;
+      return null;
+    }
+
+    return pending;
+  }
+
   handleShapeLayerContextMenu(event) {
     const isContextMenuEvent = event.type === "contextmenu";
     const isRightMouseDown = event.type === "mousedown" && event.evt?.button === 2;
@@ -1277,12 +1446,42 @@ export class ToolbarPlugin extends BasePlugin {
     });
   }
 
+  openStickyLayerMenu(node, clientPoint = null) {
+    if (node?.getAttr?.("componentType") !== "sticky") return;
+
+    this.app.getPlugin?.("context-menu")?.hideMenu?.();
+    this.getSelectionPlugin()?.setSelected?.([node]);
+    this.selectedStickyNode = node;
+    this.loadStickyUiFromSelection();
+    this.syncUi();
+    this.floatingToolbar?.setPanelVisible?.("sticky-panel", true);
+    this.queueStickyPanelPositionSync();
+
+    window.requestAnimationFrame(() => {
+      const trigger = this.ui.stickyPanelEl?.querySelector?.("#sticky-layer-menu-trigger");
+      trigger?.focus?.({ preventScroll: true });
+      if (clientPoint) {
+        this.positionStickyLayerMenuAtPoint(clientPoint);
+      }
+      this.syncStickyPopoverOpenState();
+      this.queueStickyPanelPositionSync();
+    });
+  }
+
   getShapeLayerToolEl() {
     return this.ui.shapePanelEl?.querySelector?.(".toolbar__shape-layer-tool") ?? null;
   }
 
   getShapeLayerPopoverEl() {
     return this.ui.shapePanelEl?.querySelector?.(".toolbar__shape-layer-popover") ?? null;
+  }
+
+  getStickyLayerToolEl() {
+    return this.ui.stickyPanelEl?.querySelector?.(".toolbar__sticky-layer-tool") ?? null;
+  }
+
+  getStickyLayerPopoverEl() {
+    return this.ui.stickyPanelEl?.querySelector?.(".toolbar__sticky-layer-popover") ?? null;
   }
 
   isShapeLayerMenuOpen() {
@@ -1301,6 +1500,22 @@ export class ToolbarPlugin extends BasePlugin {
     this.queueShapePanelPositionSync();
   }
 
+  isStickyLayerMenuOpen() {
+    const tool = this.getStickyLayerToolEl();
+    return Boolean(tool?.matches?.(":focus-within"));
+  }
+
+  closeStickyLayerMenu() {
+    const tool = this.getStickyLayerToolEl();
+    const activeElement = document.activeElement;
+    if (tool?.contains?.(activeElement)) {
+      activeElement.blur?.();
+    }
+    this.clearStickyLayerContextPosition();
+    this.syncStickyPopoverOpenState();
+    this.queueStickyPanelPositionSync();
+  }
+
   clearShapeLayerContextPosition() {
     const tool = this.getShapeLayerToolEl();
     const popover = this.getShapeLayerPopoverEl();
@@ -1309,6 +1524,20 @@ export class ToolbarPlugin extends BasePlugin {
     tool.classList.remove("is-context-open");
     tool.style.removeProperty("--shape-layer-menu-left");
     tool.style.removeProperty("--shape-layer-menu-top");
+    popover?.style.removeProperty("position");
+    popover?.style.removeProperty("top");
+    popover?.style.removeProperty("right");
+    popover?.style.removeProperty("left");
+    popover?.style.removeProperty("transform");
+    popover?.style.removeProperty("z-index");
+  }
+
+  clearStickyLayerContextPosition() {
+    const tool = this.getStickyLayerToolEl();
+    const popover = this.getStickyLayerPopoverEl();
+    if (!tool) return;
+
+    tool.classList.remove("is-context-open");
     popover?.style.removeProperty("position");
     popover?.style.removeProperty("top");
     popover?.style.removeProperty("right");
@@ -1342,6 +1571,29 @@ export class ToolbarPlugin extends BasePlugin {
     popover.style.setProperty("z-index", "100", "important");
   }
 
+  positionStickyLayerMenuAtPoint(point) {
+    const tool = this.getStickyLayerToolEl();
+    const popover = this.getStickyLayerPopoverEl();
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!tool || !popover || !Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    tool.classList.add("is-context-open");
+    const margin = 8;
+    const width = popover.offsetWidth || popover.getBoundingClientRect().width || 140;
+    const height = popover.offsetHeight || popover.getBoundingClientRect().height || 60;
+    const left = clamp(x, margin, Math.max(margin, window.innerWidth - width - margin));
+    const top = clamp(y, margin, Math.max(margin, window.innerHeight - height - margin));
+
+    const toolRect = tool.getBoundingClientRect();
+    popover.style.setProperty("position", "absolute", "important");
+    popover.style.setProperty("top", `${Math.round(top - toolRect.top)}px`, "important");
+    popover.style.setProperty("right", "auto", "important");
+    popover.style.setProperty("left", `${Math.round(left - toolRect.left)}px`, "important");
+    popover.style.setProperty("transform", "none", "important");
+    popover.style.setProperty("z-index", "100", "important");
+  }
+
   syncShapeLayerActions() {
     const selection = this.getSelectionPlugin();
     const node = this.selectedShapeNode;
@@ -1356,6 +1608,34 @@ export class ToolbarPlugin extends BasePlugin {
         ?.querySelector?.(`[data-shape-layer-action="${action.id}"]`) ?? null;
       const disabled = !canTargetShape || !selection[action.canRun]?.(node);
       if (!this.floatingToolbar?.setButtonState?.("shape-panel", `layer:${action.id}`, {
+        disabled,
+        title: action.label,
+        label: action.label,
+      })) {
+        if (button) {
+          button.disabled = disabled;
+          button.setAttribute("aria-disabled", String(disabled));
+          button.title = action.label;
+          button.setAttribute("aria-label", action.label);
+        }
+      }
+    }
+  }
+
+  syncStickyLayerActions() {
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedStickyNode;
+    const canTargetSticky = Boolean(
+      selection &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "sticky",
+    );
+
+    for (const action of SHAPE_LAYER_ACTIONS) {
+      const button = this.ui.stickyPanelEl
+        ?.querySelector?.(`[data-sticky-layer-action="${action.id}"]`) ?? null;
+      const disabled = !canTargetSticky || !selection[action.canRun]?.(node);
+      if (!this.floatingToolbar?.setButtonState?.("sticky-panel", `layer:${action.id}`, {
         disabled,
         title: action.label,
         label: action.label,
@@ -1604,410 +1884,31 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   setupShapeStyleSwatches() {
-    const { shapePanelEl } = this.ui;
-    if (!shapePanelEl) return;
-    const textSwatchesEl = shapePanelEl.querySelector("#shape-text-swatches");
-    const fillSwatchesEl = shapePanelEl.querySelector("#shape-fill-swatches");
-    const borderSwatchesEl = shapePanelEl.querySelector("#shape-border-swatches");
-
-    this._renderShapeStyleSwatches(textSwatchesEl, "text");
-    this._renderShapeStyleSwatches(fillSwatchesEl, "fill");
-    this._renderShapeStyleSwatches(borderSwatchesEl, "border");
-  }
-
-  _renderShapeStyleSwatches(container, target) {
-    if (!container) return;
-    const customColorEl =
-      container.querySelector(".toolbar__button-custom-color") ??
-      Array.from(container.parentElement?.children ?? [])
-        .find((child) => child.classList?.contains?.("toolbar__button-custom-color")) ??
-      null;
-    customColorEl?.remove();
-    container.innerHTML = "";
-    const baseColors = this.getShapeBaseSwatches(target);
-    const customColors = (this.shapeCustomColors?.[target] ?? [])
-      .filter((color) => !baseColors.includes(color));
-    const colors = [...baseColors, ...customColors];
-
-    for (const color of colors) {
-      const button = document.createElement("button");
-      const isTransparent = color === "transparent";
-      button.type = "button";
-      button.className = [
-        "toolbar__button-color-swatch",
-        isTransparent ? "toolbar__button-color-swatch--transparent" : "",
-      ].filter(Boolean).join(" ");
-      button.dataset.color = color;
-      button.title = isTransparent ? "Transparent" : color;
-      button.setAttribute("aria-label", isTransparent ? "Transparent" : `Color ${color}`);
-      if (!isTransparent) {
-        button.style.setProperty("--button-swatch-color", color);
-      }
-
-      this.listenDom(button, "click", () => {
-        if (target === "text") {
-          this.applyShapeTextSwatch(color);
-        } else if (target === "fill") {
-          this.applyShapeFillSwatch(color);
-        } else {
-          this.applyShapeBorderSwatch(color);
-        }
-      });
-
-      container.append(button);
-    }
-
-    if (customColorEl) {
-      container.append(customColorEl);
-    }
-  }
-
-  getShapeBaseSwatches(target) {
-    return target === "text"
-      ? BUTTON_STYLE_SWATCHES.filter((color) => color !== "transparent")
-      : BUTTON_STYLE_SWATCHES;
-  }
-
-  getShapeSwatchContainer(target) {
-    const { shapePanelEl } = this.ui;
-    const id = target === "border"
-      ? "shape-border-swatches"
-      : `shape-${target}-swatches`;
-    return shapePanelEl?.querySelector?.(`#${id}`) ?? null;
+    this.shapeColorToolbar?.setup();
   }
 
   recordShapeCustomColor(target, color) {
-    if (!this.shapeCustomColors?.[target]) return;
-
-    const normalized = normalizeHexColor(color, null);
-    if (!normalized || normalized === "transparent") return;
-
-    const baseColors = this.getShapeBaseSwatches(target);
-    if (baseColors.includes(normalized)) return;
-
-    const withoutDuplicate = this.shapeCustomColors[target]
-      .filter((entry) => entry !== normalized);
-    withoutDuplicate.push(normalized);
-    this.shapeCustomColors[target] = withoutDuplicate.slice(-8);
-    this._renderShapeStyleSwatches(this.getShapeSwatchContainer(target), target);
+    this.shapeColorToolbar?.recordCustomColor(target, color);
   }
 
   applyShapeTextSwatch(color) {
-    const { shapeTextColorEl } = this.ui;
-    if (typeof color !== "string" || color === "transparent" || !shapeTextColorEl) return;
-
-    shapeTextColorEl.value = color;
-    this.emitShapePanelChange();
+    this.shapeColorToolbar?.applySwatch("text", color);
   }
 
   applyShapeFillSwatch(color) {
-    const { shapeFillColorEl, shapeOpacityEl } = this.ui;
-    if (!shapeFillColorEl || !shapeOpacityEl) return;
-
-    if (color === "transparent") {
-      shapeOpacityEl.value = "0";
-    } else {
-      shapeFillColorEl.value = color;
-      if (Number(shapeOpacityEl.value) === 0) {
-        shapeOpacityEl.value = "1";
-      }
-    }
-    this.emitShapePanelChange();
+    this.shapeColorToolbar?.applySwatch("fill", color);
   }
 
   applyShapeBorderSwatch(color) {
-    const { shapeStrokeColorEl, shapeStrokeWidthEl } = this.ui;
-    if (!shapeStrokeColorEl || !shapeStrokeWidthEl) return;
-
-    if (color === "transparent") {
-      shapeStrokeWidthEl.value = "0";
-    } else {
-      shapeStrokeColorEl.value = color;
-      if (Number(shapeStrokeWidthEl.value) === 0) {
-        shapeStrokeWidthEl.value = "2";
-      }
-    }
-    this.emitShapePanelChange();
+    this.shapeColorToolbar?.applySwatch("border", color);
   }
 
   setupShapeCustomColorPickers() {
-    const configs = [
-      { target: "text", input: this.ui.shapeTextColorEl, label: "Text color" },
-      { target: "fill", input: this.ui.shapeFillColorEl, label: "Fill color" },
-      { target: "border", input: this.ui.shapeStrokeColorEl, label: "Border color" },
-    ];
-
-    for (const config of configs) {
-      this.setupShapeCustomColorPicker(config);
-    }
-  }
-
-  setupShapeCustomColorPicker({ target, input, label }) {
-    const field = input?.closest?.(".toolbar__button-custom-color");
-    if (!field || this.shapeCustomPickers.has(target)) return;
-
-    field.dataset.shapeCustomTarget = target;
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    trigger.className = "toolbar__button-custom-trigger";
-    trigger.title = `Custom ${label.toLowerCase()}`;
-    trigger.setAttribute("aria-label", `Custom ${label.toLowerCase()}`);
-    trigger.innerHTML = '<span aria-hidden="true">+</span>';
-
-    const picker = document.createElement("div");
-    picker.className = "toolbar__button-custom-picker";
-    picker.hidden = true;
-    picker.innerHTML = `
-      <button class="toolbar__button-custom-square" type="button" aria-label="Choose shade">
-        <span class="toolbar__button-custom-square-marker" aria-hidden="true"></span>
-      </button>
-      <div class="toolbar__button-custom-controls">
-        <button class="toolbar__button-custom-eyedropper" type="button" title="Eyedropper" aria-label="Eyedropper">
-          <i data-lucide="pipette" aria-hidden="true"></i>
-        </button>
-        <span class="toolbar__button-custom-preview" aria-hidden="true"></span>
-        <input class="toolbar__button-custom-hue" type="range" min="0" max="359" value="0" aria-label="Hue" />
-      </div>
-      <div class="toolbar__button-custom-code">
-        <div class="toolbar__button-custom-fields" aria-label="Color values"></div>
-        <label class="toolbar__button-custom-mode">
-          <span class="toolbar__sr-only">Color format</span>
-          <select aria-label="Color format">
-            <option value="hex">HEX</option>
-            <option value="rgb" selected>RGB</option>
-            <option value="hsl">HSL</option>
-          </select>
-        </label>
-      </div>
-    `;
-
-    field.prepend(trigger);
-    (field.closest(".toolbar__button-style-popover") ?? field).append(picker);
-
-    const state = {
-      target,
-      input,
-      field,
-      trigger,
-      picker,
-      square: picker.querySelector(".toolbar__button-custom-square"),
-      marker: picker.querySelector(".toolbar__button-custom-square-marker"),
-      eyedropper: picker.querySelector(".toolbar__button-custom-eyedropper"),
-      preview: picker.querySelector(".toolbar__button-custom-preview"),
-      hue: picker.querySelector(".toolbar__button-custom-hue"),
-      fields: picker.querySelector(".toolbar__button-custom-fields"),
-      modeSelect: picker.querySelector(".toolbar__button-custom-mode select"),
-      mode: "rgb",
-      hsv: rgbToHsv(hexToRgb(input.value)),
-    };
-
-    this.shapeCustomPickers.set(target, state);
-
-    this.listenDom(trigger, "click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.setShapeCustomPickerOpen(target, state.picker.hidden);
-    });
-
-    this.listenDom(state.hue, "input", () => {
-      const nextColor = rgbToHex(hsvToRgb({
-        ...state.hsv,
-        h: Number(state.hue.value),
-      }));
-      this.applyShapeCustomPickerColor(target, nextColor);
-    });
-
-    this.listenDom(state.eyedropper, "click", async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if ("EyeDropper" in window) {
-        try {
-          const result = await new window.EyeDropper().open();
-          if (result?.sRGBHex) {
-            this.applyShapeCustomPickerColor(target, result.sRGBHex);
-          }
-        } catch {
-          // The user can cancel the native picker; keep the current color.
-        }
-        return;
-      }
-
-      input.click?.();
-    });
-
-    this.listenDom(state.modeSelect, "change", () => {
-      state.mode = state.modeSelect.value;
-      this.renderShapeCustomColorFields(target);
-    });
-
-    this.listenDom(state.fields, "input", () => {
-      this.applyShapeCustomFieldsInput(target);
-    });
-
-    this.listenDom(state.square, "pointerdown", (event) => {
-      event.preventDefault();
-      this.applyShapeCustomSquarePoint(target, event);
-    });
-
-    this.syncShapeCustomPicker(target);
-    renderIcons(picker, {
-      width: 18,
-      height: 18,
-      "stroke-width": 2,
-    });
-  }
-
-  getShapeCustomFieldConfig(state, color) {
-    return this.getButtonCustomFieldConfig(state, color);
-  }
-
-  renderShapeCustomColorFields(target) {
-    const state = this.shapeCustomPickers.get(target);
-    if (!state?.fields) return;
-
-    const color = normalizeHexColor(state.input.value);
-    const configs = this.getShapeCustomFieldConfig(state, color);
-    state.fields.dataset.colorMode = state.mode;
-    state.fields.innerHTML = configs.map((field) => {
-      const attrs = [
-        `data-color-field="${field.id}"`,
-        `type="${field.type}"`,
-        `value="${field.value}"`,
-      ];
-      if (Number.isFinite(field.min)) attrs.push(`min="${field.min}"`);
-      if (Number.isFinite(field.max)) attrs.push(`max="${field.max}"`);
-      attrs.push(`aria-label="${field.label}"`);
-      return `<label><input ${attrs.join(" ")} /></label>`;
-    }).join("");
-  }
-
-  updateShapeCustomColorFields(target) {
-    const state = this.shapeCustomPickers.get(target);
-    if (!state?.fields) return;
-
-    const color = normalizeHexColor(state.input.value);
-    const configs = this.getShapeCustomFieldConfig(state, color);
-    const currentInputs = Array.from(state.fields.querySelectorAll("[data-color-field]"));
-    const sameFields =
-      currentInputs.length === configs.length &&
-      currentInputs.every((input, index) => input.dataset.colorField === configs[index].id);
-
-    if (!sameFields) {
-      this.renderShapeCustomColorFields(target);
-      return;
-    }
-
-    configs.forEach((field) => {
-      const input = state.fields.querySelector(`[data-color-field="${field.id}"]`);
-      if (input && document.activeElement !== input) {
-        input.value = String(field.value);
-      }
-    });
-  }
-
-  applyShapeCustomFieldsInput(target) {
-    const state = this.shapeCustomPickers.get(target);
-    if (!state?.fields) return;
-
-    const inputMap = Object.fromEntries(
-      Array.from(state.fields.querySelectorAll("[data-color-field]")).map((input) => [
-        input.dataset.colorField,
-        input.value,
-      ]),
-    );
-
-    let nextColor = null;
-    if (state.mode === "hex") {
-      nextColor = parseHexColorInput(inputMap.hex);
-    } else if (state.mode === "hsl") {
-      nextColor = rgbToHex(hslToRgb({
-        h: clamp(Number(inputMap.h), 0, 359),
-        s: clamp(Number(inputMap.s), 0, 100),
-        l: clamp(Number(inputMap.l), 0, 100),
-      }));
-    } else {
-      nextColor = rgbToHex({
-        r: clamp(Number(inputMap.r), 0, 255),
-        g: clamp(Number(inputMap.g), 0, 255),
-        b: clamp(Number(inputMap.b), 0, 255),
-      });
-    }
-
-    if (nextColor) {
-      this.applyShapeCustomPickerColor(target, nextColor);
-    }
-  }
-
-  setShapeCustomPickerOpen(target, open) {
-    for (const [entryTarget, state] of this.shapeCustomPickers) {
-      const shouldOpen = open && entryTarget === target;
-      if (!shouldOpen && !state.picker.hidden) {
-        this.recordShapeCustomColor(entryTarget, state.input.value);
-      }
-      state.picker.hidden = !shouldOpen;
-      state.field.classList.toggle("is-custom-picker-open", shouldOpen);
-      if (shouldOpen) {
-        this.activeShapeCustomPickerTarget = entryTarget;
-        this.syncShapeCustomPicker(entryTarget);
-      }
-    }
-
-    if (!open || !this.shapeCustomPickers.has(target)) {
-      this.activeShapeCustomPickerTarget = null;
-    }
-  }
-
-  applyShapeCustomSquarePoint(target, event) {
-    const state = this.shapeCustomPickers.get(target);
-    const rect = state?.square?.getBoundingClientRect?.();
-    if (!state || !rect?.width || !rect.height) return;
-
-    const s = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    const v = 1 - clamp((event.clientY - rect.top) / rect.height, 0, 1);
-    const nextColor = rgbToHex(hsvToRgb({
-      ...state.hsv,
-      s,
-      v,
-    }));
-    this.applyShapeCustomPickerColor(target, nextColor);
-  }
-
-  applyShapeCustomPickerColor(target, color) {
-    const state = this.shapeCustomPickers.get(target);
-    if (!state) return;
-
-    state.input.value = normalizeHexColor(color, state.input.value);
-    this.syncShapeCustomPicker(target);
-    this.emitShapePanelChange();
+    this.shapeColorToolbar?.setup();
   }
 
   syncShapeCustomPickers() {
-    for (const target of this.shapeCustomPickers.keys()) {
-      this.syncShapeCustomPicker(target);
-    }
-  }
-
-  syncShapeCustomPicker(target) {
-    const state = this.shapeCustomPickers.get(target);
-    if (!state) return;
-
-    const color = normalizeHexColor(state.input.value);
-    const rgb = hexToRgb(color);
-    const hsv = rgbToHsv(rgb);
-    state.hsv = hsv;
-    state.field.style.setProperty("--button-custom-color", color);
-    state.field.style.setProperty("--button-custom-hue", `${Math.round(hsv.h)}`);
-    state.preview.style.backgroundColor = color;
-    state.hue.value = String(Math.round(hsv.h));
-    state.modeSelect.value = state.mode;
-    state.marker.style.left = `${hsv.s * 100}%`;
-    state.marker.style.top = `${(1 - hsv.v) * 100}%`;
-    this.updateShapeCustomColorFields(target);
-  }
-
-  _syncShapePanelSwatchTriggers() {
-    this.syncShapeControlTooltips();
+    this.shapeColorToolbar?.sync();
   }
 
   syncShapePopoverOpenState() {
@@ -2025,11 +1926,13 @@ export class ToolbarPlugin extends BasePlugin {
     return hasOpenPopover;
   }
 
-  syncShapePopoverOffset({ nodeLeft, nodeRight, placement, stageRect }) {
+  syncShapePopoverOffset({ nodeLeft, nodeRight, nodeTop, nodeBottom, placement, stageRect }) {
     if (this.floatingToolbar?.hasPanel?.("shape-panel")) {
       this.floatingToolbar.syncPopoverOffset("shape-panel", {
         nodeLeft,
         nodeRight,
+        nodeTop,
+        nodeBottom,
         placement,
         stageRect,
       });
@@ -2056,7 +1959,13 @@ export class ToolbarPlugin extends BasePlugin {
     const viewportRight = Math.min(window.innerWidth - SHAPE_PANEL_VIEWPORT_MARGIN, stageRect.right - SHAPE_PANEL_VIEWPORT_MARGIN);
     const baseLeft = toolRect.left + toolRect.width / 2 - popoverWidth / 2;
     const baseRight = baseLeft + popoverWidth;
-    const overlapsShape = baseRight > nodeLeft - BUTTON_POPOVER_NODE_CLEARANCE &&
+    const popoverRect = popover.getBoundingClientRect();
+    const overlapsShapeVertically = Number.isFinite(nodeTop) &&
+      Number.isFinite(nodeBottom) &&
+      popoverRect.bottom > nodeTop - BUTTON_POPOVER_NODE_CLEARANCE &&
+      popoverRect.top < nodeBottom + BUTTON_POPOVER_NODE_CLEARANCE;
+    const overlapsShape = overlapsShapeVertically &&
+      baseRight > nodeLeft - BUTTON_POPOVER_NODE_CLEARANCE &&
       baseLeft < nodeRight + BUTTON_POPOVER_NODE_CLEARANCE;
 
     let offset = 0;
@@ -2068,7 +1977,7 @@ export class ToolbarPlugin extends BasePlugin {
       const leftFits = baseLeft + leftOffset >= viewportLeft &&
         baseRight + leftOffset <= viewportRight;
 
-      if (rightFits && (!leftFits || Math.abs(rightOffset) <= Math.abs(leftOffset))) {
+      if (rightFits) {
         offset = rightOffset;
       } else if (leftFits) {
         offset = leftOffset;
@@ -2156,6 +2065,8 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncShapePopoverOffset({
       nodeLeft,
       nodeRight,
+      nodeTop,
+      nodeBottom,
       placement,
       stageRect,
     });
@@ -2248,422 +2159,31 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   setupButtonStyleSwatches() {
-    const { buttonControlsEl } = this.ui;
-    const textSwatchesEl = buttonControlsEl?.querySelector?.("#button-text-swatches");
-    const fillSwatchesEl = buttonControlsEl?.querySelector?.("#button-fill-swatches");
-    const borderSwatchesEl = buttonControlsEl?.querySelector?.("#button-border-swatches");
-
-    this.renderButtonStyleSwatches(textSwatchesEl, "text");
-    this.renderButtonStyleSwatches(fillSwatchesEl, "fill");
-    this.renderButtonStyleSwatches(borderSwatchesEl, "border");
-  }
-
-  renderButtonStyleSwatches(container, target) {
-    if (!container) return;
-    const customColorEl =
-      container.querySelector(".toolbar__button-custom-color") ??
-      Array.from(container.parentElement?.children ?? [])
-        .find((child) => child.classList?.contains?.("toolbar__button-custom-color")) ??
-      null;
-    customColorEl?.remove();
-    container.innerHTML = "";
-
-    const baseColors = this.getButtonBaseSwatches(target);
-    const customColors = (this.buttonCustomColors?.[target] ?? [])
-      .filter((color) => !baseColors.includes(color));
-    const colors = [...baseColors, ...customColors];
-
-    for (const color of colors) {
-      const button = document.createElement("button");
-      const isTransparent = color === "transparent";
-      button.type = "button";
-      button.className = [
-        "toolbar__button-color-swatch",
-        isTransparent ? "toolbar__button-color-swatch--transparent" : "",
-      ].filter(Boolean).join(" ");
-      button.dataset.color = color;
-      button.title = isTransparent ? "Transparent" : color;
-      button.setAttribute("aria-label", isTransparent ? "Transparent" : `Color ${color}`);
-      if (!isTransparent) {
-        button.style.setProperty("--button-swatch-color", color);
-      }
-
-      this.listenDom(button, "click", () => {
-        if (target === "text") {
-          this.applyButtonTextSwatch(color);
-        } else if (target === "fill") {
-          this.applyButtonFillSwatch(color);
-        } else {
-          this.applyButtonBorderSwatch(color);
-        }
-      });
-
-      container.append(button);
-    }
-
-    if (customColorEl) {
-      container.append(customColorEl);
-    }
-  }
-
-  getButtonBaseSwatches(target) {
-    return target === "text"
-      ? BUTTON_STYLE_SWATCHES.filter((color) => color !== "transparent")
-      : BUTTON_STYLE_SWATCHES;
-  }
-
-  getButtonSwatchContainer(target) {
-    const { buttonControlsEl } = this.ui;
-    const id = target === "border"
-      ? "button-border-swatches"
-      : `button-${target}-swatches`;
-    return buttonControlsEl?.querySelector?.(`#${id}`) ?? null;
+    this.buttonColorToolbar?.setup();
   }
 
   recordButtonCustomColor(target, color) {
-    if (!this.buttonCustomColors?.[target]) return;
-
-    const normalized = normalizeHexColor(color, null);
-    if (!normalized || normalized === "transparent") return;
-
-    const baseColors = this.getButtonBaseSwatches(target);
-    if (baseColors.includes(normalized)) return;
-
-    const withoutDuplicate = this.buttonCustomColors[target]
-      .filter((entry) => entry !== normalized);
-    withoutDuplicate.push(normalized);
-    this.buttonCustomColors[target] = withoutDuplicate.slice(-8);
-    this.renderButtonStyleSwatches(this.getButtonSwatchContainer(target), target);
+    this.buttonColorToolbar?.recordCustomColor(target, color);
   }
 
   setupButtonCustomColorPickers() {
-    const configs = [
-      { target: "text", input: this.ui.buttonTextColorEl, label: "Text color" },
-      { target: "fill", input: this.ui.buttonFillColorEl, label: "Fill color" },
-      { target: "border", input: this.ui.buttonStrokeColorEl, label: "Border color" },
-    ];
-
-    for (const config of configs) {
-      this.setupButtonCustomColorPicker(config);
-    }
-  }
-
-  setupButtonCustomColorPicker({ target, input, label }) {
-    const field = input?.closest?.(".toolbar__button-custom-color");
-    if (!field || this.buttonCustomPickers.has(target)) return;
-
-    field.dataset.buttonCustomTarget = target;
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    trigger.className = "toolbar__button-custom-trigger";
-    trigger.title = `Custom ${label.toLowerCase()}`;
-    trigger.setAttribute("aria-label", `Custom ${label.toLowerCase()}`);
-    trigger.innerHTML = '<span aria-hidden="true">+</span>';
-
-    const picker = document.createElement("div");
-    picker.className = "toolbar__button-custom-picker";
-    picker.hidden = true;
-    picker.innerHTML = `
-      <button class="toolbar__button-custom-square" type="button" aria-label="Choose shade">
-        <span class="toolbar__button-custom-square-marker" aria-hidden="true"></span>
-      </button>
-      <div class="toolbar__button-custom-controls">
-        <button class="toolbar__button-custom-eyedropper" type="button" title="Eyedropper" aria-label="Eyedropper">
-          <i data-lucide="pipette" aria-hidden="true"></i>
-        </button>
-        <span class="toolbar__button-custom-preview" aria-hidden="true"></span>
-        <input class="toolbar__button-custom-hue" type="range" min="0" max="359" value="0" aria-label="Hue" />
-      </div>
-      <div class="toolbar__button-custom-code">
-        <div class="toolbar__button-custom-fields" aria-label="Color values"></div>
-        <label class="toolbar__button-custom-mode">
-          <span class="toolbar__sr-only">Color format</span>
-          <select aria-label="Color format">
-            <option value="hex">HEX</option>
-            <option value="rgb" selected>RGB</option>
-            <option value="hsl">HSL</option>
-          </select>
-        </label>
-      </div>
-    `;
-
-    field.prepend(trigger);
-    (field.closest(".toolbar__button-style-popover") ?? field).append(picker);
-
-    const state = {
-      target,
-      input,
-      field,
-      trigger,
-      picker,
-      square: picker.querySelector(".toolbar__button-custom-square"),
-      marker: picker.querySelector(".toolbar__button-custom-square-marker"),
-      eyedropper: picker.querySelector(".toolbar__button-custom-eyedropper"),
-      preview: picker.querySelector(".toolbar__button-custom-preview"),
-      hue: picker.querySelector(".toolbar__button-custom-hue"),
-      fields: picker.querySelector(".toolbar__button-custom-fields"),
-      modeSelect: picker.querySelector(".toolbar__button-custom-mode select"),
-      mode: "rgb",
-      hsv: rgbToHsv(hexToRgb(input.value)),
-    };
-
-    this.buttonCustomPickers.set(target, state);
-
-    this.listenDom(trigger, "click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.setButtonCustomPickerOpen(target, state.picker.hidden);
-    });
-
-    this.listenDom(state.hue, "input", () => {
-      const nextColor = rgbToHex(hsvToRgb({
-        ...state.hsv,
-        h: Number(state.hue.value),
-      }));
-      this.applyButtonCustomPickerColor(target, nextColor);
-    });
-
-    this.listenDom(state.eyedropper, "click", async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if ("EyeDropper" in window) {
-        try {
-          const result = await new window.EyeDropper().open();
-          if (result?.sRGBHex) {
-            this.applyButtonCustomPickerColor(target, result.sRGBHex);
-          }
-        } catch {
-          // The user can cancel the native picker; keep the current color.
-        }
-        return;
-      }
-
-      input.click?.();
-    });
-
-    this.listenDom(state.modeSelect, "change", () => {
-      state.mode = state.modeSelect.value;
-      this.renderButtonCustomColorFields(target);
-    });
-
-    this.listenDom(state.fields, "input", () => {
-      this.applyButtonCustomFieldsInput(target);
-    });
-
-    this.listenDom(state.square, "pointerdown", (event) => {
-      event.preventDefault();
-      this.applyButtonCustomSquarePoint(target, event);
-    });
-
-    this.syncButtonCustomPicker(target);
-  }
-
-  getButtonCustomFieldConfig(state, color) {
-    const rgb = hexToRgb(color);
-    if (state.mode === "hex") {
-      return [
-        {
-          id: "hex",
-          label: "HEX",
-          type: "text",
-          value: color.toUpperCase(),
-        },
-      ];
-    }
-
-    if (state.mode === "hsl") {
-      const hsl = rgbToHsl(rgb);
-      return [
-        { id: "h", label: "H", type: "number", min: 0, max: 359, value: hsl.h },
-        { id: "s", label: "S", type: "number", min: 0, max: 100, value: hsl.s },
-        { id: "l", label: "L", type: "number", min: 0, max: 100, value: hsl.l },
-      ];
-    }
-
-    return [
-      { id: "r", label: "R", type: "number", min: 0, max: 255, value: rgb.r },
-      { id: "g", label: "G", type: "number", min: 0, max: 255, value: rgb.g },
-      { id: "b", label: "B", type: "number", min: 0, max: 255, value: rgb.b },
-    ];
-  }
-
-  renderButtonCustomColorFields(target) {
-    const state = this.buttonCustomPickers.get(target);
-    if (!state?.fields) return;
-
-    const color = normalizeHexColor(state.input.value);
-    const configs = this.getButtonCustomFieldConfig(state, color);
-    state.fields.dataset.colorMode = state.mode;
-    state.fields.innerHTML = configs.map((field) => {
-      const attrs = [
-        `data-color-field="${field.id}"`,
-        `type="${field.type}"`,
-        `value="${field.value}"`,
-      ];
-      if (Number.isFinite(field.min)) attrs.push(`min="${field.min}"`);
-      if (Number.isFinite(field.max)) attrs.push(`max="${field.max}"`);
-      attrs.push(`aria-label="${field.label}"`);
-      return `<label><input ${attrs.join(" ")} /></label>`;
-    }).join("");
-  }
-
-  updateButtonCustomColorFields(target) {
-    const state = this.buttonCustomPickers.get(target);
-    if (!state?.fields) return;
-
-    const color = normalizeHexColor(state.input.value);
-    const configs = this.getButtonCustomFieldConfig(state, color);
-    const currentInputs = Array.from(state.fields.querySelectorAll("[data-color-field]"));
-    const sameFields =
-      currentInputs.length === configs.length &&
-      currentInputs.every((input, index) => input.dataset.colorField === configs[index].id);
-
-    if (!sameFields) {
-      this.renderButtonCustomColorFields(target);
-      return;
-    }
-
-    configs.forEach((field) => {
-      const input = state.fields.querySelector(`[data-color-field="${field.id}"]`);
-      if (input && document.activeElement !== input) {
-        input.value = String(field.value);
-      }
-    });
-  }
-
-  applyButtonCustomFieldsInput(target) {
-    const state = this.buttonCustomPickers.get(target);
-    if (!state?.fields) return;
-
-    const inputMap = Object.fromEntries(
-      Array.from(state.fields.querySelectorAll("[data-color-field]")).map((input) => [
-        input.dataset.colorField,
-        input.value,
-      ]),
-    );
-
-    let nextColor = null;
-    if (state.mode === "hex") {
-      nextColor = parseHexColorInput(inputMap.hex);
-    } else if (state.mode === "hsl") {
-      nextColor = rgbToHex(hslToRgb({
-        h: clamp(Number(inputMap.h), 0, 359),
-        s: clamp(Number(inputMap.s), 0, 100),
-        l: clamp(Number(inputMap.l), 0, 100),
-      }));
-    } else {
-      nextColor = rgbToHex({
-        r: clamp(Number(inputMap.r), 0, 255),
-        g: clamp(Number(inputMap.g), 0, 255),
-        b: clamp(Number(inputMap.b), 0, 255),
-      });
-    }
-
-    if (nextColor) {
-      this.applyButtonCustomPickerColor(target, nextColor);
-    }
-  }
-
-  setButtonCustomPickerOpen(target, open) {
-    for (const [entryTarget, state] of this.buttonCustomPickers) {
-      const shouldOpen = open && entryTarget === target;
-      if (!shouldOpen && !state.picker.hidden) {
-        this.recordButtonCustomColor(entryTarget, state.input.value);
-      }
-      state.picker.hidden = !shouldOpen;
-      state.field.classList.toggle("is-custom-picker-open", shouldOpen);
-      if (shouldOpen) {
-        this.activeButtonCustomPickerTarget = entryTarget;
-        this.syncButtonCustomPicker(entryTarget);
-      }
-    }
-
-    if (!open || !this.buttonCustomPickers.has(target)) {
-      this.activeButtonCustomPickerTarget = null;
-    }
-  }
-
-  applyButtonCustomSquarePoint(target, event) {
-    const state = this.buttonCustomPickers.get(target);
-    const rect = state?.square?.getBoundingClientRect?.();
-    if (!state || !rect?.width || !rect.height) return;
-
-    const s = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    const v = 1 - clamp((event.clientY - rect.top) / rect.height, 0, 1);
-    const nextColor = rgbToHex(hsvToRgb({
-      ...state.hsv,
-      s,
-      v,
-    }));
-    this.applyButtonCustomPickerColor(target, nextColor);
-  }
-
-  applyButtonCustomPickerColor(target, color) {
-    const state = this.buttonCustomPickers.get(target);
-    if (!state) return;
-
-    state.input.value = normalizeHexColor(color, state.input.value);
-    this.syncButtonCustomPicker(target);
-    this.emitButtonStyleChange();
+    this.buttonColorToolbar?.setup();
   }
 
   syncButtonCustomPickers() {
-    for (const target of this.buttonCustomPickers.keys()) {
-      this.syncButtonCustomPicker(target);
-    }
-  }
-
-  syncButtonCustomPicker(target) {
-    const state = this.buttonCustomPickers.get(target);
-    if (!state) return;
-
-    const color = normalizeHexColor(state.input.value);
-    const rgb = hexToRgb(color);
-    const hsv = rgbToHsv(rgb);
-    state.hsv = hsv;
-    state.field.style.setProperty("--button-custom-color", color);
-    state.field.style.setProperty("--button-custom-hue", `${Math.round(hsv.h)}`);
-    state.preview.style.backgroundColor = color;
-    state.hue.value = String(Math.round(hsv.h));
-    state.modeSelect.value = state.mode;
-    state.marker.style.left = `${hsv.s * 100}%`;
-    state.marker.style.top = `${(1 - hsv.v) * 100}%`;
-    this.updateButtonCustomColorFields(target);
+    this.buttonColorToolbar?.sync();
   }
 
   applyButtonTextSwatch(color) {
-    const { buttonTextColorEl } = this.ui;
-    if (typeof color !== "string" || color === "transparent") return;
-
-    buttonTextColorEl.value = color;
-    this.emitButtonStyleChange();
+    this.buttonColorToolbar?.applySwatch("text", color);
   }
 
   applyButtonFillSwatch(color) {
-    const { buttonFillColorEl, buttonOpacityEl } = this.ui;
-    if (color === "transparent") {
-      buttonOpacityEl.value = "0";
-    } else {
-      buttonFillColorEl.value = color;
-      if (Number(buttonOpacityEl.value) === 0) {
-        buttonOpacityEl.value = "1";
-      }
-    }
-    this.emitButtonStyleChange();
+    this.buttonColorToolbar?.applySwatch("fill", color);
   }
 
   applyButtonBorderSwatch(color) {
-    const { buttonStrokeColorEl, buttonStrokeWidthEl } = this.ui;
-    if (color === "transparent") {
-      buttonStrokeWidthEl.value = "0";
-    } else {
-      buttonStrokeColorEl.value = color;
-      if (Number(buttonStrokeWidthEl.value) === 0) {
-        buttonStrokeWidthEl.value = String(DEFAULT_BUTTON_STROKE_WIDTH);
-      }
-    }
-    this.emitButtonStyleChange();
+    this.buttonColorToolbar?.applySwatch("border", color);
   }
 
   syncButtonControlTooltips() {
@@ -2709,6 +2229,121 @@ export class ToolbarPlugin extends BasePlugin {
     buttonStrokeWidthEl.title = strokeWidthTitle;
     buttonStrokeWidthValueEl.title = strokeWidthTitle;
     this.syncButtonCustomPickers();
+  }
+
+  loadStickyUiFromSelection() {
+    const {
+      stickyFontSizeEl,
+      stickyFontSizeValueEl,
+      stickyTextColorEl,
+      stickyFillColorEl,
+    } = this.ui;
+    const state = this.selectedStickyNode
+      ? getStickyData(this.selectedStickyNode)
+      : { ...DEFAULT_STICKY_PANEL_STATE };
+
+    this.stickyPanelState = {
+      ...this.stickyPanelState,
+      fill: state.fill ?? this.stickyPanelState.fill,
+      textColor: state.textColor ?? this.stickyPanelState.textColor,
+      fontSize: Number.isFinite(state.fontSize) ? state.fontSize : this.stickyPanelState.fontSize,
+    };
+
+    if (stickyFontSizeEl) stickyFontSizeEl.value = String(this.stickyPanelState.fontSize);
+    if (stickyFontSizeValueEl) stickyFontSizeValueEl.value = String(this.stickyPanelState.fontSize);
+    if (stickyTextColorEl) stickyTextColorEl.value = this.stickyPanelState.textColor;
+    if (stickyFillColorEl) stickyFillColorEl.value = this.stickyPanelState.fill;
+    this.syncStickyControlTooltips();
+    this.syncStickyLayerActions();
+  }
+
+  saveStickyUiToState() {
+    const {
+      stickyFontSizeEl,
+      stickyTextColorEl,
+      stickyFillColorEl,
+    } = this.ui;
+
+    this.stickyPanelState = {
+      ...this.stickyPanelState,
+      fontSize: Number(stickyFontSizeEl?.value ?? this.stickyPanelState.fontSize),
+      textColor: stickyTextColorEl?.value ?? this.stickyPanelState.textColor,
+      fill: stickyFillColorEl?.value ?? this.stickyPanelState.fill,
+    };
+    return this.stickyPanelState;
+  }
+
+  syncStickyControlTooltips() {
+    const {
+      stickyFontSizeEl,
+      stickyFontSizeValueEl,
+      stickyTextColorEl,
+      stickyFillColorEl,
+    } = this.ui;
+    if (!stickyFontSizeEl || !stickyTextColorEl || !stickyFillColorEl) return;
+
+    const fontSizeTitle = `Font size: ${stickyFontSizeEl.value}`;
+    const textTitle = "Text color";
+    const fillTitle = "Card color";
+    const textToolEl = stickyTextColorEl.closest(".toolbar__button-style-tool");
+    const fontSizeToolEl = stickyFontSizeEl.closest(".toolbar__button-style-tool");
+    const fillToolEl = stickyFillColorEl.closest(".toolbar__button-style-tool");
+
+    stickyFontSizeEl.title = fontSizeTitle;
+    if (stickyFontSizeValueEl) stickyFontSizeValueEl.title = fontSizeTitle;
+    fontSizeToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", "Font size");
+    stickyTextColorEl.title = textTitle;
+    textToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", textTitle);
+    textToolEl?.style.setProperty("--button-tool-color", stickyTextColorEl.value);
+    stickyFillColorEl.title = fillTitle;
+    fillToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", fillTitle);
+    fillToolEl?.style.setProperty("--button-tool-fill", stickyFillColorEl.value);
+    fillToolEl?.style.setProperty("--button-tool-opacity", "1");
+    fillToolEl?.classList.remove("is-button-fill-transparent");
+    this.syncStickyCustomPickers();
+  }
+
+  setupStickyStyleSwatches() {
+    this.stickyColorToolbar?.setup();
+  }
+
+  recordStickyCustomColor(target, color) {
+    this.stickyColorToolbar?.recordCustomColor(target, color);
+  }
+
+  applyStickyTextSwatch(color) {
+    this.stickyColorToolbar?.applySwatch("text", color);
+  }
+
+  applyStickyFillSwatch(color) {
+    this.stickyColorToolbar?.applySwatch("fill", color);
+  }
+
+  setupStickyCustomColorPickers() {
+    this.stickyColorToolbar?.setup();
+  }
+
+  syncStickyCustomPickers() {
+    this.stickyColorToolbar?.sync();
+  }
+
+  emitStickyStyleChange() {
+    const { stickyFontSizeValueEl } = this.ui;
+    const state = this.saveStickyUiToState();
+
+    if (stickyFontSizeValueEl) stickyFontSizeValueEl.value = String(state.fontSize);
+    this.syncStickyControlTooltips();
+
+    const node = this.selectedStickyNode;
+    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
+    if (node?.getAttr?.("componentType") !== "sticky") return;
+
+    this.app.events.emit("node:change:start", { node });
+    applyStickyStyle(node, state);
+    node.getLayer()?.batchDraw();
+    this.app.overlayLayer?.batchDraw();
+    this.app.uiLayer?.batchDraw();
+    this.app.events.emit("node:changed", { node });
   }
 
 
@@ -2770,6 +2405,13 @@ export class ToolbarPlugin extends BasePlugin {
         "stroke-width": 2,
       });
     }
+    if (this.ui.stickyPanelEl) {
+      renderIcons(this.ui.stickyPanelEl, {
+        width: 18,
+        height: 18,
+        "stroke-width": 2,
+      });
+    }
 
     this.queueBrushPanelPositionSync();
   }
@@ -2816,6 +2458,19 @@ export class ToolbarPlugin extends BasePlugin {
     });
   }
 
+  queueStickyPanelPositionSync() {
+    if (this.floatingToolbar?.hasPanel?.("sticky-panel")) {
+      this.floatingToolbar.queuePanelPosition("sticky-panel");
+    }
+  }
+
+  syncStickyPopoverOpenState() {
+    if (this.floatingToolbar?.hasPanel?.("sticky-panel")) {
+      return this.floatingToolbar.syncPopoverOpenState("sticky-panel");
+    }
+    return false;
+  }
+
   syncButtonPopoverOpenState() {
     if (this.floatingToolbar?.hasPanel?.("button-panel")) {
       return this.floatingToolbar.syncPopoverOpenState("button-panel");
@@ -2831,11 +2486,13 @@ export class ToolbarPlugin extends BasePlugin {
     return hasOpenPopover;
   }
 
-  syncButtonPopoverOffset({ nodeLeft, nodeRight, placement, stageRect }) {
+  syncButtonPopoverOffset({ nodeLeft, nodeRight, nodeTop, nodeBottom, placement, stageRect }) {
     if (this.floatingToolbar?.hasPanel?.("button-panel")) {
       this.floatingToolbar.syncPopoverOffset("button-panel", {
         nodeLeft,
         nodeRight,
+        nodeTop,
+        nodeBottom,
         placement,
         stageRect,
       });
@@ -2862,7 +2519,13 @@ export class ToolbarPlugin extends BasePlugin {
     const viewportRight = Math.min(window.innerWidth - BUTTON_PANEL_VIEWPORT_MARGIN, stageRect.right - BUTTON_PANEL_VIEWPORT_MARGIN);
     const baseLeft = toolRect.left + toolRect.width / 2 - popoverWidth / 2;
     const baseRight = baseLeft + popoverWidth;
-    const overlapsButton = baseRight > nodeLeft - BUTTON_POPOVER_NODE_CLEARANCE &&
+    const popoverRect = popover.getBoundingClientRect();
+    const overlapsButtonVertically = Number.isFinite(nodeTop) &&
+      Number.isFinite(nodeBottom) &&
+      popoverRect.bottom > nodeTop - BUTTON_POPOVER_NODE_CLEARANCE &&
+      popoverRect.top < nodeBottom + BUTTON_POPOVER_NODE_CLEARANCE;
+    const overlapsButton = overlapsButtonVertically &&
+      baseRight > nodeLeft - BUTTON_POPOVER_NODE_CLEARANCE &&
       baseLeft < nodeRight + BUTTON_POPOVER_NODE_CLEARANCE;
 
     let offset = 0;
@@ -2874,7 +2537,7 @@ export class ToolbarPlugin extends BasePlugin {
       const leftFits = baseLeft + leftOffset >= viewportLeft &&
         baseRight + leftOffset <= viewportRight;
 
-      if (rightFits && (!leftFits || Math.abs(rightOffset) <= Math.abs(leftOffset))) {
+      if (rightFits) {
         offset = rightOffset;
       } else if (leftFits) {
         offset = leftOffset;
@@ -2921,6 +2584,20 @@ export class ToolbarPlugin extends BasePlugin {
     if (node === selectedShape) return true;
 
     let parent = selectedShape.getParent?.() ?? null;
+    while (parent) {
+      if (parent === node) return true;
+      parent = parent.getParent?.() ?? null;
+    }
+
+    return false;
+  }
+
+  isSelectedStickyAffectedByNode(node) {
+    const selectedSticky = this.selectedStickyNode;
+    if (!node || !selectedSticky?.getStage?.()) return false;
+    if (node === selectedSticky) return true;
+
+    let parent = selectedSticky.getParent?.() ?? null;
     while (parent) {
       if (parent === node) return true;
       parent = parent.getParent?.() ?? null;
@@ -2993,6 +2670,8 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncButtonPopoverOffset({
       nodeLeft,
       nodeRight,
+      nodeTop,
+      nodeBottom,
       placement,
       stageRect,
     });
@@ -3061,6 +2740,7 @@ export class ToolbarPlugin extends BasePlugin {
     const {
       shapePanelEl,
       buttonControlsEl,
+      stickyPanelEl,
       saveFocusEl,
       focusPositionModeEl,
       drawingVisibilityToggleEl,
@@ -3071,10 +2751,15 @@ export class ToolbarPlugin extends BasePlugin {
     const isEdit = this.app.getMode() === "edit";
     const activeToolId = this.app.getEditorTool();
     const hasSelectedButton = Boolean(this.selectedButtonNode?.getStage?.());
+    const hasSelectedSticky = Boolean(this.selectedStickyNode?.getStage?.());
     const showButtonControls =
       isEdit
       && activeToolId === "arrange"
       && hasSelectedButton;
+    const showStickyPanel =
+      isEdit
+      && activeToolId === "arrange"
+      && hasSelectedSticky;
     const showShapePanel = isEdit && Boolean(this.selectedShapeNode?.getStage?.());
     const drawingPlugin = this.getDrawingPlugin();
     const isPresentation = !isEdit;
@@ -3119,7 +2804,13 @@ export class ToolbarPlugin extends BasePlugin {
         buttonControlsEl.hidden = !showButtonControls;
       }
     }
+    if (stickyPanelEl) {
+      if (!this.floatingToolbar?.setPanelVisible?.("sticky-panel", showStickyPanel)) {
+        stickyPanelEl.hidden = !showStickyPanel;
+      }
+    }
     this.syncShapeLayerActions();
+    this.syncStickyLayerActions();
     if (!isEdit || !this.isBrushFamilyActive(activeToolId)) {
       this.penDropdown?.close();
     }
@@ -3170,11 +2861,24 @@ export class ToolbarPlugin extends BasePlugin {
       });
     }
 
+    const stickyControlsEnabled = showStickyPanel;
+    for (const control of [
+      this.ui.stickyFontSizeEl,
+      this.ui.stickyFontSizeValueEl,
+      this.ui.stickyTextColorEl,
+      this.ui.stickyFillColorEl,
+    ]) {
+      if (control) control.disabled = !stickyControlsEnabled;
+    }
+
     if (this.isBrushFamilyActive(activeToolId)) {
       this.queueBrushPanelPositionSync();
     }
     if (showButtonControls) {
       this.queueButtonPanelPositionSync();
+    }
+    if (showStickyPanel) {
+      this.queueStickyPanelPositionSync();
     }
   }
 }
