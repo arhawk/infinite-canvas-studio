@@ -429,6 +429,10 @@ export class ToolbarPlugin extends BasePlugin {
     if (shapeStrokeWidthEl) {
       this.listenDom(shapeStrokeWidthEl, "input", () => this.emitShapePanelChange());
     }
+    const shapeConnectTriggerEl = shapePanelEl?.querySelector("#shape-connect-trigger") ?? null;
+    if (shapeConnectTriggerEl) {
+      this.listenDom(shapeConnectTriggerEl, "click", () => this.startShapeConnection());
+    }
     const shapeLayerTriggerEl = shapePanelEl?.querySelector("#shape-layer-menu-trigger") ?? null;
     if (shapeLayerTriggerEl) {
       let closeShapeLayerMenuOnClick = false;
@@ -539,6 +543,10 @@ export class ToolbarPlugin extends BasePlugin {
         this.stickyColorToolbar?.recordCustomColor("fill", stickyFillColorEl.value);
         this.emitStickyStyleChange();
       });
+    }
+    const stickyConnectTriggerEl = stickyPanelEl?.querySelector("#sticky-connect-trigger") ?? null;
+    if (stickyConnectTriggerEl) {
+      this.listenDom(stickyConnectTriggerEl, "click", () => this.startStickyConnection());
     }
     const stickyLayerTriggerEl = stickyPanelEl?.querySelector("#sticky-layer-menu-trigger") ?? null;
     if (stickyLayerTriggerEl) {
@@ -771,6 +779,10 @@ export class ToolbarPlugin extends BasePlugin {
           button,
         );
       }
+      const connectButton = this.ui.shapePanelEl.querySelector("#shape-connect-trigger");
+      if (connectButton) {
+        this.floatingToolbar.registerButton("shape-panel", "connect", connectButton);
+      }
     }
 
     if (this.ui.buttonControlsEl) {
@@ -814,6 +826,10 @@ export class ToolbarPlugin extends BasePlugin {
           `layer:${button.dataset.stickyLayerAction}`,
           button,
         );
+      }
+      const connectButton = this.ui.stickyPanelEl.querySelector("#sticky-connect-trigger");
+      if (connectButton) {
+        this.floatingToolbar.registerButton("sticky-panel", "connect", connectButton);
       }
     }
   }
@@ -1231,6 +1247,30 @@ export class ToolbarPlugin extends BasePlugin {
       ?? null;
   }
 
+  getConnectionsPlugin() {
+    return this.app.getPlugin?.("connections")
+      ?? this.app.plugins.find((plugin) => plugin.id === "connections")
+      ?? null;
+  }
+
+  startShapeConnection() {
+    const node = this.selectedShapeNode;
+    if (node?.getAttr?.("componentType") !== "shape") return;
+
+    this.closeShapeLayerMenu();
+    this.app.commands.execute("connection:connect", node.id());
+    this.syncShapeConnectAction();
+  }
+
+  startStickyConnection() {
+    const node = this.selectedStickyNode;
+    if (node?.getAttr?.("componentType") !== "sticky") return;
+
+    this.closeStickyLayerMenu();
+    this.app.commands.execute("connection:connect", node.id());
+    this.syncStickyConnectAction();
+  }
+
   runShapeLayerAction(actionId) {
     const action = SHAPE_LAYER_ACTIONS.find((entry) => entry.id === actionId);
     const selection = this.getSelectionPlugin();
@@ -1594,7 +1634,57 @@ export class ToolbarPlugin extends BasePlugin {
     popover.style.setProperty("z-index", "100", "important");
   }
 
+  syncShapeConnectAction() {
+    const connections = this.getConnectionsPlugin();
+    const node = this.selectedShapeNode;
+    const canConnect = Boolean(
+      connections &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "shape" &&
+      connections.isConnectable?.(node),
+    );
+    if (!this.floatingToolbar?.setButtonState?.("shape-panel", "connect", {
+      disabled: !canConnect,
+      title: "Connect to",
+      label: "Connect to",
+    })) {
+      const button = this.ui.shapePanelEl?.querySelector?.("#shape-connect-trigger") ?? null;
+      if (button) {
+        button.disabled = !canConnect;
+        button.setAttribute("aria-disabled", String(!canConnect));
+        button.title = "Connect to";
+        button.setAttribute("aria-label", "Connect to");
+      }
+    }
+  }
+
+  syncStickyConnectAction() {
+    const connections = this.getConnectionsPlugin();
+    const node = this.selectedStickyNode;
+    const canConnect = Boolean(
+      connections &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "sticky" &&
+      connections.isConnectable?.(node),
+    );
+    if (!this.floatingToolbar?.setButtonState?.("sticky-panel", "connect", {
+      disabled: !canConnect,
+      title: "Connect to",
+      label: "Connect to",
+    })) {
+      const button = this.ui.stickyPanelEl?.querySelector?.("#sticky-connect-trigger") ?? null;
+      if (button) {
+        button.disabled = !canConnect;
+        button.setAttribute("aria-disabled", String(!canConnect));
+        button.title = "Connect to";
+        button.setAttribute("aria-label", "Connect to");
+      }
+    }
+  }
+
   syncShapeLayerActions() {
+    this.syncShapeConnectAction();
+
     const selection = this.getSelectionPlugin();
     const node = this.selectedShapeNode;
     const canTargetShape = Boolean(
@@ -1623,6 +1713,8 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   syncStickyLayerActions() {
+    this.syncStickyConnectAction();
+
     const selection = this.getSelectionPlugin();
     const node = this.selectedStickyNode;
     const canTargetSticky = Boolean(

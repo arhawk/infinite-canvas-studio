@@ -421,25 +421,22 @@ test("reorders component layers and preserves them through undo and document rou
   const second = await addComponent(page, "sticky", { x: 360, y: 180 });
   const third = await addComponent(page, "sticky", { x: 540, y: 180 });
 
-  const targetCenter = await getNodePageCenter(page, first.id);
-  await page.mouse.click(targetCenter.x, targetCenter.y, { button: "right" });
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
-    expect.objectContaining({
-      visible: true,
-      labels: expect.arrayContaining(["Bring Forward", "Send Backward"]),
-      items: expect.arrayContaining([
-        expect.objectContaining({
-          label: "Bring Forward",
-          accessories: [expect.objectContaining({ label: "Bring to Front" })],
-        }),
-        expect.objectContaining({
-          label: "Send Backward",
-          accessories: [expect.objectContaining({ label: "Send to Back" })],
-        }),
-      ]),
-      pagePoint: expect.any(Object),
-    }),
-  );
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), first.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("sticky-panel")).toBeVisible();
+  await expect(page.getByTestId("sticky-connect")).toBeVisible();
+  await expect(page.getByTestId("sticky-connect")).toBeEnabled();
+  await expect(page.getByTestId("sticky-layer-menu")).toBeVisible();
+
+  await page.getByTestId("sticky-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("sticky-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__sticky-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
+  await expect(page.getByTestId("sticky-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("sticky-layer-send-backward")).toBeDisabled();
 
   await page.evaluate((id) => window.__APP_TEST_API__.bringNodeForward(id), first.id);
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
@@ -627,6 +624,61 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
       return JSON.stringify(current?.summary?.points ?? []);
     })
     .not.toBe(JSON.stringify(originalPoints));
+});
+
+test("starts connections from shape and sticky floating toolbar buttons", async ({ page }) => {
+  const shape = await addComponent(page, "shape", {
+    x: 180,
+    y: 180,
+    width: 160,
+    height: 110,
+  });
+  const sticky = await addComponent(page, "sticky", { x: 560, y: 220 });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), shape.id);
+  await expect(page.getByTestId("shape-connect")).toBeVisible();
+  await expect(page.getByTestId("shape-connect")).toBeEnabled();
+  await page.getByTestId("shape-connect").click();
+  const stickyCenter = await getNodePageCenter(page, sticky.id);
+  await page.mouse.click(stickyCenter.x, stickyCenter.y);
+
+  await expect
+    .poll(async () => {
+      const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+      return nodes.some((node) => (
+        node.componentType === "connection" &&
+        node.summary.sourceNodeId === shape.id &&
+        node.summary.targetNodeId === sticky.id
+      ));
+    })
+    .toBe(true);
+
+  await clearBoard(page);
+  const stickySource = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const shapeTarget = await addComponent(page, "shape", {
+    x: 560,
+    y: 220,
+    width: 160,
+    height: 110,
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), stickySource.id);
+  await expect(page.getByTestId("sticky-connect")).toBeVisible();
+  await expect(page.getByTestId("sticky-connect")).toBeEnabled();
+  await page.getByTestId("sticky-connect").click();
+  const shapeTargetCenter = await getNodePageCenter(page, shapeTarget.id);
+  await page.mouse.click(shapeTargetCenter.x, shapeTargetCenter.y);
+
+  await expect
+    .poll(async () => {
+      const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+      return nodes.some((node) => (
+        node.componentType === "connection" &&
+        node.summary.sourceNodeId === stickySource.id &&
+        node.summary.targetNodeId === shapeTarget.id
+      ));
+    })
+    .toBe(true);
 });
 
 test("marks unlinked pages with a minimap warning", async ({ page }) => {
@@ -2134,7 +2186,7 @@ test("keeps the JavaScript editor behind later overlapping components", async ({
     .toBe(false);
 
   const headerBox = await page.getByTestId("javascript-editor-header").boundingBox();
-  await page.mouse.click(headerBox.x + headerBox.width / 2, headerBox.y + headerBox.height / 2);
+  await page.mouse.click(headerBox.x + 24, headerBox.y + headerBox.height / 2);
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
     editor.id,
   ]);
@@ -3219,7 +3271,7 @@ test("reorders a selected shape from the floating toolbar layer menu", async ({ 
   await expect(page.getByTestId("shape-layer-send-backward")).toBeEnabled();
 });
 
-test("omits the shape edit action from the context menu while keeping double-click text editing", async ({ page }) => {
+test("keeps shape inline text editing and exposes toolbar connection and layer actions", async ({ page }) => {
   const shape = await addComponent(page, "shape", {
     x: 220,
     y: 180,
@@ -3237,37 +3289,32 @@ test("omits the shape edit action from the context menu while keeping double-cli
 
   await page.mouse.dblclick(center.x, center.y);
   await expect(page.getByTestId("canvas-shape-text-editor")).toBeVisible();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await page.getByTestId("canvas-shape-text-editor").press("Escape");
   await expect(page.getByTestId("canvas-shape-text-editor")).toBeHidden();
 
-  await page.evaluate(() => {
-    window.__shapeContextMenuPrevented = null;
-    document.addEventListener("contextmenu", (event) => {
-      window.setTimeout(() => {
-        window.__shapeContextMenuPrevented = event.defaultPrevented;
-      }, 0);
-    }, { capture: true, once: true });
-    window.__APP_TEST_API__.setEditorTool("shape");
-  });
-  await page.mouse.click(center.x, center.y, { button: "right" });
-  await expect.poll(async () => page.evaluate(() => window.__shapeContextMenuPrevented)).toBe(true);
-  await expect.poll(async () => (
-    page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.classList.contains("is-context-open"))
-  )).toBe(true);
-  await expect.poll(async () => {
-    const box = await page.locator(".toolbar__shape-layer-popover").boundingBox();
-    return Math.abs(box.x - center.x);
-  }).toBeLessThan(8);
-  await expect.poll(async () => {
-    const box = await page.locator(".toolbar__shape-layer-popover").boundingBox();
-    return Math.abs(box.y - center.y);
-  }).toBeLessThan(8);
-  await expect.poll(async () => (
-    page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.matches(":focus-within"))
-  )).toBe(true);
+  await page.evaluate((nodeId) => {
+    window.__APP_TEST_API__.setEditorTool("arrange");
+    window.__APP_TEST_API__.selectNode(nodeId);
+  }, shape.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("shape-panel")).toBeVisible();
+  await expect(page.getByTestId("shape-connect")).toBeVisible();
+  await expect(page.getByTestId("shape-connect")).toBeEnabled();
+  await expect(page.getByTestId("shape-connect").locator("svg")).toBeVisible();
+  await expect(page.getByTestId("shape-layer-menu")).toBeVisible();
+  await expect(page.getByTestId("shape-layer-menu").locator("svg")).toBeVisible();
+
+  await page.getByTestId("shape-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__shape-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.locator(".toolbar__shape-layer-popover")).toHaveCSS("pointer-events", "auto");
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
-    .toBe(false);
+  await expect(page.getByTestId("shape-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("shape-layer-send-backward")).toBeDisabled();
 });
 
 test("resizes pages and deletes them with the keyboard", async ({ page }) => {

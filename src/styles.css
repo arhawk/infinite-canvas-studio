@@ -1037,6 +1037,7 @@ body.is-presentation-mode .toolbar__share-btn {
 
 .toolbar__button-tool--font-size::before,
 .toolbar__button-tool--fill-color::before,
+.toolbar__button-connect-tool::before,
 .toolbar__shape-layer-tool::before {
   content: "";
   position: absolute;
@@ -1189,8 +1190,21 @@ body.is-presentation-mode .toolbar__share-btn {
   margin-left: 0.24rem;
 }
 
+.toolbar__button-connect-tool {
+  margin-left: 0.24rem;
+}
+
+.toolbar__button-connect-tool::before,
 .toolbar__shape-layer-tool::before {
   left: -0.16rem;
+}
+
+.toolbar__button-connect-tool + .toolbar__shape-layer-tool {
+  margin-left: 0;
+}
+
+.toolbar__button-connect-tool + .toolbar__shape-layer-tool::before {
+  content: none;
 }
 
 .toolbar__shape-layer-action {

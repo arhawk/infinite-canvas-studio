@@ -184,6 +184,8 @@ For layer actions, put this tool at the far right of the floating toolbar. The s
 - `[data-shape-layer-action="bring-forward"]`
 - `[data-shape-layer-action="send-backward"]`
 
+For connectable components, put a `link-2` icon button immediately to the left of the `...` layer menu button. The button should call the existing `connection:connect` command with the selected node id. Do not reimplement connection picking in the toolbar.
+
 Clicking the trigger should toggle the menu:
 
 - If closed, focus opens it through `:focus-within`.
@@ -427,6 +429,7 @@ Relevant files:
 Behavior that should be copied:
 
 - Floating toolbar follows selected node.
+- Connectable components expose a connect icon immediately before `...`.
 - Popovers avoid covering the selected node where possible.
 - Layer actions are in `...`, not visible as top-level buttons.
 - Disabled states are computed from the current selection.
