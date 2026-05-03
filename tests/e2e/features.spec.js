@@ -650,15 +650,24 @@ test("does not create an image component when image paste targets an input", asy
     title: "Paste Guard",
   });
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), editor.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), editor.id);
+  await expect(page.getByTestId("javascript-editor-panel")).toBeVisible();
 
   const beforeImageCount = await page.evaluate(() => (
     window.__APP_TEST_API__.listNodes().filter((node) => node.componentType === "image").length
   ));
 
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.dataset.testid = "paste-target-input";
+    input.style.position = "fixed";
+    input.style.left = "12px";
+    input.style.top = "12px";
+    document.body.append(input);
+  });
+
   await dispatchClipboardImagePaste(page, {
-    targetSelector: '[data-testid="component-editor-input-title"]',
+    targetSelector: '[data-testid="paste-target-input"]',
     label: "Ignored paste",
   });
 
@@ -667,6 +676,60 @@ test("does not create an image component when image paste targets an input", asy
       window.__APP_TEST_API__.listNodes().filter((node) => node.componentType === "image").length
     )))
     .toBe(beforeImageCount);
+});
+
+test("shows JavaScript editor actions in the floating toolbar", async ({ page }) => {
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 160,
+    y: 220,
+    title: "Toolbar Runner",
+  });
+  const sticky = await addComponent(page, "sticky", {
+    x: 220,
+    y: 260,
+    text: "Layer reference",
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), editor.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("javascript-editor-panel")).toBeVisible();
+  await expect(page.getByTestId("javascript-editor-toolbar-title")).toHaveCount(0);
+  await expect(page.getByTestId("javascript-editor-connect")).toBeVisible();
+  await expect(page.getByTestId("javascript-editor-layer-menu")).toBeVisible();
+
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), editor.id);
+  expect(opened).toBe(false);
+  const center = await getNodePageCenter(page, editor.id);
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await page.getByTestId("javascript-editor-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("javascript-editor-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__javascript-editor-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
+  await expect(page.getByTestId("javascript-editor-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("javascript-editor-layer-send-backward")).toBeDisabled();
+  await page.getByTestId("javascript-editor-layer-menu").click();
+  await expect(page.locator(".toolbar__javascript-editor-layer-popover")).toHaveCSS(
+    "pointer-events",
+    "none",
+  );
+
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect(page.locator(".toolbar__javascript-editor-layer-popover")).toHaveCSS(
+    "pointer-events",
+    "auto",
+  );
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+
+  await page.getByTestId("javascript-editor-layer-bring-forward").click();
+  await expect.poll(async () => getNodeOrder(page, [editor.id, sticky.id]))
+    .toEqual([sticky.id, editor.id]);
 });
 
 test("creates a connection and updates it when a node moves", async ({ page }) => {
@@ -2031,16 +2094,20 @@ test("runs JavaScript editor snippets and restores code edits through undo/redo"
     .toBe("Preview updated");
   await expect(frame.getByTestId("js-result")).toHaveText("First output");
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), editor.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-
-  await page.getByTestId("component-editor-input-title").fill("Sandbox Updated");
-  await page.getByTestId("component-editor-input-code").fill(secondCode);
-  await page.getByTestId("component-editor-apply").click();
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), editor.id);
+  expect(opened).toBe(false);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await expect
     .poll(async () => (await getNode(page, editor.id))?.summary?.title ?? "")
-    .toBe("Sandbox Updated");
+    .toBe("Sandbox");
+
+  await page.evaluate(
+    ({ nodeId, code: nextCode }) => window.__APP_TEST_API__.setJavaScriptEditorCode(nodeId, nextCode),
+    { nodeId: editor.id, code: secondCode },
+  );
   await expect
     .poll(async () => (await getNode(page, editor.id))?.summary?.code ?? "")
     .toBe(secondCode);
@@ -2060,7 +2127,7 @@ test("runs JavaScript editor snippets and restores code edits through undo/redo"
   await page.getByTestId("redo-action").click();
   await expect
     .poll(async () => (await getNode(page, editor.id))?.summary?.title ?? "")
-    .toBe("Sandbox Updated");
+    .toBe("Sandbox");
   await expect
     .poll(async () => (await getNode(page, editor.id))?.summary?.code ?? "")
     .toBe(secondCode);
@@ -2101,42 +2168,33 @@ test("keeps the JavaScript editor overlay aligned with arrange interactions", as
   await expect(page.getByTestId("javascript-editor-output-preview")).toBeVisible();
   await expect(page.getByTestId("javascript-editor-output-console")).toBeHidden();
 
-  const overlayBox = await page.getByTestId("javascript-editor-overlay").boundingBox();
   await page.getByTestId("javascript-editor-header").click({ button: "right" });
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
-    expect.objectContaining({
-      visible: true,
-      labels: expect.arrayContaining(["Edit...", "Connect to..."]),
-      pagePoint: expect.any(Object),
-    }),
+  await expect(page.locator(".toolbar__javascript-editor-layer-popover")).toHaveCSS(
+    "pointer-events",
+    "auto",
   );
-  const headerMenuState = await page.evaluate(() => window.__APP_TEST_API__.getContextMenuState());
-  expect(
-    headerMenuState.pagePoint.x < overlayBox.x ||
-      headerMenuState.pagePoint.x > overlayBox.x + overlayBox.width ||
-      headerMenuState.pagePoint.y < overlayBox.y ||
-      headerMenuState.pagePoint.y > overlayBox.y + overlayBox.height,
-  ).toBe(true);
+  await expect(page.getByText("Edit...")).toHaveCount(0);
 
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   await page.mouse.click(rect.left + rect.width - 48, rect.top + rect.height / 2);
   await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
+    .poll(async () => page.locator(".toolbar__javascript-editor-layer-tool").evaluate((element) => (
+      element.matches(":focus-within")
+    )))
     .toBe(false);
 
   const frame = page.frameLocator('[data-testid="javascript-editor-preview"]');
   await frame.getByTestId("js-result").click({ button: "right" });
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
-    expect.objectContaining({
-      visible: true,
-      labels: expect.arrayContaining(["Edit...", "Connect to..."]),
-      pagePoint: expect.any(Object),
-    }),
+  await expect(page.locator(".toolbar__javascript-editor-layer-popover")).toHaveCSS(
+    "pointer-events",
+    "auto",
   );
 
   await page.mouse.click(rect.left + rect.width - 48, rect.top + rect.height / 2);
   await expect
-    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
+    .poll(async () => page.locator(".toolbar__javascript-editor-layer-tool").evaluate((element) => (
+      element.matches(":focus-within")
+    )))
     .toBe(false);
 
   await page.getByTestId("javascript-editor-tab-console").click();

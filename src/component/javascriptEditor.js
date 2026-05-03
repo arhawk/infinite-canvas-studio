@@ -1216,6 +1216,13 @@ export class JavaScriptEditorComponent extends BaseComponent {
   }
 
   #openContextMenu(node, clientPoint) {
+    const toolbarPlugin = this.app.getPlugin?.("javascript-editor-toolbar") ?? null;
+    if (typeof toolbarPlugin?.openLayerMenu === "function") {
+      this.#hideContextMenu();
+      toolbarPlugin.openLayerMenu(node, clientPoint);
+      return;
+    }
+
     const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
     if (!contextMenuPlugin?.showMenu) return;
     if (contextMenuPlugin.isEnabled?.() === false) return;
@@ -1404,6 +1411,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
     overlay.className = "javascript-editor-component__overlay";
     overlay.hidden = !node.isVisible?.();
     overlay.setAttribute("data-testid", "javascript-editor-overlay");
+    overlay.dataset.javascriptEditorNodeId = node.id?.() ?? "";
 
     const header = document.createElement("div");
     header.className = "javascript-editor-component__header";

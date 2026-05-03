@@ -1207,6 +1207,22 @@ body.is-presentation-mode .toolbar__share-btn {
   content: none;
 }
 
+.toolbar__javascript-editor-panel {
+  max-width: min(calc(100vw - 1.5rem), 30rem);
+}
+
+.toolbar__javascript-editor-panel .toolbar__button-connect-tool::before {
+  content: none;
+}
+
+.toolbar__javascript-editor-panel .toolbar__button-connect-tool {
+  margin-left: 0;
+}
+
+.toolbar__javascript-editor-panel .toolbar__button-tools {
+  margin-left: 0;
+}
+
 .toolbar__shape-layer-action {
   display: flex;
   align-items: center;

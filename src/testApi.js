@@ -529,6 +529,23 @@ export function setupAppTestApi(app) {
       const node = await app.addComponent(type, payload);
       return node ? serializeNode(app, node) : null;
     },
+    setJavaScriptEditorCode: async (id, code) => {
+      const node = getNodeById(app, id);
+      const component = app.components.get("javascriptEditor");
+      if (node?.getAttr?.("componentType") !== "javascriptEditor" || !component) return null;
+
+      const current = component.serializeNode(node);
+      app.events.emit("node:change:start", { node });
+      await component.applySerializedData(node, {
+        ...current,
+        code,
+      });
+      node.getLayer?.()?.batchDraw?.();
+      app.overlayLayer?.batchDraw?.();
+      app.uiLayer?.batchDraw?.();
+      app.events.emit("node:changed", { node });
+      return serializeNode(app, node);
+    },
     canvasToPage: (point) => canvasToPage(app, point),
     ensureCatalogNode: async () => {
       const existing = getCatalogNode(app);

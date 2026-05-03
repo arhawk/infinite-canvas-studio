@@ -443,7 +443,7 @@ Behavior that should be copied:
 Use this list as the source of truth for migration scope. Do not invent additional component priorities in this document.
 
 - [ ] OIP-132 video (`video`)
-- [ ] OIP-133 js code runner (`javascriptEditor`)
+- [x] OIP-133 js code runner (`javascriptEditor`)
 - [ ] OIP-134 ranking box (`rankingBox`)
 - [ ] OIP-135 iframe (`iframe`)
 - [x] OIP-136 image (`image`)
