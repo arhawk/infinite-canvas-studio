@@ -8,13 +8,64 @@ import {
   getRankingBoxMetrics,
   isRankingBoxNode,
 } from "../component/rankingBox.js";
+import { renderIcons } from "../lib/icons.js";
 
 const MOVE_OUT_THRESHOLD = 32;
+const RANKING_BOX_LAYER_ACTIONS = [
+  {
+    id: "bring-forward",
+    label: "Bring Forward",
+    run: "bringForward",
+    canRun: "canBringForward",
+  },
+  {
+    id: "send-backward",
+    label: "Send Backward",
+    run: "sendBackward",
+    canRun: "canSendBackward",
+  },
+];
 
 function resolveSelectable(node) {
   if (!node) return null;
   if (node.hasName?.("selectable")) return node;
   return node.findAncestor?.(".selectable", true) ?? null;
+}
+
+function resolveSelectableFromStageEvent(app, event) {
+  const direct = resolveSelectable(event?.target);
+  if (direct?.listening?.() !== false) return direct;
+
+  const stage = app.stage;
+  if (!stage || typeof stage.getIntersection !== "function") return direct;
+  if (event?.evt && typeof stage.setPointersPositions === "function") {
+    stage.setPointersPositions(event.evt);
+  }
+
+  const pointer = stage.getPointerPosition?.() ?? null;
+  const intersection = pointer ? stage.getIntersection(pointer) : null;
+  const selectable = resolveSelectable(intersection);
+  return selectable?.listening?.() !== false ? selectable : direct;
+}
+
+function getClientPoint(app, event) {
+  const nativeEvent = event?.evt ?? event;
+  const clientX = nativeEvent?.clientX;
+  const clientY = nativeEvent?.clientY;
+  if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+    return { x: clientX, y: clientY };
+  }
+
+  const pointer = app.stage?.getPointerPosition?.() ?? null;
+  const rect = app.stage?.container?.()?.getBoundingClientRect?.() ?? null;
+  if (pointer && rect) {
+    return {
+      x: rect.left + pointer.x,
+      y: rect.top + pointer.y,
+    };
+  }
+
+  return null;
 }
 
 function isPageNode(node) {
@@ -134,15 +185,128 @@ export class RankingBoxPlugin extends BasePlugin {
     return [AddRankingBoxMenuItem];
   }
 
+  buildFloatingPanel() {
+    const panel = document.createElement("div");
+    panel.id = "ranking-box-panel";
+    panel.className = "toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel toolbar__button-panel toolbar__ranking-box-panel";
+    panel.dataset.testid = "ranking-box-panel";
+    panel.hidden = true;
+    panel.innerHTML = `
+      <div class="toolbar__ranking-box-label-field">
+        <label class="toolbar__ranking-box-label-label" for="ranking-box-label-input">
+          Title
+        </label>
+        <input
+          id="ranking-box-label-input"
+          class="toolbar__ranking-box-label-input"
+          type="text"
+          maxlength="120"
+          placeholder="Ranking Box"
+          data-testid="ranking-box-label-input"
+          aria-label="Ranking box title"
+        />
+      </div>
+      <div class="toolbar__button-tools" role="group" aria-label="Ranking box actions">
+        <div
+          class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__shape-layer-tool toolbar__ranking-box-layer-tool"
+          data-popover-offset="none"
+        >
+          <button
+            id="ranking-box-layer-menu-trigger"
+            class="toolbar__button-style-trigger"
+            type="button"
+            title="Layer order"
+            aria-label="Layer order"
+            data-testid="ranking-box-layer-menu"
+          >
+            <i data-lucide="ellipsis" aria-hidden="true"></i>
+          </button>
+          <div class="toolbar__button-style-popover toolbar__shape-layer-popover toolbar__ranking-box-layer-popover" role="menu" aria-label="Ranking box layer order">
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
+              data-ranking-box-layer-action="bring-forward"
+              data-testid="ranking-box-layer-bring-forward"
+            >
+              Bring Forward
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
+              data-ranking-box-layer-action="send-backward"
+              data-testid="ranking-box-layer-send-backward"
+            >
+              Send Backward
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.append(panel);
+    renderIcons(panel, {
+      width: 16,
+      height: 16,
+      "stroke-width": 2,
+    });
+    return panel;
+  }
+
+  registerFloatingPanelButtons() {
+    for (const button of this.panelEl.querySelectorAll("[data-ranking-box-layer-action]")) {
+      this.panel?.registerButton?.(`layer:${button.dataset.rankingBoxLayerAction}`, button);
+    }
+  }
+
   onSetup() {
     this.layer = this.app.mainLayer;
     this.dragOrigins = new Map();
     this.isMovingTextIntoRanking = false;
+    this.selectedRankingBoxNode = null;
+    this.panelEl = this.buildFloatingPanel();
+    this.labelInputEl = this.panelEl.querySelector("#ranking-box-label-input");
+    this.panel = this.app.floatingToolbar?.registerPanel?.({
+      id: "ranking-box-panel",
+      element: this.panelEl,
+      getAnchorNode: () => this.selectedRankingBoxNode,
+      getAnchorRect: (node, app) => (
+        node?.findOne?.(".ranking-box-bg")?.getClientRect?.({
+          relativeTo: app.stage,
+          skipShadow: true,
+        })
+        ?? node?.getClientRect?.({ relativeTo: app.stage })
+        ?? null
+      ),
+      viewportMargin: 12,
+      anchorGap: 64,
+      popover: {
+        nodeClearance: 10,
+      },
+    });
+    this.registerFloatingPanelButtons();
 
     this.app.stage.on("dragstart.rankingBox", (event) => this.handleDragStart(event));
     this.app.stage.on("dragend.rankingBox", (event) => this.handleDragEnd(event));
+    this.app.stage.on(
+      "contextmenu.rankingBoxLayerMenu mousedown.rankingBoxLayerMenu",
+      (event) => this.handleStageContextMenu(event),
+    );
 
     this.layer.find(".ranking-box-root").forEach((node) => this.bindRankingBox(node));
+    this.listen("selection:change", ({ nodes = [] } = {}) => {
+      this.selectedRankingBoxNode =
+        nodes.length === 1 && nodes[0]?.getAttr?.("componentType") === "rankingBox"
+          ? nodes[0]
+          : null;
+      this.loadLabelInputFromSelection();
+      this.syncToolbar();
+    });
+    this.listen("interaction:change", () => this.syncToolbar());
+    this.listen("viewport:change", () => this.panel?.queuePosition?.());
+    this.listen("node:changing", ({ node } = {}) => {
+      if (node === this.selectedRankingBoxNode) {
+        this.panel?.queuePosition?.();
+      }
+    });
     this.listen("node:added", ({ node }) => {
       if (isRankingBoxNode(node)) {
         this.bindRankingBox(node);
@@ -152,6 +316,10 @@ export class RankingBoxPlugin extends BasePlugin {
       if (isRankingBoxNode(node)) {
         this.refreshRankingBox(node);
         this.bindRankingBox(node);
+        if (node === this.selectedRankingBoxNode) {
+          this.loadLabelInputFromSelection();
+          this.syncToolbar();
+        }
       } else if (isTextNode(node)) {
         this.refreshRankingBoxesForText(node);
       }
@@ -168,9 +336,70 @@ export class RankingBoxPlugin extends BasePlugin {
     });
     this.listen("document:load:end", () => this.refreshAndBindAllRankingBoxes());
 
+    this.listenDom(this.labelInputEl, "change", () => {
+      void this.applyLabelInput();
+    });
+    this.listenDom(this.labelInputEl, "keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void this.applyLabelInput();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        this.loadLabelInputFromSelection();
+        this.labelInputEl?.blur?.();
+      }
+    });
+
+    const layerTrigger = this.panelEl.querySelector("#ranking-box-layer-menu-trigger");
+    let closeLayerMenuOnClick = false;
+    this.listenDom(layerTrigger, "pointerdown", (event) => {
+      closeLayerMenuOnClick = this.isLayerMenuOpen();
+      if (closeLayerMenuOnClick) {
+        event.preventDefault();
+      } else {
+        this.clearLayerContextPosition();
+      }
+    });
+    this.listenDom(layerTrigger, "click", (event) => {
+      if (!closeLayerMenuOnClick) return;
+
+      event.preventDefault();
+      closeLayerMenuOnClick = false;
+      this.closeLayerMenu();
+    });
+    for (const button of this.panelEl.querySelectorAll("[data-ranking-box-layer-action]")) {
+      this.listenDom(button, "click", () => {
+        this.runLayerAction(button.dataset.rankingBoxLayerAction);
+        button.blur();
+      });
+    }
+    this.listenDom(this.panelEl, "focusin", () => {
+      this.syncPopoverOpenState();
+      this.panel?.queuePosition?.();
+    });
+    this.listenDom(this.panelEl, "focusout", () => {
+      window.setTimeout(() => {
+        this.syncPopoverOpenState();
+        if (!this.panelEl.querySelector(".toolbar__ranking-box-layer-tool:focus-within")) {
+          this.clearLayerContextPosition();
+        }
+        this.panel?.queuePosition?.();
+      }, 0);
+    });
+    this.listenDom(this.panelEl, "pointerdown", () => {
+      window.requestAnimationFrame(() => {
+        this.syncPopoverOpenState();
+        this.panel?.queuePosition?.();
+      });
+    }, true);
+    this.syncToolbar();
+
     this.cleanups.push(() => {
       this.app.stage.off(".rankingBox");
+      this.app.stage.off(".rankingBoxLayerMenu");
       this.layer.find(".ranking-box-root").forEach((node) => this.unbindRankingBox(node));
+      this.panel?.unregister?.();
+      this.panelEl?.remove?.();
     });
   }
 
@@ -180,6 +409,60 @@ export class RankingBoxPlugin extends BasePlugin {
 
   getSelectionPlugin() {
     return this.app.plugins.find((plugin) => plugin.id === "selection") ?? null;
+  }
+
+  loadLabelInputFromSelection() {
+    if (!(this.labelInputEl instanceof HTMLInputElement)) return;
+    const label = this.selectedRankingBoxNode
+      ? this.getRankingComponent()?.getData?.(this.selectedRankingBoxNode)?.label ?? ""
+      : "";
+    this.labelInputEl.value = label;
+  }
+
+  async applyLabelInput() {
+    const node = this.selectedRankingBoxNode;
+    if (!(this.labelInputEl instanceof HTMLInputElement)) return;
+    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
+    if (node?.getAttr?.("componentType") !== "rankingBox") return;
+
+    const component = this.getRankingComponent();
+    if (!component) return;
+
+    const current = component.serializeNode(node);
+    const nextLabel = this.labelInputEl.value.trim() || "Ranking Box";
+    if (current.label === nextLabel) {
+      this.labelInputEl.value = nextLabel;
+      return;
+    }
+
+    this.app.events.emit("node:change:start", { node });
+    await component.applySerializedData(node, {
+      ...current,
+      label: nextLabel,
+    });
+    node.getLayer?.()?.batchDraw?.();
+    this.app.overlayLayer?.batchDraw?.();
+    this.app.uiLayer?.batchDraw?.();
+    this.app.events.emit("node:changed", { node });
+    this.labelInputEl.value = nextLabel;
+  }
+
+  syncToolbar() {
+    const isVisible =
+      this.app.getMode() === "edit" &&
+      this.app.getEditorTool() === "arrange" &&
+      Boolean(this.selectedRankingBoxNode?.getStage?.());
+
+    if (this.labelInputEl instanceof HTMLInputElement) {
+      this.labelInputEl.disabled = !isVisible;
+    }
+    this.panel?.setVisible?.(isVisible);
+    this.syncLayerActions();
+    if (isVisible) {
+      this.panel?.queuePosition?.();
+    } else {
+      this.closeLayerMenu();
+    }
   }
 
   findNodeById(id) {
@@ -263,6 +546,132 @@ export class RankingBoxPlugin extends BasePlugin {
 
   selectNode(node) {
     this.getSelectionPlugin()?.setSelected?.([node]);
+  }
+
+  syncLayerActions() {
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedRankingBoxNode;
+    const canTargetRankingBox = Boolean(
+      selection &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "rankingBox",
+    );
+
+    for (const action of RANKING_BOX_LAYER_ACTIONS) {
+      this.panel?.setButtonState?.(`layer:${action.id}`, {
+        disabled: !canTargetRankingBox || !selection[action.canRun]?.(node),
+        title: action.label,
+        label: action.label,
+      });
+    }
+  }
+
+  runLayerAction(actionId) {
+    const action = RANKING_BOX_LAYER_ACTIONS.find((entry) => entry.id === actionId);
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedRankingBoxNode;
+    if (!action || !selection || node?.getAttr?.("componentType") !== "rankingBox") return;
+
+    selection[action.run]?.(node);
+    this.syncLayerActions();
+    this.panel?.queuePosition?.();
+  }
+
+  handleStageContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.evt?.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
+
+    const node = resolveSelectableFromStageEvent(this.app, event);
+    if (node?.getAttr?.("componentType") !== "rankingBox") return;
+
+    event.evt?.preventDefault?.();
+    event.cancelBubble = true;
+    this.openLayerMenu(node, getClientPoint(this.app, event));
+  }
+
+  openLayerMenu(node, clientPoint = null) {
+    if (node?.getAttr?.("componentType") !== "rankingBox") return;
+
+    this.app.getPlugin?.("context-menu")?.hideMenu?.();
+    this.getSelectionPlugin()?.setSelected?.([node]);
+    this.selectedRankingBoxNode = node;
+    this.loadLabelInputFromSelection();
+    this.syncToolbar();
+
+    window.requestAnimationFrame(() => {
+      const trigger = this.panelEl.querySelector("#ranking-box-layer-menu-trigger");
+      trigger?.focus?.({ preventScroll: true });
+      if (clientPoint) {
+        this.positionLayerMenuAtPoint(clientPoint);
+      }
+      this.syncPopoverOpenState();
+      this.panel?.queuePosition?.();
+    });
+  }
+
+  getLayerToolEl() {
+    return this.panelEl.querySelector(".toolbar__ranking-box-layer-tool");
+  }
+
+  getLayerPopoverEl() {
+    return this.panelEl.querySelector(".toolbar__ranking-box-layer-popover");
+  }
+
+  isLayerMenuOpen() {
+    return Boolean(this.getLayerToolEl()?.matches?.(":focus-within"));
+  }
+
+  closeLayerMenu() {
+    const tool = this.getLayerToolEl();
+    const activeElement = document.activeElement;
+    if (tool?.contains?.(activeElement)) {
+      activeElement.blur?.();
+    }
+    this.clearLayerContextPosition();
+    this.syncPopoverOpenState();
+    this.panel?.queuePosition?.();
+  }
+
+  clearLayerContextPosition() {
+    const tool = this.getLayerToolEl();
+    const popover = this.getLayerPopoverEl();
+    if (!tool) return;
+
+    tool.classList.remove("is-context-open");
+    popover?.style.removeProperty("position");
+    popover?.style.removeProperty("top");
+    popover?.style.removeProperty("right");
+    popover?.style.removeProperty("left");
+    popover?.style.removeProperty("transform");
+    popover?.style.removeProperty("z-index");
+  }
+
+  positionLayerMenuAtPoint(point) {
+    const tool = this.getLayerToolEl();
+    const popover = this.getLayerPopoverEl();
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!tool || !popover || !Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    tool.classList.add("is-context-open");
+    const margin = 8;
+    const width = popover.offsetWidth || popover.getBoundingClientRect().width || 140;
+    const height = popover.offsetHeight || popover.getBoundingClientRect().height || 60;
+    const left = Math.max(margin, Math.min(x, window.innerWidth - width - margin));
+    const top = Math.max(margin, Math.min(y, window.innerHeight - height - margin));
+    const toolRect = tool.getBoundingClientRect();
+    popover.style.setProperty("position", "absolute", "important");
+    popover.style.setProperty("top", `${Math.round(top - toolRect.top)}px`, "important");
+    popover.style.setProperty("right", "auto", "important");
+    popover.style.setProperty("left", `${Math.round(left - toolRect.left)}px`, "important");
+    popover.style.setProperty("transform", "none", "important");
+    popover.style.setProperty("z-index", "100", "important");
+  }
+
+  syncPopoverOpenState() {
+    return this.app.floatingToolbar?.syncPopoverOpenState?.("ranking-box-panel");
   }
 
   bindRankingBox(rankingNode) {

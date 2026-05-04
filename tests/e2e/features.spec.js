@@ -3706,6 +3706,90 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
     .toBeLessThan(2);
 });
 
+test("edits ranking box titles from the floating toolbar", async ({ page }) => {
+  const rankingBox = await addComponent(page, "rankingBox", { x: 180, y: 160 });
+  const center = await getNodePageCenter(page, rankingBox.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), rankingBox.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("ranking-box-panel")).toBeVisible();
+  await expect(page.getByTestId("ranking-box-label-input")).toBeVisible();
+  await expect(page.getByTestId("ranking-box-connect")).toHaveCount(0);
+  await expect(page.getByTestId("ranking-box-layer-menu")).toBeVisible();
+
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), rankingBox.id);
+  expect(opened).toBe(false);
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await page.getByTestId("ranking-box-label-input").fill("Priority Order");
+  await page.getByTestId("ranking-box-label-input").press("Enter");
+
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
+    .toBe("Priority Order");
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
+    .toBe("Ranking Box");
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
+    .toBe("Priority Order");
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
+    .toBe("Priority Order");
+});
+
+test("opens ranking box layer actions from the floating toolbar and right click", async ({ page }) => {
+  const rankingBox = await addComponent(page, "rankingBox", { x: 180, y: 160 });
+  const sticky = await addComponent(page, "sticky", { x: 460, y: 190 });
+  const center = await getNodePageCenter(page, rankingBox.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), rankingBox.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("ranking-box-panel")).toBeVisible();
+  await expect(page.getByTestId("ranking-box-connect")).toHaveCount(0);
+  await expect.poll(async () => getNodeOrder(page, [rankingBox.id, sticky.id]))
+    .toEqual([rankingBox.id, sticky.id]);
+
+  await page.getByTestId("ranking-box-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("ranking-box-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__ranking-box-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
+  await expect(page.getByTestId("ranking-box-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("ranking-box-layer-send-backward")).toBeDisabled();
+  await page.getByTestId("ranking-box-layer-menu").click();
+  await expect(page.locator(".toolbar__ranking-box-layer-popover")).toHaveCSS(
+    "pointer-events",
+    "none",
+  );
+
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect(page.locator(".toolbar__ranking-box-layer-popover")).toHaveCSS(
+    "pointer-events",
+    "auto",
+  );
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+
+  await page.getByTestId("ranking-box-layer-bring-forward").click();
+  await expect.poll(async () => getNodeOrder(page, [rankingBox.id, sticky.id]))
+    .toEqual([sticky.id, rankingBox.id]);
+});
+
 test("moves text into and out of a page ranking box", async ({ page }) => {
   const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
   const textNode = await addComponent(page, "text", {

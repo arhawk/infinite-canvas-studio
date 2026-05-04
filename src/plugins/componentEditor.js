@@ -8,6 +8,7 @@ import { AttachmentsInlineController } from "../attachments/inlineController.js"
 const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
   "image",
   "javascriptEditor",
+  "rankingBox",
   "sticky",
 ]);
 
