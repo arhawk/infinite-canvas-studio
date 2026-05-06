@@ -3071,25 +3071,107 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
   }).not.toEqual(expect.arrayContaining(["outline.md", "Project Docs"]));
 });
 
-test("clamps text block font size in the editor without blocking submit", async ({ page }) => {
+test("edits text blocks from the floating toolbar and inline text editor", async ({ page }) => {
   const text = await addComponent(page, "text", {
     x: 220,
     y: 220,
     text: "Editor check",
     fontSize: 24,
   });
+  const center = await getNodePageCenter(page, text.id);
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), text.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), text.id);
+  await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
+  await waitForPaint(page);
 
-  const fontSizeInput = page.getByTestId("component-editor-input-fontSize");
-  await fontSizeInput.fill("5");
-  await page.getByTestId("component-editor-apply").click();
+  await expect(page.getByTestId("text-panel")).toBeVisible();
+  await expect(page.getByTestId("text-font-size")).toHaveValue("24");
+  await expect(page.getByTestId("text-color")).toHaveValue("#1d1b16");
+  await expect(page.getByTestId("text-connect")).toBeVisible();
+  await expect(page.getByTestId("text-layer-menu")).toBeVisible();
+  await page.getByTestId("text-style-color").click();
+  await expect(page.locator("#text-color-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#text-color-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
 
+  await page.getByTestId("text-font-size").evaluate((input) => {
+    input.value = "5";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.getByTestId("text-color").evaluate((input) => {
+    input.value = "#14532d";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      fontSize: 12,
+      fill: "#14532d",
+    }));
+
+  await page.evaluate(() => {
+    window.__APP_TEST_API__.undo();
+    window.__APP_TEST_API__.undo();
+  });
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      fontSize: 24,
+      fill: "#1d1b16",
+    }));
+
+  await page.evaluate(() => {
+    window.__APP_TEST_API__.redo();
+    window.__APP_TEST_API__.redo();
+  });
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      fontSize: 12,
+      fill: "#14532d",
+    }));
+
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
+  await page.getByTestId("canvas-text-editor").fill("Updated text block");
+  await page.getByTestId("canvas-text-editor").press("Control+Enter");
   await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect
-    .poll(async () => (await getNode(page, text.id))?.summary?.fontSize ?? null)
-    .toBe(12);
+    .poll(async () => (await getNode(page, text.id))?.summary?.text ?? "")
+    .toBe("Updated text block");
+
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), text.id);
+  expect(opened).toBe(false);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await page.evaluate(() => {
+    window.__textContextMenuPrevented = null;
+    document.addEventListener("contextmenu", (event) => {
+      window.setTimeout(() => {
+        window.__textContextMenuPrevented = event.defaultPrevented;
+      }, 0);
+    }, { capture: true, once: true });
+  });
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__textContextMenuPrevented)).toBe(true);
+  await expect.poll(async () => (
+    page.locator(".toolbar__text-layer-tool").evaluate((element) => element.matches(":focus-within"))
+  )).toBe(true);
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  await expect
+    .poll(async () => (await getNode(page, text.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      text: "Updated text block",
+      fontSize: 12,
+      fill: "#14532d",
+    }));
 });
 
 test("creates a real text-range highlight and preserves it through undo redo and document load", async ({ page }) => {

@@ -448,7 +448,7 @@ Use this list as the source of truth for migration scope. Do not invent addition
 - [ ] OIP-135 iframe (`iframe`)
 - [x] OIP-136 image (`image`)
 - [ ] OIP-137 page (`page`)
-- [ ] OIP-138 text (`text`)
+- [x] OIP-138 text (`text`)
 - [x] OIP-139 note (`sticky`)
 
 ## Definition Of Done For One Component

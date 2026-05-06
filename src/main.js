@@ -7,6 +7,7 @@ import { ShapeDropdownPlugin } from "./component/ShapeDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { ImageToolbarPlugin } from "./plugins/imageToolbar.js";
 import { PageToolbarPlugin } from "./plugins/pageToolbar.js";
+import { TextToolbarPlugin } from "./plugins/textToolbar.js";
 import { JavaScriptEditorToolbarPlugin } from "./plugins/javascriptEditorToolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
@@ -185,6 +186,7 @@ app.use(ToolbarPlugin, {
 });
 app.use(ImageToolbarPlugin);
 app.use(PageToolbarPlugin);
+app.use(TextToolbarPlugin);
 app.use(JavaScriptEditorToolbarPlugin);
 
 // Components dropdown — replaces the old sidebar palette

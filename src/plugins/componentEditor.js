@@ -11,6 +11,7 @@ const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
   "rankingBox",
   "sticky",
   "page",
+  "text",
 ]);
 
 function isFloatingToolbarMigrated(node) {
