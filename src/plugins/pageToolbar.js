@@ -263,6 +263,18 @@ export class PageToolbarPlugin extends BasePlugin {
         </div>
         <div class="toolbar__button-style-tool toolbar__button-connect-tool">
           <button
+            id="page-create-next-trigger"
+            class="toolbar__button-style-trigger"
+            type="button"
+            title="Create Next Page"
+            aria-label="Create Next Page"
+            data-testid="page-create-next"
+          >
+            <i data-lucide="plus" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="toolbar__button-style-tool toolbar__button-connect-tool">
+          <button
             id="page-connect-trigger"
             class="toolbar__button-style-trigger"
             type="button"
@@ -302,6 +314,7 @@ export class PageToolbarPlugin extends BasePlugin {
 
   registerPanelButtons() {
     this.panel?.registerButton?.("attachments", "#page-attachment-menu-trigger");
+    this.panel?.registerButton?.("create-next", "#page-create-next-trigger");
     this.panel?.registerButton?.("connect", "#page-connect-trigger");
     for (const button of this.panelEl.querySelectorAll("[data-page-layer-action]")) {
       this.panel?.registerButton?.(`layer:${button.dataset.pageLayerAction}`, button);
@@ -339,6 +352,9 @@ export class PageToolbarPlugin extends BasePlugin {
     });
     this.listenDom(this.panelEl.querySelector("#page-fill-opacity"), "input", () => {
       this.applyStyleFromPanel();
+    });
+    this.listenDom(this.panelEl.querySelector("#page-create-next-trigger"), "click", () => {
+      this.createNextPage();
     });
     this.listenDom(this.panelEl.querySelector("#page-connect-trigger"), "click", () => {
       this.startConnection();
@@ -583,6 +599,7 @@ export class PageToolbarPlugin extends BasePlugin {
 
     this.syncAttachmentUi();
     this.syncAttachmentList();
+    this.syncCreateNextAction();
     this.syncConnectAction();
     this.syncLayerActions();
     this.pageColorToolbar?.sync();
@@ -746,6 +763,31 @@ export class PageToolbarPlugin extends BasePlugin {
     this.closeLayerMenu();
     this.app.commands.execute("connection:connect", node.id());
     this.syncConnectAction();
+  }
+
+  createNextPage() {
+    const node = this.selectedPageNode;
+    if (node?.getAttr?.("componentType") !== "page") return;
+
+    this.closeLayerMenu();
+    this.app.commands.execute("page:create-next", node.id());
+    this.syncCreateNextAction();
+  }
+
+  syncCreateNextAction() {
+    const connections = this.getConnectionsPlugin();
+    const node = this.selectedPageNode;
+    const canCreateNext = Boolean(
+      connections &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "page",
+    );
+
+    this.panel?.setButtonState?.("create-next", {
+      disabled: !canCreateNext,
+      title: "Create Next Page",
+      label: "Create Next Page",
+    });
   }
 
   syncConnectAction() {

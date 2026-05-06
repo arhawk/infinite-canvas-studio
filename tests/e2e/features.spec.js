@@ -3089,6 +3089,8 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), pageNode.id);
   await expect(page.getByTestId("page-panel")).toBeVisible();
+  await expect(page.getByTestId("page-create-next")).toBeVisible();
+  await expect(page.locator('[data-testid="page-create-next"] svg')).toHaveCount(1);
   await page.mouse.dblclick(center.x, center.y);
   await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
@@ -3099,6 +3101,49 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
 
   await page.getByTestId("page-layer-menu").click();
   await expect(page.getByTestId("page-layer-bring-forward")).toBeVisible();
+
+  await page.getByTestId("page-create-next").click();
+  await expect
+    .poll(async () => {
+      const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+      const pages = nodes.filter((node) => node.componentType === "page");
+      const connections = nodes.filter((node) => node.componentType === "connection");
+      const nextPage = pages.find((node) => node.id !== pageNode.id) ?? null;
+      const nextConnection = connections.find((node) => (
+        node.summary?.sourceNodeId === pageNode.id &&
+        node.summary?.targetNodeId === nextPage?.id
+      )) ?? null;
+      return {
+        pageCount: pages.length,
+        connectionCount: connections.length,
+        sourceBounds: pages.find((node) => node.id === pageNode.id)?.bounds ?? null,
+        nextBounds: nextPage?.bounds ?? null,
+        hasDirectedConnection: Boolean(nextConnection),
+      };
+    })
+    .toEqual(expect.objectContaining({
+      pageCount: 2,
+      connectionCount: 1,
+      sourceBounds: expect.any(Object),
+      nextBounds: expect.any(Object),
+      hasDirectedConnection: true,
+    }));
+  const createNextLayout = await page.evaluate((sourceId) => {
+    const nodes = window.__APP_TEST_API__.listNodes();
+    const pages = nodes.filter((node) => node.componentType === "page");
+    const source = pages.find((node) => node.id === sourceId) ?? null;
+    const nextPage = pages.find((node) => node.id !== sourceId) ?? null;
+    return {
+      sourceBounds: source?.bounds ?? null,
+      nextBounds: nextPage?.bounds ?? null,
+    };
+  }, pageNode.id);
+  expect(createNextLayout.sourceBounds).toBeTruthy();
+  expect(createNextLayout.nextBounds).toBeTruthy();
+  expect(createNextLayout.nextBounds.x).toBeGreaterThan(
+    createNextLayout.sourceBounds.x + createNextLayout.sourceBounds.width,
+  );
+  expect(Math.abs(createNextLayout.nextBounds.y - createNextLayout.sourceBounds.y)).toBeLessThan(1);
 
   await page.mouse.click(center.x, center.y, { button: "right" });
   await expect(page.getByText("Edit...")).toHaveCount(0);
