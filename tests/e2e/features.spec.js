@@ -2905,13 +2905,170 @@ test("keeps iframe draggable and clamps zoom back to the fit-to-view minimum aft
     });
 });
 
-test("embeds attachments inside the component editor for pages in edit mode", async ({ page }) => {
-  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), pageNode.id);
+test("edits page from floating toolbar and shows attachment menu", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", {
+    x: 120,
+    y: 120,
+    label: "Old Label",
+    fill: "#fffdf8",
+    labelColor: "#ab4f28",
+    headerLineStroke: "rgba(171, 79, 40, 0.12)",
+  });
+  const center = await getNodePageCenter(page, pageNode.id);
+  const initialSummary = (await getNode(page, pageNode.id))?.summary ?? {};
+  const originalStroke = initialSummary.stroke ?? "#c9b393";
 
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await expect(page.getByTestId("component-editor-attachments")).toBeVisible();
-  await expect(page.getByTestId("component-editor-attachments-body")).toContainText("No attachments yet.");
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), pageNode.id);
+  await expect(page.getByTestId("page-panel")).toBeVisible();
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
+  await page.getByTestId("canvas-text-editor").fill("New Label");
+  await page.getByTestId("canvas-text-editor").press("Control+Enter");
+  await expect(page.getByTestId("canvas-text-editor")).toHaveCount(0);
+  await expect.poll(async () => (await getNode(page, pageNode.id))?.summary?.label ?? "").toBe("New Label");
+
+  await page.getByTestId("page-layer-menu").click();
+  await expect(page.getByTestId("page-layer-bring-forward")).toBeVisible();
+
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+  await expect(page.locator(".toolbar__page-layer-popover")).toHaveCSS("pointer-events", "auto");
+
+  await page.getByTestId("page-style-text-color").click();
+  await expect(page.locator("#page-text-swatches")).toHaveClass(/toolbar__button-color-grid/);
+  await expect(page.locator("#page-text-swatches")).toHaveCSS("display", "grid");
+  await expect(page.locator("#page-text-swatches")).toHaveCSS("grid-template-columns", /^(\S+\s+){4}\S+$/);
+  await expect(page.locator("#page-text-swatches")).not.toHaveCSS("column-gap", "0px");
+  await expect(page.locator("#page-text-swatches")).not.toHaveCSS("row-gap", "0px");
+  await expect(page.locator("#page-text-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#page-text-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  await page.getByTestId("page-text-color").fill("#336699");
+  await expect.poll(async () => (await getNode(page, pageNode.id))?.summary ?? null).toEqual(
+    expect.objectContaining({
+      label: "New Label",
+      stroke: "rgba(51, 102, 153, 0.45)",
+    }),
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect.poll(async () => (await getNode(page, pageNode.id))?.summary ?? null).toEqual(
+    expect.objectContaining({
+      stroke: originalStroke,
+    }),
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect.poll(async () => (await getNode(page, pageNode.id))?.summary ?? null).toEqual(
+    expect.objectContaining({
+      stroke: "rgba(51, 102, 153, 0.45)",
+    }),
+  );
+  await page.getByTestId("page-style-fill").click();
+  await expect(page.locator("#page-fill-swatches")).toHaveClass(/toolbar__button-color-grid/);
+  await expect(page.locator("#page-fill-swatches")).toHaveCSS("display", "grid");
+  await expect(page.locator("#page-fill-swatches")).toHaveCSS("grid-template-columns", /^(\S+\s+){4}\S+$/);
+  await expect(page.locator("#page-fill-swatches")).not.toHaveCSS("column-gap", "0px");
+  await expect(page.locator("#page-fill-swatches")).not.toHaveCSS("row-gap", "0px");
+  await expect(page.locator("#page-fill-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#page-fill-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  await expect(page.locator("[data-testid='page-attachment-menu'] svg.lucide-folder-open")).toHaveCount(1);
+
+  await page.getByTestId("page-attachment-menu").click();
+  await expect(page.locator("[data-page-attachment-action]")).toHaveCount(3);
+  await expect(page.getByTestId("page-attachment-directory-action")).toHaveText("Choose Folder");
+  await expect(page.getByTestId("page-attachment-add-file")).toBeVisible();
+  await expect(page.getByTestId("page-attachment-add-url")).toBeVisible();
+  await page.evaluate((nodeId) => {
+    window.__APP_TEST_API__.setNodeAttachments(nodeId, {
+      directory: { handleKey: "dir-handle", name: "DemoFolder" },
+      entries: [],
+    });
+  }, pageNode.id);
+  await page.getByTestId("page-attachment-menu").click();
+  await expect(page.locator("[data-page-attachment-action]")).toHaveCount(3);
+  await expect(page.getByTestId("page-attachment-directory-action")).toHaveText("Disconnect");
+  await expect(page.getByTestId("page-attachment-add-file")).toBeVisible();
+  await expect(page.getByTestId("page-attachment-add-url")).toBeVisible();
+  await page.getByTestId("page-attachment-directory-action").click();
+  await expect(page.getByTestId("page-attachment-directory-action")).toHaveText("Choose Folder");
+  await expect(page.getByTestId("page-attachment-add-file")).toBeVisible();
+  await expect(page.getByTestId("page-attachment-add-url")).toBeVisible();
+  await page.evaluate((nodeId) => {
+    window.__APP_TEST_API__.setNodeAttachments(nodeId, {
+      directory: { handleKey: "dir-handle", name: "DemoFolder" },
+      entries: [
+        {
+          kind: "local-file",
+          sourceKind: "directory",
+          label: "outline.md",
+          path: "projects/demo/outline.md",
+          size: 2048,
+        },
+        {
+          kind: "url",
+          sourceKind: "url",
+          label: "Project Docs",
+          url: "https://example.com/docs",
+        },
+      ],
+    });
+  }, pageNode.id);
+  await page.getByTestId("page-attachment-menu").click();
+  await expect(page.getByText("outline.md · 2.0 KB")).toBeVisible();
+  await expect(page.getByText("Project Docs")).toBeVisible();
+  await expect(page.getByTestId("page-attachment-delete")).toHaveCount(2);
+  await page.getByTestId("page-attachment-delete").first().click();
+  await expect(page.getByTestId("page-attachment-status")).toHaveText("Attachment removed.");
+  await expect(page.getByTestId("page-attachment-list")).not.toContainText("outline.md");
+  await expect(page.getByTestId("page-attachment-list")).toContainText("Project Docs");
+  await page.getByTestId("page-attachment-menu").click();
+  await page.getByTestId("page-attachment-delete").first().click();
+  await expect(page.getByTestId("page-attachment-list")).toContainText("No attachments yet.");
+  await expect(page.getByTestId("page-attachment-list")).not.toContainText("projects/demo/outline.md");
+  await expect(page.getByTestId("page-attachment-list")).not.toContainText("https://example.com/docs");
+
+  await page.evaluate((nodeId) => {
+    window.__APP_TEST_API__.setNodeAttachments(nodeId, {
+      directory: { handleKey: "dir-handle", name: "DemoFolder" },
+      entries: [],
+    });
+  }, pageNode.id);
+  await page.getByTestId("page-attachment-menu").click();
+  await expect(page.locator("[data-page-attachment-action]")).toHaveCount(3);
+  await expect(page.getByTestId("page-attachment-directory-action")).toHaveText("Disconnect");
+
+  page.once("dialog", (dialog) => dialog.accept("https://example.com/doc"));
+  await page.getByTestId("page-attachment-add-url").click();
+
+  await page.getByTestId("page-attachment-file-input").setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("hello attachment"),
+  });
+
+  await expect.poll(async () => {
+    const current = await getNode(page, pageNode.id);
+    return current?.attachments?.entries?.length ?? 0;
+  }).toBeGreaterThanOrEqual(2);
+
+  const roundtrip = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), roundtrip);
+  await expect.poll(async () => (await getNode(page, pageNode.id))?.summary ?? null).toEqual(
+    expect.objectContaining({
+      label: "New Label",
+      stroke: "rgba(51, 102, 153, 0.45)",
+    }),
+  );
+  await expect.poll(async () => {
+    const restored = await getNode(page, pageNode.id);
+    return restored?.attachments?.entries?.map((entry) => entry.label) ?? [];
+  }).toEqual(expect.arrayContaining(["example.com", "notes.txt"]));
+  await expect.poll(async () => {
+    const restored = await getNode(page, pageNode.id);
+    return restored?.attachments?.entries?.map((entry) => entry.label) ?? [];
+  }).not.toEqual(expect.arrayContaining(["outline.md", "Project Docs"]));
 });
 
 test("clamps text block font size in the editor without blocking submit", async ({ page }) => {

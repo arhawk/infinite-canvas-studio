@@ -10,6 +10,7 @@ const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
   "javascriptEditor",
   "rankingBox",
   "sticky",
+  "page",
 ]);
 
 function isFloatingToolbarMigrated(node) {
@@ -157,6 +158,10 @@ export class ComponentEditorPlugin extends BasePlugin {
       }
       if (selectable?.getAttr?.("componentType") === "sticky") {
         selectable.findOne?.(".sticky-text")?.openInlineEditor?.(event);
+        return;
+      }
+      if (selectable?.getAttr?.("componentType") === "page") {
+        selectable.findOne?.(".page-label")?.openInlineEditor?.(event);
         return;
       }
 

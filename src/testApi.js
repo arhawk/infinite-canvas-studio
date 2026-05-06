@@ -313,6 +313,10 @@ function getNodeSummary(node) {
 function serializeNode(app, node) {
   const bounds = getNodeBounds(app, node);
   const parent = node.getParent?.();
+  const component = app.components.getByNode(node);
+  const attachments = component?.supportsAttachments?.(node)
+    ? component.getAttachmentState?.(node) ?? null
+    : null;
 
   return {
     id: node.id(),
@@ -330,6 +334,7 @@ function serializeNode(app, node) {
         }
       : null,
     summary: getNodeSummary(node),
+    attachments,
   };
 }
 
@@ -782,6 +787,17 @@ export function setupAppTestApi(app) {
         count: group.getChildren().length,
         scale: app.stageApi.getScale(),
       };
+    },
+    setNodeAttachments: (id, attachmentsState) => {
+      const node = getNodeById(app, id);
+      if (!node) return false;
+      const component = app.components.getByNode(node);
+      if (!component?.supportsAttachments?.(node)) return false;
+      app.events.emit("node:change:start", { node });
+      component.setAttachmentState(node, attachmentsState);
+      app.events.emit("node:changed", { node });
+      node.getLayer?.()?.batchDraw?.();
+      return true;
     },
     clickNavigationButton: (index = 0) => {
       const focusPlugin = getPlugin(app, "focus-navigation");

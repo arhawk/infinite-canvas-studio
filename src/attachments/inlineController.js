@@ -1,41 +1,13 @@
 import {
-  appendAttachmentEntries,
   createEmptyAttachmentState,
-  normalizeAttachmentEntry,
-  replaceDirectoryEntries,
 } from "./model.js";
-import {
-  saveHandleRecord,
-  supportsHandlePersistence,
-} from "./handleStore.js";
 import { openAttachmentEntry } from "./openAttachment.js";
-
-function createHandleKey(prefix = "attachment-handle") {
-  if (typeof crypto?.randomUUID === "function") {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-
-  return `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-}
-
-function isFileSystemAccessSupported() {
-  return typeof window !== "undefined" && typeof window.showDirectoryPicker === "function";
-}
-
-function supportsManualFileAttachments() {
-  return typeof File !== "undefined";
-}
-
-function isHttpUrl(value) {
-  if (typeof value !== "string" || !value.trim()) return false;
-
-  try {
-    const parsed = new URL(value.trim());
-    return ["http:", "https:"].includes(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
+import {
+  AttachmentActions,
+  isFileSystemAccessSupported,
+  isHttpUrl,
+  supportsManualFileAttachments,
+} from "./actions.js";
 
 function formatFileSize(size) {
   if (!Number.isFinite(size) || size <= 0) return "";
@@ -49,38 +21,10 @@ function getComponentLabel(node) {
   return node?.findOne?.(".container-label")?.text?.() ?? "Attachments";
 }
 
-async function collectDirectoryEntries(directoryHandle, parentPath = "") {
-  const entries = [];
-
-  for await (const [name, handle] of directoryHandle.entries()) {
-    const nextPath = parentPath ? `${parentPath}/${name}` : name;
-
-    if (handle.kind === "directory") {
-      entries.push(...await collectDirectoryEntries(handle, nextPath));
-      continue;
-    }
-
-    const file = await handle.getFile();
-    entries.push(
-      normalizeAttachmentEntry({
-        kind: "local-file",
-        sourceKind: "directory",
-        label: file.name,
-        fileName: file.name,
-        path: nextPath,
-        mimeType: file.type || null,
-        size: file.size,
-        sourceName: directoryHandle.name,
-      }),
-    );
-  }
-
-  return entries.sort((left, right) => left.path.localeCompare(right.path));
-}
-
 export class AttachmentsInlineController {
   constructor(app) {
     this.app = app;
+    this.actions = new AttachmentActions(app);
     this.activeNode = null;
     this.inlineHostEl = null;
     this.inlineCleanup = null;
@@ -115,25 +59,15 @@ export class AttachmentsInlineController {
   }
 
   getAttachmentComponent(node = this.activeNode) {
-    if (!node) return null;
-    const component = this.app.components.getByNode(node);
-    if (!component?.supportsAttachments?.(node)) return null;
-    return component;
+    return this.actions.getAttachmentComponent(node);
   }
 
   getAttachmentState(node = this.activeNode) {
-    const component = this.getAttachmentComponent(node);
-    return component?.getAttachmentState?.(node) ?? createEmptyAttachmentState();
+    return this.actions.getAttachmentState(node) ?? createEmptyAttachmentState();
   }
 
   updateAttachmentState(node, nextState) {
-    const component = this.getAttachmentComponent(node);
-    if (!component) return;
-
-    this.app.events.emit("node:change:start", { node });
-    component.setAttachmentState(node, nextState);
-    this.app.events.emit("node:changed", { node });
-    node.getLayer()?.batchDraw();
+    this.actions.updateAttachmentState(node, nextState);
     this.syncInlinePanel();
   }
 
@@ -284,7 +218,7 @@ export class AttachmentsInlineController {
           .join("")
       : `<li class="attachments-panel__empty">No attachments yet.</li>`;
 
-    const canChooseFolder = editable && supportsFsApi;
+    const canChooseFolder = editable && supportsFsApi && !state.directory;
     const canDisconnect = editable && Boolean(state.directory);
     const canPickFiles = editable && supportsUploads;
 
@@ -394,11 +328,7 @@ export class AttachmentsInlineController {
     if (!node || !attachmentId) return;
 
     const state = this.getAttachmentState(node);
-    const nextEntries = state.entries.filter((entry) => entry.id !== attachmentId);
-    this.updateAttachmentState(node, {
-      directory: state.directory,
-      entries: nextEntries,
-    });
+    this.actions.deleteAttachment(node, attachmentId);
     this.showStatus("Attachment removed.");
   }
 
@@ -406,12 +336,7 @@ export class AttachmentsInlineController {
     const node = this.activeNode;
     if (!node) return;
 
-    const state = this.getAttachmentState(node);
-    const nextState = {
-      directory: null,
-      entries: state.entries.filter((entry) => entry.sourceKind !== "directory"),
-    };
-    this.updateAttachmentState(node, nextState);
+    this.actions.disconnectDirectory(node);
     this.showStatus("Folder disconnected.");
   }
 
@@ -425,120 +350,13 @@ export class AttachmentsInlineController {
 
     try {
       const directoryHandle = await window.showDirectoryPicker({ mode: "read" });
-      await this.attachDirectoryToNode(node, directoryHandle);
+      await this.actions.attachDirectoryToNode(node, directoryHandle);
       this.showStatus("Folder indexed.");
     } catch (error) {
       if (error?.name === "AbortError") return;
       console.error(error);
       this.showStatus("Failed to attach folder.", "error");
     }
-  }
-
-  async attachDirectoryToNode(node, directoryHandle) {
-    if (!supportsHandlePersistence()) {
-      throw new Error("This browser cannot persist folder handles.");
-    }
-
-    const handleKey = createHandleKey("attachment-directory");
-    await saveHandleRecord(handleKey, directoryHandle, {
-      kind: "directory",
-      name: directoryHandle.name,
-    });
-
-    const entries = await collectDirectoryEntries(directoryHandle);
-    const nextEntries = entries.map((entry) => ({
-      ...entry,
-      handleKey,
-      sourceKind: "directory",
-      sourceName: directoryHandle.name,
-    }));
-    const nextState = replaceDirectoryEntries(
-      this.getAttachmentState(node),
-      {
-        handleKey,
-        name: directoryHandle.name,
-      },
-      nextEntries,
-    );
-
-    this.updateAttachmentState(node, nextState);
-  }
-
-  async attachFileHandleToNode(node, fileHandle) {
-    if (!supportsHandlePersistence()) {
-      throw new Error("This browser cannot persist file handles.");
-    }
-
-    const file = await fileHandle.getFile();
-    const handleKey = createHandleKey("attachment-file");
-
-    await saveHandleRecord(handleKey, fileHandle, {
-      kind: "file",
-      name: file.name,
-    });
-
-    const nextState = appendAttachmentEntries(this.getAttachmentState(node), [
-      normalizeAttachmentEntry({
-        kind: "local-file",
-        sourceKind: "file",
-        handleKey,
-        label: file.name,
-        fileName: file.name,
-        path: file.name,
-        mimeType: file.type || null,
-        size: file.size,
-        sourceName: file.name,
-      }),
-    ]);
-
-    this.updateAttachmentState(node, nextState);
-  }
-
-  async attachUploadedFilesToNode(node, files = []) {
-    if (!supportsHandlePersistence()) {
-      throw new Error("This browser cannot persist local file attachments.");
-    }
-
-    const nextEntries = [];
-    for (const file of files) {
-      if (!(file instanceof File)) continue;
-
-      const handleKey = createHandleKey("attachment-upload");
-      await saveHandleRecord(handleKey, file, {
-        kind: "upload",
-        name: file.name,
-      });
-
-      nextEntries.push(
-        normalizeAttachmentEntry({
-          kind: "local-file",
-          sourceKind: "upload",
-          handleKey,
-          label: file.name,
-          fileName: file.name,
-          path: file.name,
-          mimeType: file.type || null,
-          size: file.size,
-          sourceName: file.name,
-        }),
-      );
-    }
-
-    if (!nextEntries.length) return;
-
-    this.updateAttachmentState(node, appendAttachmentEntries(this.getAttachmentState(node), nextEntries));
-  }
-
-  attachUrlToNode(node, url) {
-    const nextState = appendAttachmentEntries(this.getAttachmentState(node), [
-      normalizeAttachmentEntry({
-        kind: "url",
-        sourceKind: "url",
-        url,
-      }),
-    ]);
-
-    this.updateAttachmentState(node, nextState);
   }
 
   hasDroppableData(event) {
@@ -578,16 +396,16 @@ export class AttachmentsInlineController {
 
       handled = true;
       if (handle.kind === "directory") {
-        await this.attachDirectoryToNode(node, handle);
+        await this.actions.attachDirectoryToNode(node, handle);
       } else if (handle.kind === "file") {
-        await this.attachFileHandleToNode(node, handle);
+        await this.actions.attachFileHandleToNode(node, handle);
       }
     }
 
     if (!handled) {
-      const droppedFiles = [...(event.dataTransfer?.files ?? [])].filter((file) => file instanceof File);
+        const droppedFiles = [...(event.dataTransfer?.files ?? [])].filter((file) => file instanceof File);
       if (droppedFiles.length) {
-        await this.attachUploadedFilesToNode(node, droppedFiles);
+        await this.actions.attachUploadedFilesToNode(node, droppedFiles);
         handled = true;
       }
     }
@@ -598,7 +416,7 @@ export class AttachmentsInlineController {
         event.dataTransfer?.getData("text/plain") ||
         "";
       if (isHttpUrl(droppedUrl)) {
-        this.attachUrlToNode(node, droppedUrl.trim());
+        this.actions.attachUrlToNode(node, droppedUrl.trim());
         handled = true;
       }
     }
@@ -627,7 +445,8 @@ export class AttachmentsInlineController {
 
     const files = [...this.fileInputEl.files];
     try {
-      await this.attachUploadedFilesToNode(node, files);
+      await this.actions.attachUploadedFilesToNode(node, files);
+      this.syncInlinePanel();
       this.showStatus("Attachment added.");
     } catch (error) {
       console.error(error);
@@ -650,7 +469,8 @@ export class AttachmentsInlineController {
       return;
     }
 
-    this.attachUrlToNode(node, trimmed);
+    this.actions.attachUrlToNode(node, trimmed);
+    this.syncInlinePanel();
     this.showStatus("Attachment added.");
   }
 }

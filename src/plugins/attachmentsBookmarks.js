@@ -52,12 +52,15 @@ function toCompactBookmarkLabel(value) {
 export class AttachmentsBookmarksPlugin extends BasePlugin {
   static pluginId = "attachments-bookmarks";
   static modes = {
+    edit: {},
     presentation: {},
   };
 
   onSetup() {
     this.selectedNode = null;
     this.bookmarkAnchorNode = null;
+    this.positionRafId = null;
+    this.pendingPositionNode = null;
     this.bookmarkGroup = new Konva.Group({
       visible: false,
       listening: true,
@@ -71,6 +74,11 @@ export class AttachmentsBookmarksPlugin extends BasePlugin {
     });
     this.listen("viewport:change", () => this.syncBookmarks());
     this.listen("interaction:change", () => this.syncBookmarks());
+    this.listen("node:changing", ({ node }) => {
+      if (!node || !this.bookmarkGroup.visible()) return;
+      if (node !== this.getPageBookmarkNode()) return;
+      this.queueBookmarkPosition(node);
+    });
     this.listen("node:changed", ({ node }) => {
       if (!node) return;
       if (node === this.selectedNode || node === this.bookmarkAnchorNode) this.syncBookmarks();
@@ -94,6 +102,10 @@ export class AttachmentsBookmarksPlugin extends BasePlugin {
     });
 
     this.cleanups.push(() => {
+      if (this.positionRafId != null) {
+        window.cancelAnimationFrame(this.positionRafId);
+        this.positionRafId = null;
+      }
       this.app.stage.off(".attachmentsBookmarks");
       this.bookmarkGroup.destroy();
       this.app.uiLayer.batchDraw();
@@ -101,9 +113,40 @@ export class AttachmentsBookmarksPlugin extends BasePlugin {
   }
 
   clearBookmarks() {
+    if (this.positionRafId != null) {
+      window.cancelAnimationFrame(this.positionRafId);
+      this.positionRafId = null;
+    }
+    this.pendingPositionNode = null;
     this.bookmarkGroup.destroyChildren();
     this.bookmarkGroup.visible(false);
     this.app.uiLayer.batchDraw();
+  }
+
+  updateBookmarkPosition(node) {
+    if (!node?.getStage?.()) return;
+    const bounds = node.getClientRect({ relativeTo: this.app.stage, skipShadow: true });
+    const topRight = {
+      x: bounds.x + bounds.width,
+      y: bounds.y,
+    };
+    this.bookmarkGroup.position({
+      x: topRight.x + BOOKMARK_OFFSET_X,
+      y: topRight.y + BOOKMARK_OFFSET_Y,
+    });
+  }
+
+  queueBookmarkPosition(node) {
+    this.pendingPositionNode = node;
+    if (this.positionRafId != null) return;
+    this.positionRafId = window.requestAnimationFrame(() => {
+      this.positionRafId = null;
+      const nextNode = this.pendingPositionNode;
+      this.pendingPositionNode = null;
+      if (!nextNode || !this.bookmarkGroup.visible()) return;
+      this.updateBookmarkPosition(nextNode);
+      this.app.uiLayer.batchDraw();
+    });
   }
 
   resolveAttachmentNode(target) {
@@ -122,10 +165,19 @@ export class AttachmentsBookmarksPlugin extends BasePlugin {
   }
 
   getPageBookmarkNode() {
-    if (this.app.getMode() !== "presentation") return null;
-    const anchored = this.resolveAttachmentNode(this.bookmarkAnchorNode);
-    const fallback = this.resolveAttachmentNode(this.selectedNode);
-    const node = anchored ?? fallback;
+    const mode = this.app.getMode();
+    let node = null;
+
+    if (mode === "presentation") {
+      const anchored = this.resolveAttachmentNode(this.bookmarkAnchorNode);
+      const fallback = this.resolveAttachmentNode(this.selectedNode);
+      node = anchored ?? fallback;
+    } else if (mode === "edit") {
+      node = this.resolveAttachmentNode(this.selectedNode);
+    } else {
+      return null;
+    }
+
     if (!node) return null;
     if (node.getAttr("componentType") !== "page") return null;
     const state = this.getAttachmentState(node);
@@ -135,8 +187,6 @@ export class AttachmentsBookmarksPlugin extends BasePlugin {
 
   syncBookmarkAnchorFromTarget(target) {
     if (this.app.getMode() !== "presentation") {
-      this.bookmarkAnchorNode = null;
-      this.syncBookmarks();
       return;
     }
 
@@ -229,18 +279,10 @@ export class AttachmentsBookmarksPlugin extends BasePlugin {
       return;
     }
 
-    const bounds = node.getClientRect({ relativeTo: this.app.stage, skipShadow: true });
-    const topRight = {
-      x: bounds.x + bounds.width,
-      y: bounds.y,
-    };
     const state = this.getAttachmentState(node);
 
     this.bookmarkGroup.destroyChildren();
-    this.bookmarkGroup.position({
-      x: topRight.x + BOOKMARK_OFFSET_X,
-      y: topRight.y + BOOKMARK_OFFSET_Y,
-    });
+    this.updateBookmarkPosition(node);
 
     state.entries.forEach((entry, index) => {
       this.bookmarkGroup.add(this.buildBookmarkNode(entry, index, node));

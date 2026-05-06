@@ -1,6 +1,7 @@
 import { Konva } from "../lib/konva.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { ContainerComponent } from "./container.js";
+import { EditableTextBehavior } from "./editableText.js";
 
 const PAGE_WIDTH = 960;
 const PAGE_HEIGHT = 540;
@@ -110,6 +111,10 @@ export class PageComponent extends ContainerComponent {
       ellipsis: true,
       name: "container-label page-label",
       listening: true,
+    });
+    EditableTextBehavior.attach(text, {
+      fallbackText: DEFAULT_PAGE_LABEL,
+      getHistoryNode: () => group,
     });
 
     group.add(rect, headerLine, text);

@@ -6,6 +6,7 @@ import { PenDropdownPlugin } from "./component/PenDropdown/index.js";
 import { ShapeDropdownPlugin } from "./component/ShapeDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { ImageToolbarPlugin } from "./plugins/imageToolbar.js";
+import { PageToolbarPlugin } from "./plugins/pageToolbar.js";
 import { JavaScriptEditorToolbarPlugin } from "./plugins/javascriptEditorToolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
@@ -183,6 +184,7 @@ app.use(ToolbarPlugin, {
   stickyFillColorEl: ui.stickyFillColor,
 });
 app.use(ImageToolbarPlugin);
+app.use(PageToolbarPlugin);
 app.use(JavaScriptEditorToolbarPlugin);
 
 // Components dropdown — replaces the old sidebar palette
