@@ -124,6 +124,75 @@ async function getMinimapLaserAlignment(page, nodeId) {
   }, nodeId);
 }
 
+async function getMinimapShapeInkSummary(page, nodeId) {
+  return page.evaluate((id) => {
+    const node = window.__APP_TEST_API__.getNode(id);
+    const viewport = window.__APP_TEST_API__.getViewportState().viewport;
+    const canvas = document.querySelector('[data-testid="minimap"] canvas');
+    const context = canvas?.getContext?.("2d");
+    if (!node?.bounds || !canvas || !context) return null;
+
+    const paddedNode = {
+      x: node.bounds.x - 80,
+      y: node.bounds.y - 80,
+      width: node.bounds.width + 160,
+      height: node.bounds.height + 160,
+    };
+    const bounds = {
+      x: Math.min(paddedNode.x, viewport.x),
+      y: Math.min(paddedNode.y, viewport.y),
+      width: Math.max(paddedNode.x + paddedNode.width, viewport.x + viewport.width)
+        - Math.min(paddedNode.x, viewport.x),
+      height: Math.max(paddedNode.y + paddedNode.height, viewport.y + viewport.height)
+        - Math.min(paddedNode.y, viewport.y),
+    };
+    const scale = Math.min(canvas.width / bounds.width, canvas.height / bounds.height);
+    const offsetX = (canvas.width - bounds.width * scale) / 2;
+    const offsetY = (canvas.height - bounds.height * scale) / 2;
+    const miniRect = {
+      x: (node.bounds.x - bounds.x) * scale + offsetX,
+      y: (node.bounds.y - bounds.y) * scale + offsetY,
+      width: node.bounds.width * scale,
+      height: node.bounds.height * scale,
+    };
+
+    const countInk = (x, y, width, height) => {
+      const sampleX = Math.max(0, Math.floor(x));
+      const sampleY = Math.max(0, Math.floor(y));
+      const sampleW = Math.max(1, Math.min(canvas.width - sampleX, Math.ceil(width)));
+      const sampleH = Math.max(1, Math.min(canvas.height - sampleY, Math.ceil(height)));
+      const { data } = context.getImageData(sampleX, sampleY, sampleW, sampleH);
+      let count = 0;
+      for (let index = 3; index < data.length; index += 4) {
+        if (data[index] > 40) count += 1;
+      }
+      return count;
+    };
+
+    const sample = 5;
+    const inset = 2;
+    const cornerInk = [
+      countInk(miniRect.x + inset, miniRect.y + inset, sample, sample),
+      countInk(miniRect.x + miniRect.width - sample - inset, miniRect.y + inset, sample, sample),
+      countInk(miniRect.x + inset, miniRect.y + miniRect.height - sample - inset, sample, sample),
+      countInk(
+        miniRect.x + miniRect.width - sample - inset,
+        miniRect.y + miniRect.height - sample - inset,
+        sample,
+        sample,
+      ),
+    ].reduce((total, count) => total + count, 0);
+    const centerInk = countInk(
+      miniRect.x + miniRect.width / 2 - sample / 2,
+      miniRect.y + miniRect.height / 2 - sample / 2,
+      sample,
+      sample,
+    );
+
+    return { cornerInk, centerInk, miniRect };
+  }, nodeId);
+}
+
 function getUnionBounds(nodes = []) {
   const bounds = nodes.map((node) => node.bounds).filter(Boolean);
   if (!bounds.length) return null;
@@ -941,6 +1010,22 @@ test("positions the minimap selection laser on the rendered canvas", async ({ pa
   expect(alignment).not.toBeNull();
   expect(alignment.dx).toBeLessThan(0.75);
   expect(alignment.dy).toBeLessThan(0.75);
+});
+
+test("renders shape components with their actual shape in the minimap", async ({ page }) => {
+  const shape = await addComponent(page, "shape", {
+    x: 2400,
+    y: 1800,
+    width: 800,
+    height: 800,
+    shapeType: "rhombus",
+  });
+  await waitForPaint(page);
+
+  const inkSummary = await getMinimapShapeInkSummary(page, shape.id);
+  expect(inkSummary).not.toBeNull();
+  expect(inkSummary.centerInk).toBeGreaterThan(12);
+  expect(inkSummary.cornerInk).toBeLessThan(inkSummary.centerInk);
 });
 
 test("pastes copied components into the current viewport", async ({ page }) => {

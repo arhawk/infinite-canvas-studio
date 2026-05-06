@@ -16,6 +16,10 @@ function isConnectionNode(node) {
   return node?.getAttr?.("componentType") === "connection";
 }
 
+function isShapeNode(node) {
+  return node?.getAttr?.("componentType") === "shape";
+}
+
 export class MinimapPlugin extends BasePlugin {
   static pluginId = "minimap";
 
@@ -286,6 +290,49 @@ export class MinimapPlugin extends BasePlugin {
     ctx.restore();
   }
 
+  drawNodeBox(ctx, { x, y, width, height }) {
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, width, height, 1.5);
+    } else {
+      ctx.rect(x, y, width, height);
+    }
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  drawShapeNode(ctx, node, rect) {
+    const shapeType = node.getAttr("shapeType") ?? "rectangle";
+    const { x, y } = this.toMinimap(rect.x, rect.y);
+    const width = Math.max(2, rect.width * this.minimapTransform.scale);
+    const height = Math.max(2, rect.height * this.minimapTransform.scale);
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    ctx.beginPath();
+    if (shapeType === "oval") {
+      ctx.ellipse(centerX, centerY, width / 2, height / 2, 0, 0, Math.PI * 2);
+    } else if (shapeType === "rhombus") {
+      ctx.moveTo(centerX, y);
+      ctx.lineTo(x + width, centerY);
+      ctx.lineTo(centerX, y + height);
+      ctx.lineTo(x, centerY);
+      ctx.closePath();
+    } else if (shapeType === "triangle") {
+      ctx.moveTo(centerX, y);
+      ctx.lineTo(x + width, y + height);
+      ctx.lineTo(x, y + height);
+      ctx.closePath();
+    } else {
+      this.drawNodeBox(ctx, { x, y, width, height });
+      return { x, y, width, height };
+    }
+
+    ctx.fill();
+    ctx.stroke();
+    return { x, y, width, height };
+  }
+
   getUnlinkedPageIds(nodes) {
     const pageIds = new Set(
       nodes
@@ -470,8 +517,8 @@ export class MinimapPlugin extends BasePlugin {
     ctx.fillStyle = "rgba(61, 47, 32, 0.03)";
     ctx.fillRect(0, 0, w, h);
 
-    // Draw every selectable node as a small rounded rect, except connections
-    // which keep their actual curve shape in the overview.
+    // Draw selectable nodes in miniature. Connections and shapes keep their
+    // actual geometry so the overview does not collapse them into bounding boxes.
     const unlinkedPageMarkers = [];
     for (const node of nodes) {
       if (isConnectionNode(node)) {
@@ -488,14 +535,11 @@ export class MinimapPlugin extends BasePlugin {
       ctx.strokeStyle = "rgba(84, 64, 43, 0.5)";
       ctx.lineWidth = 0.5;
 
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(x, y, nw, nh, 1.5);
+      if (isShapeNode(node)) {
+        this.drawShapeNode(ctx, node, r);
       } else {
-        ctx.rect(x, y, nw, nh);
+        this.drawNodeBox(ctx, { x, y, width: nw, height: nh });
       }
-      ctx.fill();
-      ctx.stroke();
 
       if (unlinkedPageIds.has(node.id())) {
         unlinkedPageMarkers.push({ x, y, width: nw });
