@@ -205,11 +205,13 @@ describe("BackgroundPlugin", () => {
 
     document.querySelector('[data-style-id="colorful"]').click();
     expect(document.body.classList.contains("theme-colorful")).toBe(true);
+    expect(app.getBackgroundState().color).toBe("#ffffff");
     expect(document.querySelector('[data-style-id="colorful"]').getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("false");
 
     document.querySelector('[data-style-id="default"]').click();
     expect(document.body.classList.contains("theme-colorful")).toBe(false);
+    expect(app.getBackgroundState().color).toBe("#f7f3ea");
     expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("true");
   });
 

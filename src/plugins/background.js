@@ -7,8 +7,8 @@ import {
 import { DEFAULT_COLOR_SWATCHES } from "../lib/colorToolbar.js";
 
 const STYLE_OPTIONS = [
-  { id: "default", label: "Default" },
-  { id: "colorful", label: "Colorful" },
+  { id: "default", label: "Default", canvasColor: "#f7f3ea" },
+  { id: "colorful", label: "Colorful", canvasColor: "#ffffff" },
 ];
 
 const BACKGROUND_TYPE_OPTIONS = [
@@ -21,6 +21,10 @@ const PRESET_COLORS = DEFAULT_COLOR_SWATCHES.filter((c) => c !== "transparent");
 
 function backgroundsEqual(a, b) {
   return JSON.stringify(normalizeBackgroundState(a)) === JSON.stringify(normalizeBackgroundState(b));
+}
+
+function getStyleOption(styleId) {
+  return STYLE_OPTIONS.find((option) => option.id === styleId) ?? STYLE_OPTIONS[0];
 }
 
 export class BackgroundPlugin extends BasePlugin {
@@ -42,11 +46,7 @@ export class BackgroundPlugin extends BasePlugin {
     this.listenDom(this.stylePillsEl, "click", (event) => {
       const button = event.target.closest("[data-style-id]");
       if (!button) return;
-      this.currentTheme = button.dataset.styleId;
-      document.body.classList.toggle("theme-colorful", this.currentTheme === "colorful");
-      const baseColor = getComputedStyle(document.body).getPropertyValue("--canvas-base-bg").trim();
-      if (baseColor) this.applyBackgroundChange({ color: baseColor });
-      this.syncStylePills();
+      this.applyTheme(button.dataset.styleId);
     });
 
     this.listenDom(this.typeButtonsEl, "click", (event) => {
@@ -218,6 +218,14 @@ export class BackgroundPlugin extends BasePlugin {
 
   getBackgroundState() {
     return this.app.getBackgroundState?.();
+  }
+
+  applyTheme(styleId) {
+    const option = getStyleOption(styleId);
+    this.currentTheme = option.id;
+    document.body.classList.toggle("theme-colorful", option.id === "colorful");
+    this.applyBackgroundChange({ color: option.canvasColor });
+    this.syncStylePills();
   }
 
   applyBackgroundChange(partialState = {}) {
