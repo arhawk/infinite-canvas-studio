@@ -7,6 +7,18 @@ function getContainerRect(app) {
   return app.stage.container().getBoundingClientRect();
 }
 
+function getElementRect(element) {
+  const rect = element?.getBoundingClientRect?.();
+  return rect
+    ? {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      }
+    : null;
+}
+
 function getNodeById(app, id) {
   return id ? app.mainLayer.findOne(`#${id}`) : null;
 }
@@ -207,8 +219,24 @@ function getNodeSummary(node) {
   if (componentType === "rankingBox") {
     const data = node.getAttr("data") ?? {};
     const cards = node.find(".ranking-item-card");
+    const titleNode = node.findOne(".ranking-box-label");
+    const background = node.findOne(".ranking-box-bg");
+    const header = node.findOne(".ranking-box-header-bg");
     return {
       label: data.label ?? "",
+      titleBounds: serializeRect(titleNode?.getClientRect?.({ relativeTo: node.getStage?.() })),
+      headerBounds: serializeRect(header?.getClientRect?.({ relativeTo: node.getStage?.() })),
+      titleFontSize: data.titleFontSize ?? null,
+      titleColor: data.titleColor ?? null,
+      themeColor: data.themeColor ?? null,
+      renderedTitleFontSize: titleNode?.fontSize?.() ?? null,
+      renderedTitleWrap: titleNode?.wrap?.() ?? null,
+      renderedTitleEllipsis: titleNode?.ellipsis?.() ?? null,
+      renderedTitleColor: titleNode?.fill?.() ?? null,
+      renderedBackgroundFill: background?.fill?.() ?? null,
+      renderedThemeStroke: background?.stroke?.() ?? null,
+      renderedHeaderFill: header?.fill?.() ?? null,
+      renderedHeaderHeight: header?.height?.() ?? null,
       items: Array.isArray(data.items)
         ? data.items.map((item) => ({
             ...item,
@@ -491,6 +519,23 @@ export function setupAppTestApi(app) {
       const canvasCenter = getNodeCanvasCenter(app, node);
       return canvasCenter ? canvasToPage(app, canvasCenter) : null;
     },
+    getRankingBoxTitlePageCenter: (id) => {
+      const node = getNodeById(app, id);
+      if (node?.getAttr?.("componentType") !== "rankingBox") return null;
+
+      const titleNode = node.findOne(".ranking-box-label");
+      const box = titleNode?.getClientRect?.({
+        relativeTo: app.stage,
+        skipShadow: true,
+        skipStroke: true,
+      }) ?? null;
+      if (!box) return null;
+
+      return canvasToPage(app, {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+      });
+    },
     canvasToPagePoint: (canvasPoint) => {
       if (!Number.isFinite(canvasPoint?.x) || !Number.isFinite(canvasPoint?.y)) {
         return null;
@@ -568,6 +613,13 @@ export function setupAppTestApi(app) {
       const rankingPlugin = getPlugin(app, "ranking");
       const node = await rankingPlugin?.createRankingBoxForPage?.(pageId);
       return node ? serializeNode(app, node) : null;
+    },
+    openRankingBoxLayerMenu: (rankingBoxId) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const node = getNodeById(app, rankingBoxId);
+      if (node?.getAttr?.("componentType") !== "rankingBox") return false;
+      rankingPlugin?.openLayerMenu?.(node);
+      return true;
     },
     addTextToRankingBox: (rankingBoxId, textId, options = {}) => {
       const rankingPlugin = getPlugin(app, "ranking");

@@ -5,12 +5,25 @@ import {
 } from "../core/baseClasses.js";
 import {
   createRankingItem,
+  DEFAULT_RANKING_BOX_THEME_COLOR,
+  DEFAULT_RANKING_BOX_TITLE_COLOR,
+  DEFAULT_RANKING_BOX_TITLE_FONT_SIZE,
   getRankingBoxMetrics,
   isRankingBoxNode,
 } from "../component/rankingBox.js";
+import {
+  ColorToolbarController,
+  DEFAULT_COLOR_SWATCHES,
+} from "../lib/colorToolbar.js";
 import { renderIcons } from "../lib/icons.js";
 
 const MOVE_OUT_THRESHOLD = 32;
+const RANKING_BOX_STYLE_SWATCHES = DEFAULT_COLOR_SWATCHES.filter((color) => color !== "transparent");
+const DEFAULT_RANKING_BOX_PANEL_STATE = {
+  titleFontSize: DEFAULT_RANKING_BOX_TITLE_FONT_SIZE,
+  titleColor: DEFAULT_RANKING_BOX_TITLE_COLOR,
+  themeColor: DEFAULT_RANKING_BOX_THEME_COLOR,
+};
 const RANKING_BOX_LAYER_ACTIONS = [
   {
     id: "bring-forward",
@@ -192,19 +205,101 @@ export class RankingBoxPlugin extends BasePlugin {
     panel.dataset.testid = "ranking-box-panel";
     panel.hidden = true;
     panel.innerHTML = `
-      <div class="toolbar__ranking-box-label-field">
-        <label class="toolbar__ranking-box-label-label" for="ranking-box-label-input">
-          Title
-        </label>
-        <input
-          id="ranking-box-label-input"
-          class="toolbar__ranking-box-label-input"
-          type="text"
-          maxlength="120"
-          placeholder="Ranking Box"
-          data-testid="ranking-box-label-input"
-          aria-label="Ranking box title"
-        />
+      <div
+        class="toolbar__button-tools"
+        role="group"
+        aria-label="Ranking box appearance"
+      >
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--font-size">
+          <button
+            id="ranking-box-font-size-style-trigger"
+            class="toolbar__button-style-trigger"
+            type="button"
+            title="Title font size"
+            aria-label="Title font size"
+            data-testid="ranking-box-style-font-size"
+          >
+            <span class="toolbar__button-font-size-icon" aria-hidden="true">
+              <span class="toolbar__button-font-size-a">A</span>
+              <span class="toolbar__button-font-size-mark"></span>
+            </span>
+          </button>
+          <div class="toolbar__button-style-popover" role="group" aria-label="Ranking box title font size settings">
+            <label class="toolbar__button-style-row">
+              <span id="ranking-box-font-size-label">Title size</span>
+              <input
+                id="ranking-box-font-size"
+                type="range"
+                min="12"
+                max="72"
+                step="1"
+                value="${DEFAULT_RANKING_BOX_TITLE_FONT_SIZE}"
+                data-testid="ranking-box-font-size"
+                aria-labelledby="ranking-box-font-size-label"
+                title="Title font size: ${DEFAULT_RANKING_BOX_TITLE_FONT_SIZE}"
+              />
+              <output
+                id="ranking-box-font-size-value"
+                data-testid="ranking-box-font-size-value"
+                title="Title font size: ${DEFAULT_RANKING_BOX_TITLE_FONT_SIZE}"
+              >${DEFAULT_RANKING_BOX_TITLE_FONT_SIZE}</output>
+            </label>
+          </div>
+        </div>
+
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color">
+          <button
+            id="ranking-box-title-style-trigger"
+            class="toolbar__button-style-trigger"
+            type="button"
+            title="Title color"
+            aria-label="Title color"
+            data-testid="ranking-box-style-title-color"
+          >
+            <span class="toolbar__button-text-icon" aria-hidden="true">A</span>
+          </button>
+          <div class="toolbar__button-style-popover" role="group" aria-label="Ranking box title color settings">
+            <div class="toolbar__button-color-grid" id="ranking-box-title-swatches" aria-label="Ranking box title colors"></div>
+            <div class="toolbar__button-custom-color" title="Custom title color">
+              <span class="toolbar__sr-only">Custom title color</span>
+              <input
+                id="ranking-box-title-color"
+                type="color"
+                value="${DEFAULT_RANKING_BOX_TITLE_COLOR}"
+                aria-label="Custom title color"
+                title="Title color"
+                data-testid="ranking-box-title-color"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color">
+          <button
+            id="ranking-box-theme-style-trigger"
+            class="toolbar__button-style-trigger"
+            type="button"
+            title="Theme color"
+            aria-label="Theme color"
+            data-testid="ranking-box-style-theme"
+          >
+            <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
+          </button>
+          <div class="toolbar__button-style-popover" role="group" aria-label="Ranking box theme color settings">
+            <div class="toolbar__button-color-grid" id="ranking-box-theme-swatches" aria-label="Ranking box theme colors"></div>
+            <div class="toolbar__button-custom-color" title="Custom theme color">
+              <span class="toolbar__sr-only">Custom theme color</span>
+              <input
+                id="ranking-box-theme-color"
+                type="color"
+                value="${DEFAULT_RANKING_BOX_THEME_COLOR}"
+                aria-label="Custom theme color"
+                title="Theme color"
+                data-testid="ranking-box-theme-color"
+              />
+            </div>
+          </div>
+        </div>
       </div>
       <div class="toolbar__button-tools" role="group" aria-label="Ranking box actions">
         <div
@@ -262,20 +357,18 @@ export class RankingBoxPlugin extends BasePlugin {
     this.dragOrigins = new Map();
     this.isMovingTextIntoRanking = false;
     this.selectedRankingBoxNode = null;
+    this.panelState = { ...DEFAULT_RANKING_BOX_PANEL_STATE };
     this.panelEl = this.buildFloatingPanel();
-    this.labelInputEl = this.panelEl.querySelector("#ranking-box-label-input");
+    this.titleFontSizeEl = this.panelEl.querySelector("#ranking-box-font-size");
+    this.titleFontSizeValueEl = this.panelEl.querySelector("#ranking-box-font-size-value");
+    this.titleColorEl = this.panelEl.querySelector("#ranking-box-title-color");
+    this.themeColorEl = this.panelEl.querySelector("#ranking-box-theme-color");
+    this.setupColorToolbar();
     this.panel = this.app.floatingToolbar?.registerPanel?.({
       id: "ranking-box-panel",
       element: this.panelEl,
       getAnchorNode: () => this.selectedRankingBoxNode,
-      getAnchorRect: (node, app) => (
-        node?.findOne?.(".ranking-box-bg")?.getClientRect?.({
-          relativeTo: app.stage,
-          skipShadow: true,
-        })
-        ?? node?.getClientRect?.({ relativeTo: app.stage })
-        ?? null
-      ),
+      getAnchorRect: (node, app) => node?.getClientRect?.({ relativeTo: app.stage }) ?? null,
       viewportMargin: 12,
       anchorGap: 64,
       popover: {
@@ -297,13 +390,13 @@ export class RankingBoxPlugin extends BasePlugin {
         nodes.length === 1 && nodes[0]?.getAttr?.("componentType") === "rankingBox"
           ? nodes[0]
           : null;
-      this.loadLabelInputFromSelection();
+      this.loadStyleUiFromSelection();
       this.syncToolbar();
     });
     this.listen("interaction:change", () => this.syncToolbar());
     this.listen("viewport:change", () => this.panel?.queuePosition?.());
     this.listen("node:changing", ({ node } = {}) => {
-      if (node === this.selectedRankingBoxNode) {
+      if (this.isSelectedRankingBoxAffectedByNode(node)) {
         this.panel?.queuePosition?.();
       }
     });
@@ -317,9 +410,11 @@ export class RankingBoxPlugin extends BasePlugin {
         this.refreshRankingBox(node);
         this.bindRankingBox(node);
         if (node === this.selectedRankingBoxNode) {
-          this.loadLabelInputFromSelection();
+          this.loadStyleUiFromSelection();
           this.syncToolbar();
         }
+      } else if (this.isSelectedRankingBoxAffectedByNode(node)) {
+        this.syncToolbar();
       } else if (isTextNode(node)) {
         this.refreshRankingBoxesForText(node);
       }
@@ -335,19 +430,16 @@ export class RankingBoxPlugin extends BasePlugin {
       }
     });
     this.listen("document:load:end", () => this.refreshAndBindAllRankingBoxes());
-
-    this.listenDom(this.labelInputEl, "change", () => {
-      void this.applyLabelInput();
+    this.listenDom(this.titleFontSizeEl, "input", () => {
+      void this.emitStyleChange();
     });
-    this.listenDom(this.labelInputEl, "keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        void this.applyLabelInput();
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        this.loadLabelInputFromSelection();
-        this.labelInputEl?.blur?.();
-      }
+    this.listenDom(this.titleColorEl, "input", () => {
+      this.rankingBoxColorToolbar?.recordCustomColor?.("title", this.titleColorEl.value);
+      void this.emitStyleChange();
+    });
+    this.listenDom(this.themeColorEl, "input", () => {
+      this.rankingBoxColorToolbar?.recordCustomColor?.("theme", this.themeColorEl.value);
+      void this.emitStyleChange();
     });
 
     const layerTrigger = this.panelEl.querySelector("#ranking-box-layer-menu-trigger");
@@ -411,40 +503,141 @@ export class RankingBoxPlugin extends BasePlugin {
     return this.app.plugins.find((plugin) => plugin.id === "selection") ?? null;
   }
 
-  loadLabelInputFromSelection() {
-    if (!(this.labelInputEl instanceof HTMLInputElement)) return;
-    const label = this.selectedRankingBoxNode
-      ? this.getRankingComponent()?.getData?.(this.selectedRankingBoxNode)?.label ?? ""
-      : "";
-    this.labelInputEl.value = label;
-  }
+  isSelectedRankingBoxAffectedByNode(node) {
+    const selectedRankingBox = this.selectedRankingBoxNode;
+    if (!node || !selectedRankingBox?.getStage?.()) return false;
+    if (node === selectedRankingBox) return true;
 
-  async applyLabelInput() {
-    const node = this.selectedRankingBoxNode;
-    if (!(this.labelInputEl instanceof HTMLInputElement)) return;
-    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
-    if (node?.getAttr?.("componentType") !== "rankingBox") return;
-
-    const component = this.getRankingComponent();
-    if (!component) return;
-
-    const current = component.serializeNode(node);
-    const nextLabel = this.labelInputEl.value.trim() || "Ranking Box";
-    if (current.label === nextLabel) {
-      this.labelInputEl.value = nextLabel;
-      return;
+    let parent = selectedRankingBox.getParent?.() ?? null;
+    while (parent) {
+      if (parent === node) return true;
+      parent = parent.getParent?.() ?? null;
     }
 
+    return false;
+  }
+
+  loadStyleUiFromSelection() {
+    const state = this.selectedRankingBoxNode
+      ? this.getRankingComponent()?.getData?.(this.selectedRankingBoxNode) ?? {}
+      : DEFAULT_RANKING_BOX_PANEL_STATE;
+
+    this.panelState = {
+      ...this.panelState,
+      titleFontSize: Number.isFinite(state.titleFontSize)
+        ? state.titleFontSize
+        : this.panelState.titleFontSize,
+      titleColor: state.titleColor ?? this.panelState.titleColor,
+      themeColor: state.themeColor ?? this.panelState.themeColor,
+    };
+
+    if (this.titleFontSizeEl) {
+      this.titleFontSizeEl.value = String(this.panelState.titleFontSize);
+    }
+    if (this.titleFontSizeValueEl) {
+      this.titleFontSizeValueEl.value = String(this.panelState.titleFontSize);
+    }
+    if (this.titleColorEl) {
+      this.titleColorEl.value = this.panelState.titleColor;
+    }
+    if (this.themeColorEl) {
+      this.themeColorEl.value = this.panelState.themeColor;
+    }
+    this.syncStyleTooltips();
+  }
+
+  saveStyleUiToState() {
+    this.panelState = {
+      ...this.panelState,
+      titleFontSize: Number(this.titleFontSizeEl?.value ?? this.panelState.titleFontSize),
+      titleColor: this.titleColorEl?.value ?? this.panelState.titleColor,
+      themeColor: this.themeColorEl?.value ?? this.panelState.themeColor,
+    };
+    return this.panelState;
+  }
+
+  setupColorToolbar() {
+    const listenDom = (...args) => this.listenDom(...args);
+    this.rankingBoxColorToolbar = new ColorToolbarController({
+      listenDom,
+      renderIcons,
+      targets: {
+        title: {
+          input: this.titleColorEl,
+          swatchesEl: this.panelEl.querySelector("#ranking-box-title-swatches"),
+          label: "Title color",
+          baseColors: RANKING_BOX_STYLE_SWATCHES,
+          onChange: () => this.emitStyleChange(),
+        },
+        theme: {
+          input: this.themeColorEl,
+          swatchesEl: this.panelEl.querySelector("#ranking-box-theme-swatches"),
+          label: "Theme color",
+          baseColors: RANKING_BOX_STYLE_SWATCHES,
+          onChange: () => this.emitStyleChange(),
+        },
+      },
+    });
+    this.rankingBoxColorToolbar.setup();
+  }
+
+  syncStyleTooltips() {
+    const fontSizeTitle = `Title font size: ${this.titleFontSizeEl?.value ?? DEFAULT_RANKING_BOX_TITLE_FONT_SIZE}`;
+    const titleColorTitle = "Title color";
+    const themeColorTitle = "Theme color";
+    const fontSizeToolEl = this.titleFontSizeEl?.closest?.(".toolbar__button-style-tool") ?? null;
+    const titleColorToolEl = this.titleColorEl?.closest?.(".toolbar__button-style-tool") ?? null;
+    const themeColorToolEl = this.themeColorEl?.closest?.(".toolbar__button-style-tool") ?? null;
+
+    if (this.titleFontSizeEl) {
+      this.titleFontSizeEl.title = fontSizeTitle;
+    }
+    if (this.titleFontSizeValueEl) {
+      this.titleFontSizeValueEl.title = fontSizeTitle;
+    }
+    fontSizeToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", "Title font size");
+
+    if (this.titleColorEl) {
+      this.titleColorEl.title = titleColorTitle;
+    }
+    titleColorToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", titleColorTitle);
+    titleColorToolEl?.style.setProperty("--button-tool-color", this.titleColorEl?.value ?? DEFAULT_RANKING_BOX_TITLE_COLOR);
+
+    if (this.themeColorEl) {
+      this.themeColorEl.title = themeColorTitle;
+    }
+    themeColorToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", themeColorTitle);
+    themeColorToolEl?.style.setProperty("--button-tool-fill", this.themeColorEl?.value ?? DEFAULT_RANKING_BOX_THEME_COLOR);
+    themeColorToolEl?.style.setProperty("--button-tool-opacity", "1");
+    themeColorToolEl?.classList.remove("is-button-fill-transparent");
+    this.rankingBoxColorToolbar?.sync?.();
+  }
+
+  async emitStyleChange() {
+    const node = this.selectedRankingBoxNode;
+    const component = this.getRankingComponent();
+    const state = this.saveStyleUiToState();
+
+    if (this.titleFontSizeValueEl) {
+      this.titleFontSizeValueEl.value = String(state.titleFontSize);
+    }
+    this.syncStyleTooltips();
+
+    if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "arrange") return;
+    if (node?.getAttr?.("componentType") !== "rankingBox" || !component) return;
+
+    const current = component.serializeNode(node);
     this.app.events.emit("node:change:start", { node });
     await component.applySerializedData(node, {
       ...current,
-      label: nextLabel,
+      titleFontSize: state.titleFontSize,
+      titleColor: state.titleColor,
+      themeColor: state.themeColor,
     });
     node.getLayer?.()?.batchDraw?.();
     this.app.overlayLayer?.batchDraw?.();
     this.app.uiLayer?.batchDraw?.();
     this.app.events.emit("node:changed", { node });
-    this.labelInputEl.value = nextLabel;
   }
 
   syncToolbar() {
@@ -453,8 +646,13 @@ export class RankingBoxPlugin extends BasePlugin {
       this.app.getEditorTool() === "arrange" &&
       Boolean(this.selectedRankingBoxNode?.getStage?.());
 
-    if (this.labelInputEl instanceof HTMLInputElement) {
-      this.labelInputEl.disabled = !isVisible;
+    for (const control of [
+      this.titleFontSizeEl,
+      this.titleFontSizeValueEl,
+      this.titleColorEl,
+      this.themeColorEl,
+    ]) {
+      if (control) control.disabled = !isVisible;
     }
     this.panel?.setVisible?.(isVisible);
     this.syncLayerActions();
@@ -597,7 +795,6 @@ export class RankingBoxPlugin extends BasePlugin {
     this.app.getPlugin?.("context-menu")?.hideMenu?.();
     this.getSelectionPlugin()?.setSelected?.([node]);
     this.selectedRankingBoxNode = node;
-    this.loadLabelInputFromSelection();
     this.syncToolbar();
 
     window.requestAnimationFrame(() => {

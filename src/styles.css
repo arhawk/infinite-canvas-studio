@@ -1931,7 +1931,8 @@ body.is-presentation-mode .toolbar__share-btn {
 
 .toolbar__ranking-box-panel {
   gap: 0.6rem;
-  min-width: min(26rem, calc(100vw - 2rem));
+  width: max-content;
+  min-width: 0;
 }
 
 .toolbar__ranking-box-label-field {

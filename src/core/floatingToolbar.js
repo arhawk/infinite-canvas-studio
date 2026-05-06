@@ -74,6 +74,8 @@ export class FloatingToolbarManager {
       originalParent,
       originalNextSibling,
       popoverPointerDownHandler: null,
+      anchorNode: null,
+      anchorTransformHandler: null,
     };
 
     if (popover) {
@@ -111,6 +113,7 @@ export class FloatingToolbarManager {
     const panel = this.panels.get(id);
     if (!panel) return false;
 
+    this.bindAnchorNode(panel, null);
     if (panel.positionFrame != null) {
       window.cancelAnimationFrame(panel.positionFrame);
       panel.positionFrame = null;
@@ -259,6 +262,8 @@ export class FloatingToolbarManager {
     if (visible) {
       this.updatePanelPosition(id);
       this.queuePanelPosition(id);
+    } else {
+      this.bindAnchorNode(panel, null);
     }
     return true;
   }
@@ -280,11 +285,34 @@ export class FloatingToolbarManager {
     return true;
   }
 
+  bindAnchorNode(panel, nextAnchorNode) {
+    if (!panel) return;
+    if (panel.anchorNode === nextAnchorNode) return;
+
+    if (panel.anchorNode && panel.anchorTransformHandler) {
+      panel.anchorNode.off("absoluteTransformChange.floatingToolbar", panel.anchorTransformHandler);
+    }
+
+    panel.anchorNode = nextAnchorNode ?? null;
+    panel.anchorTransformHandler = null;
+
+    if (!panel.anchorNode) return;
+
+    panel.anchorTransformHandler = () => {
+      this.queuePanelPosition(panel.id);
+    };
+    panel.anchorNode.on(
+      "absoluteTransformChange.floatingToolbar",
+      panel.anchorTransformHandler,
+    );
+  }
+
   updatePanelPosition(id) {
     const panel = this.getPanel(id);
     if (!panel || panel.element.hidden) return false;
 
     const anchorNode = panel.getAnchorNode?.() ?? null;
+    this.bindAnchorNode(panel, anchorNode);
     const stageContainer = this.app.stage?.container?.();
     if (!anchorNode?.getStage?.() || !stageContainer) return false;
 

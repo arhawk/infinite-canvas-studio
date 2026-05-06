@@ -1,5 +1,11 @@
 export class EditableTextBehavior {
-  static attach(textNode, { fallbackText = "Text", getHistoryNode = null } = {}) {
+  static attach(textNode, {
+    fallbackText = "Text",
+    getHistoryNode = null,
+    applyValue = null,
+    getEditorBox = null,
+    fitEditorToContent = false,
+  } = {}) {
     const openInlineEditor = (event = {}) => {
       if (textNode.getAttr("inlineEditing")) return;
 
@@ -33,11 +39,17 @@ export class EditableTextBehavior {
         skipShadow: true,
         skipStroke: true,
       });
-      const screenPos = app.stageApi.canvasToScreen({
-        x: textBox.x,
-        y: textBox.y,
-      });
       const currentText = textNode.text();
+      const editorBox = getEditorBox?.(textNode, {
+        app,
+        currentText,
+        stage,
+        textBox,
+      }) ?? textBox;
+      const screenPos = app.stageApi.canvasToScreen({
+        x: editorBox.x,
+        y: editorBox.y,
+      });
 
       const area = document.createElement("textarea");
       area.value = currentText;
@@ -48,8 +60,8 @@ export class EditableTextBehavior {
       Object.assign(area.style, {
         left: `${stageBox.left + screenPos.x}px`,
         top: `${stageBox.top + screenPos.y}px`,
-        width: `${Math.max(textBox.width * stageScale, 48)}px`,
-        height: `${Math.max(textBox.height * stageScale, 32)}px`,
+        width: `${Math.max(editorBox.width * stageScale, 48)}px`,
+        height: `${Math.max(editorBox.height * stageScale, 32)}px`,
         padding: `${Math.max(textNode.padding() * stageScale, 2)}px`,
         fontFamily: textNode.fontFamily(),
         fontSize: `${textNode.fontSize() * stageScale}px`,
@@ -57,6 +69,18 @@ export class EditableTextBehavior {
         color: textNode.fill(),
       });
 
+      const resizeToContent = () => {
+        if (!fitEditorToContent) return;
+
+        area.style.height = "auto";
+        area.style.overflowY = "hidden";
+        area.style.height = `${Math.max(
+          Math.max(editorBox.height * stageScale, 32),
+          area.scrollHeight + 2,
+        )}px`;
+      };
+
+      resizeToContent();
       area.focus();
       area.select();
 
@@ -84,7 +108,11 @@ export class EditableTextBehavior {
         const historyNode = getHistoryNode?.(textNode) ?? textNode;
         if (nextText !== currentText) {
           app?.events.emit("node:change:start", { node: historyNode });
-          textNode.text(nextText);
+          if (typeof applyValue === "function") {
+            applyValue(textNode, nextText, { historyNode, app });
+          } else {
+            textNode.text(nextText);
+          }
           app?.events.emit("node:changed", { node: historyNode });
         }
 
@@ -105,6 +133,7 @@ export class EditableTextBehavior {
         }
       });
 
+      area.addEventListener("input", resizeToContent);
       area.addEventListener("blur", commit, { once: true });
     };
 

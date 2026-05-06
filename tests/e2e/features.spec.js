@@ -4030,15 +4030,19 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
     .toBeLessThan(2);
 });
 
-test("edits ranking box titles from the floating toolbar", async ({ page }) => {
+test("edits ranking box titles inline and styles from the floating toolbar", async ({ page }) => {
   const rankingBox = await addComponent(page, "rankingBox", { x: 180, y: 160 });
-  const center = await getNodePageCenter(page, rankingBox.id);
+  const titleCenter = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getRankingBoxTitlePageCenter(nodeId),
+    rankingBox.id,
+  );
+  const initialSummary = (await getNode(page, rankingBox.id))?.summary;
+  const longTitle = "Priority Order for Semester Project Evaluation and Milestone Tracking";
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), rankingBox.id);
   await waitForPaint(page);
 
   await expect(page.getByTestId("ranking-box-panel")).toBeVisible();
-  await expect(page.getByTestId("ranking-box-label-input")).toBeVisible();
   await expect(page.getByTestId("ranking-box-connect")).toHaveCount(0);
   await expect(page.getByTestId("ranking-box-layer-menu")).toBeVisible();
 
@@ -4046,33 +4050,91 @@ test("edits ranking box titles from the floating toolbar", async ({ page }) => {
     window.__APP_TEST_API__.openComponentEditor(nodeId)
   ), rankingBox.id);
   expect(opened).toBe(false);
-  await page.mouse.dblclick(center.x, center.y);
+  await page.mouse.dblclick(titleCenter.x, titleCenter.y);
+  const inlineEditor = page.getByTestId("canvas-text-editor");
+  await expect(inlineEditor).toBeVisible();
   await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await inlineEditor.fill(longTitle);
+  const editorMetrics = await inlineEditor.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    value: element.value,
+  }));
+  expect(editorMetrics.value).toBe(longTitle);
+  expect(editorMetrics.clientHeight + 1).toBeGreaterThanOrEqual(editorMetrics.scrollHeight);
+  await inlineEditor.press("Control+Enter");
+  await expect(inlineEditor).toHaveCount(0);
 
-  await page.getByTestId("ranking-box-label-input").fill("Priority Order");
-  await page.getByTestId("ranking-box-label-input").press("Enter");
+  await page.getByTestId("ranking-box-style-font-size").click();
+  await page.getByTestId("ranking-box-font-size").evaluate((input) => {
+    input.value = "28";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await page.getByTestId("ranking-box-style-title-color").click();
+  await page.getByTestId("ranking-box-title-color").evaluate((input) => {
+    input.value = "#2b4f8c";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await page.getByTestId("ranking-box-style-theme").click();
+  await page.getByTestId("ranking-box-theme-color").evaluate((input) => {
+    input.value = "#d97706";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
   await expect
-    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
-    .toBe("Priority Order");
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary)
+    .toMatchObject({
+      label: longTitle,
+      titleFontSize: 28,
+      titleColor: "#2b4f8c",
+      themeColor: "#d97706",
+      renderedTitleFontSize: 28,
+      renderedTitleColor: "#2b4f8c",
+      renderedThemeStroke: "#d97706",
+      renderedTitleWrap: "none",
+      renderedTitleEllipsis: true,
+    });
+  const styledSummary = (await getNode(page, rankingBox.id))?.summary;
+  expect(styledSummary?.renderedHeaderHeight).toBeGreaterThan(initialSummary?.renderedHeaderHeight ?? 0);
+  expect(styledSummary?.headerBounds?.height ?? 0).toBeGreaterThan(initialSummary?.headerBounds?.height ?? 0);
 
   await page.evaluate(() => window.__APP_TEST_API__.undo());
   await expect
-    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
-    .toBe("Ranking Box");
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.themeColor)
+    .toBe("#8a6f47");
 
   await page.evaluate(() => window.__APP_TEST_API__.redo());
   await expect
-    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
-    .toBe("Priority Order");
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary)
+    .toMatchObject({
+      label: longTitle,
+      titleFontSize: 28,
+      titleColor: "#2b4f8c",
+      themeColor: "#d97706",
+      renderedThemeStroke: "#d97706",
+      renderedTitleWrap: "none",
+      renderedTitleEllipsis: true,
+    });
 
   const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
   await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
   await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
 
   await expect
-    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.label)
-    .toBe("Priority Order");
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary)
+    .toMatchObject({
+      label: longTitle,
+      titleFontSize: 28,
+      titleColor: "#2b4f8c",
+      themeColor: "#d97706",
+      renderedTitleFontSize: 28,
+      renderedTitleColor: "#2b4f8c",
+      renderedThemeStroke: "#d97706",
+      renderedTitleWrap: "none",
+      renderedTitleEllipsis: true,
+    });
 });
 
 test("opens ranking box layer actions from the floating toolbar and right click", async ({ page }) => {
@@ -4102,7 +4164,10 @@ test("opens ranking box layer actions from the floating toolbar and right click"
     "none",
   );
 
-  await page.mouse.click(center.x, center.y, { button: "right" });
+  await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.openRankingBoxLayerMenu(nodeId),
+    rankingBox.id,
+  );
   await expect(page.locator(".toolbar__ranking-box-layer-popover")).toHaveCSS(
     "pointer-events",
     "auto",
@@ -4112,6 +4177,35 @@ test("opens ranking box layer actions from the floating toolbar and right click"
   await page.getByTestId("ranking-box-layer-bring-forward").click();
   await expect.poll(async () => getNodeOrder(page, [rankingBox.id, sticky.id]))
     .toEqual([sticky.id, rankingBox.id]);
+});
+
+test("keeps the ranking box floating panel aligned when its parent page moves", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 320, y: 120 });
+  const rankingBox = await page.evaluate(
+    (pageId) => window.__APP_TEST_API__.createRankingBox(pageId),
+    pageNode.id,
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), rankingBox.id);
+  await waitForPaint(page);
+
+  const panel = page.getByTestId("ranking-box-panel");
+  await expect(panel).toBeVisible();
+  const rankingBefore = await getNode(page, rankingBox.id);
+  const before = await panel.boundingBox();
+  expect(before).not.toBeNull();
+
+  await page.evaluate(
+    ({ id, position }) => window.__APP_TEST_API__.moveNode(id, position),
+    { id: pageNode.id, position: { x: -120, y: 120 } },
+  );
+  await waitForPaint(page);
+
+  const rankingAfter = await getNode(page, rankingBox.id);
+  const after = await panel.boundingBox();
+  expect(after).not.toBeNull();
+  expect(Math.abs((rankingAfter?.bounds?.x ?? 0) - (rankingBefore?.bounds?.x ?? 0))).toBeGreaterThan(100);
+  expect(Math.abs((after?.x ?? 0) - (before?.x ?? 0))).toBeGreaterThan(20);
 });
 
 test("moves text into and out of a page ranking box", async ({ page }) => {
@@ -4177,24 +4271,27 @@ test("moves text into and out of a page ranking box", async ({ page }) => {
   await expect
     .poll(async () => {
       const node = await getNode(page, rankingBox.id);
-      return node.summary.items.map((item) => ({
-        text: item.renderedText,
-        fill: item.renderedFill,
-        stroke: item.renderedStroke,
-      }));
+      return {
+        themeStroke: node.summary.renderedThemeStroke,
+        items: node.summary.items.map((item) => ({
+          text: item.renderedText,
+          stroke: item.renderedStroke,
+        })),
+      };
     })
-    .toEqual([
-      {
-        text: "First ranked idea",
-        fill: "rgba(255, 253, 248, 0.94)",
-        stroke: "rgba(95, 72, 40, 0.18)",
-      },
-      {
-        text: "Second ranked idea",
-        fill: "rgba(255, 253, 248, 0.94)",
-        stroke: "rgba(95, 72, 40, 0.18)",
-      },
-    ]);
+    .toEqual({
+      themeStroke: "#8a6f47",
+      items: [
+        {
+          text: "First ranked idea",
+          stroke: "rgba(95, 72, 40, 0.18)",
+        },
+        {
+          text: "Second ranked idea",
+          stroke: "rgba(95, 72, 40, 0.18)",
+        },
+      ],
+    });
 
   const exportedWithRankedText = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
   await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exportedWithRankedText);
