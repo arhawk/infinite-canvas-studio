@@ -290,7 +290,7 @@ export class FloatingToolbarManager {
     if (panel.anchorNode === nextAnchorNode) return;
 
     if (panel.anchorNode && panel.anchorTransformHandler) {
-      panel.anchorNode.off("absoluteTransformChange.floatingToolbar", panel.anchorTransformHandler);
+      panel.anchorNode.off?.("absoluteTransformChange.floatingToolbar", panel.anchorTransformHandler);
     }
 
     panel.anchorNode = nextAnchorNode ?? null;
@@ -301,7 +301,7 @@ export class FloatingToolbarManager {
     panel.anchorTransformHandler = () => {
       this.queuePanelPosition(panel.id);
     };
-    panel.anchorNode.on(
+    panel.anchorNode.on?.(
       "absoluteTransformChange.floatingToolbar",
       panel.anchorTransformHandler,
     );

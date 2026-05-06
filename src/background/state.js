@@ -2,6 +2,7 @@ export const BACKGROUND_TYPES = {
   BLANK: "blank",
   SOLID: "solid",
   GRID: "grid",
+  DOT: "dot",
   WARM_PAPER: "warm-paper",
 };
 

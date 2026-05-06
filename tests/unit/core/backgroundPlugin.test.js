@@ -14,7 +14,7 @@ function createDom() {
             aria-pressed="false"
             data-testid="background-toggle"
           >
-            <i data-lucide="wallpaper" aria-hidden="true"></i>
+            <i data-lucide="palette" aria-hidden="true"></i>
           </button>
         </div>
       </nav>
@@ -58,7 +58,7 @@ describe("BackgroundPlugin", () => {
     createDom();
   });
 
-  it("opens a panel without showing style or color labels", () => {
+  it("opens a panel with style pills and background type pills", () => {
     const app = createApp();
     const plugin = createPlugin(app);
     const toggleEl = document.querySelector("#background-settings-toggle");
@@ -70,12 +70,11 @@ describe("BackgroundPlugin", () => {
     const panelEl = document.querySelector("#background-controls");
     expect(toggleEl.getAttribute("aria-pressed")).toBe("true");
     expect(panelEl.hidden).toBe(false);
+    expect(panelEl.textContent).toContain("Default");
+    expect(panelEl.textContent).toContain("Colorful");
     expect(panelEl.textContent).toContain("Blank");
-    expect(panelEl.textContent).toContain("Solid");
     expect(panelEl.textContent).toContain("Grid");
-    expect(panelEl.textContent).toContain("Warm Paper");
-    expect(panelEl.textContent).not.toContain("Style");
-    expect(panelEl.textContent).not.toContain("Color");
+    expect(panelEl.textContent).toContain("Dot");
     expect(document.querySelector("#background-color")).toBeTruthy();
   });
 
@@ -86,10 +85,10 @@ describe("BackgroundPlugin", () => {
 
     plugin.setup();
     toggleEl.click();
-    document.querySelector('[data-background-type="solid"]').click();
+    document.querySelector('[data-background-type="dot"]').click();
 
     expect(app.getBackgroundState()).toEqual({
-      type: "solid",
+      type: "dot",
       color: "#f7f3ea",
       opacity: 1,
     });
@@ -114,7 +113,7 @@ describe("BackgroundPlugin", () => {
     });
   });
 
-  it("supports switching between blank, solid, grid, and warm paper backgrounds", () => {
+  it("supports switching between blank, grid, and dot backgrounds", () => {
     const app = createApp();
     const plugin = createPlugin(app);
     const toggleEl = document.querySelector("#background-settings-toggle");
@@ -128,22 +127,18 @@ describe("BackgroundPlugin", () => {
     expect(app.getBackgroundState().type).toBe("blank");
     expect(colorEl.disabled).toBe(true);
     expect(document.querySelector('[data-background-type="blank"]').getAttribute("aria-pressed")).toBe("true");
-    expect(document.querySelector('[data-background-type="solid"]').getAttribute("aria-pressed")).toBe("false");
+    expect(document.querySelector('[data-background-type="grid"]').getAttribute("aria-pressed")).toBe("false");
 
-    document.querySelector('[data-background-type="solid"]').click();
-    expect(app.getBackgroundState().type).toBe("solid");
+    document.querySelector('[data-background-type="dot"]').click();
+    expect(app.getBackgroundState().type).toBe("dot");
     expect(colorEl.disabled).toBe(false);
-    expect(document.querySelector('[data-background-type="solid"]').getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector('[data-background-type="dot"]').getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector('[data-background-type="blank"]').getAttribute("aria-pressed")).toBe("false");
 
     document.querySelector('[data-background-type="grid"]').click();
     expect(app.getBackgroundState().type).toBe("grid");
     expect(document.querySelector('[data-background-type="grid"]').getAttribute("aria-pressed")).toBe("true");
-
-    document.querySelector('[data-background-type="warm-paper"]').click();
-    expect(app.getBackgroundState().type).toBe("warm-paper");
-    expect(document.querySelector('[data-background-type="warm-paper"]').getAttribute("aria-pressed")).toBe("true");
-    expect(document.querySelector('[data-background-type="grid"]').getAttribute("aria-pressed")).toBe("false");
+    expect(document.querySelector('[data-background-type="dot"]').getAttribute("aria-pressed")).toBe("false");
   });
 
   it("updates background opacity and disables opacity slider for blank background", () => {
@@ -175,7 +170,7 @@ describe("BackgroundPlugin", () => {
     expect(opacityEl.disabled).toBe(true);
   });
 
-  it("keeps exactly one selected option active at a time", () => {
+  it("keeps exactly one selected background type active at a time", () => {
     const app = createApp();
     const plugin = createPlugin(app);
     const toggleEl = document.querySelector("#background-settings-toggle");
@@ -192,7 +187,45 @@ describe("BackgroundPlugin", () => {
     document.querySelector('[data-background-type="blank"]').click();
     expect(pressedButtons()).toEqual(["blank"]);
 
-    document.querySelector('[data-background-type="warm-paper"]').click();
-    expect(pressedButtons()).toEqual(["warm-paper"]);
+    document.querySelector('[data-background-type="dot"]').click();
+    expect(pressedButtons()).toEqual(["dot"]);
+  });
+
+  it("toggles theme-colorful class on body when style pills are clicked", () => {
+    const app = createApp();
+    const plugin = createPlugin(app);
+    const toggleEl = document.querySelector("#background-settings-toggle");
+
+    plugin.setup();
+    toggleEl.click();
+
+    expect(document.body.classList.contains("theme-colorful")).toBe(false);
+    expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector('[data-style-id="colorful"]').getAttribute("aria-pressed")).toBe("false");
+
+    document.querySelector('[data-style-id="colorful"]').click();
+    expect(document.body.classList.contains("theme-colorful")).toBe(true);
+    expect(document.querySelector('[data-style-id="colorful"]').getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("false");
+
+    document.querySelector('[data-style-id="default"]').click();
+    expect(document.body.classList.contains("theme-colorful")).toBe(false);
+    expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("updates background color when a preset swatch is clicked", () => {
+    const app = createApp();
+    const plugin = createPlugin(app);
+    const toggleEl = document.querySelector("#background-settings-toggle");
+
+    plugin.setup();
+    toggleEl.click();
+
+    const swatch = document.querySelector('[data-color="#ffffff"]');
+    expect(swatch).toBeTruthy();
+    swatch.click();
+
+    expect(app.getBackgroundState().color).toBe("#ffffff");
+    expect(swatch.getAttribute("aria-pressed")).toBe("true");
   });
 });

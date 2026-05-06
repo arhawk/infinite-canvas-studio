@@ -37,7 +37,7 @@ export class LeftToolbarPlugin extends BasePlugin {
     // Logo
     const logo = document.createElement("div");
     logo.className = "left-toolbar__logo";
-    logo.innerHTML = `<span class="left-toolbar__logo-text">Mimi</span>`;
+    logo.innerHTML = `<span class="left-toolbar__logo-text"><span class="mimi-letter mimi-letter--1">M</span><span class="mimi-letter mimi-letter--2">i</span><span class="mimi-letter mimi-letter--3">m</span><span class="mimi-letter mimi-letter--4">i</span></span>`;
     el.appendChild(logo);
 
     // Tool group — rendered separately in _renderToolButtons
@@ -52,7 +52,7 @@ export class LeftToolbarPlugin extends BasePlugin {
     pluginsGroup.className = "left-toolbar__group";
     this.calculatorBtn = this._makeBtn("calculator", "Binary Calculator", "calculator-toggle");
     this.timerBtn = this._makeBtn("timer", "Timer / Stopwatch", "timer-toggle");
-    this.backgroundBtn = this._makeBtn("wallpaper", "Background", "background-toggle");
+    this.backgroundBtn = this._makeBtn("palette", "Style", "background-toggle");
     this.calculatorBtn.setAttribute("aria-pressed", "false");
     this.timerBtn.setAttribute("aria-pressed", "false");
     this.backgroundBtn.setAttribute("aria-pressed", "false");

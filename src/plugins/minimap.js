@@ -552,8 +552,9 @@ export class MinimapPlugin extends BasePlugin {
     const vpW = vp.width * scale;
     const vpH = vp.height * scale;
 
-    ctx.fillStyle = "rgba(215, 97, 47, 0.07)";
-    ctx.strokeStyle = "rgba(215, 97, 47, 0.75)";
+    const cs = getComputedStyle(document.body);
+    ctx.fillStyle = cs.getPropertyValue("--minimap-viewport-fill").trim() || "rgba(215, 97, 47, 0.07)";
+    ctx.strokeStyle = cs.getPropertyValue("--minimap-viewport-stroke").trim() || "rgba(215, 97, 47, 0.75)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.rect(vpTL.x, vpTL.y, vpW, vpH);
