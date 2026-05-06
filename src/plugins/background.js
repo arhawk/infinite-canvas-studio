@@ -44,6 +44,11 @@ export class BackgroundPlugin extends BasePlugin {
         color: this.colorEl.value,
       });
     });
+    this.listenDom(this.opacityEl, "input", () => {
+      this.applyBackgroundChange({
+        opacity: this.opacityEl.value,
+      });
+    });
     this.listenDom(document, "mousedown", (event) => {
       if (!this.isPanelOpen) return;
       const target = event.target;
@@ -101,7 +106,29 @@ export class BackgroundPlugin extends BasePlugin {
     this.colorEl.className = "background-panel__color-input";
 
     colorWrap.append(this.colorEl);
-    this.panelEl.append(this.typeButtonsEl, colorWrap);
+    const opacityWrap = document.createElement("div");
+    opacityWrap.className = "toolbar__field background-panel__opacity-wrap";
+
+    this.opacityEl = document.createElement("input");
+    this.opacityEl.id = "background-opacity";
+    this.opacityEl.type = "range";
+    this.opacityEl.min = "0";
+    this.opacityEl.max = "1";
+    this.opacityEl.step = "0.01";
+    this.opacityEl.value = "1";
+    this.opacityEl.dataset.testid = "background-opacity";
+    this.opacityEl.setAttribute("aria-label", "Background opacity");
+    this.opacityEl.className = "background-panel__opacity-input";
+
+    this.opacityValueEl = document.createElement("output");
+    this.opacityValueEl.id = "background-opacity-value";
+    this.opacityValueEl.dataset.testid = "background-opacity-value";
+    this.opacityValueEl.className = "background-panel__opacity-value";
+    this.opacityValueEl.setAttribute("for", "background-opacity");
+    this.opacityValueEl.textContent = "100%";
+
+    opacityWrap.append(this.opacityEl, this.opacityValueEl);
+    this.panelEl.append(this.typeButtonsEl, colorWrap, opacityWrap);
     appShell?.append(this.panelEl);
   }
 
@@ -136,6 +163,17 @@ export class BackgroundPlugin extends BasePlugin {
       this.colorEl.title = nextState.type === BACKGROUND_TYPES.BLANK
         ? "Blank background uses a clean default surface"
         : "Choose background color";
+    }
+
+    if (this.opacityEl && this.opacityValueEl) {
+      const opacity = Math.max(0, Math.min(1, Number(nextState.opacity) || 0));
+      const opacityPercent = `${Math.round(opacity * 100)}%`;
+      this.opacityEl.value = opacity.toFixed(2);
+      this.opacityEl.disabled = nextState.type === BACKGROUND_TYPES.BLANK;
+      this.opacityEl.title = opacityPercent;
+      this.opacityValueEl.value = opacityPercent;
+      this.opacityValueEl.textContent = opacityPercent;
+      this.opacityValueEl.title = opacityPercent;
     }
   }
 

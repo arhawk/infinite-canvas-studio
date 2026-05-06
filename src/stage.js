@@ -91,9 +91,10 @@ export class StageController {
   }
 
   applyBackgroundState() {
-    const { type, color } = this.backgroundState;
+    const { type, color, opacity } = this.backgroundState;
     this.container.dataset.backgroundType = type;
     this.container.style.setProperty("--canvas-bg-color", color);
+    this.container.style.setProperty("--canvas-bg-alpha", String(opacity));
 
     const paperBase = type === BACKGROUND_TYPES.WARM_PAPER ? color : DEFAULT_BACKGROUND_STATE.color;
     this.container.style.setProperty("--canvas-paper-base", paperBase);
@@ -102,7 +103,7 @@ export class StageController {
   }
 
   getGridStrokeColor(isMajor = false) {
-    const alpha = isMajor ? 0.18 : 0.1;
+    const alpha = (isMajor ? 0.18 : 0.1) * this.backgroundState.opacity;
     const hex = this.mixHexColor(this.backgroundState.color, "#4f4334", isMajor ? 0.55 : 0.4);
     const red = Number.parseInt(hex.slice(1, 3), 16);
     const green = Number.parseInt(hex.slice(3, 5), 16);

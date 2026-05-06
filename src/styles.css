@@ -2061,6 +2061,27 @@ body.is-presentation-mode .toolbar__share-btn {
   border-radius: 999px;
 }
 
+.background-panel__opacity-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.12rem;
+  margin: 0;
+}
+
+.background-panel__opacity-input {
+  flex: 1;
+  margin: 0;
+}
+
+.background-panel__opacity-value {
+  min-width: 2.8rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .tool-button,
 .ghost-button {
   border: 0;
@@ -3118,10 +3139,11 @@ body.is-presentation-mode .toolbar__share-btn {
   width: 100%;
   height: 100%;
   --canvas-bg-color: #f7f3ea;
+  --canvas-bg-alpha: 1;
   --canvas-paper-base: #f7f3ea;
   --canvas-paper-shadow: #e7d6ba;
   --canvas-paper-highlight: #fffdf6;
-  background: var(--canvas-bg-color);
+  background: color-mix(in srgb, var(--canvas-bg-color) calc(var(--canvas-bg-alpha) * 100%), transparent);
 }
 
 .canvas-container[data-background-type="blank"] {
@@ -3129,18 +3151,23 @@ body.is-presentation-mode .toolbar__share-btn {
 }
 
 .canvas-container[data-background-type="solid"] {
-  background: var(--canvas-bg-color);
+  background: color-mix(in srgb, var(--canvas-bg-color) calc(var(--canvas-bg-alpha) * 100%), transparent);
 }
 
 .canvas-container[data-background-type="grid"] {
-  background: var(--canvas-bg-color);
+  background: color-mix(in srgb, var(--canvas-bg-color) calc(var(--canvas-bg-alpha) * 100%), transparent);
 }
 
 .canvas-container[data-background-type="warm-paper"] {
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.42), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(185, 142, 80, 0.12), transparent 26%),
-    linear-gradient(180deg, var(--canvas-paper-highlight), var(--canvas-paper-base) 42%, var(--canvas-paper-shadow));
+    radial-gradient(circle at top left, color-mix(in srgb, #ffffff calc(var(--canvas-bg-alpha) * 42%), transparent), transparent 30%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, #b98e50 calc(var(--canvas-bg-alpha) * 12%), transparent), transparent 26%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--canvas-paper-highlight) calc(var(--canvas-bg-alpha) * 100%), transparent),
+      color-mix(in srgb, var(--canvas-paper-base) calc(var(--canvas-bg-alpha) * 100%), transparent) 42%,
+      color-mix(in srgb, var(--canvas-paper-shadow) calc(var(--canvas-bg-alpha) * 100%), transparent)
+    );
 }
 
 .canvas-container canvas {

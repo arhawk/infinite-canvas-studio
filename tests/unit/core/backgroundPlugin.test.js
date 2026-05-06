@@ -91,6 +91,7 @@ describe("BackgroundPlugin", () => {
     expect(app.getBackgroundState()).toEqual({
       type: "solid",
       color: "#f7f3ea",
+      opacity: 1,
     });
   });
 
@@ -109,6 +110,7 @@ describe("BackgroundPlugin", () => {
     expect(app.getBackgroundState()).toEqual({
       type: "grid",
       color: "#c8d8f0",
+      opacity: 1,
     });
   });
 
@@ -142,6 +144,35 @@ describe("BackgroundPlugin", () => {
     expect(app.getBackgroundState().type).toBe("warm-paper");
     expect(document.querySelector('[data-background-type="warm-paper"]').getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector('[data-background-type="grid"]').getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("updates background opacity and disables opacity slider for blank background", () => {
+    const app = createApp();
+    const plugin = createPlugin(app);
+    const toggleEl = document.querySelector("#background-settings-toggle");
+
+    plugin.setup();
+    toggleEl.click();
+
+    const opacityEl = document.querySelector("#background-opacity");
+    const opacityValueEl = document.querySelector("#background-opacity-value");
+    expect(opacityEl.disabled).toBe(false);
+    expect(opacityValueEl.textContent).toBe("100%");
+
+    opacityEl.value = "0.42";
+    opacityEl.dispatchEvent(new Event("input"));
+
+    expect(app.getBackgroundState()).toEqual({
+      type: "grid",
+      color: "#f7f3ea",
+      opacity: 0.42,
+    });
+    expect(opacityValueEl.textContent).toBe("42%");
+    expect(opacityEl.title).toBe("42%");
+    expect(opacityValueEl.title).toBe("42%");
+
+    document.querySelector('[data-background-type="blank"]').click();
+    expect(opacityEl.disabled).toBe(true);
   });
 
   it("keeps exactly one selected option active at a time", () => {

@@ -29,6 +29,7 @@ function createApp(backgroundState = DEFAULT_BACKGROUND_STATE) {
     setBackgroundState: vi.fn((nextState) => {
       background.type = nextState.type;
       background.color = nextState.color;
+      background.opacity = nextState.opacity;
       return { ...background };
     }),
     mainLayer: {
@@ -75,6 +76,7 @@ describe("document serializer background support", () => {
     expect(snapshot.background).toEqual({
       type: "grid",
       color: "#dde6f5",
+      opacity: 1,
     });
   });
 
@@ -93,6 +95,7 @@ describe("document serializer background support", () => {
     expect(snapshot.background).toEqual({
       type: "warm-paper",
       color: "#ead7b1",
+      opacity: 1,
     });
   });
 
@@ -104,6 +107,7 @@ describe("document serializer background support", () => {
       background: {
         type: "warm-paper",
         color: "#ead7b1",
+        opacity: 0.42,
       },
       view: {
         scale: 1.1,
@@ -116,6 +120,7 @@ describe("document serializer background support", () => {
     expect(app.setBackgroundState).toHaveBeenCalledWith({
       type: "warm-paper",
       color: "#ead7b1",
+      opacity: 0.42,
     });
   });
 
@@ -127,6 +132,7 @@ describe("document serializer background support", () => {
       background: {
         type: "solid",
         color: "#c8d8f0",
+        opacity: 0.66,
       },
       view: {
         scale: 0.9,
@@ -139,6 +145,7 @@ describe("document serializer background support", () => {
     expect(app.setBackgroundState).toHaveBeenCalledWith({
       type: "solid",
       color: "#c8d8f0",
+      opacity: 0.66,
     });
   });
 

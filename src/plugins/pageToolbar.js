@@ -10,6 +10,7 @@ import {
   ColorToolbarController,
   DEFAULT_COLOR_SWATCHES,
 } from "../lib/colorToolbar.js";
+import { clamp01, syncOpacityUi } from "../lib/styleControls.js";
 
 const PAGE_LAYER_ACTIONS = [
   {
@@ -217,6 +218,27 @@ export class PageToolbarPlugin extends BasePlugin {
                 data-testid="page-fill-color"
               />
             </div>
+            <label class="toolbar__button-style-row">
+              <span id="page-fill-opacity-label">Opacity</span>
+              <input
+                id="page-fill-opacity"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="1"
+                data-testid="page-fill-opacity"
+                aria-labelledby="page-fill-opacity-label"
+                title="Opacity: 100%"
+              />
+              <output
+                id="page-fill-opacity-value"
+                data-testid="page-fill-opacity-value"
+                title="Opacity: 100%"
+              >
+                100%
+              </output>
+            </label>
           </div>
         </div>
         <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__page-attachment-tool" data-popover-offset="none">
@@ -313,6 +335,9 @@ export class PageToolbarPlugin extends BasePlugin {
     });
     this.listenDom(this.panelEl.querySelector("#page-fill-color"), "input", () => {
       this.pageColorToolbar?.recordCustomColor("fill", this.panelEl.querySelector("#page-fill-color")?.value);
+      this.applyStyleFromPanel();
+    });
+    this.listenDom(this.panelEl.querySelector("#page-fill-opacity"), "input", () => {
       this.applyStyleFromPanel();
     });
     this.listenDom(this.panelEl.querySelector("#page-connect-trigger"), "click", () => {
@@ -436,6 +461,7 @@ export class PageToolbarPlugin extends BasePlugin {
       fontSize: labelNode?.fontSize?.() ?? 16,
       textColor: labelNode?.fill?.() ?? "#ab4f28",
       fill: background?.fill?.() ?? "#fffdf8",
+      opacity: clamp01(node?.opacity?.() ?? 1),
     };
   }
 
@@ -474,11 +500,13 @@ export class PageToolbarPlugin extends BasePlugin {
     const fontSizeEl = this.panelEl.querySelector("#page-font-size");
     const textColorEl = this.panelEl.querySelector("#page-text-color");
     const fillEl = this.panelEl.querySelector("#page-fill-color");
-    if (!fontSizeEl || !textColorEl || !fillEl) return;
+    const opacityEl = this.panelEl.querySelector("#page-fill-opacity");
+    if (!fontSizeEl || !textColorEl || !fillEl || !opacityEl) return;
 
     const fontSize = Number(fontSizeEl.value);
     const textColor = textColorEl.value;
     const fill = fillEl.value;
+    const opacity = clamp01(opacityEl.value);
     if (!Number.isFinite(fontSize) || !textColor || !fill) return;
 
     const background = node.findOne(".container-bg");
@@ -492,6 +520,7 @@ export class PageToolbarPlugin extends BasePlugin {
     labelNode?.fontSize?.(fontSize);
     labelNode?.fill?.(textColor);
     headerLine?.stroke?.(lineColors.headerLine);
+    node.opacity(opacity);
     this.app.events.emit("node:changed", { node });
     node.getLayer()?.batchDraw?.();
 
@@ -501,6 +530,12 @@ export class PageToolbarPlugin extends BasePlugin {
       fontSizeValue.title = `Font size: ${fontSize}`;
     }
     fontSizeEl.title = `Font size: ${fontSize}`;
+    syncOpacityUi({
+      sliderEl: opacityEl,
+      outputEl: this.panelEl.querySelector("#page-fill-opacity-value"),
+      triggerEl: this.panelEl.querySelector("#page-fill-style-trigger"),
+      value: opacity,
+    });
   }
 
   syncToolbar() {
@@ -515,6 +550,8 @@ export class PageToolbarPlugin extends BasePlugin {
     const fontSizeValueEl = this.panelEl.querySelector("#page-font-size-value");
     const textColorEl = this.panelEl.querySelector("#page-text-color");
     const fillEl = this.panelEl.querySelector("#page-fill-color");
+    const fillOpacityEl = this.panelEl.querySelector("#page-fill-opacity");
+    const fillOpacityValueEl = this.panelEl.querySelector("#page-fill-opacity-value");
     const state = this.resolvePagePanelState(this.selectedPageNode);
 
     if (fontSizeEl) {
@@ -534,6 +571,15 @@ export class PageToolbarPlugin extends BasePlugin {
       fillEl.disabled = !isVisible;
       fillEl.value = state.fill;
     }
+    if (fillOpacityEl) {
+      fillOpacityEl.disabled = !isVisible;
+    }
+    syncOpacityUi({
+      sliderEl: fillOpacityEl,
+      outputEl: fillOpacityValueEl,
+      triggerEl: this.panelEl.querySelector("#page-fill-style-trigger"),
+      value: state.opacity,
+    });
 
     this.syncAttachmentUi();
     this.syncAttachmentList();

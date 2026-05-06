@@ -85,7 +85,30 @@ describe("document schema", () => {
     expect(explicit.background).toEqual({
       type: "warm-paper",
       color: "#ead7b1",
+      opacity: 1,
     });
     expect(legacy.background).toEqual(DEFAULT_BACKGROUND_STATE);
+  });
+
+  it("normalizes background opacity and falls back to default for invalid values", () => {
+    const valid = normalizeDocumentSnapshot({
+      documentId: "document-4",
+      background: {
+        type: "solid",
+        color: "#c8d8f0",
+        opacity: 0.35,
+      },
+    });
+    const invalid = normalizeDocumentSnapshot({
+      documentId: "document-5",
+      background: {
+        type: "solid",
+        color: "#c8d8f0",
+        opacity: "oops",
+      },
+    });
+
+    expect(valid.background.opacity).toBe(0.35);
+    expect(invalid.background.opacity).toBe(1);
   });
 });
