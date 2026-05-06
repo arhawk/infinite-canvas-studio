@@ -36,6 +36,8 @@ pnpm dev
 
 The Vite dev server runs on `http://localhost:3000`.
 
+In dev mode, `pnpm dev` now runs `pnpm export:html` before starting Vite, and runtime HTML export uses `dist-single-html/index.html` as the template source.
+
 ## Build And Verification
 
 ```bash

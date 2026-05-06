@@ -4039,7 +4039,7 @@ test("asks for confirmation before loading over current content", async ({ page 
     buffer: Buffer.from(JSON.stringify(exported)),
   });
 
-  await expect(page.getByTestId("document-status-toast")).toHaveText("Document loaded");
+  await expect(page.getByTestId("document-status-toast")).toHaveText("JSON loaded");
   await expect
     .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
     .toBe(1);
@@ -4077,7 +4077,7 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
     buffer: Buffer.from(JSON.stringify(exported)),
   });
 
-  await expect(page.getByTestId("document-status-toast")).toHaveText("Document loaded");
+  await expect(page.getByTestId("document-status-toast")).toHaveText("JSON loaded");
   await expect
     .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
     .toBe(3);
@@ -4112,6 +4112,28 @@ test("loads a saved document snapshot and resets the undo baseline", async ({ pa
   await expect
     .poll(async () => Math.abs(((await getNode(page, source.id))?.bounds?.x ?? 0) - (beforeMove?.bounds?.x ?? 0)))
     .toBeLessThan(2);
+});
+
+test("loads embedded snapshot from html file and shows html success toast", async ({ page }) => {
+  await addComponent(page, "sticky", { x: 240, y: 240 });
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  const html = `<!doctype html><html><head><title>Snapshot</title></head><body><script id="app-snapshot" type="application/json">${JSON.stringify(exported)}</script></body></html>`;
+
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
+    .toBe(0);
+
+  await page.getByTestId("load-document-input").setInputFiles({
+    name: "mind-map.html",
+    mimeType: "text/html",
+    buffer: Buffer.from(html),
+  });
+
+  await expect(page.getByTestId("document-status-toast")).toHaveText("HTML loaded");
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__APP_TEST_API__.listNodes())).length)
+    .toBe(1);
 });
 
 test("edits ranking box titles inline and styles from the floating toolbar", async ({ page }) => {

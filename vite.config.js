@@ -1,4 +1,6 @@
 import { defineConfig } from "vite";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 function inlineSingleFileBuild() {
   return {
@@ -55,6 +57,33 @@ function stripDocumentControls(html) {
   );
 }
 
+function serveDevExportTemplate() {
+  return {
+    name: "serve-dev-export-template",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const requestUrl = req.originalUrl || req.url || "";
+        if (!requestUrl.startsWith("/__export-template")) {
+          return next();
+        }
+
+        try {
+          const source = resolve(process.cwd(), "dist-single-html/index.html");
+          const html = readFileSync(source, "utf8");
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.end(html);
+        } catch {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end("");
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(() => {
   const isSingleFileExport = process.env.SINGLE_FILE_EXPORT === "1";
 
@@ -63,7 +92,7 @@ export default defineConfig(() => {
     define: {
       __SINGLE_FILE_EXPORT__: JSON.stringify(isSingleFileExport),
     },
-    plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [],
+    plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [serveDevExportTemplate()],
     server: {
       port: 3000,
       strictPort: true,

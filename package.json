@@ -9,9 +9,10 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm export:html && vite",
     "build": "vite build",
     "export:html": "SINGLE_FILE_EXPORT=1 vite build --outDir dist-single-html",
+    "export:shell:refresh": "pnpm export:html && node scripts/refresh-export-shell.mjs",
     "preview": "vite preview",
     "test": "pnpm test:smoke && pnpm test:unit && pnpm test:e2e",
     "test:smoke": "pnpm build",

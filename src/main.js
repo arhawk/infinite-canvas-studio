@@ -67,6 +67,8 @@ const ui = {
   canvasContainer: getRequiredElement("#canvas-container"),
   presentationToolbarHoverZone: getRequiredElement("#presentation-toolbar-hover-zone"),
   drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
+  saveDocumentAction: getOptionalElement("#save-document-action"),
+  loadDocumentAction: getOptionalElement("#load-document-action"),
   loadDocumentInput: getOptionalElement("#load-document-input"),
   calculatorWidget: getRequiredElement("#calculator-widget"),
   timerWidget: getRequiredElement("#timer-widget"),
@@ -111,6 +113,28 @@ const ui = {
 };
 
 captureRuntimeHtmlTemplate();
+
+async function preloadDevExportShellTemplate() {
+  if (!import.meta.env.DEV || typeof window === "undefined") return;
+
+  try {
+    const response = await fetch("/__export-template", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const template = await response.text();
+    if (template.trim()) {
+      window.__APP_EXPORT_TEMPLATE__ = template;
+    } else {
+      console.warn("Received empty dev export template from /__export-template.");
+    }
+  } catch (error) {
+    console.warn("Failed to load /__export-template for dev HTML export.", error);
+  }
+}
+
+await preloadDevExportShellTemplate();
 
 const app = new App({
   container: ui.canvasContainer,
@@ -212,6 +236,8 @@ const historyPlugin = app.use(HistoryPlugin, {
   redoEl: leftToolbar.redoBtn,
 });
 app.use(DocumentPlugin, {
+  exportEl: ui.saveDocumentAction,
+  importEl: ui.loadDocumentAction,
   importInputEl: ui.loadDocumentInput,
 });
 app.use(BinaryCalculatorPlugin, {

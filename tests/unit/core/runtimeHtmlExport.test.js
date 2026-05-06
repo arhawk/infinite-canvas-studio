@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildRuntimeExportHtml } from "../../../src/document/runtimeHtmlExport.js";
+import {
+  buildRuntimeExportHtml,
+  readEmbeddedSnapshotFromHtmlText,
+  validateEmbeddedSnapshotInHtml,
+} from "../../../src/document/runtimeHtmlExport.js";
 
 describe("buildRuntimeExportHtml", () => {
   it("injects the latest snapshot into the runtime html template", () => {
@@ -103,5 +107,84 @@ describe("buildRuntimeExportHtml", () => {
     expect(html).toContain('id="catalog-controls"');
     expect(html).toContain('id="catalog-toggle"');
     expect(html).toContain('id="arrange-controls"');
+  });
+
+  it("validates embedded snapshot identity and content counts", () => {
+    const snapshot = {
+      documentId: "doc-1",
+      revision: 2,
+      meta: { title: "Deck Demo" },
+      savedAt: "2026-04-05T10:00:00.000Z",
+      view: {
+        scale: 1,
+        position: { x: 0, y: 0 },
+      },
+      nodes: [
+        {
+          id: "n-1",
+          type: "sticky",
+          x: 0,
+          y: 0,
+          width: 120,
+          height: 120,
+          data: {},
+        },
+      ],
+      drawings: [],
+    };
+    const template = "<!doctype html><html><head><title>Old</title></head><body></body></html>";
+    const html = buildRuntimeExportHtml(template, snapshot);
+
+    expect(validateEmbeddedSnapshotInHtml(html, snapshot)).toBe(true);
+  });
+
+  it("fails validation when snapshot node count does not match", () => {
+    const snapshot = {
+      documentId: "doc-1",
+      revision: 2,
+      meta: { title: "Deck Demo" },
+      savedAt: "2026-04-05T10:00:00.000Z",
+      view: {
+        scale: 1,
+        position: { x: 0, y: 0 },
+      },
+      nodes: [],
+      drawings: [],
+    };
+    const template = "<!doctype html><html><head><title>Old</title></head><body></body></html>";
+    const html = buildRuntimeExportHtml(template, snapshot);
+
+    expect(() => validateEmbeddedSnapshotInHtml(html, {
+      ...snapshot,
+      nodes: [
+        {
+          id: "n-1",
+          type: "sticky",
+          x: 0,
+          y: 0,
+          width: 120,
+          height: 120,
+          data: {},
+        },
+      ],
+    })).toThrow("node count");
+  });
+
+  it("reads embedded snapshot from exported html text", () => {
+    const snapshot = {
+      documentId: "doc-2",
+      revision: 3,
+      meta: { title: "Roundtrip" },
+      savedAt: "2026-04-05T10:00:00.000Z",
+      view: { scale: 1, position: { x: 0, y: 0 } },
+      nodes: [],
+      drawings: [],
+    };
+    const template = "<!doctype html><html><head><title>Old</title></head><body></body></html>";
+    const html = buildRuntimeExportHtml(template, snapshot);
+    const parsed = readEmbeddedSnapshotFromHtmlText(html);
+
+    expect(parsed?.documentId).toBe("doc-2");
+    expect(parsed?.revision).toBe(3);
   });
 });

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 async function waitForTestApi(page) {
   await page.waitForFunction(() => Boolean(window.__APP_TEST_API__));
@@ -241,6 +242,94 @@ test("undoes and redoes adding a sticky note", async ({ page }) => {
 
   await page.getByTestId("redo-action").click();
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+});
+
+test("shows save and load actions to the left of share with tooltips", async ({ page }) => {
+  const saveAction = page.getByTestId("save-document-action");
+  const loadAction = page.getByTestId("load-document-action");
+  const shareAction = page.getByTestId("share-btn");
+
+  await expect(saveAction).toBeVisible();
+  await expect(loadAction).toBeVisible();
+  await expect(shareAction).toBeVisible();
+  await expect(saveAction).toHaveAttribute("title", "Save document (choose HTML or JSON)");
+  await expect(loadAction).toHaveAttribute("title", "Load document");
+  await expect(saveAction.locator("svg")).toBeVisible();
+  await expect(loadAction.locator("svg")).toBeVisible();
+
+  const order = await page.evaluate(() => {
+    const actions = Array.from(document.querySelectorAll(".toolbar__actions > button"));
+    return actions.map((element) => element.getAttribute("data-testid"));
+  });
+  expect(order).toEqual([
+    "save-document-action",
+    "load-document-action",
+    "share-btn",
+  ]);
+});
+
+test("keeps save/load keyboard shortcuts working", async ({ page }) => {
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+  await expect(page.getByTestId("save-document-format-menu")).toBeVisible();
+
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+O" : "Control+O");
+  const fileChooser = await fileChooserPromise;
+  expect(fileChooser.isMultiple()).toBe(false);
+});
+
+test("closes save format menu when clicking outside", async ({ page }) => {
+  const formatMenu = page.getByTestId("save-document-format-menu");
+  await page.getByTestId("save-document-action").click();
+  await expect(formatMenu).toBeVisible();
+  await page.mouse.click(24, 180);
+  await expect(formatMenu).toBeHidden();
+});
+
+test("exports html with embedded snapshot in dev mode", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.addComponent("sticky", { x: 220, y: 220 }));
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+
+  await page.getByTestId("save-document-action").click();
+  const formatMenu = page.getByTestId("save-document-format-menu");
+  await expect(formatMenu).toBeVisible();
+  const menuBox = await formatMenu.boundingBox();
+  expect(menuBox).toBeTruthy();
+  const viewportSize = page.viewportSize();
+  expect(viewportSize).toBeTruthy();
+  expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(viewportSize.width);
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByTestId("save-document-as-html").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.html$/i);
+
+  const filePath = await download.path();
+  expect(filePath).toBeTruthy();
+  const html = await readFile(filePath, "utf8");
+
+  expect(html).toContain('id="app-snapshot"');
+  expect(html).toMatch(/"nodes":\s*\[/);
+  expect(html).toMatch(/"type":\s*"sticky"/);
+});
+
+test("exports json from save format menu", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.addComponent("sticky", { x: 220, y: 220 }));
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+
+  await page.getByTestId("save-document-action").click();
+  await expect(page.getByTestId("save-document-format-menu")).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByTestId("save-document-as-json").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.json$/i);
+
+  const filePath = await download.path();
+  expect(filePath).toBeTruthy();
+  const raw = await readFile(filePath, "utf8");
+  const parsed = JSON.parse(raw);
+  expect(parsed).toHaveProperty("nodes");
+  expect(parsed).toHaveProperty("drawings");
+  expect(parsed.nodes.some((node) => node.type === "sticky")).toBe(true);
 });
 
 test("marquee selects multiple components and supports JSON clipboard paste", async ({ page, context }) => {

@@ -46,13 +46,33 @@
 
           <!-- Right: share / exit -->
           <div class="toolbar__actions">
+            <button
+              type="button"
+              class="toolbar__icon-button toolbar__top-action-icon"
+              id="save-document-action"
+              title="Save document (choose HTML or JSON)"
+              aria-label="Save document (choose HTML or JSON)"
+              data-testid="save-document-action"
+            >
+              <i data-lucide="download" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="toolbar__icon-button toolbar__top-action-icon"
+              id="load-document-action"
+              title="Load document"
+              aria-label="Load document"
+              data-testid="load-document-action"
+            >
+              <i data-lucide="upload" aria-hidden="true"></i>
+            </button>
             <button type="button" class="toolbar__share-btn" id="share-btn" data-testid="share-btn">Share</button>
           </div>
 
 <input
             id="load-document-input"
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,text/html,.html,.htm"
             hidden
             data-testid="load-document-input"
           />

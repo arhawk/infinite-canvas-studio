@@ -5,7 +5,14 @@ import {
   importDocumentSnapshot,
 } from "../document/serializer.js";
 import { normalizeDocumentSnapshot, stringifyDocumentSnapshot } from "../document/schema.js";
-import { buildRuntimeExportHtml } from "../document/runtimeHtmlExport.js";
+import {
+  buildRuntimeExportHtml,
+  readEmbeddedSnapshotFromHtmlText,
+  validateEmbeddedSnapshotInHtml,
+} from "../document/runtimeHtmlExport.js";
+import { getDocumentExportFormat, resolveRuntimeHtmlTemplate } from "./documentExportMode.js";
+
+const EXPORT_FORMATS = new Set(["html", "json"]);
 
 function clonePlainData(value) {
   if (value == null) return value;
@@ -54,8 +61,13 @@ class ExportDocumentCommand extends BaseCommand {
   static commandId = "document:export";
   static label = "Export Document";
 
-  execute() {
-    return this.plugin.exportDocument({ download: true });
+  execute(options = {}) {
+    const format = typeof options?.format === "string" ? options.format : undefined;
+    if (!format) {
+      this.plugin.openExportMenu();
+      return null;
+    }
+    return this.plugin.exportDocument({ download: true, format });
   }
 }
 
@@ -92,8 +104,10 @@ export class DocumentPlugin extends BasePlugin {
     this.app.documentManager = this;
     this.documentState = this.createDocumentState();
     this.statusTimeout = null;
+    this.isDevMode = Boolean(import.meta.env?.DEV);
     this.isStandaloneSingleFile = Boolean(__SINGLE_FILE_EXPORT__);
     this.buildStatusToast();
+    this.buildExportMenu();
 
     if (documentControlsEl) {
       renderIcons(documentControlsEl, {
@@ -104,20 +118,30 @@ export class DocumentPlugin extends BasePlugin {
     }
 
     if (exportEl) {
-      this.listenDom(exportEl, "click", () => {
-        void this.app.commands.execute("document:export");
+      renderIcons(exportEl, {
+        width: 16,
+        height: 16,
+        "stroke-width": 2,
       });
-      exportEl.title = this.isStandaloneSingleFile ? "Save HTML (Mod+S)" : "Save JSON (Mod+S)";
-      exportEl.setAttribute(
-        "aria-label",
-        this.isStandaloneSingleFile ? "Save document as HTML" : "Save document as JSON",
-      );
+      this.listenDom(exportEl, "click", (event) => {
+        event.preventDefault();
+        this.toggleExportMenu();
+      });
+      exportEl.title = "Save document (choose HTML or JSON)";
+      exportEl.setAttribute("aria-label", "Save document (choose HTML or JSON)");
     }
 
     if (importEl) {
+      renderIcons(importEl, {
+        width: 16,
+        height: 16,
+        "stroke-width": 2,
+      });
       this.listenDom(importEl, "click", () => {
         this.openFilePicker();
       });
+      importEl.title = "Load document";
+      importEl.setAttribute("aria-label", "Load document");
     }
 
     if (importInputEl) {
@@ -133,10 +157,110 @@ export class DocumentPlugin extends BasePlugin {
     this.cleanups.push(() => {
       window.clearTimeout(this.statusTimeout);
       this.statusEl?.remove();
+      this.exportMenuEl?.remove();
       if (this.app.documentManager === this) {
         this.app.documentManager = null;
       }
     });
+  }
+
+  buildExportMenu() {
+    const exportEl = this.ui?.exportEl;
+    if (!exportEl) return;
+
+    const menu = document.createElement("div");
+    menu.className = "document-export-menu";
+    menu.hidden = true;
+    menu.dataset.testid = "save-document-format-menu";
+    menu.setAttribute("role", "menu");
+
+    const htmlBtn = document.createElement("button");
+    htmlBtn.type = "button";
+    htmlBtn.className = "document-export-menu__item";
+    htmlBtn.dataset.testid = "save-document-as-html";
+    htmlBtn.setAttribute("role", "menuitem");
+    htmlBtn.textContent = "Save as HTML";
+
+    const jsonBtn = document.createElement("button");
+    jsonBtn.type = "button";
+    jsonBtn.className = "document-export-menu__item";
+    jsonBtn.dataset.testid = "save-document-as-json";
+    jsonBtn.setAttribute("role", "menuitem");
+    jsonBtn.textContent = "Save as JSON";
+
+    menu.append(htmlBtn, jsonBtn);
+    document.body.append(menu);
+    this.exportMenuEl = menu;
+
+    this.listenDom(htmlBtn, "click", () => {
+      this.closeExportMenu();
+      void this.app.commands.execute("document:export", { format: "html" });
+    });
+
+    this.listenDom(jsonBtn, "click", () => {
+      this.closeExportMenu();
+      void this.app.commands.execute("document:export", { format: "json" });
+    });
+
+    this.listenDom(window, "pointerdown", (event) => {
+      if (menu.hidden) return;
+      if (exportEl.contains(event.target)) return;
+      if (menu.contains(event.target)) return;
+      this.closeExportMenu();
+    }, true);
+
+    this.listenDom(document, "keydown", (event) => {
+      if (event.key === "Escape") {
+        this.closeExportMenu();
+      }
+    });
+
+    this.listenDom(window, "blur", () => {
+      this.closeExportMenu();
+    });
+  }
+
+  positionExportMenu() {
+    const exportEl = this.ui?.exportEl;
+    const menu = this.exportMenuEl;
+    if (!exportEl || !menu) return;
+    const rect = exportEl.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const gutter = 8;
+    const rightPreferred = rect.right + 6;
+    const leftFallback = rect.left - menuRect.width - 6;
+    const maxLeft = window.innerWidth - menuRect.width - gutter;
+    let left = rightPreferred;
+
+    if (left + menuRect.width > window.innerWidth - gutter) {
+      left = leftFallback;
+    }
+
+    left = Math.max(gutter, Math.min(left, maxLeft));
+    const maxTop = window.innerHeight - menuRect.height - gutter;
+    const top = Math.max(gutter, Math.min(Math.max(gutter, rect.top), maxTop));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  openExportMenu() {
+    if (!this.exportMenuEl) return;
+    this.exportMenuEl.hidden = false;
+    this.positionExportMenu();
+  }
+
+  closeExportMenu() {
+    if (!this.exportMenuEl) return;
+    this.exportMenuEl.hidden = true;
+  }
+
+  toggleExportMenu() {
+    if (!this.exportMenuEl) return;
+    if (this.exportMenuEl.hidden) {
+      this.openExportMenu();
+      return;
+    }
+    this.closeExportMenu();
   }
 
   createDocumentState(overrides = {}) {
@@ -206,28 +330,49 @@ export class DocumentPlugin extends BasePlugin {
   }
 
   getRuntimeHtmlTemplate() {
-    return typeof window !== "undefined" ? window.__APP_HTML_TEMPLATE__ ?? "" : "";
+    if (typeof window === "undefined") return "";
+    return resolveRuntimeHtmlTemplate({
+      isDevMode: this.isDevMode,
+      exportTemplate: window.__APP_EXPORT_TEMPLATE__,
+      runtimeTemplate: window.__APP_HTML_TEMPLATE__,
+    });
   }
 
-  getExportFormat() {
-    return this.isStandaloneSingleFile ? "html" : "json";
+  getFallbackExportFormat() {
+    return getDocumentExportFormat({
+      isStandaloneSingleFile: this.isStandaloneSingleFile,
+      isDevMode: this.isDevMode,
+    });
   }
 
-  exportDocument({ download = false } = {}) {
+  resolveExportFormat(format) {
+    if (typeof format === "string" && EXPORT_FORMATS.has(format)) {
+      return format;
+    }
+    return this.getFallbackExportFormat();
+  }
+
+  exportDocument({ download = false, format } = {}) {
     const snapshot = this.serializeDocument();
-    const exportFormat = this.getExportFormat();
+    const exportFormat = this.resolveExportFormat(format);
     const suggestedBase = this.getSuggestedFilename();
 
     if (download) {
       if (exportFormat === "html") {
         const template = this.getRuntimeHtmlTemplate();
         if (!template) {
+          if (this.isDevMode) {
+            throw new Error(
+              "Dev HTML export template is unavailable. Run `pnpm export:html` (or start with `pnpm dev`) and reload.",
+            );
+          }
           throw new Error("Runtime HTML template is unavailable.");
         }
 
         const html = buildRuntimeExportHtml(template, snapshot, {
           title: this.documentState.title,
         });
+        validateEmbeddedSnapshotInHtml(html, snapshot);
         downloadTextFile(`${suggestedBase}.html`, html, "text/html");
         this.showStatus("HTML saved");
       } else {
@@ -265,8 +410,8 @@ export class DocumentPlugin extends BasePlugin {
       }
 
       const text = await file.text();
-      await this.importDocumentFromText(text, { source: "file" });
-      this.showStatus("Document loaded");
+      const result = await this.importDocumentFromText(text, { source: "file" });
+      this.showStatus(result.format === "html" ? "HTML loaded" : "JSON loaded");
       return true;
     } catch (error) {
       console.error(error);
@@ -280,14 +425,20 @@ export class DocumentPlugin extends BasePlugin {
   }
 
   async importDocumentFromText(text, options = {}) {
-    let parsed;
+    let parsed = null;
+    let format = "json";
     try {
       parsed = JSON.parse(text);
     } catch {
-      throw new Error("Document file is not valid JSON.");
+      parsed = readEmbeddedSnapshotFromHtmlText(text);
+      if (!parsed) {
+        throw new Error("Document file must be JSON or HTML containing #app-snapshot.");
+      }
+      format = "html";
     }
 
-    return this.loadDocument(parsed, options);
+    const document = await this.loadDocument(parsed, options);
+    return { document, format };
   }
 
   async loadDocument(snapshot, { source = "api" } = {}) {

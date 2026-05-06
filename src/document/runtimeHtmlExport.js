@@ -48,6 +48,13 @@ export function readEmbeddedSnapshot(doc = document) {
   }
 }
 
+export function readEmbeddedSnapshotFromHtmlText(htmlText) {
+  if (typeof htmlText !== "string" || !htmlText.trim()) return null;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlText, "text/html");
+  return readEmbeddedSnapshot(doc);
+}
+
 export function buildRuntimeExportHtml(template, snapshot, { title = "Mind Map Infinite Canvas" } = {}) {
   if (typeof template !== "string" || !template.trim()) {
     throw new Error("HTML export template is missing.");
@@ -77,4 +84,49 @@ export function buildRuntimeExportHtml(template, snapshot, { title = "Mind Map I
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
   return html;
+}
+
+function readSnapshotJsonFromHtml(html) {
+  const snapshotTagPattern = new RegExp(
+    `<script[^>]*id=["']${SNAPSHOT_SCRIPT_ID}["'][^>]*>([\\s\\S]*?)<\\/script>`,
+    "i",
+  );
+  const match = snapshotTagPattern.exec(html);
+  if (!match) {
+    throw new Error("Exported HTML is missing #app-snapshot.");
+  }
+
+  const raw = match[1]?.trim?.() ?? "";
+  if (!raw) {
+    throw new Error("Exported HTML contains an empty #app-snapshot.");
+  }
+
+  try {
+    return normalizeDocumentSnapshot(JSON.parse(raw));
+  } catch {
+    throw new Error("Exported HTML contains invalid snapshot JSON.");
+  }
+}
+
+export function validateEmbeddedSnapshotInHtml(html, snapshot) {
+  if (typeof html !== "string" || !html.trim()) {
+    throw new Error("Exported HTML is empty.");
+  }
+
+  const expected = normalizeDocumentSnapshot(snapshot);
+  const embedded = readSnapshotJsonFromHtml(html);
+
+  if (embedded.documentId !== expected.documentId || embedded.revision !== expected.revision) {
+    throw new Error("Exported HTML snapshot identity does not match the current document.");
+  }
+
+  if ((embedded.nodes?.length ?? 0) !== (expected.nodes?.length ?? 0)) {
+    throw new Error("Exported HTML snapshot node count does not match the current document.");
+  }
+
+  if ((embedded.drawings?.length ?? 0) !== (expected.drawings?.length ?? 0)) {
+    throw new Error("Exported HTML snapshot drawing count does not match the current document.");
+  }
+
+  return true;
 }
