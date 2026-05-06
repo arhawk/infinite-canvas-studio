@@ -818,6 +818,18 @@ export function setupAppTestApi(app) {
       });
       return true;
     },
+    getCurrentPresentationPageId: () => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      return focusPlugin?.getCurrentPresentationPage?.()?.id?.() ?? null;
+    },
+    getDirectionalPageNavigationTargetId: (direction) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      return focusPlugin?.getDirectionalPageNavigationTarget?.(direction)?.id?.() ?? null;
+    },
+    navigatePageDirection: (direction) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      return focusPlugin?.navigatePageDirection?.(direction) ?? false;
+    },
     getNavigationButtons: () => {
       const focusPlugin = getPlugin(app, "focus-navigation");
       const navButtons = focusPlugin?.navButtonGroup?.getChildren?.() ?? [];

@@ -1899,6 +1899,90 @@ test("shows presentation navigation buttons for nearby connected pages", async (
     .toBeLessThan(4);
 });
 
+test("navigates connected pages with arrow keys using direction first and distance second", async ({ page }) => {
+  const source = await addComponent(page, "page", { x: 1200, y: 1200, label: "Source" });
+  const rightTarget = await addComponent(page, "page", { x: 2400, y: 1200, label: "Right" });
+  const diagonalTarget = await addComponent(page, "page", { x: 1980, y: 760, label: "Diagonal" });
+  const nearUpTarget = await addComponent(page, "page", { x: 1200, y: 260, label: "Near Up" });
+  const farUpTarget = await addComponent(page, "page", { x: 1200, y: -760, label: "Far Up" });
+
+  await page.evaluate(
+    async ({ sourceId, rightId, diagonalId, nearUpId, farUpId }) => {
+      await window.__APP_TEST_API__.createConnection(sourceId, rightId);
+      await window.__APP_TEST_API__.createConnection(sourceId, diagonalId);
+      await window.__APP_TEST_API__.createConnection(sourceId, nearUpId);
+      await window.__APP_TEST_API__.createConnection(sourceId, farUpId);
+    },
+    {
+      sourceId: source.id,
+      rightId: rightTarget.id,
+      diagonalId: diagonalTarget.id,
+      nearUpId: nearUpTarget.id,
+      farUpId: farUpTarget.id,
+    },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
+  await page.getByTestId("mode-capsule-present").click();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+  await page.waitForTimeout(450);
+
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getCurrentPresentationPageId())
+  )).toBe(source.id);
+
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getDirectionalPageNavigationTargetId("right"))
+  )).toBe(rightTarget.id);
+
+  await page.keyboard.press("ArrowRight");
+
+  const expectedRightFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    rightTarget.id,
+  );
+  await expect
+    .poll(async () => {
+      const current = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(current.center.x - expectedRightFocus.center.x);
+    })
+    .toBeLessThan(4);
+  await expect
+    .poll(async () => {
+      const current = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(current.center.y - expectedRightFocus.center.y);
+    })
+    .toBeLessThan(4);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.centerOnNode(nodeId, { duration: 0 }), source.id);
+  await waitForPaint(page);
+
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getDirectionalPageNavigationTargetId("up"))
+  )).toBe(nearUpTarget.id);
+
+  await page.keyboard.press("ArrowUp");
+
+  const expectedUpFocus = await page.evaluate(
+    (nodeId) => window.__APP_TEST_API__.getComputedFocus(nodeId),
+    nearUpTarget.id,
+  );
+  await expect
+    .poll(async () => {
+      const current = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(current.center.x - expectedUpFocus.center.x);
+    })
+    .toBeLessThan(4);
+  await expect
+    .poll(async () => {
+      const current = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+      return Math.abs(current.center.y - expectedUpFocus.center.y);
+    })
+    .toBeLessThan(4);
+});
+
 test("does not show presentation navigation buttons for visible page targets or non-page connections", async ({ page }) => {
   const sticky = await addComponent(page, "sticky", { x: 80, y: 80 });
   const pageNode = await addComponent(page, "page", { x: 460, y: 120, label: "Page" });
