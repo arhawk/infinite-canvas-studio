@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRuntimeExportHtml,
   readEmbeddedSnapshotFromHtmlText,
+  validateRuntimeExportTemplate,
   validateEmbeddedSnapshotInHtml,
 } from "../../../src/document/runtimeHtmlExport.js";
 
@@ -186,5 +187,21 @@ describe("buildRuntimeExportHtml", () => {
 
     expect(parsed?.documentId).toBe("doc-2");
     expect(parsed?.revision).toBe(3);
+  });
+
+  it("rejects templates missing body/html shell", () => {
+    expect(() => validateRuntimeExportTemplate("")).toThrow("missing");
+    expect(() =>
+      validateRuntimeExportTemplate("<!doctype html><html><head><title>X</title></head></html>"),
+    ).toThrow("missing <body>");
+    expect(() =>
+      buildRuntimeExportHtml("<!doctype html><html><head></head><body><div id='app'></div></html>", {
+        documentId: "doc-1",
+        revision: 1,
+        meta: { title: "T" },
+        nodes: [],
+        drawings: [],
+      }),
+    ).toThrow("missing </body>");
   });
 });

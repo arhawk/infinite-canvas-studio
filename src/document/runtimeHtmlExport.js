@@ -2,6 +2,37 @@ import { normalizeDocumentSnapshot, stringifyDocumentSnapshot } from "./schema.j
 
 const SNAPSHOT_SCRIPT_ID = "app-snapshot";
 
+function hasTag(html, tagName) {
+  const pattern = new RegExp(`<${tagName}\\b`, "i");
+  return pattern.test(html);
+}
+
+function hasClosingBodyTag(html) {
+  return /<\/body>/i.test(html);
+}
+
+export function validateRuntimeExportTemplate(template) {
+  if (typeof template !== "string" || !template.trim()) {
+    throw new Error("HTML export template is missing.");
+  }
+
+  const normalized = template.trim();
+  if (!/^<!doctype html>/i.test(normalized)) {
+    throw new Error("HTML export template is incomplete: missing <!doctype html>.");
+  }
+  if (!hasTag(normalized, "html")) {
+    throw new Error("HTML export template is incomplete: missing <html>.");
+  }
+  if (!hasTag(normalized, "body")) {
+    throw new Error("HTML export template is incomplete: missing <body>.");
+  }
+  if (!hasClosingBodyTag(normalized)) {
+    throw new Error("HTML export template is incomplete: missing </body>.");
+  }
+
+  return normalized;
+}
+
 function escapeScriptJson(json) {
   return json
     .replace(/</g, "\\u003c")
@@ -56,9 +87,7 @@ export function readEmbeddedSnapshotFromHtmlText(htmlText) {
 }
 
 export function buildRuntimeExportHtml(template, snapshot, { title = "Mind Map Infinite Canvas" } = {}) {
-  if (typeof template !== "string" || !template.trim()) {
-    throw new Error("HTML export template is missing.");
-  }
+  validateRuntimeExportTemplate(template);
 
   const normalized = normalizeDocumentSnapshot(snapshot);
   const snapshotJson = escapeScriptJson(stringifyDocumentSnapshot(normalized));
@@ -76,13 +105,14 @@ export function buildRuntimeExportHtml(template, snapshot, { title = "Mind Map I
       `<script id="${SNAPSHOT_SCRIPT_ID}" type="application/json">${snapshotJson}</script>`,
     );
   } else {
-    html = html.replace(
-      /<\/body>/i,
-      `  <script id="${SNAPSHOT_SCRIPT_ID}" type="application/json">${snapshotJson}</script>\n</body>`,
-    );
+    if (!hasClosingBodyTag(html)) {
+      throw new Error("HTML export template is incomplete: missing </body>.");
+    }
+    html = html.replace(/<\/body>/i, `  <script id="${SNAPSHOT_SCRIPT_ID}" type="application/json">${snapshotJson}</script>\n</body>`);
   }
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
+  validateRuntimeExportTemplate(html);
   return html;
 }
 

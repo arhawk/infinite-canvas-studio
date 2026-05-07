@@ -11,8 +11,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && pnpm export:html",
-    "export:html": "SINGLE_FILE_EXPORT=1 vite build --outDir dist-single-html",
-    "export:shell:refresh": "pnpm export:html && node scripts/refresh-export-shell.mjs",
+    "export:html": "node scripts/build-export-template.mjs",
+    "export:shell:refresh": "pnpm export:html",
     "preview": "vite preview",
     "test": "pnpm test:smoke && pnpm test:unit && pnpm test:e2e",
     "test:smoke": "pnpm build",

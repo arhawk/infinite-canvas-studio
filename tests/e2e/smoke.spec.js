@@ -310,6 +310,9 @@ test("exports html with embedded snapshot in dev mode", async ({ page }) => {
   expect(html).toContain('id="app-snapshot"');
   expect(html).toMatch(/"nodes":\s*\[/);
   expect(html).toMatch(/"type":\s*"sticky"/);
+  expect(html).not.toContain("/assets/");
+  expect(html).not.toMatch(/<link[^>]+rel=["']stylesheet["']/i);
+  expect(html).not.toMatch(/<script[^>]+src=/i);
 });
 
 test("exports json from save format menu", async ({ page }) => {

@@ -4,18 +4,10 @@ export function getDocumentExportFormat({ isStandaloneSingleFile = false, isDevM
   return "json";
 }
 
-export function resolveRuntimeHtmlTemplate({
-  isDevMode = false,
-  exportTemplate = "",
-  runtimeTemplate = "",
-} = {}) {
+export function resolveRuntimeHtmlTemplate({ exportTemplate = "" } = {}) {
   if (typeof exportTemplate === "string" && exportTemplate.trim()) {
     return exportTemplate;
   }
 
-  if (isDevMode) {
-    return "";
-  }
-
-  return typeof runtimeTemplate === "string" ? runtimeTemplate : "";
+  return "";
 }

@@ -15,25 +15,13 @@ describe("documentExportMode", () => {
 
   it("prefers prebuilt shell template when available", () => {
     expect(resolveRuntimeHtmlTemplate({
-      isDevMode: true,
       exportTemplate: "<html>shell</html>",
-      runtimeTemplate: "<html>runtime</html>",
     })).toBe("<html>shell</html>");
   });
 
-  it("returns empty template in dev when shell is missing", () => {
+  it("returns empty when shell is missing", () => {
     expect(resolveRuntimeHtmlTemplate({
-      isDevMode: true,
       exportTemplate: "",
-      runtimeTemplate: "<html>runtime</html>",
     })).toBe("");
-  });
-
-  it("falls back to runtime template outside dev", () => {
-    expect(resolveRuntimeHtmlTemplate({
-      isDevMode: false,
-      exportTemplate: "",
-      runtimeTemplate: "<html>runtime</html>",
-    })).toBe("<html>runtime</html>");
   });
 });

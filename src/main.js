@@ -33,7 +33,6 @@ import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import {
-  captureRuntimeHtmlTemplate,
   readEmbeddedSnapshot,
 } from "./document/runtimeHtmlExport.js";
 import { setupAppTestApi } from "./testApi.js";
@@ -113,29 +112,33 @@ const ui = {
   modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
 };
 
-captureRuntimeHtmlTemplate();
-
-async function preloadDevExportShellTemplate() {
-  if (!import.meta.env.DEV || typeof window === "undefined") return;
+async function preloadExportShellTemplate() {
+  if (typeof window === "undefined") return;
+  window.__APP_EXPORT_TEMPLATE_READY__ = false;
 
   try {
     const response = await fetch("/__export-template", { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
     }
 
     const template = await response.text();
     if (template.trim()) {
       window.__APP_EXPORT_TEMPLATE__ = template;
+      window.__APP_EXPORT_TEMPLATE_READY__ = true;
     } else {
-      console.warn("Received empty dev export template from /__export-template.");
+      window.__APP_EXPORT_TEMPLATE_READY__ = false;
+      console.error(
+        "Failed to load /__export-template for HTML export: received empty template body.",
+      );
     }
   } catch (error) {
-    console.warn("Failed to load /__export-template for dev HTML export.", error);
+    window.__APP_EXPORT_TEMPLATE_READY__ = false;
+    console.error("Failed to load /__export-template for HTML export.", error);
   }
 }
 
-await preloadDevExportShellTemplate();
+await preloadExportShellTemplate();
 
 const app = new App({
   container: ui.canvasContainer,

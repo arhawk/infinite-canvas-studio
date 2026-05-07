@@ -57,29 +57,36 @@ function stripDocumentControls(html) {
   );
 }
 
-function serveDevExportTemplate() {
-  return {
-    name: "serve-dev-export-template",
-    apply: "serve",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const requestUrl = req.originalUrl || req.url || "";
-        if (!requestUrl.startsWith("/__export-template")) {
-          return next();
-        }
+function serveExportTemplate() {
+  const handler = (req, res, next) => {
+    const requestUrl = req.originalUrl || req.url || "";
+    if (!requestUrl.startsWith("/__export-template")) {
+      return next();
+    }
 
-        try {
-          const source = resolve(process.cwd(), "dist-single-html/index.html");
-          const html = readFileSync(source, "utf8");
-          res.statusCode = 200;
-          res.setHeader("Content-Type", "text/html; charset=utf-8");
-          res.end(html);
-        } catch {
-          res.statusCode = 404;
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          res.end("");
-        }
-      });
+    try {
+      const source = resolve(process.cwd(), "dist/__export-template");
+      const html = readFileSync(source, "utf8");
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.end(html);
+    } catch (error) {
+      console.error(
+        `[serve-export-template] failed to serve dist/__export-template for ${requestUrl}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      next();
+    }
+  };
+
+  return {
+    name: "serve-export-template",
+    configureServer(server) {
+      server.middlewares.use(handler);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handler);
     },
   };
 }
@@ -92,7 +99,7 @@ export default defineConfig(() => {
     define: {
       __SINGLE_FILE_EXPORT__: JSON.stringify(isSingleFileExport),
     },
-    plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [serveDevExportTemplate()],
+    plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [serveExportTemplate()],
     server: {
       port: 3000,
       strictPort: true,

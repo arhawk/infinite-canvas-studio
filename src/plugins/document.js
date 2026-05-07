@@ -8,6 +8,7 @@ import { normalizeDocumentSnapshot, stringifyDocumentSnapshot } from "../documen
 import {
   buildRuntimeExportHtml,
   readEmbeddedSnapshotFromHtmlText,
+  validateRuntimeExportTemplate,
   validateEmbeddedSnapshotInHtml,
 } from "../document/runtimeHtmlExport.js";
 import { getDocumentExportFormat, resolveRuntimeHtmlTemplate } from "./documentExportMode.js";
@@ -61,13 +62,22 @@ class ExportDocumentCommand extends BaseCommand {
   static commandId = "document:export";
   static label = "Export Document";
 
-  execute(options = {}) {
+  async execute(options = {}) {
     const format = typeof options?.format === "string" ? options.format : undefined;
     if (!format) {
       this.plugin.openExportMenu();
       return null;
     }
-    return this.plugin.exportDocument({ download: true, format });
+    try {
+      return await this.plugin.exportDocument({ download: true, format });
+    } catch (error) {
+      console.error(error);
+      this.plugin.showStatus(
+        error instanceof Error ? error.message : "Failed to export document.",
+        "error",
+      );
+      return null;
+    }
   }
 }
 
@@ -332,10 +342,28 @@ export class DocumentPlugin extends BasePlugin {
   getRuntimeHtmlTemplate() {
     if (typeof window === "undefined") return "";
     return resolveRuntimeHtmlTemplate({
-      isDevMode: this.isDevMode,
       exportTemplate: window.__APP_EXPORT_TEMPLATE__,
-      runtimeTemplate: window.__APP_HTML_TEMPLATE__,
     });
+  }
+
+  async ensureRuntimeHtmlTemplate() {
+    const existing = this.getRuntimeHtmlTemplate();
+    if (existing) return validateRuntimeExportTemplate(existing);
+    if (typeof window === "undefined") return "";
+
+    const response = await fetch("/__export-template", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(
+        `HTML export template is unavailable (HTTP ${response.status}). Please ensure /__export-template is accessible.`,
+      );
+    }
+
+    const template = await response.text();
+    const validated = validateRuntimeExportTemplate(template);
+
+    window.__APP_EXPORT_TEMPLATE__ = validated;
+    window.__APP_EXPORT_TEMPLATE_READY__ = true;
+    return validated;
   }
 
   getFallbackExportFormat() {
@@ -352,22 +380,14 @@ export class DocumentPlugin extends BasePlugin {
     return this.getFallbackExportFormat();
   }
 
-  exportDocument({ download = false, format } = {}) {
+  async exportDocument({ download = false, format } = {}) {
     const snapshot = this.serializeDocument();
     const exportFormat = this.resolveExportFormat(format);
     const suggestedBase = this.getSuggestedFilename();
 
     if (download) {
       if (exportFormat === "html") {
-        const template = this.getRuntimeHtmlTemplate();
-        if (!template) {
-          if (this.isDevMode) {
-            throw new Error(
-              "Dev HTML export template is unavailable. Run `pnpm export:html` (or start with `pnpm dev`) and reload.",
-            );
-          }
-          throw new Error("Runtime HTML template is unavailable.");
-        }
+        const template = await this.ensureRuntimeHtmlTemplate();
 
         const html = buildRuntimeExportHtml(template, snapshot, {
           title: this.documentState.title,
