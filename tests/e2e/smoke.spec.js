@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 async function waitForTestApi(page) {
   await page.waitForFunction(() => Boolean(window.__APP_TEST_API__));
@@ -305,14 +306,25 @@ test("exports html with embedded snapshot in dev mode", async ({ page }) => {
 
   const filePath = await download.path();
   expect(filePath).toBeTruthy();
-  const html = await readFile(filePath, "utf8");
+  const htmlPath = `${filePath}.html`;
+  await download.saveAs(htmlPath);
+  const html = await readFile(htmlPath, "utf8");
 
+  expect(html.trimStart()).toMatch(/^<!doctype html>/i);
   expect(html).toContain('id="app-snapshot"');
   expect(html).toMatch(/"nodes":\s*\[/);
   expect(html).toMatch(/"type":\s*"sticky"/);
   expect(html).not.toContain("/assets/");
   expect(html).not.toMatch(/<link[^>]+rel=["']stylesheet["']/i);
   expect(html).not.toMatch(/<script[^>]+src=/i);
+  expect(html.match(/<\/script>/gi) ?? []).toHaveLength(2);
+
+  const exportedPage = await page.context().newPage();
+  await exportedPage.goto(pathToFileURL(htmlPath).href);
+  await exportedPage.waitForFunction(() => Boolean(document.querySelector("#canvas-container canvas")));
+  await expect(exportedPage.locator("body")).not.toContainText("RegExp(`^`");
+  await expect(exportedPage.getByTestId("components-trigger")).toBeVisible();
+  await exportedPage.close();
 });
 
 test("exports json from save format menu", async ({ page }) => {

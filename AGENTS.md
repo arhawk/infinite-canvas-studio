@@ -19,6 +19,7 @@ The app includes:
 - Pen, pencil, highlighter, text annotation, and whole-stroke erasing
 - Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
 - Local JSON save/load plus single-file HTML export with embedded snapshots
+- Online room sharing through a stateless room relay with optional host passwords, QR links, and viewer camera modes
 - Container system with parent-child grouping and arbitrary component-to-component connections
 - Catalog outline, branch collapse, minimap, page compare, attachments, timer, and calculator helpers
 - Per-page and per-node focus attributes used by presentation jumps
@@ -70,13 +71,15 @@ Feature implementation constraint:
 - Canvas library: Konva.js
 - Icon library: Lucide Icons
 - Styling: Plain CSS
+- Room relay: Node.js HTTP and WebSocket server
 
 ## Run Commands
 
 - Install dependencies: `pnpm install`
 - Start local dev server: `pnpm dev`
+- Start room relay server: `pnpm server`
 - Build static output: `pnpm build`
-- Export a single self-contained HTML file: `pnpm export:html`
+- Refresh runtime HTML export template: `pnpm export:html`
 - Preview production build: `pnpm preview`
 - Run unit tests: `pnpm test:unit`
 - Run E2E smoke tests: `pnpm test:e2e`
@@ -84,6 +87,7 @@ Feature implementation constraint:
 - First-time Playwright browser install on a new machine: `pnpm exec playwright install chromium`
 
 The Vite dev server is configured in [vite.config.js](vite.config.js) and runs at `http://localhost:3000`.
+The room relay server is started from the repository root with `pnpm server`. The frontend's default room backend host is `au.baitian.moe:3001`; tests may override it with `window.__ROOM_BACKEND_HOST__`.
 
 ## Project Structure
 
@@ -104,6 +108,19 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 - [src/document/schema.js](src/document/schema.js): Versioned JSON document schema normalization, defaults, and validation helpers
 - [src/document/serializer.js](src/document/serializer.js): Runtime document export/import helpers for nodes, drawings, viewport state, and layer reset / restore
+
+### Online Layer (`src/online/`)
+
+- [src/online/roomRoute.js](src/online/roomRoute.js): Four-digit room route parsing plus fixed backend API/WebSocket URL helpers
+- [src/online/roomHost.js](src/online/roomHost.js): Host-side room creation and WebSocket client construction
+- [src/online/roomViewer.js](src/online/roomViewer.js): Viewer-side WebSocket client construction
+- [src/online/roomClient.js](src/online/roomClient.js): Lightweight JSON WebSocket client wrapper
+
+### Room Server (`server/`)
+
+- [server/src/index.js](server/src/index.js): Node.js HTTP/WebSocket room relay entry point
+- [server/src/roomStore.js](server/src/roomStore.js): In-memory room state, four-digit room ids, host tokens, viewer sockets, and optional password hashes
+- [server/src/rateLimit.js](server/src/rateLimit.js): Request-rate limiting for room creation
 
 ### Core Infrastructure (`src/core/`)
 
@@ -131,6 +148,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/plugins/annotator.js](src/plugins/annotator.js): Text annotation plugin for underline-style marking and erasing annotations on `text` and `sticky` content
 - [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
 - [src/plugins/document.js](src/plugins/document.js): Local document plugin with JSON export/import commands, file input handling, status toasts, and restore transactions that reset the history baseline
+- [src/plugins/roomShare.js](src/plugins/roomShare.js): Online room share/join UI, QR link rendering, host state/viewport broadcasting, viewer permission gating, and viewer/host camera switching
 - [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
@@ -150,10 +168,13 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 - [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
 - [tests/unit/document/](tests/unit/document/): Vitest coverage for document schema normalization, catalog serialization, and related helpers
+- [tests/unit/online/](tests/unit/online/): Vitest coverage for room route helpers and backend URL generation
+- [tests/unit/server/](tests/unit/server/): Vitest coverage for in-memory room storage, password checks, and rate limiting
 - [tests/unit/component/](tests/unit/component/): Unit coverage for complex overlay-driven components such as `iframe` and `javascriptEditor`
 - [tests/unit/mindMapBranch/](tests/unit/mindMapBranch/): Unit coverage for catalog-driven branch visibility
 - [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, brush drawing undo/redo, and whole-stroke erase undo/redo
 - [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connections, button navigation, focus API, component editor editing, document roundtrip load, and undo/redo of node movement
+- [tests/e2e/room.spec.js](tests/e2e/room.spec.js): Playwright room coverage for create-room feedback, QR/link layout, password-protected joining, viewer camera modes, readiness, and unauthorized WebSocket messages
 
 ## Testing
 
@@ -163,6 +184,7 @@ The repository now has a local automated testing baseline:
 - Browser smoke and feature tests use `Playwright`
 - `pnpm test` runs build + unit tests + all Playwright E2E coverage
 - `playwright.config.js` starts the Vite dev server with `VITE_E2E=1`, which enables the browser-side test helpers in `src/testApi.js`
+- Room E2E tests start `server/src/index.js` on a free local port and override the frontend room backend host for that browser context
 - `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, component editor opening, document export/load, history reset, and undo/redo activation
 
 Testability conventions:
@@ -581,7 +603,34 @@ Known gaps in the current implementation:
 - Unknown component types are not yet treated as a hard compatibility failure; unsupported snapshots can currently be skipped during restore.
 - `schemaVersion` is validated, but there is no schema migration pipeline yet.
 
-### 9. Toolbar
+### 9. Online Room Sharing
+
+Implemented in [src/plugins/roomShare.js](src/plugins/roomShare.js), [src/online/](src/online/), and [server/](server/).
+
+Behavior:
+
+- The toolbar share button can create a room through the fixed room backend host.
+- The host may set an optional room password before creating the room.
+- While room creation is pending, the create button is disabled and shows a pending label so repeated clicks do not create duplicate requests.
+- After the room is created, the password input and create button are hidden. The popover shows a QR code with the share link below it.
+- Share links use the current frontend origin with a four-digit route such as `/room/1234`.
+- Share links do not include the host token or password.
+- Room viewers open the same app route and join through the viewer flow.
+- Viewers cannot enter edit mode, cannot open edit-only entry points, and cannot load documents.
+- Viewers can still use the existing save/export menu to download JSON or HTML. Once downloaded, that local copy has normal host-like editing capability.
+- Viewer mode uses the existing mode capsule labels as `Viewer` and `Host`.
+- `Host` camera mode follows the host viewport.
+- `Viewer` camera mode lets the viewer pan and zoom freely.
+- If a viewer pans or zooms while following the host, the app automatically switches to `Viewer` camera mode.
+
+Room relay constraints:
+
+- The server has no database and no user system.
+- Rooms, host tokens, optional password hashes, host sockets, and viewer sockets live only in memory.
+- The server only handles HTTP room creation and WebSocket message forwarding / authorization.
+- Application features should not change backend/server code unless the user explicitly requests backend changes.
+
+### 10. Toolbar
 
 Implemented in [src/plugins/toolbar.js](src/plugins/toolbar.js).
 
@@ -595,7 +644,7 @@ Controls:
 - In drawing tools, a floating brush panel provides tool switching, color, width, recent colors, and eraser radius / clear controls
 - In `presentation`, a drawing visibility toggle can hide or show the draw layer
 
-### 10. Context Menu
+### 11. Context Menu
 
 Implemented in [src/plugins/contextMenu.js](src/plugins/contextMenu.js).
 
@@ -606,7 +655,7 @@ Behavior:
 - The menu is rendered as a Konva overlay on the UI layer
 - In `edit.arrange`, menu items currently come from feature plugins such as connection actions and component editing
 
-### 11. Containers and Connections
+### 12. Containers and Connections
 
 Implemented in [src/plugins/containers.js](src/plugins/containers.js), [src/plugins/connections.js](src/plugins/connections.js), and [src/component/connection.js](src/component/connection.js).
 
@@ -619,7 +668,7 @@ Behavior:
 - The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
 - Container labels are editable via double-click.
 
-### 12. Saved Focus Views And Presentation Navigation
+### 13. Saved Focus Views And Presentation Navigation
 
 Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) with support from [src/stage.js](src/stage.js).
 
@@ -690,7 +739,7 @@ Responsive behavior:
 
 - Undo / redo history is local in-memory state only and is lost on full reload
 - Save / load is currently manual JSON import/export only; there is no autosave or local draft persistence yet
-- There is no collaboration or remote-operation merge model yet
+- Online rooms relay host snapshots and viewport updates, but there is no collaborative edit permission model or remote-operation merge model
 - Loading a document restores board state but not the prior undo / redo stacks, current selection, or the current mode / tool
 - Loading also does not restore transient plugin UI state such as open editors, context menus, connection-picking state, or other in-progress interactions
 - Import is currently full-replace only; there is no partial import, merge import, or diff/patch flow

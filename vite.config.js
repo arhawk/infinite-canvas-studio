@@ -26,7 +26,7 @@ function inlineSingleFileBuild() {
             `<link rel="stylesheet"[^>]*href="(?:\\./)?${escapeRegExp(fileName)}"[^>]*>`,
             "g",
           );
-          html = html.replace(hrefPattern, `<style>${escapedCss}</style>`);
+          html = html.replace(hrefPattern, () => `<style>${escapedCss}</style>`);
           delete bundle[fileName];
         }
 
@@ -36,7 +36,7 @@ function inlineSingleFileBuild() {
             `<script type="module"[^>]*src="(?:\\./)?${escapeRegExp(fileName)}"[^>]*><\\/script>`,
             "g",
           );
-          html = html.replace(srcPattern, `<script type="module">${escapedJs}</script>`);
+          html = html.replace(srcPattern, () => `<script type="module">${escapedJs}</script>`);
           delete bundle[fileName];
         }
       }

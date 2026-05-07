@@ -57,6 +57,7 @@ export class RoomSharePlugin extends BasePlugin {
       pendingViewportTimer: null,
       pendingStateTimer: null,
       viewerCount: 0,
+      creating: false,
     };
     this.viewer = {
       client: null,
@@ -124,17 +125,23 @@ export class RoomSharePlugin extends BasePlugin {
         <button type="submit" class="room-share-popover__primary" data-testid="room-share-create">
           Create room
         </button>
+        <p
+          class="room-share-popover__status"
+          aria-live="polite"
+          data-room-share-status
+          data-testid="room-share-status"
+        ></p>
       </form>
       <div class="room-share-popover__result" data-room-share-result hidden>
-        <a href="#" target="_blank" rel="noreferrer" data-room-share-link data-testid="room-share-link"></a>
         <canvas width="144" height="144" aria-label="Room QR code" data-room-share-qr data-testid="room-share-qr"></canvas>
-        <p class="room-share-popover__status" data-room-share-status></p>
+        <a href="#" target="_blank" rel="noreferrer" data-room-share-link data-testid="room-share-link"></a>
       </div>
     `;
     document.body.append(popover);
     this.sharePopoverEl = popover;
     this.shareFormEl = popover.querySelector("[data-room-share-form]");
     this.sharePasswordEl = popover.querySelector("[data-room-share-password]");
+    this.shareCreateButtonEl = popover.querySelector("[data-testid='room-share-create']");
     this.shareResultEl = popover.querySelector("[data-room-share-result]");
     this.shareLinkEl = popover.querySelector("[data-room-share-link]");
     this.shareQrEl = popover.querySelector("[data-room-share-qr]");
@@ -193,6 +200,7 @@ export class RoomSharePlugin extends BasePlugin {
     if (!this.sharePopoverEl || !this.ui.shareEl) return;
     this.sharePopoverEl.hidden = false;
     this.positionSharePopover();
+    this.sharePasswordEl?.focus();
   }
 
   closeSharePopover() {
@@ -220,6 +228,8 @@ export class RoomSharePlugin extends BasePlugin {
   }
 
   async createAndShareRoom() {
+    if (this.host.creating) return;
+    this.setShareCreating(true);
     this.setShareStatus("Creating room...");
     const password = this.sharePasswordEl?.value ?? "";
     try {
@@ -228,16 +238,18 @@ export class RoomSharePlugin extends BasePlugin {
       this.host.shareUrl = getShareUrl(room.roomId);
       await this.connectHost(room);
       await this.renderShareResult(room);
-      this.setShareStatus("Room is live");
     } catch (error) {
       console.error(error);
       this.setShareStatus(error instanceof Error ? error.message : "Failed to create room.", true);
+    } finally {
+      this.setShareCreating(false);
     }
   }
 
   async renderShareResult(room) {
     if (!this.shareResultEl || !this.shareLinkEl || !this.shareQrEl) return;
     const shareUrl = this.host.shareUrl ?? getShareUrl(room.roomId);
+    if (this.shareFormEl) this.shareFormEl.hidden = true;
     this.shareResultEl.hidden = false;
     this.shareLinkEl.href = shareUrl;
     this.shareLinkEl.textContent = shareUrl;
@@ -246,12 +258,21 @@ export class RoomSharePlugin extends BasePlugin {
       margin: 1,
       errorCorrectionLevel: "M",
     });
+    this.positionSharePopover();
   }
 
   setShareStatus(message, isError = false) {
     if (!this.shareStatusEl) return;
     this.shareStatusEl.textContent = message;
     this.shareStatusEl.classList.toggle("room-share-popover__status--error", isError);
+  }
+
+  setShareCreating(isCreating) {
+    this.host.creating = Boolean(isCreating);
+    if (!this.shareCreateButtonEl) return;
+    this.shareCreateButtonEl.disabled = this.host.creating;
+    this.shareCreateButtonEl.textContent = this.host.creating ? "Creating..." : "Create room";
+    this.shareCreateButtonEl.setAttribute("aria-busy", String(this.host.creating));
   }
 
   connectHost(room) {

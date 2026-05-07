@@ -1,15 +1,37 @@
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { createServer } from "node:net";
+import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 
 test.describe.configure({ mode: "serial" });
 
 let roomServer = null;
+let roomServerPort = null;
 
-async function waitForRoomServer() {
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : null;
+      server.close(() => {
+        if (port) {
+          resolve(port);
+        } else {
+          reject(new Error("Failed to allocate a room server port."));
+        }
+      });
+    });
+  });
+}
+
+async function waitForRoomServer(port) {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch("http://127.0.0.1:3001/health");
+      const response = await fetch(`http://127.0.0.1:${port}/health`);
       if (response.ok) return;
     } catch {
       // Retry until the server accepts connections.
@@ -20,15 +42,16 @@ async function waitForRoomServer() {
 }
 
 test.beforeAll(async () => {
+  roomServerPort = await getFreePort();
   roomServer = spawn(process.execPath, ["server/src/index.js"], {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      PORT: "3001",
+      PORT: String(roomServerPort),
     },
     stdio: "ignore",
   });
-  await waitForRoomServer();
+  await waitForRoomServer(roomServerPort);
 });
 
 test.afterAll(() => {
@@ -37,9 +60,9 @@ test.afterAll(() => {
 });
 
 test.beforeEach(async ({ context }) => {
-  await context.addInitScript(() => {
-    window.__ROOM_BACKEND_HOST__ = window.location.host;
-  });
+  await context.addInitScript((backendHost) => {
+    window.__ROOM_BACKEND_HOST__ = backendHost;
+  }, `127.0.0.1:${roomServerPort}`);
 });
 
 async function waitForTestApi(page) {
@@ -57,8 +80,11 @@ function getRoomUrl(path) {
 
 function getRoomSocketUrl(roomPath, role) {
   const roomId = roomPath.match(/\/room\/(\d{4})/)?.[1];
-  const port = process.env.PLAYWRIGHT_PORT || "3000";
-  return `ws://127.0.0.1:${port}/ws/rooms/${roomId}?role=${role}`;
+  return `ws://127.0.0.1:${roomServerPort}/ws/rooms/${roomId}?role=${role}`;
+}
+
+function getCreateRoomApiUrl() {
+  return `http://127.0.0.1:${roomServerPort}/api/rooms`;
 }
 
 function createRawRoomSocket(roomPath, role) {
@@ -116,6 +142,42 @@ function createRawRoomSocket(roomPath, role) {
   };
 }
 
+test("shows pending feedback while creating a room", async ({ page }) => {
+  let releaseCreateRoom;
+  const createRoomReleased = new Promise((resolve) => {
+    releaseCreateRoom = resolve;
+  });
+  let createAttempts = 0;
+  await page.route("**/api/rooms", async (route) => {
+    createAttempts += 1;
+    await createRoomReleased;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Delayed failure" }),
+    });
+  });
+
+  await page.goto("/");
+  await waitForTestApi(page);
+
+  await page.getByTestId("share-btn").click();
+  await page.getByTestId("room-share-create").click();
+
+  await expect(page.getByTestId("room-share-create")).toBeDisabled();
+  await expect(page.getByTestId("room-share-create")).toHaveText("Creating...");
+  await expect(page.getByTestId("room-share-status")).toHaveText("Creating room...");
+  await page.getByTestId("room-share-create").click({ force: true });
+  expect(createAttempts).toBe(1);
+
+  releaseCreateRoom();
+
+  await expect(page.getByTestId("room-share-create")).toBeEnabled();
+  await expect(page.getByTestId("room-share-create")).toHaveText("Create room");
+  await expect(page.getByTestId("room-share-status")).toHaveText("Delayed failure");
+  expect(createAttempts).toBe(1);
+});
+
 test("shares a password-protected room with QR and viewer camera modes", async ({ page, context }) => {
   await page.goto("/");
   await waitForTestApi(page);
@@ -126,6 +188,11 @@ test("shares a password-protected room with QR and viewer camera modes", async (
 
   const shareLink = page.getByTestId("room-share-link");
   await expect(shareLink).toBeVisible();
+  await expect(page.getByTestId("room-share-password")).toBeHidden();
+  await expect(page.getByTestId("room-share-create")).toBeHidden();
+  const linkBox = await shareLink.boundingBox();
+  const qrBox = await page.getByTestId("room-share-qr").boundingBox();
+  expect(linkBox.y).toBeGreaterThan(qrBox.y + qrBox.height - 1);
   const href = await shareLink.getAttribute("href");
   expect(href).toMatch(/\/room\/\d{4}$/);
   expect(href).not.toContain("secret");
@@ -155,6 +222,32 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(viewer.getByTestId("save-document-format-menu")).toBeVisible();
   await expect(viewer.getByTestId("save-document-as-html")).toBeVisible();
   await expect(viewer.getByTestId("save-document-as-json")).toBeVisible();
+  const htmlDownloadPromise = viewer.waitForEvent("download");
+  await viewer.getByTestId("save-document-as-html").click();
+  const htmlDownload = await htmlDownloadPromise;
+  expect(htmlDownload.suggestedFilename()).toMatch(/\.html$/i);
+  const htmlPath = await htmlDownload.path();
+  expect(htmlPath).toBeTruthy();
+  const savedHtmlPath = `${htmlPath}.html`;
+  await htmlDownload.saveAs(savedHtmlPath);
+  const html = await readFile(savedHtmlPath, "utf8");
+  expect(html.trimStart()).toMatch(/^<!doctype html>/i);
+  expect(html).toContain('id="app-snapshot"');
+  expect(html.match(/<\/script>/gi) ?? []).toHaveLength(2);
+
+  const exportedViewerCopy = await context.newPage();
+  await exportedViewerCopy.goto(pathToFileURL(savedHtmlPath).href);
+  await exportedViewerCopy.waitForFunction(() => Boolean(document.querySelector("#canvas-container canvas")));
+  await expect(exportedViewerCopy.locator("body")).not.toContainText("RegExp(`^`");
+  await expect(exportedViewerCopy.getByTestId("mode-capsule-edit")).toHaveText("Edit");
+  await expect(exportedViewerCopy.getByTestId("components-trigger")).toBeVisible();
+  await exportedViewerCopy.getByTestId("save-document-action").click();
+  await expect(exportedViewerCopy.getByTestId("save-document-format-menu")).toBeVisible();
+  const exportedCopyDownloadPromise = exportedViewerCopy.waitForEvent("download");
+  await exportedViewerCopy.getByTestId("save-document-as-html").click();
+  const exportedCopyDownload = await exportedCopyDownloadPromise;
+  expect(exportedCopyDownload.suggestedFilename()).toMatch(/\.html$/i);
+  await exportedViewerCopy.close();
   await viewer.keyboard.press("Escape");
   await expect.poll(async () => (
     viewer.evaluate(() => window.__APP_TEST_API__.getMode())
@@ -204,7 +297,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
 });
 
 test("shows room not ready when a viewer joins before the host socket", async ({ page, request }) => {
-  const response = await request.post("/api/rooms", {
+  const response = await request.post(getCreateRoomApiUrl(), {
     data: { password: "" },
   });
   expect(response.ok()).toBe(true);
@@ -223,7 +316,7 @@ test("shows room not ready when a viewer joins before the host socket", async ({
 });
 
 test("server rejects unauthorized room WebSocket messages", async ({ request }) => {
-  const response = await request.post("/api/rooms", {
+  const response = await request.post(getCreateRoomApiUrl(), {
     data: { password: "secret" },
   });
   expect(response.ok()).toBe(true);

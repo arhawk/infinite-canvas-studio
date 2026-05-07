@@ -35,6 +35,7 @@ import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import {
+  captureRuntimeHtmlTemplate,
   readEmbeddedSnapshot,
 } from "./document/runtimeHtmlExport.js";
 import { setupAppTestApi } from "./testApi.js";
@@ -118,6 +119,13 @@ const ui = {
 async function preloadExportShellTemplate() {
   if (typeof window === "undefined") return;
   window.__APP_EXPORT_TEMPLATE_READY__ = false;
+
+  if (__SINGLE_FILE_EXPORT__) {
+    const template = captureRuntimeHtmlTemplate();
+    window.__APP_EXPORT_TEMPLATE__ = template;
+    window.__APP_EXPORT_TEMPLATE_READY__ = Boolean(template.trim());
+    return;
+  }
 
   try {
     const response = await fetch("/__export-template", { cache: "no-store" });
