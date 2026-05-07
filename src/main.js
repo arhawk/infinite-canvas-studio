@@ -6,6 +6,7 @@ import { PenDropdownPlugin } from "./component/PenDropdown/index.js";
 import { ShapeDropdownPlugin } from "./component/ShapeDropdown/index.js";
 import { ToolbarPlugin } from "./plugins/toolbar.js";
 import { ImageToolbarPlugin } from "./plugins/imageToolbar.js";
+import { VideoToolbarPlugin } from "./plugins/videoToolbar.js";
 import { PageToolbarPlugin } from "./plugins/pageToolbar.js";
 import { TextToolbarPlugin } from "./plugins/textToolbar.js";
 import { JavaScriptEditorToolbarPlugin } from "./plugins/javascriptEditorToolbar.js";
@@ -209,6 +210,7 @@ app.use(ToolbarPlugin, {
   stickyFillColorEl: ui.stickyFillColor,
 });
 app.use(ImageToolbarPlugin);
+app.use(VideoToolbarPlugin);
 app.use(PageToolbarPlugin);
 app.use(TextToolbarPlugin);
 app.use(JavaScriptEditorToolbarPlugin);

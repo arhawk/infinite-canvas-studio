@@ -5,7 +5,7 @@ const DEFAULT_WIDTH = 360;
 const DEFAULT_HEIGHT = 240;
 const HEADER_HEIGHT = 40;
 
-function readFileAsDataUrl(file) {
+export function readVideoFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ""));
@@ -56,7 +56,7 @@ export class VideoComponent extends BaseComponent {
         getValue: () => null,
         setValue: async (node, file) => {
           if (file instanceof File) {
-            const src = await readFileAsDataUrl(file);
+            const src = await readVideoFileAsDataUrl(file);
             await this.updateNode(node, src);
           }
         },
@@ -99,7 +99,7 @@ export class VideoComponent extends BaseComponent {
       y: HEADER_HEIGHT,
       width: DEFAULT_WIDTH,
       height: DEFAULT_HEIGHT,
-      text: "Click ⚙ to upload video",
+      text: "Use toolbar to upload video",
       fontSize: 14,
       fontFamily: "sans-serif",
       fill: "#a68b6d",
@@ -198,25 +198,7 @@ export class VideoComponent extends BaseComponent {
     label.className = "video-component__title";
     label.textContent = "Local Video";
 
-    const actions = document.createElement("div");
-    actions.className = "video-component__actions";
-
-    const gearBtn = document.createElement("button");
-    gearBtn.type = "button";
-    gearBtn.className = "video-component__icon-button";
-    gearBtn.title = "Change video";
-    gearBtn.setAttribute("aria-label", "Change video");
-    gearBtn.textContent = "⚙";
-
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.className = "video-component__icon-button";
-    closeBtn.title = "Remove video";
-    closeBtn.setAttribute("aria-label", "Remove video");
-    closeBtn.textContent = "✕";
-
-    actions.append(gearBtn, closeBtn);
-    topbar.append(label, actions);
+    topbar.append(label);
 
     const body = document.createElement("div");
     body.className = "video-component__body";
@@ -230,11 +212,12 @@ export class VideoComponent extends BaseComponent {
     } else {
       const message = document.createElement("div");
       message.className = "video-component__placeholder";
-      message.textContent = "Click ⚙ to upload video";
+      message.textContent = "Use toolbar to upload video";
       body.append(message);
     }
 
     overlay.append(topbar, body);
+    overlay.dataset.videoNodeId = node.id();
 
     const stageContainer = stage.container();
     stageContainer.style.position = "relative";
@@ -256,16 +239,6 @@ export class VideoComponent extends BaseComponent {
 
     const hideContextMenu = () => {
       contextMenuPlugin?.hideMenu?.();
-    };
-
-    const openContextMenu = (clientPoint) => {
-      if (!isEditableInteraction()) return;
-      if (!contextMenuPlugin?.showMenu || contextMenuPlugin.isEnabled?.() === false) return;
-
-      const items = this.app.contextMenu?.getItems?.(node) ?? [];
-      if (!items.length) return;
-
-      contextMenuPlugin.showMenu(node, clientPoint);
     };
 
     const completePendingConnectionToSelf = () => {
@@ -295,14 +268,16 @@ export class VideoComponent extends BaseComponent {
       if (!isEditableInteraction()) return;
       event.preventDefault();
       event.stopPropagation();
-      openContextMenu({
-        x: event.clientX,
-        y: event.clientY,
+      this.app.events.emit("video:contextmenu", {
+        node,
+        clientPoint: {
+          x: event.clientX,
+          y: event.clientY,
+        },
       });
     };
 
     const beginDrag = (event) => {
-      if (event.target.closest("button")) return;
       event.preventDefault();
       event.stopPropagation();
       dragging = true;
@@ -341,18 +316,6 @@ export class VideoComponent extends BaseComponent {
     topbar.addEventListener("mousedown", beginDrag);
     document.addEventListener("mousemove", onDragMove);
     document.addEventListener("mouseup", endDrag);
-
-    gearBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.app.events.emit("component-editor:open", { node });
-    });
-
-    closeBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.app.events.emit("node:removed", { node });
-      node.destroy();
-      this.app.mainLayer?.batchDraw();
-    });
 
     const sync = () => this.#syncOverlay(node);
     node.on("dragmove.videoOverlay transform.videoOverlay absoluteTransformChange.videoOverlay", sync);

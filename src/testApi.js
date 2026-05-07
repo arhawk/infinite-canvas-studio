@@ -290,6 +290,19 @@ function getNodeSummary(node) {
     };
   }
 
+  if (componentType === "video") {
+    const src = node.getAttr("videoSrc") ?? null;
+    const overlay = node._videoOverlayEl ?? null;
+    return {
+      hasOverlay: Boolean(overlay),
+      hasVideoElement: Boolean(overlay?.querySelector?.("video")),
+      hasPlaceholder: Boolean(overlay?.querySelector?.(".video-component__placeholder")),
+      hasTopbarActions: Boolean(overlay?.querySelector?.(".video-component__actions")),
+      placeholderText: overlay?.querySelector?.(".video-component__placeholder")?.textContent ?? "",
+      srcLength: typeof src === "string" ? src.length : 0,
+    };
+  }
+
   if (componentType === "iframe") {
     const overlay = node._iframeOverlayEl ?? null;
     const urlLabel = overlay?.querySelector?.(".iframe-component__url") ?? null;

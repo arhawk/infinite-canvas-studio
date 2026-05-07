@@ -712,6 +712,103 @@ test("opens image layer actions from the floating toolbar and right click", asyn
     .toEqual([sticky.id, image.id]);
 });
 
+test("edits video sources from the floating toolbar and opens layer actions", async ({ page }) => {
+  const video = await addComponent(page, "video", { x: 180, y: 180 });
+  const sticky = await addComponent(page, "sticky", { x: 520, y: 210 });
+  const center = await getNodePageCenter(page, video.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), video.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("video-panel")).toBeVisible();
+  await expect(page.getByTestId("video-upload")).toBeVisible();
+  await expect(page.getByTestId("video-upload").locator("svg")).toBeVisible();
+  await expect(page.getByTestId("video-connect")).toBeVisible();
+  await expect(page.getByTestId("video-layer-menu")).toBeVisible();
+  await expect.poll(async () => (await getNode(page, video.id)).summary).toEqual(
+    expect.objectContaining({
+      hasOverlay: true,
+      hasVideoElement: false,
+      hasPlaceholder: true,
+      hasTopbarActions: false,
+      placeholderText: "Use toolbar to upload video",
+      srcLength: 0,
+    }),
+  );
+
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), video.id);
+  expect(opened).toBe(false);
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await page.getByTestId("video-upload-input").setInputFiles({
+    name: "toolbar-video.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("codex-video-toolbar"),
+  });
+
+  await expect.poll(async () => (await getNode(page, video.id)).summary).toEqual(
+    expect.objectContaining({
+      hasVideoElement: true,
+      hasPlaceholder: false,
+    }),
+  );
+  const uploaded = await getNode(page, video.id);
+  expect(uploaded.summary.srcLength).toBeGreaterThan(24);
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect.poll(async () => (await getNode(page, video.id)).summary).toEqual(
+    expect.objectContaining({
+      hasVideoElement: false,
+      hasPlaceholder: true,
+      srcLength: 0,
+    }),
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect.poll(async () => (await getNode(page, video.id)).summary).toEqual(
+    expect.objectContaining({
+      hasVideoElement: true,
+      hasPlaceholder: false,
+    }),
+  );
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+
+  const restored = await getNode(page, video.id);
+  expect(restored.summary.hasVideoElement).toBe(true);
+  expect(restored.summary.hasPlaceholder).toBe(false);
+  expect(restored.summary.srcLength).toBeGreaterThan(24);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), video.id);
+  await expect(page.getByTestId("video-panel")).toBeVisible();
+  await expect.poll(async () => getNodeOrder(page, [video.id, sticky.id]))
+    .toEqual([video.id, sticky.id]);
+
+  await page.getByTestId("video-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("video-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__video-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
+  await expect(page.getByTestId("video-layer-bring-forward")).toBeEnabled();
+  await page.getByTestId("video-layer-menu").click();
+  await expect(page.locator(".toolbar__video-layer-popover")).toHaveCSS("pointer-events", "none");
+
+  const restoredCenter = await getNodePageCenter(page, video.id);
+  await page.mouse.click(restoredCenter.x, restoredCenter.y, { button: "right" });
+  await expect(page.locator(".toolbar__video-layer-popover")).toHaveCSS("pointer-events", "auto");
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+
+  await page.getByTestId("video-layer-bring-forward").click();
+  await expect.poll(async () => getNodeOrder(page, [video.id, sticky.id]))
+    .toEqual([sticky.id, video.id]);
+});
+
 test("does not create an image component when image paste targets an input", async ({ page }) => {
   const editor = await addComponent(page, "javascriptEditor", {
     x: 120,
