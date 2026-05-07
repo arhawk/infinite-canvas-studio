@@ -183,6 +183,18 @@ class NavigatePageRightCommand extends BaseCommand {
   }
 }
 
+class ExitPresentModeCommand extends BaseCommand {
+  static commandId = "presentation:exit";
+  static label = "Exit Presentation Mode";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    this.app.setMode("edit");
+  }
+}
+
 export class FocusNavigationPlugin extends BasePlugin {
   static pluginId = "focus-navigation";
   static modes = {
@@ -202,6 +214,7 @@ export class FocusNavigationPlugin extends BasePlugin {
       NavigatePageDownCommand,
       NavigatePageLeftCommand,
       NavigatePageRightCommand,
+      ExitPresentModeCommand,
     ];
   }
 
@@ -267,6 +280,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.app.keybindings.register("ArrowDown", "page:navigate-down");
     this.app.keybindings.register("ArrowLeft", "page:navigate-left");
     this.app.keybindings.register("ArrowRight", "page:navigate-right");
+    this.app.keybindings.register("Escape", "presentation:exit");
 
     this.emitToolbarState();
 
@@ -281,6 +295,7 @@ export class FocusNavigationPlugin extends BasePlugin {
       this.app.keybindings.unregister("ArrowDown");
       this.app.keybindings.unregister("ArrowLeft");
       this.app.keybindings.unregister("ArrowRight");
+      this.app.keybindings.unregister("Escape");
     });
   }
 
