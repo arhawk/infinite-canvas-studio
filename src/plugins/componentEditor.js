@@ -13,6 +13,7 @@ const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
   "page",
   "video",
   "text",
+  "video",
 ]);
 
 function isFloatingToolbarMigrated(node) {
