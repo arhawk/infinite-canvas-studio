@@ -157,6 +157,9 @@ export class ComponentsDropdownPlugin extends BasePlugin {
     if (this.app.getMode() !== "edit") {
       this.app.setMode("edit");
     }
+    if (this.app.getMode() !== "edit") {
+      return;
+    }
     if (this.app.getEditorTool() !== "components") {
       this.app.setEditorTool("components");
     }

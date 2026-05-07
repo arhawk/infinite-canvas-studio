@@ -27,6 +27,7 @@ import { ComponentEditorPlugin } from "./plugins/componentEditor.js";
 import { AttachmentsBookmarksPlugin } from "./plugins/attachmentsBookmarks.js";
 import { HistoryPlugin } from "./plugins/history.js";
 import { DocumentPlugin } from "./plugins/document.js";
+import { RoomSharePlugin } from "./plugins/roomShare.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
@@ -71,6 +72,7 @@ const ui = {
   saveDocumentAction: getOptionalElement("#save-document-action"),
   loadDocumentAction: getOptionalElement("#load-document-action"),
   loadDocumentInput: getOptionalElement("#load-document-input"),
+  shareAction: getOptionalElement("#share-btn"),
   calculatorWidget: getRequiredElement("#calculator-widget"),
   timerWidget: getRequiredElement("#timer-widget"),
   timerDisplay: getRequiredElement("#timer-display"),
@@ -248,6 +250,12 @@ app.use(DocumentPlugin, {
   importInputEl: ui.loadDocumentInput,
   titleEl: getOptionalElement("#project-title"),
 });
+const roomSharePlugin = app.use(RoomSharePlugin, {
+  shareEl: ui.shareAction,
+  loadEl: ui.loadDocumentAction,
+  modeCapsuleEditEl: ui.modeCapsuleEdit,
+  modeCapsulePresentEl: ui.modeCapsulePresent,
+});
 app.use(BinaryCalculatorPlugin, {
   toggleEl: leftToolbar.calculatorBtn,
   widgetEl: ui.calculatorWidget,
@@ -273,8 +281,11 @@ app.use(CenterMapPlugin, {
 app.start();
 
 const embeddedSnapshot = readEmbeddedSnapshot();
+const routeRoomId = roomSharePlugin.getRouteRoomId();
 
-if (embeddedSnapshot) {
+if (routeRoomId) {
+  await roomSharePlugin.startViewer(routeRoomId);
+} else if (embeddedSnapshot) {
   await app.documentManager?.loadDocument?.(embeddedSnapshot, {
     source: "embedded-html",
   });

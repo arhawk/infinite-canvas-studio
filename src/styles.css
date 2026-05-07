@@ -828,6 +828,25 @@ body.is-presentation-mode .toolbar__share-btn {
   color: #854f0b;
 }
 
+body.is-room-viewer .toolbar {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+body.is-room-viewer.is-presentation-mode .toolbar,
+body.is-room-viewer.is-presentation-mode .toolbar:not(.is-visible) {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+body.is-room-viewer .presentation-toolbar-hover-zone,
+body.is-room-viewer #share-btn,
+body.is-room-viewer #load-document-action {
+  display: none;
+}
+
 .toolbar__icon-button {
   display: inline-flex;
   align-items: center;
@@ -3331,6 +3350,139 @@ body.is-presentation-mode .toolbar__share-btn {
 .document-export-menu__item:focus-visible {
   background: rgba(215, 97, 47, 0.12);
   outline: none;
+}
+
+.room-share-popover {
+  position: fixed;
+  z-index: 70;
+  width: min(20rem, calc(100vw - 1.5rem));
+  padding: 0.85rem;
+  border: 1px solid rgba(61, 47, 32, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 252, 245, 0.98);
+  box-shadow: 0 18px 44px rgba(57, 42, 23, 0.18);
+  color: var(--ink, #3d2f20);
+}
+
+.room-share-popover[hidden],
+.room-password-prompt[hidden],
+.room-status-badge[hidden] {
+  display: none;
+}
+
+.room-share-popover__form,
+.room-password-prompt__panel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.room-share-popover__field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted, #7a6650);
+}
+
+.room-share-popover input,
+.room-password-prompt input {
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(61, 47, 32, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink, #3d2f20);
+}
+
+.room-share-popover__primary,
+.room-password-prompt button {
+  height: 2rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mode-active-bg, #b56b19);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.room-share-popover__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.room-share-popover__result[hidden] {
+  display: none;
+}
+
+.room-share-popover__result a {
+  overflow-wrap: anywhere;
+  color: #89530f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.room-share-popover__result canvas {
+  width: 7rem;
+  height: 7rem;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.room-share-popover__status,
+.room-password-prompt p {
+  grid-column: 1 / -1;
+  min-height: 1rem;
+  margin: 0;
+  color: var(--muted, #7a6650);
+  font-size: 0.76rem;
+}
+
+.room-share-popover__status--error,
+.room-password-prompt p:not(:empty) {
+  color: #a33d24;
+}
+
+.room-password-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(32, 26, 20, 0.28);
+}
+
+.room-password-prompt__panel {
+  width: min(20rem, 100%);
+  padding: 1rem;
+  border-radius: 10px;
+  background: #fffaf2;
+  box-shadow: 0 18px 48px rgba(30, 24, 18, 0.24);
+}
+
+.room-password-prompt h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.room-status-badge {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 55;
+  max-width: min(22rem, calc(100vw - 2rem));
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(61, 47, 32, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.94);
+  color: var(--ink, #3d2f20);
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 0 10px 26px rgba(57, 42, 23, 0.16);
 }
 
 .history-action-toast {

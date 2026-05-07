@@ -1304,24 +1304,13 @@ test("pastes copied components into the current viewport", async ({ page }) => {
   expect(Math.abs(pastedCenter.y - viewport.center.y)).toBeLessThan(80);
 });
 
-test("creates a connected next page from the page context menu", async ({ page }) => {
+test("creates a connected next page from the page floating toolbar", async ({ page }) => {
   const source = await addComponent(page, "page", { x: 120, y: 140 });
-  const sourceCenter = await getNodePageCenter(page, source.id);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), source.id);
+  await waitForPaint(page);
 
-  await page.mouse.click(sourceCenter.x, sourceCenter.y, { button: "right" });
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState())).toEqual(
-    expect.objectContaining({
-      visible: true,
-      labels: expect.arrayContaining(["Create Next Page"]),
-      pagePoint: expect.any(Object),
-    }),
-  );
-
-  const menuState = await page.evaluate(() => window.__APP_TEST_API__.getContextMenuState());
-  const itemIndex = menuState.items.findIndex((item) => item.label === "Create Next Page");
-  expect(itemIndex).toBeGreaterThanOrEqual(0);
-
-  await page.mouse.click(menuState.pagePoint.x + 40, menuState.pagePoint.y + 6 + itemIndex * 38 + 19);
+  await expect(page.getByTestId("page-create-next")).toBeVisible();
+  await page.getByTestId("page-create-next").click();
   await waitForPaint(page);
 
   const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
@@ -4147,15 +4136,16 @@ test("reorders a selected shape from the floating toolbar layer menu", async ({ 
 
   await page.getByTestId("shape-layer-menu").click();
   const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
-  const layerMenuBox = await page.locator(".toolbar__shape-layer-popover").boundingBox();
+  const shapeLayerMenu = page.getByRole("menu", { name: "Shape layer order" });
+  const layerMenuBox = await shapeLayerMenu.boundingBox();
   expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await page.getByTestId("shape-layer-menu").click();
   await expect.poll(async () => (
-    page.locator(".toolbar__shape-layer-tool").evaluate((element) => element.matches(":focus-within"))
+    page.getByTestId("shape-layer-menu").evaluate((element) => element.closest(".toolbar__shape-layer-tool").matches(":focus-within"))
   )).toBe(false);
-  await expect(page.locator(".toolbar__shape-layer-popover")).toHaveCSS("pointer-events", "none");
+  await expect(shapeLayerMenu).toHaveCSS("pointer-events", "none");
 
   await page.getByTestId("shape-layer-menu").click();
   await expect(page.getByTestId("shape-layer-bring-forward")).toBeEnabled();
@@ -4206,11 +4196,12 @@ test("keeps shape inline text editing and exposes toolbar connection and layer a
 
   await page.getByTestId("shape-layer-menu").click();
   const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
-  const layerMenuBox = await page.locator(".toolbar__shape-layer-popover").boundingBox();
+  const shapeLayerMenu = page.getByRole("menu", { name: "Shape layer order" });
+  const layerMenuBox = await shapeLayerMenu.boundingBox();
   expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
-  await expect(page.locator(".toolbar__shape-layer-popover")).toHaveCSS("pointer-events", "auto");
+  await expect(shapeLayerMenu).toHaveCSS("pointer-events", "auto");
   await expect(page.getByTestId("shape-layer-bring-forward")).toBeEnabled();
   await expect(page.getByTestId("shape-layer-send-backward")).toBeDisabled();
 });

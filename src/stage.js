@@ -297,6 +297,8 @@ export class StageController {
     event.evt.preventDefault();
     const pointer = this.stage.getPointerPosition();
     if (!pointer) return;
+    const app = this.stage.getAttr("app");
+    app?.roomShare?.handleUserViewportIntent?.("zoom");
     const direction = event.evt.deltaY > 0 ? -1 : 1;
     const nextScale =
       direction > 0 ? this.stage.scaleX() * ZOOM_RATIO : this.stage.scaleX() / ZOOM_RATIO;
@@ -364,6 +366,7 @@ export class StageController {
       isArrangeViewportPan;
     if (!shouldPan) return;
 
+    app?.roomShare?.handleUserViewportIntent?.("pan");
     this.isPanning = true;
     this.lastPointer = this.stage.getPointerPosition();
     this.panStartPointer = this.lastPointer;

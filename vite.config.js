@@ -103,6 +103,13 @@ export default defineConfig(() => {
     server: {
       port: 3000,
       strictPort: true,
+      proxy: {
+        "/api": "http://localhost:3001",
+        "/ws": {
+          target: "ws://localhost:3001",
+          ws: true,
+        },
+      },
     },
     preview: {
       port: 3000,

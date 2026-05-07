@@ -44,6 +44,7 @@ export class App {
     this.cursorOverride = null;
     this.isReplayingHistory = false;
     this.isRestoringDocument = false;
+    this.presentationLockReason = null;
     this.history = null;
     this.documentManager = null;
 
@@ -102,8 +103,29 @@ export class App {
   }
 
   setMode(mode) {
+    if (this.presentationLockReason && mode === "edit") {
+      if (this.modeManager.getMode() !== "presentation") {
+        this.modeManager.setMode("presentation");
+      }
+      this.syncCursor();
+      return;
+    }
     this.modeManager.setMode(mode);
     this.syncCursor();
+  }
+
+  lockPresentationMode(reason = "locked") {
+    this.presentationLockReason = reason || "locked";
+    this.setMode("presentation");
+  }
+
+  unlockPresentationMode(reason = null) {
+    if (reason && this.presentationLockReason !== reason) return;
+    this.presentationLockReason = null;
+  }
+
+  isPresentationModeLocked() {
+    return Boolean(this.presentationLockReason);
   }
 
   getEditorTool() {
@@ -116,7 +138,7 @@ export class App {
   }
 
   isReadOnly() {
-    return this.modeManager.isReadOnly();
+    return this.isPresentationModeLocked() || this.modeManager.isReadOnly();
   }
 
   getBackgroundState() {
