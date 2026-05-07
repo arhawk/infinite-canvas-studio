@@ -615,6 +615,7 @@ Behavior:
 - After the room is created, the password input and create button are hidden. The popover shows a QR code with the share link below it.
 - Share links use the current frontend origin with a four-digit route such as `/room/1234`.
 - Share links do not include the host token or password.
+- Local `file://` HTML exports hide the Share button because local files cannot reliably use the hosted room backend.
 - Room viewers open the same app route and join through the viewer flow.
 - Viewers cannot enter edit mode, cannot open edit-only entry points, and cannot load documents.
 - Viewers can still use the existing save/export menu to download JSON or HTML. Once downloaded, that local copy has normal host-like editing capability.

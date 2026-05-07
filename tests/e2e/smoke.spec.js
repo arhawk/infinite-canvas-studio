@@ -324,6 +324,7 @@ test("exports html with embedded snapshot in dev mode", async ({ page }) => {
   await exportedPage.waitForFunction(() => Boolean(document.querySelector("#canvas-container canvas")));
   await expect(exportedPage.locator("body")).not.toContainText("RegExp(`^`");
   await expect(exportedPage.getByTestId("components-trigger")).toBeVisible();
+  await expect(exportedPage.getByTestId("share-btn")).toBeHidden();
   await exportedPage.close();
 });
 

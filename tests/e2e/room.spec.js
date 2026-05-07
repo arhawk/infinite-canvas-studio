@@ -241,6 +241,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(exportedViewerCopy.locator("body")).not.toContainText("RegExp(`^`");
   await expect(exportedViewerCopy.getByTestId("mode-capsule-edit")).toHaveText("Edit");
   await expect(exportedViewerCopy.getByTestId("components-trigger")).toBeVisible();
+  await expect(exportedViewerCopy.getByTestId("share-btn")).toBeHidden();
   await exportedViewerCopy.getByTestId("save-document-action").click();
   await expect(exportedViewerCopy.getByTestId("save-document-format-menu")).toBeVisible();
   const exportedCopyDownloadPromise = exportedViewerCopy.waitForEvent("download");

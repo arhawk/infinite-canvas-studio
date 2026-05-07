@@ -31,6 +31,10 @@ function normalizeViewportPayload(payload = {}) {
   };
 }
 
+function isFileProtocolLocation(locationRef = window.location) {
+  return locationRef?.protocol === "file:";
+}
+
 export class RoomSharePlugin extends BasePlugin {
   static pluginId = "room-share";
 
@@ -48,6 +52,7 @@ export class RoomSharePlugin extends BasePlugin {
       modeCapsuleEditEl,
       modeCapsulePresentEl,
     };
+    this.shareDisabled = isFileProtocolLocation();
     this.host = {
       client: null,
       roomId: null,
@@ -79,6 +84,7 @@ export class RoomSharePlugin extends BasePlugin {
     if (shareEl) {
       this.listenDom(shareEl, "click", (event) => {
         event.preventDefault();
+        if (this.shareDisabled) return;
         this.toggleSharePopover();
       });
     }
@@ -86,6 +92,7 @@ export class RoomSharePlugin extends BasePlugin {
     this.installViewerModeToggle();
     this.installViewerKeyGuards();
     this.installHostEventRelays();
+    this.syncViewerUi();
 
     this.cleanups.push(() => {
       this.clearViewerReadyTimer();
@@ -198,6 +205,7 @@ export class RoomSharePlugin extends BasePlugin {
 
   openSharePopover() {
     if (!this.sharePopoverEl || !this.ui.shareEl) return;
+    if (this.shareDisabled) return;
     this.sharePopoverEl.hidden = false;
     this.positionSharePopover();
     this.sharePasswordEl?.focus();
@@ -209,6 +217,7 @@ export class RoomSharePlugin extends BasePlugin {
 
   toggleSharePopover() {
     if (!this.sharePopoverEl) return;
+    if (this.shareDisabled) return;
     if (this.sharePopoverEl.hidden) {
       this.openSharePopover();
     } else {
@@ -536,7 +545,8 @@ export class RoomSharePlugin extends BasePlugin {
       modeCapsulePresentEl.dataset.roomViewMode = isViewer ? VIEW_MODE_HOST : "";
     }
     if (loadEl) loadEl.hidden = isViewer;
-    if (shareEl) shareEl.hidden = isViewer;
+    if (shareEl) shareEl.hidden = isViewer || this.shareDisabled;
+    if (this.shareDisabled && this.sharePopoverEl) this.sharePopoverEl.hidden = true;
     this.updateRoomBadge();
   }
 

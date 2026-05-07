@@ -76,6 +76,7 @@ pnpm exec playwright install chromium
 - Single-file export embeds a normalized document snapshot into the exported HTML so it can reopen itself offline
 - Share creates a four-digit `/room/1234` link. The share popover disables the create button while the request is pending, then shows a QR code with the link underneath and hides the password input/create button.
 - Room viewers cannot enter edit mode or load documents. They can download JSON/HTML from the existing save menu, switch between free viewer camera and host-follow camera, and automatically leave host-follow mode if they pan or zoom.
+- Local `file://` HTML exports hide the Share button because they cannot reliably use the hosted room backend from a local file context.
 
 ## Testing
 
