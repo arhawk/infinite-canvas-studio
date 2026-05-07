@@ -1,8 +1,8 @@
 import { RoomClient } from "./roomClient.js";
-import { getRoomWebSocketUrl } from "./roomRoute.js";
+import { getCreateRoomApiUrl, getRoomWebSocketUrl } from "./roomRoute.js";
 
 export async function createRoom({ password = "" } = {}) {
-  const response = await fetch("/api/rooms", {
+  const response = await fetch(getCreateRoomApiUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

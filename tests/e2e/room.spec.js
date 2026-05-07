@@ -36,6 +36,12 @@ test.afterAll(() => {
   roomServer = null;
 });
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() => {
+    window.__ROOM_BACKEND_HOST__ = window.location.host;
+  });
+});
+
 async function waitForTestApi(page) {
   await page.waitForFunction(() => Boolean(window.__APP_TEST_API__));
 }

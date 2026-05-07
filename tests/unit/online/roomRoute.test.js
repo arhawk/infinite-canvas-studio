@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCreateRoomApiUrl,
   getRoomIdFromPath,
   getRoomWebSocketUrl,
   getShareUrl,
+  ROOM_BACKEND_HOST,
 } from "../../../src/online/roomRoute.js";
 
 describe("room route helpers", () => {
@@ -21,13 +23,16 @@ describe("room route helpers", () => {
     expect(url).not.toContain("hostToken");
   });
 
-  it("builds WebSocket URLs with role only", () => {
+  it("builds backend URLs against the fixed room backend host", () => {
+    const apiUrl = getCreateRoomApiUrl({
+      protocol: "https:",
+    });
     const url = getRoomWebSocketUrl("1234", "host", {
       protocol: "https:",
-      host: "example.test",
     });
 
-    expect(url).toBe("wss://example.test/ws/rooms/1234?role=host");
+    expect(apiUrl).toBe(`https://${ROOM_BACKEND_HOST}/api/rooms`);
+    expect(url).toBe(`wss://${ROOM_BACKEND_HOST}/ws/rooms/1234?role=host`);
     expect(url).not.toContain("hostToken");
   });
 });

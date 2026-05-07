@@ -58,6 +58,10 @@ Most common failure mode:
 
 - the component looks correct when first created, but it does not serialize its own content, so undo/redo or import restores a stale node
 
+Feature implementation constraint:
+
+- When implementing application features, do not change backend/server code. Keep feature work inside the frontend application unless the user explicitly requests backend changes.
+
 ## Tech Stack
 
 - Package manager: pnpm
