@@ -973,7 +973,7 @@ test("creates a connection and updates it when a node moves", async ({ page }) =
     .not.toBe(JSON.stringify(originalPoints));
 });
 
-test("starts connections from shape and sticky floating toolbar buttons", async ({ page }) => {
+test("starts connections from shape, button, and sticky floating toolbar buttons", async ({ page }) => {
   const shape = await addComponent(page, "shape", {
     x: 180,
     y: 180,
@@ -1023,6 +1023,29 @@ test("starts connections from shape and sticky floating toolbar buttons", async 
         node.componentType === "connection" &&
         node.summary.sourceNodeId === stickySource.id &&
         node.summary.targetNodeId === shapeTarget.id
+      ));
+    })
+    .toBe(true);
+
+  await clearBoard(page);
+  const buttonSource = await addComponent(page, "button", { x: 180, y: 180, label: "Go" });
+  const stickyTarget = await addComponent(page, "sticky", { x: 560, y: 220 });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), buttonSource.id);
+  await expect(page.getByTestId("button-connect")).toBeVisible();
+  await expect(page.getByTestId("button-connect")).toBeEnabled();
+  await page.getByTestId("button-connect").click();
+  const stickyTargetCenter = await getNodePageCenter(page, stickyTarget.id);
+  await page.mouse.click(stickyTargetCenter.x, stickyTargetCenter.y);
+
+  await expect
+    .poll(async () => {
+      const nodes = await page.evaluate(() => window.__APP_TEST_API__.listNodes());
+      return nodes.some((node) => (
+        node.componentType === "connection" &&
+        node.summary.sourceNodeId === buttonSource.id &&
+        node.summary.targetNodeId === stickyTarget.id &&
+        node.summary.hiddenUntilEndpointSelected === true
       ));
     })
     .toBe(true);
@@ -1698,17 +1721,16 @@ test("button shape changes persist and keep jump navigation working", async ({ p
     { sourceId: button.id, targetId: target.id },
   );
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), button.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-
-  const shapeSelect = page.getByTestId("component-editor-input-shapeType");
-  await expect(shapeSelect).toBeVisible();
-  await expect(shapeSelect).toHaveValue("rounded");
-
-  await shapeSelect.selectOption("rhombus");
-  await page.getByTestId("component-editor-apply").click();
-
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
+  await expect(page.getByTestId("button-controls")).toBeVisible();
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), button.id);
+  expect(opened).toBe(false);
   await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await expect(page.getByTestId("button-type-rounded")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("button-type-rhombus").click();
   await expect
     .poll(async () => (await getNode(page, button.id))?.summary?.shapeType ?? null)
     .toBe("rhombus");
@@ -1739,12 +1761,16 @@ test("button shape changes persist and keep jump navigation working", async ({ p
 
 test("selected button exposes live shape controls", async ({ page }) => {
   const button = await addComponent(page, "button", { x: 520, y: 220, label: "Go" });
+  const sticky = await addComponent(page, "sticky", { x: 760, y: 240 });
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
 
   await expect(page.getByTestId("button-controls")).toBeVisible();
   await waitForPaint(page);
   await expect(page.getByTestId("shape-panel")).toBeHidden();
+  await expect(page.getByTestId("button-connect")).toBeVisible();
+  await expect(page.getByTestId("button-connect")).toBeEnabled();
+  await expect(page.getByTestId("button-layer-menu")).toBeVisible();
   await expect(page.getByTestId("button-type-rounded")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("button-font-size")).toHaveValue("16");
   await expect(page.getByTestId("button-text-color")).toHaveValue("#5b3b12");
@@ -1761,7 +1787,7 @@ test("selected button exposes live shape controls", async ({ page }) => {
   await expect(page.getByTestId("button-opacity")).toHaveAttribute("title", "Opacity: 100%");
   await expect(page.getByTestId("button-stroke-color")).toHaveAttribute("title", "Border color");
   await expect(page.getByTestId("button-stroke-width")).toHaveAttribute("title", "Thickness: 2");
-  await expect(page.locator("#button-controls .toolbar__button-style-tool")).toHaveCount(4);
+  await expect(page.locator("#button-controls .toolbar__button-style-tool")).toHaveCount(6);
   await expect(page.getByTestId("button-style-font-size")).toBeVisible();
   await expect(page.getByTestId("button-style-text-color")).toBeVisible();
   await expect(page.getByTestId("button-style-fill")).toBeVisible();
@@ -1782,6 +1808,16 @@ test("selected button exposes live shape controls", async ({ page }) => {
   await page.getByTestId("button-style-text-color").click();
   await expect(page.locator("#button-text-swatches .toolbar__button-color-swatch")).toHaveCount(8);
   await expect(page.locator("#button-text-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
+  await page.getByTestId("button-layer-menu").click();
+  const layerButtonBox = await page.getByTestId("button-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__button-layer-popover").boundingBox();
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
+  expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
+  await expect(page.getByTestId("button-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("button-layer-send-backward")).toBeDisabled();
+  await page.getByTestId("button-layer-menu").click();
+  await expect(page.locator(".toolbar__button-layer-popover")).toHaveCSS("pointer-events", "none");
 
   const buttonSnapshot = await getNode(page, button.id);
   const buttonTopCenter = await canvasPointToPage(page, {
@@ -1793,10 +1829,25 @@ test("selected button exposes live shape controls", async ({ page }) => {
   expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(buttonTopCenter.y - 18);
   expect(Math.abs(panelBox.x + panelBox.width / 2 - buttonTopCenter.x)).toBeLessThan(24);
 
+  await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
   await page.getByTestId("button-type-triangle").click();
+  await setInputValue(page, "button-fill-color", "#dbeafe");
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.fill ?? null)
+    .toBe("#dbeafe");
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.fill ?? null)
+    .toBe("#f7e7c6");
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect
+    .poll(async () => (await getNode(page, button.id))?.summary?.fill ?? null)
+    .toBe("#dbeafe");
+
   await setInputValue(page, "button-font-size", "24");
   await setInputValue(page, "button-text-color", "#ffffff");
-  await setInputValue(page, "button-fill-color", "#dbeafe");
   await setInputValue(page, "button-opacity", "0.4");
   await setInputValue(page, "button-stroke-color", "#111827");
   await setInputValue(page, "button-stroke-width", "6");
@@ -1815,6 +1866,11 @@ test("selected button exposes live shape controls", async ({ page }) => {
       textColor: "#ffffff",
       fontSize: 24,
     }));
+
+  await page.getByTestId("button-layer-menu").click();
+  await page.getByTestId("button-layer-bring-forward").click();
+  await expect.poll(async () => getNodeOrder(page, [button.id, sticky.id]))
+    .toEqual([sticky.id, button.id]);
 
   const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
   await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
@@ -1891,10 +1947,16 @@ test("selected button click edits its label inline", async ({ page }) => {
 
   await expect(page.getByTestId("button-controls")).toBeVisible();
   await expect(page.getByTestId("canvas-button-text-editor")).toHaveCount(0);
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), button.id);
+  expect(opened).toBe(false);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.mouse.dblclick(center.x, center.y);
   const editor = page.getByTestId("canvas-button-text-editor");
   await expect(editor).toBeVisible();
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   const editorBox = await editor.boundingBox();
   expect(editorBox).toBeTruthy();
   expect(editorBox.width).toBeLessThan(100);
@@ -1917,6 +1979,22 @@ test("selected button click edits its label inline", async ({ page }) => {
   await expect
     .poll(async () => (await getNode(page, button.id))?.summary?.label ?? "")
     .toBe("Launch");
+
+  await page.evaluate(() => {
+    window.__buttonContextMenuPrevented = null;
+    document.addEventListener("contextmenu", (event) => {
+      window.setTimeout(() => {
+        window.__buttonContextMenuPrevented = event.defaultPrevented;
+      }, 0);
+    }, { capture: true, once: true });
+  });
+  await page.mouse.click(center.x, center.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__buttonContextMenuPrevented)).toBe(true);
+  await expect.poll(async () => (
+    page.locator(".toolbar__button-layer-tool").evaluate((element) => element.matches(":focus-within"))
+  )).toBe(true);
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+  await expect(page.getByTestId("button-layer-bring-forward")).toBeDisabled();
 });
 
 test("double-clicking a button follows its connected target instead of its own focus", async ({ page }) => {

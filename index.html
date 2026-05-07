@@ -542,6 +542,53 @@
                   </div>
                 </div>
               </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-connect-tool">
+                <button
+                  id="button-connect-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Connect to"
+                  aria-label="Connect to"
+                  data-testid="button-connect"
+                >
+                  <i data-lucide="link-2" aria-hidden="true"></i>
+                </button>
+              </div>
+
+              <div
+                class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-layer-tool"
+                data-popover-offset="none"
+              >
+                <button
+                  id="button-layer-menu-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Layer order"
+                  aria-label="Layer order"
+                  data-testid="button-layer-menu"
+                >
+                  <i data-lucide="ellipsis" aria-hidden="true"></i>
+                </button>
+                <div class="toolbar__button-style-popover toolbar__button-layer-popover" role="menu" aria-label="Button layer order">
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-button-layer-action="bring-forward"
+                    data-testid="button-layer-bring-forward"
+                  >
+                    Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-button-layer-action="send-backward"
+                    data-testid="button-layer-send-backward"
+                  >
+                    Send Backward
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

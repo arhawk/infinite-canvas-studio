@@ -1097,14 +1097,16 @@ body.is-presentation-mode .toolbar__share-btn {
 }
 
 .toolbar__button-tool--fill-color,
-.toolbar__shape-layer-tool {
+.toolbar__shape-layer-tool,
+.toolbar__button-layer-tool {
   margin-left: 0.34rem;
 }
 
 .toolbar__button-tool--font-size::before,
 .toolbar__button-tool--fill-color::before,
 .toolbar__button-connect-tool::before,
-.toolbar__shape-layer-tool::before {
+.toolbar__shape-layer-tool::before,
+.toolbar__button-layer-tool::before {
   content: "";
   position: absolute;
   top: 0.36rem;
@@ -1252,7 +1254,8 @@ body.is-presentation-mode .toolbar__share-btn {
   height: 1rem;
 }
 
-.toolbar__shape-layer-tool {
+.toolbar__shape-layer-tool,
+.toolbar__button-layer-tool {
   margin-left: 0.24rem;
 }
 
@@ -1261,15 +1264,18 @@ body.is-presentation-mode .toolbar__share-btn {
 }
 
 .toolbar__button-connect-tool::before,
-.toolbar__shape-layer-tool::before {
+.toolbar__shape-layer-tool::before,
+.toolbar__button-layer-tool::before {
   left: -0.16rem;
 }
 
-.toolbar__button-connect-tool + .toolbar__shape-layer-tool {
+.toolbar__button-connect-tool + .toolbar__shape-layer-tool,
+.toolbar__button-connect-tool + .toolbar__button-layer-tool {
   margin-left: 0;
 }
 
-.toolbar__button-connect-tool + .toolbar__shape-layer-tool::before {
+.toolbar__button-connect-tool + .toolbar__shape-layer-tool::before,
+.toolbar__button-connect-tool + .toolbar__button-layer-tool::before {
   content: none;
 }
 
@@ -1452,6 +1458,7 @@ body.is-presentation-mode .toolbar__share-btn {
 }
 
 .toolbar__shape-layer-popover,
+.toolbar__button-layer-popover,
 .toolbar__sticky-layer-popover {
   top: 0;
   right: auto;
@@ -1574,6 +1581,7 @@ body.is-presentation-mode .toolbar__share-btn {
 }
 
 .toolbar__shape-layer-tool:focus-within .toolbar__shape-layer-popover,
+.toolbar__button-layer-tool:focus-within .toolbar__button-layer-popover,
 .toolbar__sticky-layer-tool:focus-within .toolbar__sticky-layer-popover {
   opacity: 1;
   pointer-events: auto;
@@ -1581,6 +1589,7 @@ body.is-presentation-mode .toolbar__share-btn {
 }
 
 .toolbar__shape-layer-tool.is-context-open .toolbar__shape-layer-popover,
+.toolbar__button-layer-tool.is-context-open .toolbar__button-layer-popover,
 .toolbar__sticky-layer-tool.is-context-open .toolbar__sticky-layer-popover {
   position: absolute;
   top: var(--shape-layer-menu-top, 0);

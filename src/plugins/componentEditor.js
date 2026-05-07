@@ -6,6 +6,7 @@ import {
 import { AttachmentsInlineController } from "../attachments/inlineController.js";
 
 const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
+  "button",
   "image",
   "javascriptEditor",
   "rankingBox",
@@ -161,6 +162,10 @@ export class ComponentEditorPlugin extends BasePlugin {
       }
       if (selectable?.getAttr?.("componentType") === "sticky") {
         selectable.findOne?.(".sticky-text")?.openInlineEditor?.(event);
+        return;
+      }
+      if (selectable?.getAttr?.("componentType") === "button") {
+        selectable.openInlineEditor?.(event);
         return;
       }
       if (selectable?.getAttr?.("componentType") === "page") {

@@ -308,6 +308,7 @@ export class ToolbarPlugin extends BasePlugin {
     };
     this.floatingToolbar = this.app.floatingToolbar ?? null;
     this.pendingShapeLayerContextMenu = null;
+    this.pendingButtonLayerContextMenu = null;
     this.pendingStickyLayerContextMenu = null;
 
     if (!this.floatingToolbar && buttonControlsEl?.parentElement && buttonControlsEl.parentElement !== document.body) {
@@ -529,6 +530,47 @@ export class ToolbarPlugin extends BasePlugin {
     });
     this.listenDom(buttonStrokeWidthEl, "input", () => this.emitButtonStyleChange());
     this.listenDom(buttonOpacityEl, "input", () => this.emitButtonStyleChange());
+    const buttonConnectTriggerEl = buttonControlsEl?.querySelector("#button-connect-trigger") ?? null;
+    if (buttonConnectTriggerEl) {
+      this.listenDom(buttonConnectTriggerEl, "click", () => this.startButtonConnection());
+    }
+    const buttonLayerTriggerEl = buttonControlsEl?.querySelector("#button-layer-menu-trigger") ?? null;
+    if (buttonLayerTriggerEl) {
+      let closeButtonLayerMenuOnClick = false;
+      this.listenDom(buttonLayerTriggerEl, "pointerdown", (event) => {
+        closeButtonLayerMenuOnClick = this.isButtonLayerMenuOpen();
+        if (closeButtonLayerMenuOnClick) {
+          event.preventDefault();
+        } else {
+          this.clearButtonLayerContextPosition();
+        }
+      });
+      this.listenDom(buttonLayerTriggerEl, "click", (event) => {
+        if (!closeButtonLayerMenuOnClick) return;
+
+        event.preventDefault();
+        closeButtonLayerMenuOnClick = false;
+        this.closeButtonLayerMenu();
+      });
+    }
+    for (const button of (buttonControlsEl?.querySelectorAll("[data-button-layer-action]") ?? [])) {
+      this.listenDom(button, "click", () => {
+        this.runButtonLayerAction(button.dataset.buttonLayerAction);
+        button.blur();
+      });
+    }
+    if (buttonControlsEl) {
+      this.app.stage?.on?.("contextmenu.buttonLayerMenu mousedown.buttonLayerMenu", (event) => {
+        this.handleButtonLayerContextMenu(event);
+      });
+      const captureOptions = { capture: true };
+      this.listenDom(document, "contextmenu", (event) => {
+        this.handleButtonLayerNativeContextMenu(event);
+      }, captureOptions);
+      this.listenDom(document, "mousedown", (event) => {
+        this.handleButtonLayerNativeContextMenu(event);
+      }, captureOptions);
+    }
     if (stickyFontSizeEl) {
       this.listenDom(stickyFontSizeEl, "input", () => this.emitStickyStyleChange());
     }
@@ -602,6 +644,9 @@ export class ToolbarPlugin extends BasePlugin {
       this.listenDom(buttonControlsEl, "focusout", () => {
         window.setTimeout(() => {
           this.syncButtonPopoverOpenState();
+          if (!buttonControlsEl.querySelector(".toolbar__button-layer-tool:focus-within")) {
+            this.clearButtonLayerContextPosition();
+          }
           this.queueButtonPanelPositionSync();
         }, 0);
       });
@@ -802,6 +847,17 @@ export class ToolbarPlugin extends BasePlugin {
 
       for (const button of (this.ui.buttonTypeControlsEl?.querySelectorAll("[data-button-shape-type]") ?? [])) {
         this.floatingToolbar.registerButton("button-panel", button.dataset.buttonShapeType, button);
+      }
+      for (const button of (this.ui.buttonControlsEl.querySelectorAll("[data-button-layer-action]") ?? [])) {
+        this.floatingToolbar.registerButton(
+          "button-panel",
+          `layer:${button.dataset.buttonLayerAction}`,
+          button,
+        );
+      }
+      const connectButton = this.ui.buttonControlsEl.querySelector("#button-connect-trigger");
+      if (connectButton) {
+        this.floatingToolbar.registerButton("button-panel", "connect", connectButton);
       }
     }
 
@@ -1262,6 +1318,15 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncShapeConnectAction();
   }
 
+  startButtonConnection() {
+    const node = this.selectedButtonNode;
+    if (node?.getAttr?.("componentType") !== "button") return;
+
+    this.closeButtonLayerMenu();
+    this.app.commands.execute("connection:connect", node.id());
+    this.syncButtonConnectAction();
+  }
+
   startStickyConnection() {
     const node = this.selectedStickyNode;
     if (node?.getAttr?.("componentType") !== "sticky") return;
@@ -1282,6 +1347,17 @@ export class ToolbarPlugin extends BasePlugin {
     this.queueShapePanelPositionSync();
   }
 
+  runButtonLayerAction(actionId) {
+    const action = SHAPE_LAYER_ACTIONS.find((entry) => entry.id === actionId);
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedButtonNode;
+    if (!action || !selection || node?.getAttr?.("componentType") !== "button") return;
+
+    selection[action.run]?.(node);
+    this.syncButtonLayerActions();
+    this.queueButtonPanelPositionSync();
+  }
+
   runStickyLayerAction(actionId) {
     const action = SHAPE_LAYER_ACTIONS.find((entry) => entry.id === actionId);
     const selection = this.getSelectionPlugin();
@@ -1291,6 +1367,75 @@ export class ToolbarPlugin extends BasePlugin {
     selection[action.run]?.(node);
     this.syncStickyLayerActions();
     this.queueStickyPanelPositionSync();
+  }
+
+  handleButtonLayerContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.evt?.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit") return;
+
+    const node = resolveSelectableFromStageEvent(this.app, event);
+    if (node?.getAttr?.("componentType") !== "button") return;
+
+    event.evt?.preventDefault?.();
+    event.evt?.stopPropagation?.();
+    event.cancelBubble = true;
+    if (isRightMouseDown) {
+      return;
+    }
+
+    this.openButtonLayerMenu(node, this.getShapeLayerContextPoint(event));
+  }
+
+  handleButtonLayerNativeContextMenu(event) {
+    const isContextMenuEvent = event.type === "contextmenu";
+    const isRightMouseDown = event.type === "mousedown" && event.button === 2;
+    if (!isContextMenuEvent && !isRightMouseDown) return;
+    if (this.app.getMode() !== "edit") return;
+
+    const point = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    const directNode = resolveSelectableFromNativeEvent(this.app, event);
+    const pending = isContextMenuEvent ? this.getPendingButtonLayerContextMenu() : null;
+    const node = directNode?.getAttr?.("componentType") === "button"
+      ? directNode
+      : pending?.node;
+    if (node?.getAttr?.("componentType") !== "button") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (isRightMouseDown) {
+      this.pendingButtonLayerContextMenu = {
+        node,
+        point,
+        time: this.getNow(),
+      };
+      return;
+    }
+
+    this.pendingButtonLayerContextMenu = null;
+    this.openButtonLayerMenu(node, {
+      x: Number.isFinite(point.x) ? point.x : pending?.point?.x,
+      y: Number.isFinite(point.y) ? point.y : pending?.point?.y,
+    });
+  }
+
+  getPendingButtonLayerContextMenu() {
+    const pending = this.pendingButtonLayerContextMenu;
+    if (!pending) return null;
+
+    if (
+      !pending.node?.getStage?.() ||
+      this.getNow() - pending.time > SHAPE_LAYER_CONTEXT_PENDING_MS
+    ) {
+      this.pendingButtonLayerContextMenu = null;
+      return null;
+    }
+
+    return pending;
   }
 
   handleStickyLayerContextMenu(event) {
@@ -1486,6 +1631,28 @@ export class ToolbarPlugin extends BasePlugin {
     });
   }
 
+  openButtonLayerMenu(node, clientPoint = null) {
+    if (node?.getAttr?.("componentType") !== "button") return;
+
+    this.app.getPlugin?.("context-menu")?.hideMenu?.();
+    this.getSelectionPlugin()?.setSelected?.([node]);
+    this.selectedButtonNode = node;
+    this.loadButtonUiFromSelection();
+    this.syncUi();
+    this.floatingToolbar?.setPanelVisible?.("button-panel", true);
+    this.queueButtonPanelPositionSync();
+
+    window.requestAnimationFrame(() => {
+      const trigger = this.ui.buttonControlsEl?.querySelector?.("#button-layer-menu-trigger");
+      trigger?.focus?.({ preventScroll: true });
+      if (clientPoint) {
+        this.positionButtonLayerMenuAtPoint(clientPoint);
+      }
+      this.syncButtonPopoverOpenState();
+      this.queueButtonPanelPositionSync();
+    });
+  }
+
   openStickyLayerMenu(node, clientPoint = null) {
     if (node?.getAttr?.("componentType") !== "sticky") return;
 
@@ -1516,6 +1683,14 @@ export class ToolbarPlugin extends BasePlugin {
     return this.ui.shapePanelEl?.querySelector?.(".toolbar__shape-layer-popover") ?? null;
   }
 
+  getButtonLayerToolEl() {
+    return this.ui.buttonControlsEl?.querySelector?.(".toolbar__button-layer-tool") ?? null;
+  }
+
+  getButtonLayerPopoverEl() {
+    return this.ui.buttonControlsEl?.querySelector?.(".toolbar__button-layer-popover") ?? null;
+  }
+
   getStickyLayerToolEl() {
     return this.ui.stickyPanelEl?.querySelector?.(".toolbar__sticky-layer-tool") ?? null;
   }
@@ -1538,6 +1713,22 @@ export class ToolbarPlugin extends BasePlugin {
     this.clearShapeLayerContextPosition();
     this.syncShapePopoverOpenState();
     this.queueShapePanelPositionSync();
+  }
+
+  isButtonLayerMenuOpen() {
+    const tool = this.getButtonLayerToolEl();
+    return Boolean(tool?.matches?.(":focus-within"));
+  }
+
+  closeButtonLayerMenu() {
+    const tool = this.getButtonLayerToolEl();
+    const activeElement = document.activeElement;
+    if (tool?.contains?.(activeElement)) {
+      activeElement.blur?.();
+    }
+    this.clearButtonLayerContextPosition();
+    this.syncButtonPopoverOpenState();
+    this.queueButtonPanelPositionSync();
   }
 
   isStickyLayerMenuOpen() {
@@ -1564,6 +1755,20 @@ export class ToolbarPlugin extends BasePlugin {
     tool.classList.remove("is-context-open");
     tool.style.removeProperty("--shape-layer-menu-left");
     tool.style.removeProperty("--shape-layer-menu-top");
+    popover?.style.removeProperty("position");
+    popover?.style.removeProperty("top");
+    popover?.style.removeProperty("right");
+    popover?.style.removeProperty("left");
+    popover?.style.removeProperty("transform");
+    popover?.style.removeProperty("z-index");
+  }
+
+  clearButtonLayerContextPosition() {
+    const tool = this.getButtonLayerToolEl();
+    const popover = this.getButtonLayerPopoverEl();
+    if (!tool) return;
+
+    tool.classList.remove("is-context-open");
     popover?.style.removeProperty("position");
     popover?.style.removeProperty("top");
     popover?.style.removeProperty("right");
@@ -1602,6 +1807,29 @@ export class ToolbarPlugin extends BasePlugin {
 
     tool.style.setProperty("--shape-layer-menu-left", `${Math.round(left)}px`);
     tool.style.setProperty("--shape-layer-menu-top", `${Math.round(top)}px`);
+    const toolRect = tool.getBoundingClientRect();
+    popover.style.setProperty("position", "absolute", "important");
+    popover.style.setProperty("top", `${Math.round(top - toolRect.top)}px`, "important");
+    popover.style.setProperty("right", "auto", "important");
+    popover.style.setProperty("left", `${Math.round(left - toolRect.left)}px`, "important");
+    popover.style.setProperty("transform", "none", "important");
+    popover.style.setProperty("z-index", "100", "important");
+  }
+
+  positionButtonLayerMenuAtPoint(point) {
+    const tool = this.getButtonLayerToolEl();
+    const popover = this.getButtonLayerPopoverEl();
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!tool || !popover || !Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    tool.classList.add("is-context-open");
+    const margin = 8;
+    const width = popover.offsetWidth || popover.getBoundingClientRect().width || 140;
+    const height = popover.offsetHeight || popover.getBoundingClientRect().height || 60;
+    const left = clamp(x, margin, Math.max(margin, window.innerWidth - width - margin));
+    const top = clamp(y, margin, Math.max(margin, window.innerHeight - height - margin));
+
     const toolRect = tool.getBoundingClientRect();
     popover.style.setProperty("position", "absolute", "important");
     popover.style.setProperty("top", `${Math.round(top - toolRect.top)}px`, "important");
@@ -1658,6 +1886,30 @@ export class ToolbarPlugin extends BasePlugin {
     }
   }
 
+  syncButtonConnectAction() {
+    const connections = this.getConnectionsPlugin();
+    const node = this.selectedButtonNode;
+    const canConnect = Boolean(
+      connections &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "button" &&
+      connections.isConnectable?.(node),
+    );
+    if (!this.floatingToolbar?.setButtonState?.("button-panel", "connect", {
+      disabled: !canConnect,
+      title: "Connect to",
+      label: "Connect to",
+    })) {
+      const button = this.ui.buttonControlsEl?.querySelector?.("#button-connect-trigger") ?? null;
+      if (button) {
+        button.disabled = !canConnect;
+        button.setAttribute("aria-disabled", String(!canConnect));
+        button.title = "Connect to";
+        button.setAttribute("aria-label", "Connect to");
+      }
+    }
+  }
+
   syncStickyConnectAction() {
     const connections = this.getConnectionsPlugin();
     const node = this.selectedStickyNode;
@@ -1698,6 +1950,36 @@ export class ToolbarPlugin extends BasePlugin {
         ?.querySelector?.(`[data-shape-layer-action="${action.id}"]`) ?? null;
       const disabled = !canTargetShape || !selection[action.canRun]?.(node);
       if (!this.floatingToolbar?.setButtonState?.("shape-panel", `layer:${action.id}`, {
+        disabled,
+        title: action.label,
+        label: action.label,
+      })) {
+        if (button) {
+          button.disabled = disabled;
+          button.setAttribute("aria-disabled", String(disabled));
+          button.title = action.label;
+          button.setAttribute("aria-label", action.label);
+        }
+      }
+    }
+  }
+
+  syncButtonLayerActions() {
+    this.syncButtonConnectAction();
+
+    const selection = this.getSelectionPlugin();
+    const node = this.selectedButtonNode;
+    const canTargetButton = Boolean(
+      selection &&
+      node?.getStage?.() &&
+      node.getAttr?.("componentType") === "button",
+    );
+
+    for (const action of SHAPE_LAYER_ACTIONS) {
+      const button = this.ui.buttonControlsEl
+        ?.querySelector?.(`[data-button-layer-action="${action.id}"]`) ?? null;
+      const disabled = !canTargetButton || !selection[action.canRun]?.(node);
+      if (!this.floatingToolbar?.setButtonState?.("button-panel", `layer:${action.id}`, {
         disabled,
         title: action.label,
         label: action.label,
@@ -2209,6 +2491,7 @@ export class ToolbarPlugin extends BasePlugin {
     buttonOpacityValueEl.value = formatPercentValue(this.buttonPanelState.fillOpacity);
     this.syncButtonControlTooltips();
     this.syncButtonTypeControls();
+    this.syncButtonLayerActions();
   }
 
   saveButtonUiToState() {
@@ -2902,6 +3185,7 @@ export class ToolbarPlugin extends BasePlugin {
       }
     }
     this.syncShapeLayerActions();
+    this.syncButtonLayerActions();
     this.syncStickyLayerActions();
     if (!isEdit || !this.isBrushFamilyActive(activeToolId)) {
       this.penDropdown?.close();
