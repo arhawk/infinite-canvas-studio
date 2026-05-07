@@ -720,6 +720,25 @@ body.is-presentation-mode .toolbar.is-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 16rem;
+  cursor: default;
+}
+
+.toolbar__project-title:hover {
+  opacity: 0.75;
+}
+
+.toolbar__title-input {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink, #3d2f20);
+  letter-spacing: -0.01em;
+  font-family: inherit;
+  background: var(--panel-strong, #fffdf8);
+  border: 2px solid #2563eb;
+  border-radius: 6px;
+  outline: none;
+  padding: 2px 6px;
+  min-width: 4rem;
 }
 
 .toolbar__center {

@@ -304,6 +304,12 @@ export class StageController {
   }
 
   onKeyDown(event) {
+    if (
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
     if (event.code === "Space") {
       this.isSpacePressed = true;
       const app = this.stage.getAttr("app");

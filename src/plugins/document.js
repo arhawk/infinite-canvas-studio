@@ -103,6 +103,7 @@ export class DocumentPlugin extends BasePlugin {
       exportEl = null,
       importEl = null,
       importInputEl = null,
+      titleEl = null,
     } = this.options;
 
     this.ui = {
@@ -110,6 +111,7 @@ export class DocumentPlugin extends BasePlugin {
       exportEl,
       importEl,
       importInputEl,
+      titleEl,
     };
     this.app.documentManager = this;
     this.documentState = this.createDocumentState();
@@ -172,6 +174,116 @@ export class DocumentPlugin extends BasePlugin {
         this.app.documentManager = null;
       }
     });
+
+    if (titleEl) {
+      this._setupTitleRename();
+    }
+  }
+
+  _setupTitleRename() {
+    const titleEl = this.ui.titleEl;
+    if (!titleEl) return;
+
+    titleEl.textContent = this.documentState.title;
+    titleEl.title = "Double-click to rename";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "toolbar__title-input";
+    input.setAttribute("aria-label", "Document title");
+    input.dataset.testid = "title-rename-input";
+    input.hidden = true;
+    titleEl.insertAdjacentElement("afterend", input);
+    this._titleInput = input;
+    this._titleEditing = false;
+    this._titleInputCleanup = null;
+
+    this.listenDom(titleEl, "dblclick", () => this._openTitleEditor());
+
+    this.listen("document:load:end", () => {
+      if (!this._titleEditing) {
+        titleEl.textContent = this.documentState.title;
+      }
+    });
+
+    this.cleanups.push(() => {
+      input.remove();
+    });
+  }
+
+  _openTitleEditor() {
+    if (this._titleEditing) return;
+    const titleEl = this.ui.titleEl;
+    const input = this._titleInput;
+    if (!titleEl || !input) return;
+
+    this._titleEditing = true;
+    const currentTitle = this.documentState.title;
+    input.value = currentTitle;
+    titleEl.hidden = true;
+    input.hidden = false;
+
+    const syncSize = () => {
+      input.size = Math.max(input.value.length + 2, 6);
+    };
+    syncSize();
+    input.addEventListener("input", syncSize);
+
+    input.focus();
+    input.select();
+
+    let settled = false;
+
+    const commit = () => {
+      if (settled) return;
+      settled = true;
+      const next = input.value.trim() || "Untitled";
+      this._closeTitleEditor(next);
+    };
+
+    const cancel = () => {
+      if (settled) return;
+      settled = true;
+      this._closeTitleEditor(null);
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commit();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        cancel();
+      }
+    };
+
+    input.addEventListener("keydown", onKeyDown);
+    input.addEventListener("blur", commit, { once: true });
+
+    this._titleInputCleanup = () => {
+      input.removeEventListener("keydown", onKeyDown);
+      input.removeEventListener("input", syncSize);
+    };
+  }
+
+  _closeTitleEditor(newTitle) {
+    this._titleEditing = false;
+    const titleEl = this.ui.titleEl;
+    const input = this._titleInput;
+    if (!titleEl || !input) return;
+
+    if (this._titleInputCleanup) {
+      this._titleInputCleanup();
+      this._titleInputCleanup = null;
+    }
+
+    if (newTitle !== null) {
+      this.documentState.title = newTitle;
+      titleEl.textContent = newTitle;
+    }
+
+    input.hidden = true;
+    titleEl.hidden = false;
   }
 
   buildExportMenu() {

@@ -246,6 +246,7 @@ app.use(DocumentPlugin, {
   exportEl: ui.saveDocumentAction,
   importEl: ui.loadDocumentAction,
   importInputEl: ui.loadDocumentInput,
+  titleEl: getOptionalElement("#project-title"),
 });
 app.use(BinaryCalculatorPlugin, {
   toggleEl: leftToolbar.calculatorBtn,
