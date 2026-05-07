@@ -1278,6 +1278,47 @@ body.is-presentation-mode .toolbar__share-btn {
   margin-left: 0;
 }
 
+.toolbar__connection-panel {
+  max-width: min(calc(100vw - 1.5rem), 28rem);
+}
+
+.toolbar__connection-line-icon {
+  position: relative;
+  display: block;
+  width: 1.24rem;
+  height: 1.24rem;
+  pointer-events: none;
+}
+
+.toolbar__connection-line-icon::before {
+  content: "";
+  position: absolute;
+  left: 0.08rem;
+  right: 0.08rem;
+  top: 50%;
+  height: min(var(--button-tool-stroke-width), 0.32rem);
+  border-radius: 999px;
+  background: var(--button-tool-color);
+  transform: translateY(-50%);
+}
+
+.toolbar__connection-termdef-icon {
+  color: var(--ink);
+  font: 700 0.76rem/1 var(--ui-font, system-ui, sans-serif);
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.toolbar__connection-toggle.is-active {
+  background: rgba(215, 97, 47, 0.14);
+  color: var(--ink);
+}
+
+.toolbar__connection-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .toolbar__shape-layer-action {
   display: flex;
   align-items: center;

@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   Calculator,
   Crosshair,
   Circle,
@@ -39,6 +40,7 @@ import {
 } from "lucide";
 
 const PROJECT_ICONS = {
+  ArrowLeftRight,
   Calculator,
   Crosshair,
   Circle,

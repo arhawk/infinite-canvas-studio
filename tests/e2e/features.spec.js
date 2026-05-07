@@ -53,6 +53,26 @@ async function canvasPointToPage(page, point) {
   };
 }
 
+async function getConnectionCurvePagePoint(page, connectionId, t = 0.5) {
+  return page.evaluate(({ id, sampleT }) => {
+    const node = window.__APP_TEST_API__.getNode(id);
+    const points = node?.summary?.points ?? [];
+    if (points.length !== 8) return null;
+
+    const cubicPoint = (value, p0, p1, p2, p3) => {
+      const mt = 1 - value;
+      return (mt ** 3) * p0 + 3 * (mt ** 2) * value * p1 + 3 * mt * (value ** 2) * p2 + (value ** 3) * p3;
+    };
+
+    const canvasPoint = {
+      x: cubicPoint(sampleT, points[0], points[2], points[4], points[6]),
+      y: cubicPoint(sampleT, points[1], points[3], points[5], points[7]),
+    };
+
+    return window.__APP_TEST_API__.canvasToPagePoint(canvasPoint);
+  }, { id: connectionId, sampleT: t });
+}
+
 async function listCatalogItems(page) {
   return page.evaluate(() => window.__APP_TEST_API__.listCatalogItems());
 }
@@ -1008,6 +1028,122 @@ test("starts connections from shape and sticky floating toolbar buttons", async 
     .toBe(true);
 });
 
+test("edits connection lines from the floating toolbar and right click", async ({ page }) => {
+  const source = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const target = await addComponent(page, "sticky", { x: 560, y: 220 });
+  const connection = await page.evaluate(
+    ({ sourceId, targetId }) => window.__APP_TEST_API__.createConnection(sourceId, targetId),
+    { sourceId: source.id, targetId: target.id },
+  );
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await expect(page.getByTestId("connection-stroke-color")).toHaveValue("#d7612f");
+  await expect(page.getByTestId("connection-stroke-width")).toHaveValue("3");
+  await expect(page.getByTestId("connection-pointer-length")).toHaveValue("10");
+  await expect(page.getByTestId("connection-pointer-width")).toHaveValue("10");
+  await expect(page.getByTestId("connection-reverse-direction")).toBeEnabled();
+
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), connection.id);
+  expect(opened).toBe(false);
+  await page.evaluate((connectionId) => (
+    window.__APP_TEST_API__.doubleClickConnectionLine(connectionId)
+  ), connection.id);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+
+  await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
+  await page.getByTestId("connection-reverse-direction").click();
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      sourceNodeId: target.id,
+      targetNodeId: source.id,
+    }));
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      sourceNodeId: source.id,
+      targetNodeId: target.id,
+    }));
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      sourceNodeId: target.id,
+      targetNodeId: source.id,
+    }));
+
+  await setInputValue(page, "connection-stroke-color", "#166534");
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.stroke ?? null)
+    .toBe("#166534");
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.stroke ?? null)
+    .toBe("#d7612f");
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.stroke ?? null)
+    .toBe("#166534");
+
+  await setInputValue(page, "connection-stroke-width", "5");
+  await setInputValue(page, "connection-pointer-length", "24");
+  await setInputValue(page, "connection-pointer-width", "18");
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      sourceNodeId: target.id,
+      targetNodeId: source.id,
+      stroke: "#166534",
+      strokeWidth: 5,
+      pointerLength: 24,
+      pointerWidth: 18,
+    }));
+
+  const curvePoint = await getConnectionCurvePagePoint(page, connection.id);
+  expect(curvePoint).not.toBeNull();
+  await page.evaluate(() => {
+    window.__connectionContextMenuPrevented = null;
+    document.addEventListener("contextmenu", (event) => {
+      window.setTimeout(() => {
+        window.__connectionContextMenuPrevented = event.defaultPrevented;
+      }, 0);
+    }, { capture: true, once: true });
+  });
+  await page.mouse.click(curvePoint.x, curvePoint.y, { button: "right" });
+  await expect.poll(async () => page.evaluate(() => window.__connectionContextMenuPrevented)).toBe(true);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([connection.id]);
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getContextMenuState().visible))
+    .toBe(false);
+  await expect(page.getByTestId("connection-layer-menu")).toHaveCount(0);
+
+  await page.getByTestId("connection-hidden-toggle").click();
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
+    .toBe(true);
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+  await expect
+    .poll(async () => (await getNode(page, connection.id))?.summary ?? {})
+    .toEqual(expect.objectContaining({
+      stroke: "#166534",
+      strokeWidth: 5,
+      pointerLength: 24,
+      pointerWidth: 18,
+      hiddenUntilEndpointSelected: true,
+    }));
+});
+
 test("marks unlinked pages with a minimap warning", async ({ page }) => {
   const jumpButton = page.getByTestId("minimap-unlinked-page-next");
   await expect(jumpButton).toBeHidden();
@@ -1283,11 +1419,9 @@ test("pulses transparent connections red when an endpoint or the line itself is 
     { sourceId: source.id, targetId: target.id },
   );
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-
-  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
-  await page.getByTestId("component-editor-apply").click();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await page.getByTestId("connection-hidden-toggle").click();
 
   await expect
     .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)
@@ -1322,6 +1456,11 @@ test("pulses transparent connections red when an endpoint or the line itself is 
   expect(pulseSamples.some((sample) => sample.stroke === "#ef4444")).toBe(true);
   expect(Math.max(...pulseSamples.map((sample) => sample.opacity ?? 0))).toBeGreaterThan(0.7);
   expect(Math.min(...pulseSamples.map((sample) => sample.opacity ?? 1))).toBeLessThan(0.25);
+
+  const pulsingCurvePoint = await getConnectionCurvePagePoint(page, connection.id);
+  await page.mouse.click(pulsingCurvePoint.x, pulsingCurvePoint.y);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds()))
+    .toEqual([connection.id]);
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
 
@@ -1362,10 +1501,9 @@ test("does not let fully transparent connections capture mouse selection", async
     { sourceId: source.id, targetId: target.id },
   );
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
-  await page.getByTestId("component-editor-apply").click();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await page.getByTestId("connection-hidden-toggle").click();
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), other.id);
   await expect
@@ -1377,24 +1515,7 @@ test("does not let fully transparent connections capture mouse selection", async
     other.id,
   ]);
 
-  const connectionCurvePoint = await page.evaluate((connectionId) => {
-    const node = window.__APP_TEST_API__.getNode(connectionId);
-    const points = node?.summary?.points ?? [];
-    if (points.length !== 8) return null;
-    const t = 0.5;
-
-    const cubicPoint = (t, p0, p1, p2, p3) => {
-      const mt = 1 - t;
-      return (mt ** 3) * p0 + 3 * (mt ** 2) * t * p1 + 3 * mt * (t ** 2) * p2 + (t ** 3) * p3;
-    };
-
-    const canvasPoint = {
-      x: cubicPoint(t, points[0], points[2], points[4], points[6]),
-      y: cubicPoint(t, points[1], points[3], points[5], points[7]),
-    };
-
-    return window.__APP_TEST_API__.canvasToPagePoint(canvasPoint);
-  }, connection.id);
+  const connectionCurvePoint = await getConnectionCurvePagePoint(page, connection.id);
 
   await page.mouse.click(connectionCurvePoint.x, connectionCurvePoint.y);
 
@@ -1419,17 +1540,14 @@ test("toggles a connection into termdef and cascades deletion on endpoints", asy
     .poll(async () => (await getNode(page, connection.id))?.summary?.connectionKind ?? null)
     .toBe("directed");
 
-  await page.evaluate((connectionId) => (
-    window.__APP_TEST_API__.doubleClickConnectionLine(connectionId)
-  ), connection.id);
-
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await page.getByTestId("component-editor-input-termdefKind").check();
-  await page.getByTestId("component-editor-apply").click();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await page.getByTestId("connection-termdef-toggle").click();
 
   await expect
     .poll(async () => (await getNode(page, connection.id))?.summary?.connectionKind ?? null)
     .toBe("termdef");
+  await expect(page.getByTestId("connection-reverse-direction")).toBeDisabled();
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), a.id);
   await waitForPaint(page);
@@ -1452,12 +1570,9 @@ test("toggles a connection into termdef and cascades deletion on endpoints", asy
     { sourceId: c.id, targetId: d.id },
   );
 
-  await page.evaluate((connectionId) => (
-    window.__APP_TEST_API__.doubleClickConnectionLine(connectionId)
-  ), connection2.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await page.getByTestId("component-editor-input-termdefKind").check();
-  await page.getByTestId("component-editor-apply").click();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection2.id);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await page.getByTestId("connection-termdef-toggle").click();
 
   await expect
     .poll(async () => (await getNode(page, connection2.id))?.summary?.connectionKind ?? null)
@@ -2123,10 +2238,9 @@ test("does not show presentation navigation buttons for hidden connections", asy
     { sourceId: source.id, targetId: target.id },
   );
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), connection.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await page.getByTestId("component-editor-input-hiddenUntilEndpointSelected").check();
-  await page.getByTestId("component-editor-apply").click();
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), connection.id);
+  await expect(page.getByTestId("connection-panel")).toBeVisible();
+  await page.getByTestId("connection-hidden-toggle").click();
 
   await expect
     .poll(async () => (await getNode(page, connection.id))?.summary?.hiddenUntilEndpointSelected ?? false)

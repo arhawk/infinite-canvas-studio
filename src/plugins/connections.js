@@ -543,6 +543,7 @@ export class ConnectionsPlugin extends BasePlugin {
       line.shadowOpacity(isSelected ? 0.22 : 0.08);
 
       if (this.transparentPulseConnectionIds.has(connectionNode.id())) {
+        line.listening(true);
         return;
       }
 
@@ -551,10 +552,13 @@ export class ConnectionsPlugin extends BasePlugin {
       line.fill(stroke);
       if (hiddenUntilEndpointSelected) {
         line.opacity(0);
+        line.listening(false);
       } else if (kind === CONNECTION_KIND_TERMDEF) {
         line.opacity(isSelected ? 1 : TERMDEF_LINE_OPACITY);
+        line.listening(true);
       } else {
         line.opacity(isSelected ? 1 : DEFAULT_LINE_OPACITY);
+        line.listening(true);
       }
     });
 

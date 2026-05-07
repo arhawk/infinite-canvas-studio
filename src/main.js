@@ -17,6 +17,7 @@ import { ShapesPlugin } from "./plugins/shapes.js";
 import { ContextMenuPlugin } from "./plugins/contextMenu.js";
 import { ContainersPlugin } from "./plugins/containers.js";
 import { ConnectionsPlugin } from "./plugins/connections.js";
+import { ConnectionToolbarPlugin } from "./plugins/connectionToolbar.js";
 import { CatalogActionsPlugin } from "./plugins/catalogActions.js";
 import { CatalogPanelPlugin } from "./plugins/catalogPanel.js";
 import { RankingBoxPlugin } from "./plugins/rankingBox.js";
@@ -232,6 +233,7 @@ app.use(CatalogPanelPlugin, {
 app.use(RankingBoxPlugin);
 app.use(MindMapBranchPlugin);
 app.use(ConnectionsPlugin);
+app.use(ConnectionToolbarPlugin);
 app.use(FocusNavigationPlugin);
 app.use(AttachmentsBookmarksPlugin);
 app.use(ContextMenuPlugin);
