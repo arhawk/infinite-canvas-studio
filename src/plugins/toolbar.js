@@ -3158,7 +3158,9 @@ export class ToolbarPlugin extends BasePlugin {
         "aria-label",
         drawLayerVisible ? "Hide drawings" : "Show drawings",
       );
-      drawingVisibilityToggleEl.title = drawLayerVisible ? "Hide drawings" : "Show drawings";
+      drawingVisibilityToggleEl.dataset.tooltip = drawLayerVisible
+        ? "Hide drawings"
+        : "Show drawings";
       drawingVisibilityToggleEl.innerHTML =
         `<i data-lucide="${drawLayerVisible ? "eye" : "eye-off"}" aria-hidden="true"></i>`;
       renderIcons(drawingVisibilityToggleEl, {

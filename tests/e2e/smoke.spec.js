@@ -284,8 +284,8 @@ test("shows save and load actions to the left of share with tooltips", async ({ 
   await expect(saveAction).toBeVisible();
   await expect(loadAction).toBeVisible();
   await expect(shareAction).toBeVisible();
-  await expect(saveAction).toHaveAttribute("title", "Save document (choose HTML or JSON)");
-  await expect(loadAction).toHaveAttribute("title", "Load document");
+  await expect(saveAction).toHaveAttribute("data-tooltip", "Save document (Mod+S)");
+  await expect(loadAction).toHaveAttribute("data-tooltip", "Load document (Mod+O)");
   await expect(saveAction.locator("svg")).toBeVisible();
   await expect(loadAction.locator("svg")).toBeVisible();
 

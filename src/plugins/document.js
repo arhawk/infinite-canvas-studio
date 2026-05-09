@@ -139,8 +139,8 @@ export class DocumentPlugin extends BasePlugin {
         event.preventDefault();
         this.toggleExportMenu();
       });
-      exportEl.title = "Save document (choose HTML or JSON)";
-      exportEl.setAttribute("aria-label", "Save document (choose HTML or JSON)");
+      exportEl.dataset.tooltip = "Save document (Mod+S)";
+      exportEl.setAttribute("aria-label", "Save document (Mod+S)");
     }
 
     if (importEl) {
@@ -152,8 +152,8 @@ export class DocumentPlugin extends BasePlugin {
       this.listenDom(importEl, "click", () => {
         this.openFilePicker();
       });
-      importEl.title = "Load document";
-      importEl.setAttribute("aria-label", "Load document");
+      importEl.dataset.tooltip = "Load document (Mod+O)";
+      importEl.setAttribute("aria-label", "Load document (Mod+O)");
     }
 
     if (importInputEl) {

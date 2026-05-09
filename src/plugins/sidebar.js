@@ -103,7 +103,7 @@ export class SidebarPlugin extends BasePlugin {
       "aria-label",
       this.isCollapsed ? "Expand components" : "Collapse components",
     );
-    toggleEl.title = this.isCollapsed ? "Expand components" : "Collapse components";
+    toggleEl.dataset.tooltip = this.isCollapsed ? "Expand components" : "Collapse components";
   }
 
   syncInteractivity() {

@@ -104,7 +104,7 @@ describe("FloatingToolbarManager", () => {
     expect(button.getAttribute("aria-pressed")).toBe("true");
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("aria-disabled")).toBe("true");
-    expect(button.title).toBe("Rectangle");
+    expect(button.dataset.tooltip).toBe("Rectangle");
     expect(button.getAttribute("aria-label")).toBe("Rectangle");
     expect(button.classList.contains("is-active")).toBe(true);
     expect(button.style.getPropertyValue("--tool-color")).toBe("#d7612f");

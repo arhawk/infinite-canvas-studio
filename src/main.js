@@ -34,6 +34,7 @@ import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
+import { InstantTooltipPlugin } from "./plugins/instantTooltip.js";
 import {
   captureRuntimeHtmlTemplate,
   readEmbeddedSnapshot,
@@ -174,6 +175,7 @@ const app = new App({
 
 // Register LeftToolbarPlugin first so its button elements can be passed to other plugins
 const leftToolbar = app.use(LeftToolbarPlugin);
+app.use(InstantTooltipPlugin);
 
 // Register plugins (order matters: tools before toolbar so buttons render)
 app.use(SelectionPlugin);

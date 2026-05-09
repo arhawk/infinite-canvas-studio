@@ -77,7 +77,7 @@ export class LeftToolbarPlugin extends BasePlugin {
     const historyGroup = document.createElement("div");
     historyGroup.className = "left-toolbar__group";
     this.undoBtn = this._makeBtn("undo-2", "Undo (Mod+Z)", "undo-action");
-    this.redoBtn = this._makeBtn("redo-2", "Redo (Mod+Shift+Z)", "redo-action");
+    this.redoBtn = this._makeBtn("redo-2", "Redo (Mod+Shift+Z / Mod+Y)", "redo-action");
     historyGroup.append(this.undoBtn, this.redoBtn);
     el.appendChild(historyGroup);
 
@@ -95,7 +95,7 @@ export class LeftToolbarPlugin extends BasePlugin {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "left-toolbar__btn";
-    btn.title = label;
+    btn.dataset.tooltip = label;
     btn.setAttribute("aria-label", label);
     if (testid) btn.dataset.testid = testid;
     btn.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`;
@@ -128,7 +128,7 @@ export class LeftToolbarPlugin extends BasePlugin {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "left-toolbar__btn";
-      btn.title = label;
+      btn.dataset.tooltip = label;
       btn.setAttribute("aria-label", label);
       btn.setAttribute("aria-pressed", "false");
       btn.dataset.toolId = toolId;

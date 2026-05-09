@@ -47,7 +47,7 @@ function createToolbarDom() {
               class="toolbar__icon-button toolbar__present-tool"
               type="button"
               aria-label="Hide drawings"
-              title="Hide drawings"
+              data-tooltip="Hide drawings"
               aria-pressed="true"
               hidden
             ></button>

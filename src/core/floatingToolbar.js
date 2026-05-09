@@ -206,7 +206,7 @@ export class FloatingToolbarManager {
       button.hidden = Boolean(state.hidden);
     }
     if (typeof state.title === "string") {
-      button.title = state.title;
+      button.dataset.tooltip = state.title;
     }
     if (typeof state.label === "string") {
       button.setAttribute("aria-label", state.label);
