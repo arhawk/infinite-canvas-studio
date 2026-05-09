@@ -175,6 +175,37 @@ test("toggles board fullscreen with Mod+Shift+F only in presentation mode", asyn
     .toBe(true);
 });
 
+test("keeps the edit canvas visible after narrowing the window", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await clearBoard(page);
+
+  await page.setViewportSize({ width: 840, height: 900 });
+
+  await expect.poll(async () => page.evaluate(() => {
+    const boardShell = document.querySelector(".board-shell");
+    const container = document.querySelector("#canvas-container");
+    const canvas = container?.querySelector("canvas");
+    const boardRect = boardShell?.getBoundingClientRect?.();
+    const containerRect = container?.getBoundingClientRect?.();
+
+    return Boolean(
+      document.body.classList.contains("is-edit-mode") &&
+      boardRect &&
+      containerRect &&
+      boardRect.width > 100 &&
+      boardRect.height > 100 &&
+      containerRect.width > 100 &&
+      containerRect.height > 100 &&
+      canvas &&
+      canvas.width > 100 &&
+      canvas.height > 100,
+    );
+  })).toBe(true);
+
+  await clickPaletteCard(page, "sticky");
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+});
+
 test("adds a sticky note from the palette and deletes it with the keyboard", async ({ page }) => {
   await clickPaletteCard(page, "sticky");
 

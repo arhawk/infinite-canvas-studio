@@ -491,16 +491,38 @@ export class HistoryPlugin extends BasePlugin {
       null;
 
     this.pendingNodeSnapshots.delete(after.id);
-    this.nodeSnapshotCache.set(after.id, clonePlainData(after));
-
-    if (!before || snapshotsEqual(before, after)) {
+    if (!before) {
+      this.nodeSnapshotCache.set(after.id, clonePlainData(after));
       return;
     }
 
-    this.enqueueOperation({
-      type: "update-node",
-      before,
-      after,
+    const changes =
+      before.parentId !== after.parentId || before.zIndex !== after.zIndex
+        ? this.collectRelatedLayerChanges(before, after)
+        : snapshotsEqual(before, after)
+          ? []
+          : [{
+            before: clonePlainData(before),
+            after: clonePlainData(after),
+          }];
+    if (!changes.length && !snapshotsEqual(before, after)) {
+      changes.push({
+        before: clonePlainData(before),
+        after: clonePlainData(after),
+      });
+    }
+
+    changes.forEach(({ after: afterSnapshot }) => {
+      this.pendingNodeSnapshots.delete(afterSnapshot.id);
+      this.nodeSnapshotCache.set(afterSnapshot.id, clonePlainData(afterSnapshot));
+    });
+
+    changes.forEach(({ before: beforeSnapshot, after: afterSnapshot }) => {
+      this.enqueueOperation({
+        type: "update-node",
+        before: beforeSnapshot,
+        after: afterSnapshot,
+      });
     });
   }
 
@@ -551,6 +573,60 @@ export class HistoryPlugin extends BasePlugin {
 
   findDrawingById(id) {
     return id ? this.app.drawLayer.findOne(`#${id}`) : null;
+  }
+
+  getSelectableSnapshotById(id) {
+    if (!id) return null;
+
+    const node = this.findSelectableNodeById(id);
+    if (!node?.getStage?.()) return null;
+
+    return this.snapshotNode(node, this.getSelectableParentId(node));
+  }
+
+  getSelectableIdsForParent(parentId = null) {
+    const parent = parentId
+      ? this.findSelectableNodeById(parentId)
+      : this.app.mainLayer;
+
+    if (!parent?.getChildren) return [];
+
+    return parent.getChildren()
+      .filter((child) => isSelectableNode(child))
+      .map((child) => child.id());
+  }
+
+  collectRelatedLayerChanges(before = null, after = null) {
+    const parentIds = new Set([before?.parentId ?? null, after?.parentId ?? null]);
+    const affectedIds = new Set([before?.id ?? null, after?.id ?? null]);
+
+    parentIds.forEach((parentId) => {
+      this.getSelectableIdsForParent(parentId).forEach((id) => affectedIds.add(id));
+    });
+
+    const changes = [];
+    affectedIds.forEach((id) => {
+      if (!id) return;
+
+      const beforeSnapshot =
+        this.pendingNodeSnapshots.get(id) ??
+        this.nodeSnapshotCache.get(id) ??
+        null;
+      const afterSnapshot = id === after?.id
+        ? clonePlainData(after)
+        : this.getSelectableSnapshotById(id);
+
+      if (!beforeSnapshot || !afterSnapshot || snapshotsEqual(beforeSnapshot, afterSnapshot)) {
+        return;
+      }
+
+      changes.push({
+        before: clonePlainData(beforeSnapshot),
+        after: clonePlainData(afterSnapshot),
+      });
+    });
+
+    return changes;
   }
 
   buildActionToast() {

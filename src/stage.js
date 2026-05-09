@@ -20,13 +20,14 @@ function isRankingItemInteractionTarget(target) {
 
 export class StageController {
   constructor(container, { onZoomChange, onViewportChange } = {}) {
+    const initialSize = this.measureContainerSize(container);
     this.container = container;
     this.onZoomChange = onZoomChange;
     this.onViewportChange = onViewportChange;
     this.stage = new Konva.Stage({
       container,
-      width: container.clientWidth,
-      height: container.clientHeight,
+      width: initialSize.width,
+      height: initialSize.height,
       draggable: false,
     });
 
@@ -50,10 +51,9 @@ export class StageController {
     this.isSpacePressed = false;
     this.gridSignature = null;
     this.pendingResizeFrame = null;
-    this.lastObservedSize = {
-      width: container.clientWidth,
-      height: container.clientHeight,
-    };
+    this.resizeRetryCount = 0;
+    this.lastObservedSize = initialSize;
+    this.lastStableSize = initialSize;
     this.backgroundState = cloneBackgroundState(DEFAULT_BACKGROUND_STATE);
 
     this.onKeyDown = this.onKeyDown.bind(this);
@@ -66,6 +66,7 @@ export class StageController {
 
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("resize", this.onResize);
     this.stage.on("wheel", this.onWheel);
     this.stage.on("mousedown touchstart", this.onPointerDown);
     this.stage.on("mousemove touchmove", this.onPointerMove);
@@ -131,6 +132,26 @@ export class StageController {
       x: (screenPos.x - this.stage.x()) / scale,
       y: (screenPos.y - this.stage.y()) / scale,
     };
+  }
+
+  measureContainerSize(container = this.container) {
+    const rect = container?.getBoundingClientRect?.() ?? null;
+    const rawWidth = rect?.width ?? container?.clientWidth ?? 0;
+    const rawHeight = rect?.height ?? container?.clientHeight ?? 0;
+    const width = Number.isFinite(rawWidth) ? Math.round(rawWidth) : 0;
+    const height = Number.isFinite(rawHeight) ? Math.round(rawHeight) : 0;
+
+    return {
+      width: Math.max(0, width),
+      height: Math.max(0, height),
+    };
+  }
+
+  hasUsableSize(size) {
+    return Number.isFinite(size?.width) &&
+      Number.isFinite(size?.height) &&
+      size.width > 0 &&
+      size.height > 0;
   }
 
   canvasToScreen(canvasPos) {
@@ -410,16 +431,26 @@ export class StageController {
   }
 
   onResize() {
-    this.lastObservedSize = {
-      width: this.container.clientWidth,
-      height: this.container.clientHeight,
-    };
+    this.lastObservedSize = this.measureContainerSize();
 
     if (this.pendingResizeFrame != null) return;
 
     this.pendingResizeFrame = window.requestAnimationFrame(() => {
       this.pendingResizeFrame = null;
-      const { width, height } = this.lastObservedSize;
+      const nextSize = this.measureContainerSize();
+      this.lastObservedSize = nextSize;
+
+      if (!this.hasUsableSize(nextSize)) {
+        if (this.resizeRetryCount < 2) {
+          this.resizeRetryCount += 1;
+          this.onResize();
+        }
+        return;
+      }
+
+      this.resizeRetryCount = 0;
+      this.lastStableSize = nextSize;
+      const { width, height } = nextSize;
 
       if (
         width === this.stage.width() &&
@@ -437,6 +468,7 @@ export class StageController {
   destroy() {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("resize", this.onResize);
     this.resizeObserver.disconnect();
     if (this.pendingResizeFrame != null) {
       window.cancelAnimationFrame(this.pendingResizeFrame);

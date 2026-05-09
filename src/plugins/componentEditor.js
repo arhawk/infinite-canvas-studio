@@ -15,6 +15,7 @@ const MIGRATED_FLOATING_TOOLBAR_COMPONENTS = new Set([
   "video",
   "text",
   "connection",
+  "iframe",
 ]);
 
 function isFloatingToolbarMigrated(node) {

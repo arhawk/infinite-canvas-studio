@@ -210,6 +210,24 @@ export class App {
     return this.getSelectableSiblings(node).length;
   }
 
+  getSelectableStackIndex(node) {
+    if (!node) return -1;
+
+    if (typeof node.getAbsoluteZIndex === "function") {
+      const absoluteIndex = node.getAbsoluteZIndex();
+      if (Number.isFinite(absoluteIndex)) return absoluteIndex;
+    }
+
+    const chain = [];
+    let current = node;
+    while (current) {
+      chain.unshift(current.zIndex?.() ?? 0);
+      current = current.getParent?.() ?? null;
+    }
+
+    return chain.reduce((total, value) => total * 1000 + value, 0);
+  }
+
   applySelectableOrder(parent, orderedSelectableChildren = []) {
     if (!parent?.getChildren) return false;
 

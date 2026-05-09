@@ -175,6 +175,7 @@ export class VideoComponent extends BaseComponent {
     overlay.style.width = `${node.width()}px`;
     overlay.style.height = `${node.height()}px`;
     overlay.style.opacity = String(node.opacity?.() ?? 1);
+    overlay.style.zIndex = String(Math.max(1, this.app.getSelectableStackIndex?.(node) ?? 1));
     overlay.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
   }
 

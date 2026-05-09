@@ -305,10 +305,8 @@ function getNodeSummary(node) {
 
   if (componentType === "iframe") {
     const overlay = node._iframeOverlayEl ?? null;
-    const urlLabel = overlay?.querySelector?.(".iframe-component__url") ?? null;
-    const modeButton = overlay?.querySelector?.(".iframe-component__mode") ?? null;
-    const closeButton = overlay?.querySelector?.(".iframe-component__close") ?? null;
     const frame = overlay?.querySelector?.(".iframe-component__frame") ?? null;
+    const shield = overlay?.querySelector?.(".iframe-component__shield") ?? null;
 
     return {
       url: node.getAttr("iframeUrl") ?? "",
@@ -317,10 +315,10 @@ function getNodeSummary(node) {
       panY: Number(node.getAttr("iframePanY")) || 0,
       interactive: node.getAttr("iframeInteractive") === true,
       hasOverlay: Boolean(overlay),
-      hasTopbar: Boolean(overlay?.querySelector?.(".iframe-component__topbar")),
-      hasCloseButton: Boolean(closeButton),
-      displayedUrl: urlLabel?.textContent?.trim() ?? "",
-      modeLabel: modeButton?.textContent?.trim() ?? "",
+      overlayZIndex: overlay?.style?.zIndex ?? "",
+      hasShield: Boolean(shield),
+      shieldHidden: shield?.hidden ?? null,
+      framePointerEvents: frame?.style?.pointerEvents ?? "",
       frameSrc: frame?.getAttribute?.("src") ?? "",
     };
   }
@@ -765,6 +763,10 @@ export function setupAppTestApi(app) {
       if (!connectionsPlugin?.startConnecting) return false;
       connectionsPlugin.startConnecting(sourceId);
       return connectionsPlugin.connectingFromId === sourceId;
+    },
+    getActiveConnectionSourceId: () => {
+      const connectionsPlugin = getPlugin(app, "connections");
+      return connectionsPlugin?.connectingFromId ?? null;
     },
     doubleClickConnectionLine: (id) => {
       const node = getNodeById(app, id);

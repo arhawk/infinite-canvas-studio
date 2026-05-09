@@ -527,7 +527,7 @@ test("reorders component layers and preserves them through undo and document rou
   await expect(page.getByTestId("sticky-layer-bring-forward")).toBeEnabled();
   await expect(page.getByTestId("sticky-layer-send-backward")).toBeDisabled();
 
-  await page.evaluate((id) => window.__APP_TEST_API__.bringNodeForward(id), first.id);
+  await page.getByTestId("sticky-layer-bring-forward").click();
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
     second.id,
     first.id,
@@ -541,7 +541,9 @@ test("reorders component layers and preserves them through undo and document rou
     first.id,
   ]);
 
-  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeBackward(id), first.id);
+  await page.getByTestId("sticky-layer-menu").click();
+  await expect(page.getByTestId("sticky-layer-send-backward")).toBeEnabled();
+  await page.getByTestId("sticky-layer-send-backward").click();
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
     second.id,
     first.id,
@@ -3159,110 +3161,420 @@ test("captures the JavaScript editor into a page and keeps it aligned when the p
   expect(afterMove.bounds.y - beforeMove.bounds.y).toBeCloseTo(140, 1);
 });
 
-test("shows iframe in the palette and creates it through the component editor workflow", async ({ page }) => {
-  const firstUrl = buildIframePageUrl({ title: "Initial iframe page" });
-  const iframeCard = page.getByTestId("palette-card-iframe");
-
-  await page.getByTestId("components-trigger").click();
-  await expect(iframeCard).toBeVisible();
-  await expect(iframeCard).toContainText("Iframe");
-  await expect(iframeCard).toContainText("https://");
-
-  const iframeId = await createNodeFromPalette(page, "iframe");
-  expect(iframeId).toBeTruthy();
-
-  await expect
-    .poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null)
-    .toBe("");
-
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), iframeId);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await expect(page.getByTestId("component-editor-title")).toHaveText("Iframe");
-  await expect(page.getByTestId("component-editor-input-url")).toBeVisible();
-  await expect(page.getByTestId("component-editor-cancel")).toBeVisible();
-  await expect(page.getByTestId("component-editor-apply")).toBeVisible();
-
-  await page.getByTestId("component-editor-input-url").fill(firstUrl);
-  await page.getByTestId("component-editor-cancel").click();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
-
-  await expect
-    .poll(async () => (await getNode(page, iframeId))?.summary ?? null)
-    .toMatchObject({
-      url: "",
-      hasOverlay: false,
-    });
-
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), iframeId);
-  await expect(page.getByTestId("component-editor-dialog")).toBeVisible();
-  await page.getByTestId("component-editor-input-url").fill(firstUrl);
-  await page.getByTestId("component-editor-apply").click();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
-
-  await expect
-    .poll(async () => (await getNode(page, iframeId))?.summary ?? null)
-    .toMatchObject({
-      url: firstUrl,
-      hasOverlay: true,
-      hasTopbar: true,
-      hasCloseButton: true,
-      frameSrc: firstUrl,
-    });
-
-  await expect(page.locator(".iframe-component__overlay")).toBeVisible();
-  await expect(page.locator(".iframe-component__topbar")).toBeVisible();
-  await expect(page.locator(".iframe-component__url")).toContainText("data:text/html");
-  await expect(page.locator(".iframe-component__close")).toBeVisible();
-});
-
-test("supports inline iframe URL editing, interaction mode, and closing the iframe", async ({ page }) => {
-  const firstUrl = buildIframePageUrl({ title: "Interactive iframe page", clickedText: "first-click" });
-  const secondUrl = buildIframePageUrl({ title: "Updated iframe page", clickedText: "updated-click" });
+test("shows iframe actions in the embedded header bar without reopening the modal editor", async ({ page }) => {
+  const iframeUrl = buildIframePageUrl({ title: "Toolbar iframe" });
   const iframe = await addComponent(page, "iframe", {
-    x: 220,
+    x: 420,
     y: 220,
-    url: firstUrl,
+    url: iframeUrl,
+  });
+  const center = await getNodePageCenter(page, iframe.id);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframe.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("iframe-header-bar")).toBeVisible();
+  await expect(page.getByTestId("iframe-url-input")).toHaveValue(iframeUrl);
+  await expect(page.getByTestId("iframe-url-apply")).toHaveCount(0);
+  await expect(page.getByTestId("iframe-interact")).toBeVisible();
+  await expect(page.getByTestId("iframe-connect")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-menu")).toBeVisible();
+  const headerLayout = await page.locator(".iframe-component__overlay").evaluate((overlay) => {
+    const header = overlay.querySelector(".iframe-component__topbar");
+    const input = overlay.querySelector("[data-testid='iframe-url-input']");
+    const interact = overlay.querySelector("[data-testid='iframe-interact']");
+    const link = overlay.querySelector("[data-testid='iframe-connect']");
+    const menu = overlay.querySelector("[data-testid='iframe-layer-menu']");
+    const toBox = (element) => {
+      const rect = element?.getBoundingClientRect?.();
+      return rect
+        ? {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+          width: rect.width,
+        }
+        : null;
+    };
+
+    return {
+      header: toBox(header),
+      input: toBox(input),
+      interact: toBox(interact),
+      link: toBox(link),
+      menu: toBox(menu),
+    };
+  });
+  expect(headerLayout.input.width).toBeGreaterThan(120);
+  expect(headerLayout.input.left).toBeGreaterThanOrEqual(headerLayout.header.left - 1);
+  expect(headerLayout.input.right).toBeLessThanOrEqual(headerLayout.header.right + 1);
+  expect(headerLayout.interact.top).toBeGreaterThanOrEqual(headerLayout.header.top - 1);
+  expect(headerLayout.interact.bottom).toBeLessThanOrEqual(headerLayout.header.bottom + 2);
+  expect(headerLayout.link.top).toBeGreaterThanOrEqual(headerLayout.header.top - 1);
+  expect(headerLayout.link.bottom).toBeLessThanOrEqual(headerLayout.header.bottom + 2);
+  expect(headerLayout.menu.top).toBeGreaterThanOrEqual(headerLayout.header.top - 1);
+  expect(headerLayout.menu.bottom).toBeLessThanOrEqual(headerLayout.header.bottom + 2);
+  await expect.poll(async () => (await getNode(page, iframe.id))?.summary ?? null).toMatchObject({
+    hasOverlay: true,
+    hasShield: true,
+    shieldHidden: false,
+    framePointerEvents: "none",
   });
 
+  const opened = await page.evaluate((nodeId) => (
+    window.__APP_TEST_API__.openComponentEditor(nodeId)
+  ), iframe.id);
+  expect(opened).toBe(false);
+  await page.mouse.dblclick(center.x, center.y);
+  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
+  await expect(page.getByText("Edit...")).toHaveCount(0);
+});
+
+test("edits iframe URL from the embedded header bar and preserves it through undo, reload, and present mode", async ({ page }) => {
+  const firstUrl = buildIframePageUrl({ title: "Initial iframe page", clickedText: "first-click" });
+  const secondUrl = buildIframePageUrl({ title: "Updated iframe page", clickedText: "updated-click" });
+  const iframe = await addComponent(page, "iframe", { x: 240, y: 180 });
+  const iframeId = iframe.id;
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframeId);
+  await expect(page.getByTestId("iframe-header-bar")).toBeVisible();
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null).toBe("");
+  await expect(page.getByTestId("iframe-url-input")).toHaveValue("");
+  await expect(page.getByTestId("iframe-url-apply")).toHaveCount(0);
+  await page.getByTestId("iframe-url-input").focus();
+  await setInputValue(page, "iframe-url-input", firstUrl);
+  await page.getByTestId("iframe-url-input").press("Enter");
+
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary ?? null).toMatchObject({
+    url: firstUrl,
+    hasOverlay: true,
+    hasShield: true,
+    shieldHidden: false,
+    framePointerEvents: "none",
+    frameSrc: firstUrl,
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary ?? null).toMatchObject({
+    url: "",
+    hasOverlay: true,
+    frameSrc: "about:blank",
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null).toBe(firstUrl);
+  await expect(page.getByTestId("iframe-url-input")).toHaveValue(firstUrl);
+  await expect(page.getByTestId("iframe-interact")).toBeVisible();
+
+  await page.getByTestId("iframe-connect").click();
   await expect
-    .poll(async () => (await getNode(page, iframe.id))?.summary?.hasOverlay ?? false)
-    .toBe(true);
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getActiveConnectionSourceId()))
+    .toBe(iframeId);
 
-  await expect(page.locator(".iframe-component__url")).toBeVisible();
-  await page.locator(".iframe-component__url").dblclick();
+  await page.getByTestId("iframe-layer-menu").click();
+  await expect(page.getByTestId("iframe-layer-bring-forward")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-send-backward")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-edit")).toHaveCount(0);
+  const menuTriggerBox = await page.getByTestId("iframe-layer-menu").boundingBox();
+  const layerMenuBox = await page.locator(".toolbar__iframe-layer-popover").boundingBox();
+  expect(menuTriggerBox).toBeTruthy();
+  expect(layerMenuBox).toBeTruthy();
+  expect(Math.abs((layerMenuBox?.x ?? 0) - (menuTriggerBox?.x ?? 0))).toBeLessThan(180);
+  expect(Math.abs((layerMenuBox?.y ?? 0) - ((menuTriggerBox?.y ?? 0) + (menuTriggerBox?.height ?? 0)))).toBeLessThan(120);
+  await page.getByTestId("iframe-layer-menu").click();
+  await expect(page.locator(".toolbar__iframe-layer-popover")).toHaveCSS("pointer-events", "none");
+  await setInputValue(page, "iframe-url-input", "openai.com/iframe-updated");
+  await page.getByTestId("iframe-url-input").press("Enter");
+  const normalizedSecondUrl = "https://openai.com/iframe-updated";
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null).toBe(normalizedSecondUrl);
+  await expect(page.getByTestId("iframe-url-input")).toHaveValue(normalizedSecondUrl);
 
-  const inlineInput = page.locator(".iframe-component__url-input");
-  await expect(inlineInput).toBeVisible();
-  await inlineInput.fill(secondUrl);
-  await inlineInput.press("Enter");
+  await setInputValue(page, "iframe-url-input", secondUrl);
+  await page.getByTestId("iframe-url-input").press("Enter");
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null).toBe(secondUrl);
+  await expect(page.getByTestId("iframe-url-input")).toHaveValue(secondUrl);
 
-  await expect
-    .poll(async () => (await getNode(page, iframe.id))?.summary ?? null)
-    .toMatchObject({
-      url: secondUrl,
-      frameSrc: secondUrl,
-      interactive: false,
-      modeLabel: "Interact",
-    });
+  await page.getByTestId("iframe-interact").click();
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary ?? null).toMatchObject({
+    interactive: true,
+    shieldHidden: true,
+    framePointerEvents: "auto",
+  });
 
-  await page.locator(".iframe-component__mode").click();
-  await expect
-    .poll(async () => (await getNode(page, iframe.id))?.summary?.interactive ?? false)
-    .toBe(true);
-  await expect(page.locator(".iframe-component__mode")).toHaveText("Done");
-
-  const frame = page.frameLocator(".iframe-component__frame");
+  let frame = page.frameLocator(".iframe-component__frame");
   await frame.getByTestId("iframe-action").click();
   await expect(frame.getByTestId("click-status")).toHaveText("updated-click");
 
-  await page.locator(".iframe-component__mode").click();
-  await expect
-    .poll(async () => (await getNode(page, iframe.id))?.summary?.interactive ?? true)
-    .toBe(false);
+  await page.getByTestId("iframe-interact").click();
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary ?? null).toMatchObject({
+    interactive: false,
+    shieldHidden: false,
+    framePointerEvents: "none",
+  });
 
-  await page.locator(".iframe-component__close").click();
-  await expect.poll(async () => await getNode(page, iframe.id)).toBeNull();
-  await expect(page.locator(".iframe-component__overlay")).toHaveCount(0);
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary?.url ?? null).toBe(secondUrl);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframeId);
+  await expect(page.getByTestId("iframe-url-input")).toHaveValue(secondUrl);
+
+  const centerAfterReload = await getNodePageCenter(page, iframeId);
+  await page.mouse.click(centerAfterReload.x, centerAfterReload.y, { button: "right" });
+  await expect(page.locator(".toolbar__iframe-layer-popover")).toHaveCSS("pointer-events", "auto");
+  await expect(page.getByTestId("iframe-layer-bring-forward")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-send-backward")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-edit")).toHaveCount(0);
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
+  await expect(page.getByTestId("iframe-header-bar")).toBeHidden();
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary ?? null).toMatchObject({
+    interactive: true,
+    shieldHidden: true,
+    framePointerEvents: "auto",
+  });
+
+  frame = page.frameLocator(".iframe-component__frame");
+  await frame.getByTestId("iframe-action").click();
+  await expect(frame.getByTestId("click-status")).toHaveText("updated-click");
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("edit"));
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframeId);
+  await expect.poll(async () => (await getNode(page, iframeId))?.summary ?? null).toMatchObject({
+    interactive: false,
+    shieldHidden: false,
+    framePointerEvents: "none",
+  });
+});
+
+test("keeps iframe chrome corners consistent and reorders layers from the iframe menu", async ({ page }) => {
+  const iframe = await addComponent(page, "iframe", {
+    x: 260,
+    y: 180,
+    url: buildIframePageUrl({ title: "Layered iframe" }),
+  });
+  const sticky = await addComponent(page, "sticky", {
+    x: 320,
+    y: 240,
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframe.id);
+  await expect(page.getByTestId("iframe-header-bar")).toBeVisible();
+
+  const chrome = await page.locator(".iframe-component__overlay").evaluate((overlay) => {
+    const topbar = overlay.querySelector(".iframe-component__topbar");
+    const body = overlay.querySelector(".iframe-component__body");
+    const viewport = overlay.querySelector(".iframe-component__viewport");
+    const overlayStyle = getComputedStyle(overlay);
+    const topbarStyle = topbar ? getComputedStyle(topbar) : null;
+    const bodyStyle = body ? getComputedStyle(body) : null;
+    const viewportStyle = viewport ? getComputedStyle(viewport) : null;
+
+    return {
+      overlay: {
+        overflow: overlayStyle.overflow,
+        topLeft: overlayStyle.borderTopLeftRadius,
+        topRight: overlayStyle.borderTopRightRadius,
+        bottomLeft: overlayStyle.borderBottomLeftRadius,
+        bottomRight: overlayStyle.borderBottomRightRadius,
+      },
+      topbar: topbarStyle ? {
+        topLeft: topbarStyle.borderTopLeftRadius,
+        topRight: topbarStyle.borderTopRightRadius,
+      } : null,
+      body: bodyStyle ? {
+        overflow: bodyStyle.overflow,
+        bottomLeft: bodyStyle.borderBottomLeftRadius,
+        bottomRight: bodyStyle.borderBottomRightRadius,
+      } : null,
+      viewport: viewportStyle ? {
+        overflow: viewportStyle.overflow,
+      } : null,
+    };
+  });
+
+  expect(chrome).toEqual({
+    overlay: {
+      overflow: "hidden",
+      topLeft: "18px",
+      topRight: "18px",
+      bottomLeft: "18px",
+      bottomRight: "18px",
+    },
+    topbar: {
+      topLeft: "18px",
+      topRight: "18px",
+    },
+    body: {
+      overflow: "hidden",
+      bottomLeft: "18px",
+      bottomRight: "18px",
+    },
+    viewport: {
+      overflow: "hidden",
+    },
+  });
+
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    iframe.id,
+    sticky.id,
+  ]);
+  const initialOverlayZIndex = Number((await getNode(page, iframe.id))?.summary?.overlayZIndex ?? 0);
+
+  await page.getByTestId("iframe-layer-menu").click();
+  await expect(page.getByTestId("iframe-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("iframe-layer-send-backward")).toBeDisabled();
+  await page.getByTestId("iframe-layer-bring-forward").click();
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    sticky.id,
+    iframe.id,
+  ]);
+  await expect.poll(async () => Number((await getNode(page, iframe.id))?.summary?.overlayZIndex ?? 0))
+    .toBeGreaterThan(initialOverlayZIndex);
+
+  await page.getByTestId("iframe-layer-menu").click();
+  await expect(page.getByTestId("iframe-layer-send-backward")).toBeEnabled();
+  await page.getByTestId("iframe-layer-send-backward").click();
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    iframe.id,
+    sticky.id,
+  ]);
+
+  await page.evaluate(() => window.__APP_TEST_API__.undo());
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    sticky.id,
+    iframe.id,
+  ]);
+
+  await page.evaluate(() => window.__APP_TEST_API__.redo());
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    iframe.id,
+    sticky.id,
+  ]);
+});
+
+test("zooms the canvas around the pointer, clamps minimum scale, and preserves viewport through document reload", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", {
+    x: 220,
+    y: 180,
+  });
+  const iframe = await addComponent(page, "iframe", {
+    x: 520,
+    y: 260,
+    url: buildIframePageUrl({ title: "Viewport restore iframe" }),
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+  await waitForPaint(page);
+
+  const stickyBefore = await getNode(page, sticky.id);
+  const iframeBefore = await getNode(page, iframe.id);
+  const canvasRect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
+  const pointer = {
+    x: canvasRect.left + 140,
+    y: canvasRect.top + 140,
+  };
+  const canvasPointAtPointer = async () => page.evaluate(({ x, y }) => {
+    const rect = window.__APP_TEST_API__.getCanvasContainerRect();
+    const viewport = window.__APP_TEST_API__.getViewportState();
+    return {
+      x: (x - rect.left - viewport.position.x) / viewport.scale,
+      y: (y - rect.top - viewport.position.y) / viewport.scale,
+    };
+  }, pointer);
+  const pointerCanvasBefore = await canvasPointAtPointer();
+
+  await page.mouse.move(pointer.x, pointer.y);
+  for (let index = 0; index < 5; index += 1) {
+    await page.mouse.wheel(0, -120);
+  }
+  await waitForPaint(page);
+
+  const zoomedViewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  const pointerCanvasAfterZoom = await canvasPointAtPointer();
+  expect(zoomedViewport.scale).toBeGreaterThan(1);
+  expect(pointerCanvasAfterZoom.x).toBeCloseTo(pointerCanvasBefore.x, 3);
+  expect(pointerCanvasAfterZoom.y).toBeCloseTo(pointerCanvasBefore.y, 3);
+  expect((await getNode(page, iframe.id)).bounds).toEqual(iframeBefore.bounds);
+  expect((await getNode(page, sticky.id)).bounds).toEqual(stickyBefore.bounds);
+
+  await page.mouse.move(pointer.x, pointer.y);
+  for (let index = 0; index < 120; index += 1) {
+    await page.mouse.wheel(0, 120);
+  }
+  await waitForPaint(page);
+
+  const clampedViewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  expect(clampedViewport.scale).toBeCloseTo(0.1, 6);
+  expect(clampedViewport.scale).toBeGreaterThanOrEqual(0.1);
+  expect((await getNode(page, sticky.id)).bounds).toEqual(stickyBefore.bounds);
+  expect((await getNode(page, iframe.id)).bounds).toEqual(iframeBefore.bounds);
+
+  const exported = await page.evaluate(() => window.__APP_TEST_API__.exportDocument());
+  const viewportBeforeReload = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  await page.evaluate(() => window.__APP_TEST_API__.clearBoard());
+  await page.evaluate((snapshot) => window.__APP_TEST_API__.loadDocument(snapshot), exported);
+  await waitForPaint(page);
+
+  const restoredViewport = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+  expect(restoredViewport.scale).toBeCloseTo(viewportBeforeReload.scale, 6);
+  expect(restoredViewport.position.x).toBeCloseTo(viewportBeforeReload.position.x, 3);
+  expect(restoredViewport.position.y).toBeCloseTo(viewportBeforeReload.position.y, 3);
+  expect((await getNode(page, sticky.id)).bounds).toEqual(stickyBefore.bounds);
+  expect((await getNode(page, iframe.id)).bounds).toEqual(iframeBefore.bounds);
+});
+
+test("keeps iframe action buttons from triggering drag and still allows dragging from the shield", async ({ page }) => {
+  const iframe = await addComponent(page, "iframe", {
+    x: 280,
+    y: 220,
+    url: buildIframePageUrl({ title: "Iframe controls" }),
+  });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframe.id);
+  await waitForPaint(page);
+
+  const before = await getNode(page, iframe.id);
+
+  await page.getByTestId("iframe-connect").click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getActiveConnectionSourceId()))
+    .toBe(iframe.id);
+  expect((await getNode(page, iframe.id)).bounds).toEqual(before.bounds);
+
+  await page.getByTestId("iframe-layer-menu").click();
+  await expect(page.locator(".toolbar__iframe-layer-popover")).toHaveCSS("pointer-events", "auto");
+  expect((await getNode(page, iframe.id)).bounds).toEqual(before.bounds);
+  await page.getByTestId("iframe-layer-menu").click();
+
+  await page.getByTestId("iframe-interact").click();
+  await expect.poll(async () => (await getNode(page, iframe.id))?.summary ?? null).toMatchObject({
+    interactive: true,
+    framePointerEvents: "auto",
+  });
+  await expect(page.getByTestId("iframe-url-input")).not.toBeFocused();
+  expect((await getNode(page, iframe.id)).bounds).toEqual(before.bounds);
+
+  await page.getByTestId("iframe-interact").click();
+  await expect.poll(async () => (await getNode(page, iframe.id))?.summary?.interactive ?? true).toBe(false);
+
+  const shieldBox = await page.locator(".iframe-component__shield").boundingBox();
+  const start = {
+    x: shieldBox.x + shieldBox.width / 2,
+    y: shieldBox.y + shieldBox.height / 2,
+  };
+  const end = {
+    x: start.x + 90,
+    y: start.y + 60,
+  };
+  await dragBetweenPagePoints(page, start, end);
+
+  const afterDrag = await getNode(page, iframe.id);
+  expect(afterDrag.bounds.x).toBeGreaterThan(before.bounds.x + 50);
+  expect(afterDrag.bounds.y).toBeGreaterThan(before.bounds.y + 30);
 });
 
 test("keeps iframe draggable and clamps zoom back to the fit-to-view minimum after resize", async ({ page }) => {

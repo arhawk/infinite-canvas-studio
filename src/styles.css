@@ -1478,7 +1478,8 @@ body.is-room-viewer #load-document-action {
 
 .toolbar__shape-layer-popover,
 .toolbar__button-layer-popover,
-.toolbar__sticky-layer-popover {
+.toolbar__sticky-layer-popover,
+.toolbar__iframe-layer-popover {
   top: 0;
   right: auto;
   left: calc(100% + 0.34rem);
@@ -1601,7 +1602,8 @@ body.is-room-viewer #load-document-action {
 
 .toolbar__shape-layer-tool:focus-within .toolbar__shape-layer-popover,
 .toolbar__button-layer-tool:focus-within .toolbar__button-layer-popover,
-.toolbar__sticky-layer-tool:focus-within .toolbar__sticky-layer-popover {
+.toolbar__sticky-layer-tool:focus-within .toolbar__sticky-layer-popover,
+.toolbar__iframe-layer-tool:focus-within .toolbar__iframe-layer-popover {
   opacity: 1;
   pointer-events: auto;
   transform: none;
@@ -1609,7 +1611,8 @@ body.is-room-viewer #load-document-action {
 
 .toolbar__shape-layer-tool.is-context-open .toolbar__shape-layer-popover,
 .toolbar__button-layer-tool.is-context-open .toolbar__button-layer-popover,
-.toolbar__sticky-layer-tool.is-context-open .toolbar__sticky-layer-popover {
+.toolbar__sticky-layer-tool.is-context-open .toolbar__sticky-layer-popover,
+.toolbar__iframe-layer-tool.is-context-open .toolbar__iframe-layer-popover {
   position: absolute;
   top: var(--shape-layer-menu-top, 0);
   right: auto;
@@ -2558,7 +2561,7 @@ body.is-room-viewer #load-document-action {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 9;
+  z-index: 24;
   overflow: hidden;
   border: 1px solid rgba(201, 179, 147, 0.9);
   border-radius: 18px;
@@ -2568,85 +2571,153 @@ body.is-room-viewer #load-document-action {
   transform-origin: 0 0;
   display: flex;
   flex-direction: column;
+  isolation: isolate;
   pointer-events: auto;
 }
 
 .iframe-component__topbar {
+  position: relative;
+  z-index: 6;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.55rem;
-  min-height: 38px;
-  padding: 0.45rem 0.75rem;
+  min-height: 44px;
+  padding: 0.42rem 0.65rem 0.42rem 0.7rem;
   border-bottom: 1px solid rgba(171, 79, 40, 0.12);
   background: rgba(255, 250, 242, 0.96);
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   pointer-events: auto;
-  cursor: grab;
+}
+
+.iframe-component__topbar[hidden] {
+  display: none !important;
+}
+
+.iframe-component__url-form {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.iframe-component__url-input {
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 1.9rem;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid rgba(61, 47, 32, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  font-size: 0.76rem;
+  line-height: 1.2;
+  font-family: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.iframe-component__url-input::placeholder {
+  color: rgba(110, 101, 88, 0.82);
+}
+
+.iframe-component__url-input:focus {
+  outline: 2px solid rgba(215, 97, 47, 0.18);
+  border-color: rgba(215, 97, 47, 0.34);
+}
+
+.iframe-component__url-input:disabled {
+  opacity: 0.55;
+}
+
+.iframe-component__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.9rem;
+  border: 1px solid rgba(61, 47, 32, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.iframe-component__action-btn:hover:not(:disabled),
+.iframe-component__menu-tool.is-open .iframe-component__menu-trigger {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(215, 97, 47, 0.24);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.iframe-component__action-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .iframe-component__actions {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
-}
-
-.iframe-component__url,
-.iframe-component__url-input {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.76rem;
-  line-height: 1.2;
-}
-
-.iframe-component__url {
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: text;
-  user-select: text;
-}
-
-.iframe-component__url:hover {
-  color: var(--ink);
-}
-
-.iframe-component__url-input {
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--ink);
-  outline: none;
-  font-family: inherit;
-}
-
-.iframe-component__close {
-  flex-shrink: 0;
+  gap: 0.4rem;
+  flex: 0 0 auto;
   pointer-events: auto;
 }
 
-.iframe-component__mode {
-  border: 1px solid rgba(171, 79, 40, 0.16);
-  border-radius: 999px;
-  padding: 0.26rem 0.58rem;
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--muted);
+.iframe-component__interact {
+  padding: 0 0.72rem;
   font-size: 0.72rem;
   font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 0.01em;
 }
 
-.iframe-component__mode:hover {
-  color: var(--ink);
-  border-color: rgba(171, 79, 40, 0.28);
-}
-
-.iframe-component__mode[aria-pressed="true"] {
-  background: rgba(215, 97, 47, 0.12);
+.iframe-component__interact.is-active {
+  background: rgba(215, 97, 47, 0.16);
+  border-color: rgba(215, 97, 47, 0.36);
   color: var(--accent);
-  border-color: rgba(215, 97, 47, 0.28);
+}
+
+.iframe-component__connect {
+  width: 1.9rem;
+  padding: 0;
+}
+
+.iframe-component__connect svg,
+.iframe-component__menu-trigger svg {
+  width: 0.92rem;
+  height: 0.92rem;
+}
+
+.iframe-component__menu-tool {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.iframe-component__menu-trigger {
+  width: 1.9rem;
+  padding: 0;
+}
+
+.iframe-component__layer-popover {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  left: auto;
+  min-width: 9.75rem;
+  z-index: 40;
+}
+
+.iframe-component__menu-tool.is-open .iframe-component__layer-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
 }
 
 .iframe-component__body {
@@ -2654,10 +2725,18 @@ body.is-room-viewer #load-document-action {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  border-radius: 0 0 18px 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 254, 250, 0.92), rgba(250, 245, 236, 0.96));
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: auto;
+  z-index: 1;
+}
+
+.iframe-component__body.has-header {
+  min-height: 0;
 }
 
 .iframe-component__body.is-interactive {
@@ -2669,6 +2748,8 @@ body.is-room-viewer #load-document-action {
   top: 0;
   left: 0;
   flex: none;
+  overflow: hidden;
+  border-radius: inherit;
   transform-origin: 0 0;
   transition: transform 0.16s ease;
 }
@@ -2680,13 +2761,14 @@ body.is-room-viewer #load-document-action {
 .iframe-component__shield {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 3;
   background: transparent;
   cursor: grab;
 }
 
 .iframe-component__frame {
   border: none;
+  border-radius: inherit;
   display: block;
   background: #ffffff;
   position: relative;
@@ -2699,6 +2781,7 @@ body.is-room-viewer #load-document-action {
   left: 12px;
   right: 12px;
   bottom: 12px;
+  z-index: 4;
   margin: 0;
   padding: 0.6rem 0.7rem;
   border: 1px solid rgba(201, 183, 156, 0.85);
@@ -2713,6 +2796,17 @@ body.is-room-viewer #load-document-action {
 .iframe-component__status[data-tone="warning"] {
   color: #8f4432;
   border-color: rgba(191, 110, 88, 0.4);
+}
+
+@media (max-width: 960px) {
+  .iframe-component__topbar {
+    gap: 0.42rem;
+    padding-inline: 0.5rem;
+  }
+
+  .iframe-component__url-input {
+    font-size: 0.72rem;
+  }
 }
 
 .javascript-editor-component__overlay {
@@ -3530,11 +3624,14 @@ body.is-room-viewer #load-document-action {
 .board-shell {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
 .canvas-container {
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
   --canvas-bg-color: var(--canvas-base-bg);
@@ -3794,12 +3891,13 @@ body.is-room-viewer #load-document-action {
 }
 
 @media (max-width: 900px) {
-  .app-shell {
+  .workspace__content {
     flex-direction: column;
   }
 
   .catalog-sidebar {
     width: auto;
+    min-height: 9rem;
     border-left: 0;
     border-top: 1px solid var(--line);
   }
