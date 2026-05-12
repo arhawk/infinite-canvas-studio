@@ -157,6 +157,9 @@ function createApp(mode = "edit") {
     setEditorTool(toolId) {
       this.editorTool = toolId;
     },
+    stage: {
+      container: () => document.querySelector(".workspace"),
+    },
   };
 }
 
@@ -164,7 +167,13 @@ function createPlugin(app) {
   const penDropdownPlugin = {
     setCallbacks: vi.fn(),
     setState: vi.fn(),
+    setAnchorElement: vi.fn(),
+    clearAnchorElement: vi.fn(),
+    hasCustomAnchor: vi.fn(() => false),
+    isOpen: vi.fn(() => false),
+    open: vi.fn(),
     close: vi.fn(),
+    reposition: vi.fn(),
   };
 
   return new ToolbarPlugin(app, {
@@ -224,12 +233,17 @@ describe("ToolbarPlugin", () => {
     const drawingVisibilityToggleEl = document.querySelector("#drawing-visibility-toggle");
 
     plugin.setup();
+    const fabEl = document.querySelector("[data-testid='presentation-brush-fab']");
+    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
 
     expect(document.body.classList.contains("is-presentation-mode")).toBe(true);
     expect(document.body.classList.contains("is-edit-mode")).toBe(false);
     expect(hoverZoneEl.hidden).toBe(false);
     expect(toolbarEl.classList.contains("is-visible")).toBe(false);
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
+    expect(fabEl.hidden).toBe(false);
+    expect(fabShellEl.dataset.edge).toBe("left");
+    expect(fabShellEl.style.left).toBe("20px");
   });
 
   it("shows the toolbar when the pointer enters the presentation hover zone", () => {
@@ -380,12 +394,13 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("toolbar--no-transition")).toBe(false);
   });
 
-  it("closes pen and eraser popups after switching to presentation mode", () => {
+  it("shows the presentation floating brush ball and closes edit brush popups after switching to presentation mode", () => {
     const app = createApp("edit");
     app.editorTool = "pen";
     const plugin = createPlugin(app);
 
     plugin.setup();
+    const fabEl = document.querySelector("[data-testid='presentation-brush-fab']");
     plugin.penDropdown.open = vi.fn();
     plugin.penDropdown.close = vi.fn();
     plugin.openEraserPanel();
@@ -396,5 +411,95 @@ describe("ToolbarPlugin", () => {
 
     expect(plugin.penDropdown.close).toHaveBeenCalled();
     expect(plugin.eraserPanelOpen).toBe(false);
+    expect(fabEl.hidden).toBe(false);
+  });
+
+  it("snaps the presentation floating brush ball back to the nearest edge after release", () => {
+    const app = createApp("presentation");
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
+
+    plugin.presentationBrushFabDock = plugin.getPresentationBrushFabDockFromPosition({
+      x: 120,
+      y: 620,
+    });
+    plugin.syncPresentationBrushFabPosition();
+
+    expect(fabShellEl.dataset.edge).toBe("bottom");
+    expect(fabShellEl.style.left).toBe("120px");
+    expect(fabShellEl.style.top).toBe("692px");
+  });
+
+  it("keeps the presentation brush panel inside the viewport when docked near the bottom edge", () => {
+    const app = createApp("presentation");
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
+    const panelEl = document.querySelector("[data-testid='presentation-brush-panel']");
+
+    Object.defineProperty(panelEl, "offsetWidth", {
+      configurable: true,
+      get: () => 56,
+    });
+    Object.defineProperty(panelEl, "offsetHeight", {
+      configurable: true,
+      get: () => 220,
+    });
+    fabShellEl.getBoundingClientRect = () => ({
+      x: 20,
+      y: 680,
+      left: 20,
+      top: 680,
+      width: 56,
+      height: 56,
+      right: 76,
+      bottom: 736,
+    });
+
+    plugin.presentationBrushFabDock = { edge: "left", offset: 692 };
+    plugin.openPresentationBrushMenu();
+
+    const panelTop = 680 + Number.parseInt(panelEl.style.top, 10);
+    const panelBottom = panelTop + panelEl.offsetHeight;
+
+    expect(panelTop).toBeGreaterThanOrEqual(12);
+    expect(panelBottom).toBeLessThanOrEqual(window.innerHeight - 12);
+  });
+
+  it("positions the presentation brush panel to the left of the ball when docked on the right edge", () => {
+    const app = createApp("presentation");
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
+    const panelEl = document.querySelector("[data-testid='presentation-brush-panel']");
+
+    Object.defineProperty(panelEl, "offsetWidth", {
+      configurable: true,
+      get: () => 56,
+    });
+    Object.defineProperty(panelEl, "offsetHeight", {
+      configurable: true,
+      get: () => 220,
+    });
+    fabShellEl.getBoundingClientRect = () => ({
+      x: 768,
+      y: 200,
+      left: 768,
+      top: 200,
+      width: 56,
+      height: 56,
+      right: 824,
+      bottom: 256,
+    });
+
+    plugin.presentationBrushFabDock = { edge: "right", offset: 200 };
+    plugin.openPresentationBrushMenu();
+
+    expect(panelEl.style.left).toBe("-68px");
+    expect(panelEl.style.right).toBe("auto");
   });
 });

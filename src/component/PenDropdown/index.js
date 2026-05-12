@@ -6,6 +6,9 @@ const BRUSH_TOOL_OPTIONS = [
   { id: "pencil", label: "Pencil", icon: "pencil" },
   { id: "highlighter", label: "Highlighter", icon: "highlighter" },
 ];
+const PANEL_VIEWPORT_MARGIN = 12;
+const DROPDOWN_ANCHOR_GAP = 4;
+const EDITOR_ANCHOR_GAP = 10;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -129,6 +132,7 @@ export class PenDropdownPlugin extends BasePlugin {
     this._open = false;
     this._editorOpen = false;
     this._editorPresetIndex = 0;
+    this._anchorEl = null;
     this._callbacks = {
       onBrushToolSelect: null,
       onPresetActivate: null,
@@ -167,6 +171,7 @@ export class PenDropdownPlugin extends BasePlugin {
     if (!triggerBtn) return;
     this._triggerBtn = triggerBtn;
     this.listenDom(triggerBtn, "click", (event) => {
+      this.clearAnchorElement();
       event.stopPropagation();
       if (this.app.getMode() !== "edit" || !this._isBrushTool(this.app.getEditorTool())) {
         this.close();
@@ -188,16 +193,29 @@ export class PenDropdownPlugin extends BasePlugin {
     this._render();
   }
 
+  setAnchorElement(anchorEl = null) {
+    this._anchorEl = anchorEl ?? null;
+    this.reposition();
+  }
+
+  clearAnchorElement() {
+    this.setAnchorElement(null);
+  }
+
+  hasCustomAnchor() {
+    return Boolean(this._anchorEl);
+  }
+
   isOpen() {
     return this._open;
   }
 
   open() {
-    if (!this._triggerBtn) return;
+    if (!this._getAnchorElement()) return;
     this._open = true;
     this._dropdown.hidden = false;
     this._positionDropdown();
-    this._triggerBtn.setAttribute("aria-pressed", "true");
+    this._syncAnchorPressedState(true);
     this._render();
   }
 
@@ -205,7 +223,7 @@ export class PenDropdownPlugin extends BasePlugin {
     this._open = false;
     this._dropdown.hidden = true;
     this._closeEditor();
-    this._triggerBtn?.setAttribute("aria-pressed", "false");
+    this._syncAnchorPressedState(false);
   }
 
   toggle() {
@@ -381,7 +399,11 @@ export class PenDropdownPlugin extends BasePlugin {
   _handleOutsidePointer(event) {
     if (!this._open) return;
     const target = event.target;
-    if (this._dropdown.contains(target) || this._editor.contains(target) || this._triggerBtn?.contains(target)) {
+    if (
+      this._dropdown.contains(target) ||
+      this._editor.contains(target) ||
+      this._getAnchorElement()?.contains(target)
+    ) {
       return;
     }
     this.close();
@@ -399,23 +421,100 @@ export class PenDropdownPlugin extends BasePlugin {
     return this._getActivePresets()[this._editorPresetIndex] ?? null;
   }
 
+  _getAnchorElement() {
+    return this._anchorEl ?? this._triggerBtn ?? null;
+  }
+
+  _syncAnchorPressedState(pressed) {
+    const value = String(pressed);
+    this._triggerBtn?.setAttribute("aria-pressed", value);
+    if (this._anchorEl && this._anchorEl !== this._triggerBtn) {
+      this._anchorEl.setAttribute("aria-pressed", value);
+    }
+  }
+
+  reposition() {
+    if (!this._open) return;
+    this._positionDropdown();
+    this._positionEditor();
+  }
+
+  _getShellRect() {
+    return document.querySelector(".app-shell")?.getBoundingClientRect?.() ?? null;
+  }
+
+  _resolveHorizontalPosition(anchorRect, panelWidth, {
+    gap = DROPDOWN_ANCHOR_GAP,
+    prefer = "right",
+  } = {}) {
+    const shellRect = this._getShellRect();
+    if (!shellRect) return null;
+
+    const minLeft = PANEL_VIEWPORT_MARGIN;
+    const maxLeft = Math.max(
+      minLeft,
+      shellRect.width - PANEL_VIEWPORT_MARGIN - panelWidth,
+    );
+    const fitsRight = anchorRect.right - shellRect.left + gap + panelWidth <= shellRect.width - PANEL_VIEWPORT_MARGIN;
+    const fitsLeft = anchorRect.left - shellRect.left - gap - panelWidth >= PANEL_VIEWPORT_MARGIN;
+
+    let left;
+    if ((prefer === "right" && fitsRight) || !fitsLeft) {
+      left = anchorRect.right - shellRect.left + gap;
+    } else {
+      left = anchorRect.left - shellRect.left - panelWidth - gap;
+    }
+
+    return clamp(left, minLeft, maxLeft);
+  }
+
+  _resolveVerticalPosition(anchorRect, panelHeight, { align = "top" } = {}) {
+    const shellRect = this._getShellRect();
+    if (!shellRect) return null;
+
+    const minTop = PANEL_VIEWPORT_MARGIN;
+    const maxTop = Math.max(
+      minTop,
+      shellRect.height - PANEL_VIEWPORT_MARGIN - panelHeight,
+    );
+    const top = align === "center"
+      ? anchorRect.top - shellRect.top + anchorRect.height / 2 - panelHeight / 2
+      : anchorRect.top - shellRect.top;
+
+    return clamp(top, minTop, maxTop);
+  }
+
   _positionDropdown() {
-    if (!this._triggerBtn) return;
-    const shellRect = document.querySelector(".app-shell")?.getBoundingClientRect?.();
-    const triggerRect = this._triggerBtn.getBoundingClientRect();
-    if (!shellRect) return;
-    this._dropdown.style.left = `${triggerRect.right - shellRect.left + 4}px`;
-    this._dropdown.style.top = `${triggerRect.top - shellRect.top}px`;
+    const anchorEl = this._getAnchorElement();
+    if (!anchorEl) return;
+    const triggerRect = anchorEl.getBoundingClientRect();
+    const panelWidth = this._dropdown.offsetWidth || this._dropdown.getBoundingClientRect().width || 0;
+    const panelHeight = this._dropdown.offsetHeight || this._dropdown.getBoundingClientRect().height || 0;
+    const left = this._resolveHorizontalPosition(triggerRect, panelWidth, {
+      gap: DROPDOWN_ANCHOR_GAP,
+      prefer: "right",
+    });
+    const top = this._resolveVerticalPosition(triggerRect, panelHeight, { align: "top" });
+    if (left == null || top == null) return;
+    this._dropdown.style.left = `${Math.round(left)}px`;
+    this._dropdown.style.top = `${Math.round(top)}px`;
   }
 
   _positionEditor() {
     if (!this._editorOpen) return;
     const anchor = this._presetButtons[this._editorPresetIndex];
-    const shellRect = document.querySelector(".app-shell")?.getBoundingClientRect?.();
     const anchorRect = anchor?.getBoundingClientRect?.();
-    if (!shellRect || !anchorRect) return;
-    this._editor.style.left = `${anchorRect.right - shellRect.left + 10}px`;
-    this._editor.style.top = `${anchorRect.top - shellRect.top}px`;
+    if (!anchorRect) return;
+    const panelWidth = this._editor.offsetWidth || this._editor.getBoundingClientRect().width || 0;
+    const panelHeight = this._editor.offsetHeight || this._editor.getBoundingClientRect().height || 0;
+    const left = this._resolveHorizontalPosition(anchorRect, panelWidth, {
+      gap: EDITOR_ANCHOR_GAP,
+      prefer: "right",
+    });
+    const top = this._resolveVerticalPosition(anchorRect, panelHeight, { align: "top" });
+    if (left == null || top == null) return;
+    this._editor.style.left = `${Math.round(left)}px`;
+    this._editor.style.top = `${Math.round(top)}px`;
   }
 
   _closeEditor() {

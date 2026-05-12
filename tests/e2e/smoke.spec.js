@@ -756,16 +756,19 @@ test("clears all drawn strokes from the eraser controls and supports undo and re
     .toBe(0);
 });
 
-test("does not allow pen or eraser activation in presentation mode", async ({ page }) => {
+test("allows pen and eraser activation in presentation mode from the floating brush ball", async ({ page }) => {
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
     "arrange",
   );
+  await expect(page.getByTestId("presentation-brush-fab")).toBeVisible();
 
-  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("pen"));
+  await page.getByTestId("presentation-brush-fab").click();
+  await expect(page.getByTestId("presentation-brush-panel")).toBeVisible();
+  await page.getByTestId("presentation-tool-brush").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
-    "arrange",
+    "pen",
   );
   await drawStroke(page, {
     xRatio: 0.38,
@@ -773,15 +776,15 @@ test("does not allow pen or eraser activation in presentation mode", async ({ pa
     dx: 140,
     dy: 72,
   });
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables())).toBe(0);
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables())).toBe(1);
 
-  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("eraser"));
+  await page.getByTestId("presentation-tool-eraser").click();
   await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getEditorTool())).toBe(
-    "arrange",
+    "eraser",
   );
 });
 
-test("hides brush controls after switching from edit to presentation", async ({ page }) => {
+test("hides edit brush controls after switching to presentation and shows the floating brush ball", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
   await expect(page.getByTestId("pen-dropdown")).toBeVisible();
   await page.getByTestId("pen-preset-0").click();
@@ -790,6 +793,7 @@ test("hides brush controls after switching from edit to presentation", async ({ 
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("pen-dropdown")).toBeHidden();
   await expect(page.getByTestId("pen-preset-editor")).toBeHidden();
+  await expect(page.getByTestId("presentation-brush-fab")).toBeVisible();
 
   await page.getByTestId("mode-capsule-edit").click();
   await page.getByTestId("tool-button-eraser").click();
@@ -797,18 +801,29 @@ test("hides brush controls after switching from edit to presentation", async ({ 
 
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("eraser-controls")).toBeHidden();
+  await expect(page.getByTestId("presentation-brush-fab")).toBeVisible();
 });
 
-test("ignores pen and eraser toolbar selection in presentation mode", async ({ page }) => {
+test("switches between presentation pan and drawing cursors from the floating brush ball", async ({ page }) => {
   await page.getByTestId("mode-capsule-present").click();
   await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
 
   const canvas = page.getByTestId("canvas-container");
+  await page.getByTestId("presentation-brush-fab").click();
+  await expect(page.getByTestId("presentation-brush-panel")).toBeVisible();
 
   await expect.poll(async () => (
     page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
   )).toBe("arrange");
-  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("pen"));
+  await page.getByTestId("presentation-tool-brush").click();
+  await expect.poll(async () => (
+    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
+  )).toBe("pen");
+  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    "crosshair",
+  );
+
+  await page.getByTestId("presentation-tool-arrange").click();
   await expect.poll(async () => (
     page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
   )).toBe("arrange");
@@ -816,20 +831,13 @@ test("ignores pen and eraser toolbar selection in presentation mode", async ({ p
     "grab",
   );
 
-  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("arrange"));
+  await page.getByTestId("presentation-brush-fab").click();
+  await page.getByTestId("presentation-tool-eraser").click();
   await expect.poll(async () => (
     page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
-  )).toBe("arrange");
+  )).toBe("eraser");
   await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
-    "grab",
-  );
-
-  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("eraser"));
-  await expect.poll(async () => (
-    page.evaluate(() => window.__APP_TEST_API__.getEditorTool())
-  )).toBe("arrange");
-  await expect.poll(async () => canvas.evaluate((node) => getComputedStyle(node).cursor)).toBe(
-    "grab",
+    "crosshair",
   );
 });
 

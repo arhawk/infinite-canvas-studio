@@ -96,4 +96,119 @@ describe("PenDropdownPlugin", () => {
     expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(true);
     expect(document.querySelector('[data-testid="pen-preset-editor"]').hidden).toBe(true);
   });
+
+  it("keeps the brush dropdown inside the viewport when the anchor is near the right edge", () => {
+    const app = createApp();
+    const plugin = new PenDropdownPlugin(app);
+    plugin.setup();
+    plugin.setState(createState());
+    plugin.wireTrigger(document.querySelector("#pen-trigger"));
+
+    const shell = document.querySelector(".app-shell");
+    const trigger = document.querySelector("#pen-trigger");
+    const dropdown = document.querySelector('[data-testid="pen-dropdown"]');
+
+    shell.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 240,
+      height: 260,
+      right: 240,
+      bottom: 260,
+      x: 0,
+      y: 0,
+    });
+    trigger.getBoundingClientRect = () => ({
+      left: 200,
+      top: 210,
+      width: 32,
+      height: 32,
+      right: 232,
+      bottom: 242,
+      x: 200,
+      y: 210,
+    });
+    Object.defineProperty(dropdown, "offsetWidth", {
+      configurable: true,
+      get: () => 64,
+    });
+    Object.defineProperty(dropdown, "offsetHeight", {
+      configurable: true,
+      get: () => 140,
+    });
+
+    trigger.click();
+
+    expect(dropdown.style.left).toBe("132px");
+    expect(dropdown.style.top).toBe("108px");
+  });
+
+  it("repositions the preset editor back inside the viewport when there is no room on the right", () => {
+    const app = createApp();
+    const plugin = new PenDropdownPlugin(app);
+    plugin.setup();
+    plugin.setState(createState());
+    plugin.wireTrigger(document.querySelector("#pen-trigger"));
+
+    const shell = document.querySelector(".app-shell");
+    const trigger = document.querySelector("#pen-trigger");
+    const dropdown = document.querySelector('[data-testid="pen-dropdown"]');
+    const editor = document.querySelector('[data-testid="pen-preset-editor"]');
+
+    shell.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 240,
+      height: 260,
+      right: 240,
+      bottom: 260,
+      x: 0,
+      y: 0,
+    });
+    trigger.getBoundingClientRect = () => ({
+      left: 120,
+      top: 24,
+      width: 32,
+      height: 32,
+      right: 152,
+      bottom: 56,
+      x: 120,
+      y: 24,
+    });
+    Object.defineProperty(dropdown, "offsetWidth", {
+      configurable: true,
+      get: () => 64,
+    });
+    Object.defineProperty(dropdown, "offsetHeight", {
+      configurable: true,
+      get: () => 140,
+    });
+    Object.defineProperty(editor, "offsetWidth", {
+      configurable: true,
+      get: () => 176,
+    });
+    Object.defineProperty(editor, "offsetHeight", {
+      configurable: true,
+      get: () => 220,
+    });
+
+    trigger.click();
+
+    const preset = document.querySelector('[data-testid="pen-preset-1"]');
+    preset.getBoundingClientRect = () => ({
+      left: 164,
+      top: 80,
+      width: 36,
+      height: 36,
+      right: 200,
+      bottom: 116,
+      x: 164,
+      y: 80,
+    });
+
+    preset.click();
+
+    expect(editor.style.left).toBe("52px");
+    expect(editor.style.top).toBe("28px");
+  });
 });

@@ -135,7 +135,9 @@ export class ModeManager {
     if (!["presentation", "edit"].includes(mode) || mode === this.mode) return;
     this.#transition(() => {
       this.mode = mode;
-      this.editorTool = this.#normalizeEditorTool(this.editorTool, mode);
+      this.editorTool = mode === "presentation"
+        ? "arrange"
+        : this.#normalizeEditorTool(this.editorTool, mode);
     });
   }
 
@@ -214,6 +216,8 @@ export class ModeManager {
 
   #normalizeEditorTool(toolId, mode) {
     if (mode !== "presentation") return toolId;
-    return "arrange";
+    return ["arrange", "pen", "pencil", "highlighter", "eraser"].includes(toolId)
+      ? toolId
+      : "arrange";
   }
 }

@@ -84,7 +84,7 @@ describe("ModeManager", () => {
     expect(toolRegistry.setActive).toHaveBeenLastCalledWith(null);
   });
 
-  it("ignores pen and eraser activation requests in presentation mode", () => {
+  it("allows brush tools and eraser to be activated after entering presentation mode", () => {
     const manager = new ModeManager({
       eventBus: { emit: vi.fn() },
       toolRegistry: createToolRegistry(),
@@ -92,9 +92,9 @@ describe("ModeManager", () => {
 
     manager.setMode("presentation");
     manager.setEditorTool("pen");
-    expect(manager.getEditorTool()).toBe("arrange");
+    expect(manager.getEditorTool()).toBe("pen");
 
     manager.setEditorTool("eraser");
-    expect(manager.getEditorTool()).toBe("arrange");
+    expect(manager.getEditorTool()).toBe("eraser");
   });
 });

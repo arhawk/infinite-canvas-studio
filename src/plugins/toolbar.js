@@ -94,6 +94,11 @@ const BUTTON_PANEL_VIEWPORT_MARGIN = 12;
 const BUTTON_PANEL_ANCHOR_GAP = 64;
 const BUTTON_POPOVER_NODE_CLEARANCE = 10;
 const BUTTON_STYLE_SWATCHES = DEFAULT_COLOR_SWATCHES;
+const PRESENTATION_BRUSH_FAB_MARGIN = 20;
+const PRESENTATION_BRUSH_FAB_SIZE = 56;
+const PRESENTATION_BRUSH_DRAG_THRESHOLD = 4;
+const PRESENTATION_BRUSH_PANEL_GAP = 12;
+const PRESENTATION_BRUSH_PANEL_VIEWPORT_MARGIN = 12;
 
 function resolveSelectable(target) {
   if (!target) return null;
@@ -365,7 +370,12 @@ export class ToolbarPlugin extends BasePlugin {
     this.presentationToolbarAnimationFrame = null;
     this.isHoveringPresentationToolbarZone = false;
     this.isHoveringPresentationToolbar = false;
+    this.presentationBrushFabDock = null;
+    this.presentationBrushFabDrag = null;
+    this.presentationBrushMenuOpen = false;
+    this.suppressPresentationBrushFabClick = false;
     this.eraserPanelOpen = false;
+    this.activeEraserAnchorEl = null;
     this.lastBrushToolId = "pen";
     this.drawingToolState = cloneDrawingToolState();
     this.eraserState = { ...DEFAULT_ERASER_STATE };
@@ -381,6 +391,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.setupColorToolbarControllers();
     this.registerFloatingPanels();
 
+    this.buildPresentationBrushFab();
     this.buildEraserPanel();
     this.setupPenDropdown();
     this.setupEraserPanel();
@@ -514,6 +525,7 @@ export class ToolbarPlugin extends BasePlugin {
       this.queueButtonPanelPositionSync();
       this.queueShapePanelPositionSync();
       this.queueStickyPanelPositionSync();
+      this.queuePresentationBrushFabPositionSync();
     });
     this.listenDom(buttonFontSizeEl, "input", () => this.emitButtonStyleChange());
     this.listenDom(buttonTextColorEl, "input", () => {
@@ -792,6 +804,7 @@ export class ToolbarPlugin extends BasePlugin {
         window.cancelAnimationFrame(this.presentationToolbarAnimationFrame);
         this.presentationToolbarAnimationFrame = null;
       }
+      this.presentationBrushFabEl?.remove();
       this.eraserPanelEl?.remove();
     });
   }
@@ -1020,6 +1033,451 @@ export class ToolbarPlugin extends BasePlugin {
     });
   }
 
+  buildPresentationBrushFab() {
+    const shell = document.querySelector(".app-shell");
+    if (!shell) return;
+
+    const root = document.createElement("div");
+    root.className = "presentation-brush-fab";
+    root.dataset.testid = "presentation-brush-fab-shell";
+    root.hidden = true;
+
+    const panel = document.createElement("div");
+    panel.className = "presentation-brush-fab__panel";
+    panel.dataset.testid = "presentation-brush-panel";
+    panel.hidden = true;
+
+    const createToolButton = (icon, label, testid) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "presentation-brush-fab__tool";
+      button.setAttribute("aria-label", label);
+      button.dataset.tooltip = label;
+      button.dataset.testid = testid;
+      button.setAttribute("aria-pressed", "false");
+      button.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`;
+      return button;
+    };
+
+    this.presentationArrangeBtnEl = createToolButton("mouse-pointer-2", "Pan board", "presentation-tool-arrange");
+    this.presentationBrushBtnEl = createToolButton("pen", "Brush tools", "presentation-tool-brush");
+    this.presentationEraserBtnEl = createToolButton("eraser", "Erase strokes", "presentation-tool-eraser");
+    panel.append(
+      this.presentationArrangeBtnEl,
+      this.presentationBrushBtnEl,
+      this.presentationEraserBtnEl,
+    );
+
+    const fabButton = document.createElement("button");
+    fabButton.type = "button";
+    fabButton.className = "presentation-brush-fab__ball";
+    fabButton.dataset.testid = "presentation-brush-fab";
+    fabButton.setAttribute("aria-label", "Presentation drawing tools");
+    fabButton.dataset.tooltip = "Presentation drawing tools";
+    fabButton.setAttribute("aria-expanded", "false");
+    fabButton.innerHTML = `<i data-lucide="pen" aria-hidden="true"></i>`;
+
+    root.append(panel, fabButton);
+    shell.append(root);
+
+    this.presentationBrushFabEl = root;
+    this.presentationBrushPanelEl = panel;
+    this.presentationBrushFabButtonEl = fabButton;
+
+    this.listenDom(fabButton, "pointerdown", (event) => {
+      this.handlePresentationBrushFabPointerDown(event);
+    });
+    this.listenDom(fabButton, "click", () => {
+      if (this.suppressPresentationBrushFabClick) {
+        this.suppressPresentationBrushFabClick = false;
+        return;
+      }
+      this.togglePresentationBrushMenu();
+    });
+    this.listenDom(this.presentationArrangeBtnEl, "click", () => {
+      this.closePresentationBrushMenu();
+      this.app.setEditorTool("arrange");
+    });
+    this.listenDom(this.presentationBrushBtnEl, "click", (event) => {
+      event.stopPropagation();
+      this.togglePresentationBrushDropdown();
+    });
+    this.listenDom(this.presentationEraserBtnEl, "click", (event) => {
+      event.stopPropagation();
+      this.togglePresentationEraserPanel();
+    });
+    this.listenDom(document, "pointermove", (event) => {
+      this.handlePresentationBrushFabPointerMove(event);
+    }, true);
+    this.listenDom(document, "pointerup", (event) => {
+      this.handlePresentationBrushFabPointerUp(event);
+    }, true);
+    this.listenDom(document, "pointercancel", () => {
+      this.cancelPresentationBrushFabDrag();
+    }, true);
+
+    renderIcons(root, {
+      width: 18,
+      height: 18,
+      "stroke-width": 2,
+    });
+  }
+
+  getPresentationBrushFabViewportBounds() {
+    return {
+      minX: PRESENTATION_BRUSH_FAB_MARGIN,
+      maxX: Math.max(
+        PRESENTATION_BRUSH_FAB_MARGIN,
+        window.innerWidth - PRESENTATION_BRUSH_FAB_SIZE - PRESENTATION_BRUSH_FAB_MARGIN,
+      ),
+      minY: PRESENTATION_BRUSH_FAB_MARGIN,
+      maxY: Math.max(
+        PRESENTATION_BRUSH_FAB_MARGIN,
+        window.innerHeight - PRESENTATION_BRUSH_FAB_SIZE - PRESENTATION_BRUSH_FAB_MARGIN,
+      ),
+    };
+  }
+
+  getDefaultPresentationBrushFabDock() {
+    return {
+      edge: "left",
+      offset: this.getPresentationBrushFabViewportBounds().maxY,
+    };
+  }
+
+  clampPresentationBrushFabPosition(position = null) {
+    const fallback = this.resolvePresentationBrushFabDockPosition(
+      this.presentationBrushFabDock ?? this.getDefaultPresentationBrushFabDock(),
+    );
+    const nextPosition = position ?? fallback;
+    const bounds = this.getPresentationBrushFabViewportBounds();
+    return {
+      x: clamp(
+        Number.isFinite(nextPosition.x) ? nextPosition.x : fallback.x,
+        bounds.minX,
+        bounds.maxX,
+      ),
+      y: clamp(
+        Number.isFinite(nextPosition.y) ? nextPosition.y : fallback.y,
+        bounds.minY,
+        bounds.maxY,
+      ),
+    };
+  }
+
+  clampPresentationBrushFabDock(dock = this.presentationBrushFabDock) {
+    const fallback = this.getDefaultPresentationBrushFabDock();
+    const nextDock = dock ?? fallback;
+    const bounds = this.getPresentationBrushFabViewportBounds();
+    const edge = ["left", "right", "top", "bottom"].includes(nextDock.edge)
+      ? nextDock.edge
+      : fallback.edge;
+    const usesVerticalOffset = edge === "left" || edge === "right";
+    return {
+      edge,
+      offset: clamp(
+        Number.isFinite(nextDock.offset) ? nextDock.offset : fallback.offset,
+        usesVerticalOffset ? bounds.minY : bounds.minX,
+        usesVerticalOffset ? bounds.maxY : bounds.maxX,
+      ),
+    };
+  }
+
+  resolvePresentationBrushFabDockPosition(dock = this.presentationBrushFabDock) {
+    const nextDock = this.clampPresentationBrushFabDock(dock);
+    const bounds = this.getPresentationBrushFabViewportBounds();
+
+    switch (nextDock.edge) {
+      case "right":
+        return {
+          x: bounds.maxX,
+          y: nextDock.offset,
+        };
+      case "top":
+        return {
+          x: nextDock.offset,
+          y: bounds.minY,
+        };
+      case "bottom":
+        return {
+          x: nextDock.offset,
+          y: bounds.maxY,
+        };
+      case "left":
+      default:
+        return {
+          x: bounds.minX,
+          y: nextDock.offset,
+        };
+    }
+  }
+
+  getPresentationBrushFabDockFromPosition(position = null) {
+    const nextPosition = this.clampPresentationBrushFabPosition(position);
+    const bounds = this.getPresentationBrushFabViewportBounds();
+    const distances = [
+      { edge: "left", distance: Math.abs(nextPosition.x - bounds.minX), offset: nextPosition.y },
+      { edge: "right", distance: Math.abs(nextPosition.x - bounds.maxX), offset: nextPosition.y },
+      { edge: "top", distance: Math.abs(nextPosition.y - bounds.minY), offset: nextPosition.x },
+      { edge: "bottom", distance: Math.abs(nextPosition.y - bounds.maxY), offset: nextPosition.x },
+    ];
+    distances.sort((a, b) => a.distance - b.distance);
+    return this.clampPresentationBrushFabDock({
+      edge: distances[0]?.edge,
+      offset: distances[0]?.offset,
+    });
+  }
+
+  queuePresentationBrushFabPositionSync() {
+    this.presentationBrushFabDock = this.clampPresentationBrushFabDock(
+      this.presentationBrushFabDock ?? this.getDefaultPresentationBrushFabDock(),
+    );
+    this.syncPresentationBrushFabPosition();
+  }
+
+  syncPresentationBrushFabPosition() {
+    if (!this.presentationBrushFabEl) return;
+
+    if (!this.presentationBrushFabDock) {
+      this.presentationBrushFabDock = this.getDefaultPresentationBrushFabDock();
+    }
+
+    this.presentationBrushFabDock = this.clampPresentationBrushFabDock(this.presentationBrushFabDock);
+    const dockPosition = this.resolvePresentationBrushFabDockPosition(this.presentationBrushFabDock);
+    const position = this.presentationBrushFabDrag?.dragged
+      ? this.clampPresentationBrushFabPosition(this.presentationBrushFabDrag.currentPosition)
+      : dockPosition;
+    this.presentationBrushFabEl.dataset.edge = this.presentationBrushFabDock.edge;
+    this.presentationBrushFabEl.style.left = `${position.x}px`;
+    this.presentationBrushFabEl.style.top = `${position.y}px`;
+    this.positionPresentationBrushPanel();
+    this.penDropdown?.reposition?.();
+    if (this.eraserPanelOpen) {
+      this.positionEraserPanel();
+    }
+  }
+
+  positionPresentationBrushPanel() {
+    const root = this.presentationBrushFabEl;
+    const panel = this.presentationBrushPanelEl;
+    if (!root || !panel || panel.hidden) return;
+
+    const rootRect = root.getBoundingClientRect();
+    const panelWidth = panel.offsetWidth;
+    const panelHeight = panel.offsetHeight;
+    if (!panelWidth || !panelHeight) return;
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const fabWidth = rootRect.width || PRESENTATION_BRUSH_FAB_SIZE;
+    const fabHeight = rootRect.height || PRESENTATION_BRUSH_FAB_SIZE;
+    const edge = this.presentationBrushFabDock?.edge ?? root.dataset.edge ?? "left";
+
+    panel.style.left = "auto";
+    panel.style.right = "auto";
+    panel.style.top = "auto";
+    panel.style.bottom = "auto";
+    panel.style.transform = "none";
+
+    if (edge === "left" || edge === "right") {
+      const anchorCenterY = rootRect.top + fabHeight / 2;
+      const top = clamp(
+        anchorCenterY - panelHeight / 2,
+        PRESENTATION_BRUSH_PANEL_VIEWPORT_MARGIN,
+        viewportHeight - PRESENTATION_BRUSH_PANEL_VIEWPORT_MARGIN - panelHeight,
+      );
+
+      panel.style.top = `${Math.round(top - rootRect.top)}px`;
+      if (edge === "left") {
+        panel.style.left = `${fabWidth + PRESENTATION_BRUSH_PANEL_GAP}px`;
+      } else {
+        panel.style.left = `${Math.round(-(panelWidth + PRESENTATION_BRUSH_PANEL_GAP))}px`;
+      }
+      return;
+    }
+
+    const anchorCenterX = rootRect.left + fabWidth / 2;
+    const left = clamp(
+      anchorCenterX - panelWidth / 2,
+      PRESENTATION_BRUSH_PANEL_VIEWPORT_MARGIN,
+      viewportWidth - PRESENTATION_BRUSH_PANEL_VIEWPORT_MARGIN - panelWidth,
+    );
+
+    panel.style.left = `${Math.round(left - rootRect.left)}px`;
+    if (edge === "top") {
+      panel.style.top = `${fabHeight + PRESENTATION_BRUSH_PANEL_GAP}px`;
+    } else {
+      panel.style.top = `${Math.round(-(panelHeight + PRESENTATION_BRUSH_PANEL_GAP))}px`;
+    }
+  }
+
+  handlePresentationBrushFabPointerDown(event) {
+    if (this.app.getMode() !== "presentation" || !this.presentationBrushFabEl) return;
+
+    const dock = this.clampPresentationBrushFabDock(
+      this.presentationBrushFabDock ?? this.getDefaultPresentationBrushFabDock(),
+    );
+    const position = this.resolvePresentationBrushFabDockPosition(dock);
+    this.presentationBrushFabDock = dock;
+    this.presentationBrushFabDrag = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+      currentPosition: position,
+      dragged: false,
+    };
+    this.presentationBrushFabEl.classList.add("is-dragging");
+  }
+
+  handlePresentationBrushFabPointerMove(event) {
+    const drag = this.presentationBrushFabDrag;
+    if (!drag || (event.pointerId != null && drag.pointerId != null && event.pointerId !== drag.pointerId)) {
+      return;
+    }
+
+    const deltaX = event.clientX - drag.startClientX;
+    const deltaY = event.clientY - drag.startClientY;
+    if (!drag.dragged && Math.hypot(deltaX, deltaY) >= PRESENTATION_BRUSH_DRAG_THRESHOLD) {
+      drag.dragged = true;
+    }
+    if (!drag.dragged) return;
+
+    event.preventDefault();
+    drag.currentPosition = this.clampPresentationBrushFabPosition({
+      x: drag.originX + deltaX,
+      y: drag.originY + deltaY,
+    });
+    this.syncPresentationBrushFabPosition();
+  }
+
+  handlePresentationBrushFabPointerUp(event) {
+    const drag = this.presentationBrushFabDrag;
+    if (!drag || (event.pointerId != null && drag.pointerId != null && event.pointerId !== drag.pointerId)) {
+      return;
+    }
+
+    this.suppressPresentationBrushFabClick = Boolean(drag.dragged);
+    if (drag.dragged) {
+      this.presentationBrushFabDock = this.getPresentationBrushFabDockFromPosition(drag.currentPosition);
+    }
+    this.presentationBrushFabEl?.classList.remove("is-dragging");
+    this.presentationBrushFabDrag = null;
+    this.syncPresentationBrushFabPosition();
+  }
+
+  cancelPresentationBrushFabDrag() {
+    this.presentationBrushFabEl?.classList.remove("is-dragging");
+    this.presentationBrushFabDrag = null;
+    this.syncPresentationBrushFabPosition();
+  }
+
+  openPresentationBrushMenu() {
+    this.presentationBrushMenuOpen = true;
+    this.syncPresentationBrushFab();
+  }
+
+  closePresentationBrushMenu() {
+    this.presentationBrushMenuOpen = false;
+    this.closePresentationDrawingPopovers();
+    this.syncPresentationBrushFab();
+  }
+
+  togglePresentationBrushMenu() {
+    if (this.presentationBrushMenuOpen) {
+      this.closePresentationBrushMenu();
+      return;
+    }
+    this.openPresentationBrushMenu();
+  }
+
+  closePresentationDrawingPopovers() {
+    this.penDropdown?.close?.();
+    this.penDropdown?.clearAnchorElement?.();
+    this.closeEraserPanel();
+  }
+
+  togglePresentationBrushDropdown() {
+    if (this.app.getMode() !== "presentation") return;
+
+    this.openPresentationBrushMenu();
+    this.closeEraserPanel();
+    this.penDropdown?.setAnchorElement?.(this.presentationBrushBtnEl);
+
+    const nextToolId = this.isBrushFamilyActive() ? this.app.getEditorTool() : this.lastBrushToolId;
+    if (this.app.getEditorTool() !== nextToolId) {
+      this.app.setEditorTool(nextToolId);
+    }
+
+    if (this.penDropdown?.isOpen?.()) {
+      this.penDropdown.close();
+      return;
+    }
+
+    this.penDropdown?.open?.();
+  }
+
+  togglePresentationEraserPanel() {
+    if (this.app.getMode() !== "presentation") return;
+
+    this.openPresentationBrushMenu();
+    this.penDropdown?.close?.();
+    this.penDropdown?.clearAnchorElement?.();
+
+    if (this.app.getEditorTool() !== "eraser") {
+      this.app.setEditorTool("eraser");
+    }
+
+    if (this.eraserPanelOpen) {
+      this.closeEraserPanel();
+      return;
+    }
+
+    this.openEraserPanel(this.presentationEraserBtnEl);
+  }
+
+  syncPresentationBrushFab() {
+    if (!this.presentationBrushFabEl || !this.presentationBrushFabButtonEl) return;
+
+    const isPresentation = this.app.getMode() === "presentation";
+    const activeToolId = this.app.getEditorTool();
+    const isBrushActive = this.isBrushFamilyActive(activeToolId);
+    const isEraserActive = activeToolId === "eraser";
+
+    this.presentationBrushFabEl.hidden = !isPresentation;
+    if (!isPresentation) {
+      this.presentationBrushMenuOpen = false;
+      this.presentationBrushPanelEl.hidden = true;
+      this.presentationBrushFabButtonEl.setAttribute("aria-expanded", "false");
+      this.presentationBrushFabEl.classList.remove("is-active");
+      if (this.penDropdown?.hasCustomAnchor?.()) {
+        this.penDropdown.close?.();
+        this.penDropdown.clearAnchorElement?.();
+      }
+      if (this.activeEraserAnchorEl && this.activeEraserAnchorEl !== this.eraserTriggerEl) {
+        this.closeEraserPanel();
+      }
+      return;
+    }
+
+    this.queuePresentationBrushFabPositionSync();
+    this.presentationBrushPanelEl.hidden = !this.presentationBrushMenuOpen;
+    this.positionPresentationBrushPanel();
+    this.presentationBrushFabEl.classList.toggle(
+      "is-active",
+      this.presentationBrushMenuOpen || Boolean(this.presentationBrushFabDrag),
+    );
+    this.presentationBrushFabButtonEl.setAttribute("aria-expanded", String(this.presentationBrushMenuOpen));
+    this.presentationBrushFabButtonEl.setAttribute(
+      "aria-pressed",
+      String(this.presentationBrushMenuOpen || isBrushActive || isEraserActive),
+    );
+    this.presentationArrangeBtnEl?.setAttribute("aria-pressed", String(activeToolId === "arrange"));
+    this.presentationBrushBtnEl?.setAttribute("aria-pressed", String(isBrushActive));
+    this.presentationEraserBtnEl?.setAttribute("aria-pressed", String(isEraserActive));
+  }
+
   buildEraserPanel() {
     const shell = document.querySelector(".app-shell");
     if (!shell) return;
@@ -1129,7 +1587,13 @@ export class ToolbarPlugin extends BasePlugin {
     this.listenDom(document, "mousedown", (event) => {
       if (!this.eraserPanelOpen) return;
       const target = event.target;
-      if (this.eraserPanelEl?.contains(target) || this.eraserTriggerEl?.contains(target)) return;
+      if (
+        this.eraserPanelEl?.contains(target) ||
+        this.activeEraserAnchorEl?.contains(target) ||
+        this.eraserTriggerEl?.contains(target)
+      ) {
+        return;
+      }
       this.closeEraserPanel();
     }, true);
     this.listenDom(document, "keydown", (event) => {
@@ -1142,8 +1606,9 @@ export class ToolbarPlugin extends BasePlugin {
     });
   }
 
-  openEraserPanel() {
+  openEraserPanel(anchorEl = this.eraserTriggerEl) {
     if (!this.eraserPanelEl) return;
+    this.activeEraserAnchorEl = anchorEl ?? this.eraserTriggerEl ?? null;
     this.eraserPanelOpen = true;
     this.eraserPanelEl.hidden = false;
     this.positionEraserPanel();
@@ -1151,15 +1616,17 @@ export class ToolbarPlugin extends BasePlugin {
 
   closeEraserPanel() {
     this.eraserPanelOpen = false;
+    this.activeEraserAnchorEl = null;
     if (this.eraserPanelEl) {
       this.eraserPanelEl.hidden = true;
     }
   }
 
   positionEraserPanel() {
-    if (!this.eraserPanelEl || !this.eraserTriggerEl) return;
+    const anchorEl = this.activeEraserAnchorEl ?? this.eraserTriggerEl;
+    if (!this.eraserPanelEl || !anchorEl) return;
     const shellRect = document.querySelector(".app-shell")?.getBoundingClientRect?.();
-    const triggerRect = this.eraserTriggerEl.getBoundingClientRect();
+    const triggerRect = anchorEl.getBoundingClientRect();
     if (!shellRect) return;
     this.eraserPanelEl.style.left = `${triggerRect.right - shellRect.left + 4}px`;
     this.eraserPanelEl.style.top = `${triggerRect.top - shellRect.top}px`;
@@ -1290,7 +1757,7 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   isToolAvailableInPresentation(toolId) {
-    return toolId === "arrange";
+    return toolId === "arrange" || this.isBrushFamilyActive(toolId) || toolId === "eraser";
   }
 
   getDrawingPlugin() {
@@ -3138,11 +3605,13 @@ export class ToolbarPlugin extends BasePlugin {
     const showShapePanel = isEdit && Boolean(this.selectedShapeNode?.getStage?.());
     const drawingPlugin = this.getDrawingPlugin();
     const isPresentation = !isEdit;
+    const allowPresentationDrawingControls = isEdit || isPresentation;
     const drawLayerVisible = drawingPlugin?.isDrawLayerVisible?.() !== false;
 
     document.body.classList.toggle("is-edit-mode", isEdit);
     document.body.classList.toggle("is-presentation-mode", !isEdit);
     this.syncPresentationToolbarAutoHide();
+    this.syncPresentationBrushFab();
 
     if (modeCapsuleEditEl) {
       modeCapsuleEditEl.setAttribute("aria-pressed", String(isEdit));
@@ -3189,10 +3658,11 @@ export class ToolbarPlugin extends BasePlugin {
     this.syncShapeLayerActions();
     this.syncButtonLayerActions();
     this.syncStickyLayerActions();
-    if (!isEdit || !this.isBrushFamilyActive(activeToolId)) {
-      this.penDropdown?.close();
+    if (!(allowPresentationDrawingControls && this.isBrushFamilyActive(activeToolId))) {
+      this.penDropdown?.close?.();
+      this.penDropdown?.clearAnchorElement?.();
     }
-    if (!isEdit || activeToolId !== "eraser") {
+    if (!(allowPresentationDrawingControls && activeToolId === "eraser")) {
       this.closeEraserPanel();
     }
 
@@ -3203,10 +3673,10 @@ export class ToolbarPlugin extends BasePlugin {
       this.clearStrokesEl.disabled = !drawingPlugin?.hasDrawings?.();
     }
     if (this.eraserRadiusEl) {
-      this.eraserRadiusEl.disabled = !(isEdit && activeToolId === "eraser");
+      this.eraserRadiusEl.disabled = !(allowPresentationDrawingControls && activeToolId === "eraser");
     }
     if (this.eraserRadiusValueEl) {
-      this.eraserRadiusValueEl.disabled = !(isEdit && activeToolId === "eraser");
+      this.eraserRadiusValueEl.disabled = !(allowPresentationDrawingControls && activeToolId === "eraser");
     }
 
     if (saveFocusEl) {

@@ -72,6 +72,7 @@ class ClearStrokesCommand extends BaseCommand {
         eraser: {},
       },
     },
+    presentation: {},
   };
 
   execute() {
@@ -90,6 +91,7 @@ export class DrawingPlugin extends BasePlugin {
         eraser: {},
       },
     },
+    presentation: {},
   };
 
   tools() {
