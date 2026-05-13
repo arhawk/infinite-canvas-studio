@@ -1,4 +1,4 @@
-import { BaseComponent, FileEditorField } from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
 
 const DEFAULT_WIDTH = 360;
@@ -42,27 +42,6 @@ export class VideoComponent extends BaseComponent {
   static type = "video";
   static label = "Local Video";
   static description = "Play a local video file";
-
-  getEditorTitle() {
-    return "Local Video";
-  }
-
-  editorFields() {
-    return [
-      new FileEditorField({
-        id: "video",
-        label: "Change Video",
-        input: { accept: "video/mp4,video/webm,video/ogg" },
-        getValue: () => null,
-        setValue: async (node, file) => {
-          if (file instanceof File) {
-            const src = await readVideoFileAsDataUrl(file);
-            await this.updateNode(node, src);
-          }
-        },
-      }),
-    ];
-  }
 
   async createNode({ x, y, src = null } = {}) {
     const group = new Konva.Group({

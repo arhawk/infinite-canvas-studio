@@ -804,14 +804,7 @@ export function setupAppTestApi(app) {
     getPageCompareState: () => {
       const pageComparePlugin = getPlugin(app, "page-compare");
       return pageComparePlugin?.getDebugState?.() ?? null;
-    },
-    openComponentEditor: (id) => {
-      const componentEditorPlugin = getPlugin(app, "component-editor");
-      const node = getNodeById(app, id);
-      componentEditorPlugin?.open?.(node);
-      return Boolean(componentEditorPlugin?.currentNode);
-    },
-    saveFocus: (id) => {
+    },    saveFocus: (id) => {
       const focusPlugin = getPlugin(app, "focus-navigation");
       const node = getNodeById(app, id);
       return focusPlugin?.saveFocus?.(node) ?? false;

@@ -1,8 +1,4 @@
-import {
-  BaseComponent,
-  TextEditorField,
-  TextareaEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY, UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
@@ -683,40 +679,6 @@ export class JavaScriptEditorComponent extends BaseComponent {
   static label = "JS Code Runner";
   static description = "Write JavaScript and run it in an isolated preview";
 
-  getEditorTitle() {
-    return "JS Code Runner";
-  }
-
-  editorFields() {
-    return [
-      new TextEditorField({
-        id: "title",
-        label: "Title",
-        placeholder: DEFAULT_TITLE,
-        getValue: (node) => node.getAttr("javascriptEditorTitle") ?? DEFAULT_TITLE,
-        setValue: (node, value) => {
-          this.#applyNodeData(node, {
-            ...this.serializeNode(node),
-            title: value,
-          });
-        },
-      }),
-      new TextareaEditorField({
-        id: "code",
-        label: "JavaScript",
-        description: "The inline runner is the main workflow. This field edits the saved code.",
-        rows: 14,
-        getValue: (node) => node.getAttr("javascriptEditorCode") ?? DEFAULT_CODE,
-        setValue: (node, value) => {
-          this.#applyNodeData(node, {
-            ...this.serializeNode(node),
-            code: value,
-          });
-        },
-      }),
-    ];
-  }
-
   renderPalettePreview(previewEl) {
     const shell = document.createElement("div");
     shell.className = "javascript-editor-component__palette";
@@ -1236,15 +1198,6 @@ export class JavaScriptEditorComponent extends BaseComponent {
     contextMenuPlugin.showMenu(node, nextClientPoint);
   }
 
-  #openComponentEditor(node) {
-    const componentEditorPlugin = this.app.getPlugin?.("component-editor") ?? null;
-    if (!componentEditorPlugin?.open) return;
-    if (componentEditorPlugin.isEnabled?.() === false) return;
-
-    this.#hideContextMenu();
-    this.app.getPlugin?.("selection")?.setSelected?.([node]);
-    componentEditorPlugin.open(node);
-  }
 
   #getContextMenuClientPoint(node, clientPoint, itemCount = 1) {
     const overlay = node._javascriptEditorOverlayEl ?? null;
@@ -1935,7 +1888,6 @@ export class JavaScriptEditorComponent extends BaseComponent {
       if (event.target.closest("button")) return;
       event.preventDefault();
       event.stopPropagation();
-      this.#openComponentEditor(node);
     });
     splitter.addEventListener("mousedown", beginOutputResize);
     previewConnectionShield.addEventListener("mousedown", (event) => {

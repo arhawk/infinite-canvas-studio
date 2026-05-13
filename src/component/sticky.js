@@ -1,9 +1,4 @@
-import {
-  BaseComponent,
-  ColorEditorField,
-  NumberEditorField,
-  TextareaEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
@@ -133,61 +128,6 @@ export class StickyComponent extends BaseComponent {
   static type = "sticky";
   static label = "Sticky Note";
   static description = "Colorful note block";
-
-  getEditorTitle() {
-    return "Sticky Note";
-  }
-
-  editorFields() {
-    return [
-      new TextareaEditorField({
-        id: "text",
-        label: "Content",
-        rows: 6,
-        getValue: (node) => node.findOne(".sticky-text")?.text() ?? "",
-        setValue: (node, value) => {
-          syncStickyVisuals(node, {
-            ...this.serializeNode(node),
-            text: value || "Sticky note",
-          });
-        },
-      }),
-      new NumberEditorField({
-        id: "fontSize",
-        label: "Font Size",
-        input: { min: 12, max: 72, step: 1 },
-        getValue: (node) => node.findOne(".sticky-text")?.fontSize() ?? DEFAULT_FONT_SIZE,
-        setValue: (node, value) => {
-          syncStickyVisuals(node, {
-            ...this.serializeNode(node),
-            fontSize: value,
-          });
-        },
-      }),
-      new ColorEditorField({
-        id: "fill",
-        label: "Fill Color",
-        getValue: (node) => node.findOne(".sticky-bg")?.fill() ?? "#ffe082",
-        setValue: (node, value) => {
-          syncStickyVisuals(node, {
-            ...this.serializeNode(node),
-            fill: value,
-          });
-        },
-      }),
-      new ColorEditorField({
-        id: "textColor",
-        label: "Text Color",
-        getValue: (node) => node.findOne(".sticky-text")?.fill() ?? "#47361c",
-        setValue: (node, value) => {
-          syncStickyVisuals(node, {
-            ...this.serializeNode(node),
-            textColor: value,
-          });
-        },
-      }),
-    ];
-  }
 
   async createNode({
     x,

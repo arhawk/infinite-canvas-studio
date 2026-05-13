@@ -1,9 +1,4 @@
-import {
-  BaseComponent,
-  ColorEditorField,
-  NumberEditorField,
-  TextareaEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
@@ -46,35 +41,6 @@ export class TextComponent extends BaseComponent {
   static type = "text";
   static label = "Text";
   static description = "Editable thought label";
-
-  getEditorTitle() {
-    return "Text Block";
-  }
-
-  editorFields() {
-    return [
-      new TextareaEditorField({
-        id: "text",
-        label: "Content",
-        rows: 5,
-        getValue: (node) => node.text(),
-        setValue: (node, value) => node.text(value ?? ""),
-      }),
-      new NumberEditorField({
-        id: "fontSize",
-        label: "Font Size",
-        input: { min: 12, max: 96, step: 1 },
-        getValue: (node) => node.fontSize(),
-        setValue: (node, value) => node.fontSize(value),
-      }),
-      new ColorEditorField({
-        id: "fill",
-        label: "Text Color",
-        getValue: (node) => node.fill(),
-        setValue: (node, value) => node.fill(value),
-      }),
-    ];
-  }
 
   async createNode({
     x,

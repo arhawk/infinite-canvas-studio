@@ -1,9 +1,4 @@
-import {
-  BaseComponent,
-  ColorEditorField,
-  NumberEditorField,
-  TextEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY, UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 import { EditableTextBehavior } from "./editableText.js";
@@ -511,60 +506,6 @@ export class RankingBoxComponent extends BaseComponent {
   static type = "rankingBox";
   static label = "Ranking Box";
   static description = "Sortable box for collecting references to text blocks";
-
-  getEditorTitle() {
-    return "Ranking Box";
-  }
-
-  editorFields() {
-    return [
-      new TextEditorField({
-        id: "label",
-        label: "Label",
-        getValue: (node) => this.getData(node).label,
-        setValue: (node, value) => {
-          this.setData(node, {
-            ...this.getData(node),
-            label: value || DEFAULT_RANKING_BOX_LABEL,
-          });
-        },
-      }),
-      new NumberEditorField({
-        id: "titleFontSize",
-        label: "Title Font Size",
-        input: { min: 12, max: 72, step: 1 },
-        getValue: (node) => this.getData(node).titleFontSize,
-        setValue: (node, value) => {
-          this.setData(node, {
-            ...this.getData(node),
-            titleFontSize: value,
-          });
-        },
-      }),
-      new ColorEditorField({
-        id: "titleColor",
-        label: "Title Color",
-        getValue: (node) => this.getData(node).titleColor,
-        setValue: (node, value) => {
-          this.setData(node, {
-            ...this.getData(node),
-            titleColor: value,
-          });
-        },
-      }),
-      new ColorEditorField({
-        id: "themeColor",
-        label: "Theme Color",
-        getValue: (node) => this.getData(node).themeColor,
-        setValue: (node, value) => {
-          this.setData(node, {
-            ...this.getData(node),
-            themeColor: value,
-          });
-        },
-      }),
-    ];
-  }
 
   async createNode({
     x,

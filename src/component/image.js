@@ -1,7 +1,4 @@
-import {
-  BaseComponent,
-  FileEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
@@ -27,28 +24,6 @@ export class ImageComponent extends BaseComponent {
   static type = "image";
   static label = "Image";
   static description = "Upload and place photo";
-
-  getEditorTitle() {
-    return "Image";
-  }
-
-  editorFields() {
-    return [
-      new FileEditorField({
-        id: "image",
-        label: "Change Image",
-        description: "Select a new image file",
-        input: { accept: "image/*" },
-        getValue: () => null,
-        setValue: async (node, file) => {
-          if (file instanceof File) {
-            const src = await readImageFileAsDataUrl(file);
-            await this.updateNode(node, src);
-          }
-        },
-      }),
-    ];
-  }
 
   async createNode({ x, y, src }) {
     const width = 220;

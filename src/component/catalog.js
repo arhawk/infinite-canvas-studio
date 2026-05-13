@@ -1,4 +1,4 @@
-import { BaseComponent, TextareaEditorField } from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
@@ -7,46 +7,6 @@ export class CatalogComponent extends BaseComponent {
   static label = "Catalog";
   static description = "Document outline data node";
   static palette = false;
-
-  getEditorTitle() {
-    return "Catalog";
-  }
-
-  editorFields() {
-    return [
-      new TextareaEditorField({
-        id: "title",
-        label: "Title",
-        rows: 2,
-        getValue: (node) => {
-          const data = node.getAttr("data") || {};
-          return data.title || "Catalog";
-        },
-        setValue: (node, value) => {
-          const data = node.getAttr("data") || {};
-          const nextData = {
-            ...data,
-            version: 1,
-            title: value || "Catalog",
-            items: Array.isArray(data.items) ? data.items : [],
-          };
-
-          node.setAttr("data", nextData);
-
-          const labelNode = node.findOne(".catalog-label");
-          if (labelNode) {
-            labelNode.text(nextData.title);
-          }
-
-          const subtitleNode = node.findOne(".catalog-subtitle");
-          if (subtitleNode) {
-            const count = nextData.items.length;
-            subtitleNode.text(count === 1 ? "1 item" : `${count} items`);
-          }
-        },
-      }),
-    ];
-  }
 
   async createNode({
     x,

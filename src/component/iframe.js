@@ -1,4 +1,4 @@
-import { BaseComponent, TextEditorField } from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { renderIcons } from "../lib/icons.js";
 import { Konva } from "../lib/konva.js";
@@ -66,30 +66,6 @@ export class IframeComponent extends BaseComponent {
   static type = "iframe";
   static label = "Iframe";
   static description = "Embed a webpage in a small viewport";
-
-  getEditorTitle() {
-    return "Iframe";
-  }
-
-  editorFields() {
-    return [
-      new TextEditorField({
-        id: "url",
-        label: "URL",
-        description: "Enter the webpage address to embed.",
-        placeholder: "https://example.com",
-        input: {
-          autocomplete: "off",
-          autocapitalize: "off",
-          spellcheck: "false",
-        },
-        getValue: (node) => node.getAttr("iframeUrl") ?? "",
-        setValue: async (node, value) => {
-          await this.updateNode(node, value);
-        },
-      }),
-    ];
-  }
 
   async createNode({
     x,

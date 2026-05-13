@@ -38,7 +38,7 @@ describe("KeybindingRegistry", () => {
     const registry = new KeybindingRegistry(commandRegistry);
     registries.push(registry);
 
-    registry.register("Enter", "component:edit");
+    registry.register("Enter", "selection:rename");
     const input = document.createElement("input");
     document.body.append(input);
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));

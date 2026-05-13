@@ -27,21 +27,6 @@ export class ComponentRegistry {
     return this.get(selectable.getAttr("componentType"));
   }
 
-  getEditor(node) {
-    const selectable = resolveSelectable(node);
-    const component = this.getByNode(selectable);
-    if (!component) return null;
-
-    const definition = component.getEditorDefinition(selectable);
-    if (!definition) return null;
-
-    return {
-      ...definition,
-      node: selectable,
-      component,
-    };
-  }
-
   async create(type, payload) {
     const component = this.get(type);
     if (!component) {

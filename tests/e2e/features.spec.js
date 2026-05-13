@@ -501,7 +501,6 @@ test("presentation page shows attachment bookmarks and does not open attachments
   await expect.poll(async () => page.evaluate(() => (
     window.__APP_TEST_API__.getAttachmentsBookmarksState()
   ))).toEqual(expect.objectContaining({ visible: true, count: 2 }));
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect(page.getByTestId("attachments-panel")).toHaveCount(0);
 });
 
@@ -648,13 +647,7 @@ test("edits image sources from the floating toolbar", async ({ page }) => {
   await expect(page.getByTestId("image-upload").locator("svg")).toBeVisible();
   await expect(page.getByTestId("image-connect")).toBeVisible();
   await expect(page.getByTestId("image-layer-menu")).toBeVisible();
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), image.id);
-  expect(opened).toBe(false);
   await page.mouse.dblclick(center.x, center.y);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="48">
     <rect width="80" height="48" fill="#38bdf8"/>
@@ -757,13 +750,7 @@ test("edits video sources from the floating toolbar and opens layer actions", as
       srcLength: 0,
     }),
   );
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), video.id);
-  expect(opened).toBe(false);
   await page.mouse.dblclick(center.x, center.y);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.getByTestId("video-upload-input").setInputFiles({
     name: "toolbar-video.mp4",
@@ -885,14 +872,8 @@ test("shows JavaScript editor actions in the floating toolbar", async ({ page })
   await expect(page.getByTestId("javascript-editor-toolbar-title")).toHaveCount(0);
   await expect(page.getByTestId("javascript-editor-connect")).toBeVisible();
   await expect(page.getByTestId("javascript-editor-layer-menu")).toBeVisible();
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), editor.id);
-  expect(opened).toBe(false);
   const center = await getNodePageCenter(page, editor.id);
   await page.mouse.dblclick(center.x, center.y);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.getByTestId("javascript-editor-layer-menu").click();
   const layerButtonBox = await page.getByTestId("javascript-editor-layer-menu").boundingBox();
@@ -1068,15 +1049,9 @@ test("edits connection lines from the floating toolbar and right click", async (
   await expect(page.getByTestId("connection-pointer-length")).toHaveValue("10");
   await expect(page.getByTestId("connection-pointer-width")).toHaveValue("10");
   await expect(page.getByTestId("connection-reverse-direction")).toBeEnabled();
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), connection.id);
-  expect(opened).toBe(false);
   await page.evaluate((connectionId) => (
     window.__APP_TEST_API__.doubleClickConnectionLine(connectionId)
   ), connection.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.evaluate(() => window.__APP_TEST_API__.resetHistory());
   await page.getByTestId("connection-reverse-direction").click();
@@ -1714,11 +1689,6 @@ test("button shape changes persist and keep jump navigation working", async ({ p
 
   await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), button.id);
   await expect(page.getByTestId("button-controls")).toBeVisible();
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), button.id);
-  expect(opened).toBe(false);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await expect(page.getByTestId("button-type-rounded")).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("button-type-rhombus").click();
@@ -1938,16 +1908,10 @@ test("selected button click edits its label inline", async ({ page }) => {
 
   await expect(page.getByTestId("button-controls")).toBeVisible();
   await expect(page.getByTestId("canvas-button-text-editor")).toHaveCount(0);
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), button.id);
-  expect(opened).toBe(false);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.mouse.dblclick(center.x, center.y);
   const editor = page.getByTestId("canvas-button-text-editor");
   await expect(editor).toBeVisible();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   const editorBox = await editor.boundingBox();
   expect(editorBox).toBeTruthy();
   expect(editorBox.width).toBeLessThan(100);
@@ -2463,13 +2427,10 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
   await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
   await page.getByTestId("canvas-text-editor").fill("Updated from Playwright");
   await page.getByTestId("canvas-text-editor").press("Control+Enter");
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect
     .poll(async () => (await getNode(page, sticky.id))?.summary?.text ?? "")
     .toBe("Updated from Playwright");
 
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.openComponentEditor(nodeId), sticky.id);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.evaluate(() => {
     window.__stickyContextMenuPrevented = null;
@@ -2551,12 +2512,6 @@ test("runs JavaScript editor snippets and restores code edits through undo/redo"
     .poll(async () => (await getNode(page, editor.id))?.summary?.status ?? "")
     .toBe("Preview updated");
   await expect(frame.getByTestId("js-result")).toHaveText("First output");
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), editor.id);
-  expect(opened).toBe(false);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await expect
     .poll(async () => (await getNode(page, editor.id))?.summary?.title ?? "")
@@ -2750,7 +2705,6 @@ test("keeps the JavaScript editor read-only in presentation mode", async ({ page
   expect(afterSplitterDrag.summary.outputRatio).toBeCloseTo(beforeOutputRatio, 4);
 
   await page.getByTestId("javascript-editor-header").dblclick();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 });
 
 test("keeps the JavaScript editor behind later overlapping components", async ({ page }) => {
@@ -3230,13 +3184,7 @@ test("shows iframe actions in the embedded header bar without reopening the moda
     shieldHidden: false,
     framePointerEvents: "none",
   });
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), iframe.id);
-  expect(opened).toBe(false);
   await page.mouse.dblclick(center.x, center.y);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect(page.getByText("Edit...")).toHaveCount(0);
 });
 
@@ -3691,7 +3639,6 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
   await expect(page.getByTestId("page-create-next")).toBeVisible();
   await expect(page.locator('[data-testid="page-create-next"] svg')).toHaveCount(1);
   await page.mouse.dblclick(center.x, center.y);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
   await page.getByTestId("canvas-text-editor").fill("New Label");
   await page.getByTestId("canvas-text-editor").press("Control+Enter");
@@ -3948,16 +3895,9 @@ test("edits text blocks from the floating toolbar and inline text editor", async
   await expect(page.getByTestId("canvas-text-editor")).toBeVisible();
   await page.getByTestId("canvas-text-editor").fill("Updated text block");
   await page.getByTestId("canvas-text-editor").press("Control+Enter");
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect
     .poll(async () => (await getNode(page, text.id))?.summary?.text ?? "")
     .toBe("Updated text block");
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), text.id);
-  expect(opened).toBe(false);
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await page.evaluate(() => {
     window.__textContextMenuPrevented = null;
@@ -4257,7 +4197,6 @@ test("edits text inline and resizes the box without scaling the font", async ({ 
   await page.mouse.dblclick(editPoint.x, editPoint.y);
   const inlineEditor = page.getByTestId("canvas-text-editor");
   await expect(inlineEditor).toBeVisible();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await expect(inlineEditor).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(inlineEditor).toHaveCSS("border-top-style", "dashed");
 
@@ -4410,7 +4349,6 @@ test("edits shape text inline and preserves shape style through resize and docum
 
   const inlineEditor = page.getByTestId("canvas-shape-text-editor");
   await expect(inlineEditor).toBeVisible();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
 
   await inlineEditor.fill("Decision point");
   await inlineEditor.press("Control+Enter");
@@ -4526,7 +4464,6 @@ test("keeps shape inline text editing and exposes toolbar connection and layer a
 
   await page.mouse.dblclick(center.x, center.y);
   await expect(page.getByTestId("canvas-shape-text-editor")).toBeVisible();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await page.getByTestId("canvas-shape-text-editor").press("Escape");
   await expect(page.getByTestId("canvas-shape-text-editor")).toBeHidden();
 
@@ -4825,15 +4762,9 @@ test("edits ranking box titles inline and styles from the floating toolbar", asy
   await expect(page.getByTestId("ranking-box-panel")).toBeVisible();
   await expect(page.getByTestId("ranking-box-connect")).toHaveCount(0);
   await expect(page.getByTestId("ranking-box-layer-menu")).toBeVisible();
-
-  const opened = await page.evaluate((nodeId) => (
-    window.__APP_TEST_API__.openComponentEditor(nodeId)
-  ), rankingBox.id);
-  expect(opened).toBe(false);
   await page.mouse.dblclick(titleCenter.x, titleCenter.y);
   const inlineEditor = page.getByTestId("canvas-text-editor");
   await expect(inlineEditor).toBeVisible();
-  await expect(page.getByTestId("component-editor-dialog")).toBeHidden();
   await inlineEditor.fill(longTitle);
   const editorMetrics = await inlineEditor.evaluate((element) => ({
     clientHeight: element.clientHeight,

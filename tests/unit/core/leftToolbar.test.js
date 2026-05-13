@@ -45,15 +45,15 @@ describe("LeftToolbarPlugin", () => {
     expect(plugin.componentsBtn.getAttribute("aria-label")).toBe("Components");
   });
 
-  it("renders a Background button under Timer in the left plugin group", () => {
+  it("renders a Background button under Calculator in the left plugin group", () => {
     const plugin = new LeftToolbarPlugin(createApp());
 
     const pluginButtons = Array.from(plugin.calculatorBtn.parentElement.children);
-    const timerIndex = pluginButtons.indexOf(plugin.timerBtn);
+    const calculatorIndex = pluginButtons.indexOf(plugin.calculatorBtn);
     const backgroundIndex = pluginButtons.indexOf(plugin.backgroundBtn);
 
-    expect(timerIndex).toBeGreaterThanOrEqual(0);
-    expect(backgroundIndex).toBe(timerIndex + 1);
+    expect(calculatorIndex).toBeGreaterThanOrEqual(0);
+    expect(backgroundIndex).toBe(calculatorIndex + 1);
     expect(plugin.backgroundBtn).toBeTruthy();
     expect(plugin.backgroundBtn.textContent).toBe("");
     expect(plugin.backgroundBtn.querySelector('[data-lucide="palette"]')).toBeTruthy();
