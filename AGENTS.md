@@ -77,7 +77,7 @@ Feature implementation constraint:
 
 - Install dependencies: `pnpm install`
 - Start local dev server: `pnpm dev`
-- Start room relay server: `pnpm server`
+- Start room relay server: `pnpm run server`
 - Build static output: `pnpm build`
 - Preview production build: `pnpm preview`
 - Run unit tests: `pnpm test:unit`
@@ -87,7 +87,7 @@ Feature implementation constraint:
 - First-time Playwright browser install on a new machine: `pnpm exec playwright install chromium`
 
 The Vite dev server is configured in [vite.config.js](vite.config.js) and runs at `http://localhost:3000`.
-The room relay server is started from the repository root with `pnpm server`. The frontend's default room backend host is `au.baitian.moe:3001`; tests may override it with `window.__ROOM_BACKEND_HOST__`.
+The room relay server is started from the repository root with `pnpm run server`. The frontend's default room backend host is `au.baitian.moe:3001`; tests may override it with `window.__ROOM_BACKEND_HOST__`.
 `pnpm build` generates `dist/__export-template`, and runtime HTML export reads it through `/__export-template`.
 
 ## Project Structure

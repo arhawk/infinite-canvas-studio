@@ -33,11 +33,11 @@ For internal architecture, extension conventions, and implementation details, se
 ```bash
 pnpm install
 pnpm dev
-pnpm server
+pnpm run server
 ```
 
 The Vite dev server runs on `http://localhost:3000`.
-The room relay server runs with `pnpm server`. The frontend's default room backend host is `au.baitian.moe:3001`; tests can override it with `window.__ROOM_BACKEND_HOST__`.
+The room relay server runs with `pnpm run server`. When the frontend is opened from `localhost`, `127.0.0.1`, or `::1`, room requests go through the Vite `/api` and `/ws` proxy to the local server. Other hosts use `au.baitian.moe:3001`; tests can override this with `window.__ROOM_BACKEND_HOST__`.
 
 Runtime HTML export uses the generated `dist/__export-template` file as the template source.
 
