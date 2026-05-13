@@ -45,6 +45,7 @@ export class App {
     this.isReplayingHistory = false;
     this.isRestoringDocument = false;
     this.presentationLockReason = null;
+    this.activeInlineTextEditor = null;
     this.history = null;
     this.documentManager = null;
 

@@ -18,6 +18,38 @@ function isRankingItemInteractionTarget(target) {
   return Boolean(target?.findAncestor?.(".ranking-item-card", true));
 }
 
+function debugStageViewport(message, payload = {}) {
+  console.info("[stage-viewport]", message, payload);
+}
+
+function commitActiveInlineTextEditor(stage, reason) {
+  const app = stage?.getAttr?.("app");
+  const activeEditor = app?.activeInlineTextEditor;
+  debugStageViewport("commit active editor check", {
+    reason,
+    hasActiveEditor: Boolean(activeEditor),
+    editorId: activeEditor?.editorId,
+    domEditors: typeof document === "undefined"
+      ? null
+      : document.querySelectorAll(".canvas-text-editor").length,
+    activeTag: typeof document === "undefined" ? null : document.activeElement?.tagName,
+    activeClass: typeof document === "undefined" ? null : document.activeElement?.className,
+  });
+
+  if (typeof activeEditor?.commit === "function") {
+    activeEditor.commit(reason);
+    return true;
+  }
+
+  if (typeof document === "undefined") return false;
+  const editor = document.querySelector(".canvas-text-editor");
+  if (editor instanceof HTMLElement) {
+    editor.blur();
+    return true;
+  }
+  return false;
+}
+
 export class StageController {
   constructor(container, { onZoomChange, onViewportChange } = {}) {
     const initialSize = this.measureContainerSize(container);
@@ -217,6 +249,16 @@ export class StageController {
   syncViewport(scale = this.stage.scaleX()) {
     this.redrawGrid();
     this.stage.batchDraw();
+    debugStageViewport("syncViewport", {
+      scale,
+      position: {
+        x: this.stage.x(),
+        y: this.stage.y(),
+      },
+      domEditors: typeof document === "undefined"
+        ? null
+        : document.querySelectorAll(".canvas-text-editor").length,
+    });
     this.onZoomChange?.(Math.round(scale * 100));
     this.onViewportChange?.({
       scale,
@@ -233,6 +275,24 @@ export class StageController {
     scale = this.stage.scaleX(),
     position = { x: this.stage.x(), y: this.stage.y() },
   }) {
+    const scaleChanged = Math.abs(scale - this.stage.scaleX()) >= 0.0001;
+    const positionChanged =
+      Math.abs(position.x - this.stage.x()) >= 0.0001 ||
+      Math.abs(position.y - this.stage.y()) >= 0.0001;
+    debugStageViewport("setViewport", {
+      scale,
+      currentScale: this.stage.scaleX(),
+      position,
+      currentPosition: {
+        x: this.stage.x(),
+        y: this.stage.y(),
+      },
+      scaleChanged,
+      positionChanged,
+    });
+    if (scaleChanged || positionChanged) {
+      commitActiveInlineTextEditor(this.stage, "set-viewport");
+    }
     this.stage.scale({ x: scale, y: scale });
     this.stage.position(position);
     this.syncViewport(scale);
@@ -315,6 +375,13 @@ export class StageController {
   }
 
   onWheel(event) {
+    debugStageViewport("wheel", {
+      deltaY: event.evt.deltaY,
+      ctrlKey: event.evt.ctrlKey,
+      targetClass: event.evt.target?.className,
+      scale: this.stage.scaleX(),
+    });
+    commitActiveInlineTextEditor(this.stage, "stage-wheel");
     event.evt.preventDefault();
     const pointer = this.stage.getPointerPosition();
     if (!pointer) return;

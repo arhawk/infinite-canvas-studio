@@ -4351,6 +4351,34 @@ test("resizes sticky notes without scaling their font", async ({ page }) => {
   expect(resized.summary.scaleY).toBeCloseTo(1, 4);
 });
 
+test("saves sticky inline editing when zooming on another canvas area", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", {
+    x: 220,
+    y: 220,
+    width: 180,
+    height: 130,
+    text: "Zoom me",
+  });
+  const center = await getNodePageCenter(page, sticky.id);
+
+  await page.mouse.dblclick(center.x, center.y);
+  const inlineEditor = page.getByTestId("canvas-text-editor");
+  await expect(inlineEditor).toBeVisible();
+  await inlineEditor.fill("Saved from blank canvas zoom");
+
+  const beforeScale = await page.evaluate(() => window.__APP_TEST_API__.getViewportState().scale);
+  await page.mouse.move(center.x + 360, center.y - 180);
+  await page.mouse.wheel(0, -320);
+
+  await expect(inlineEditor).toHaveCount(0);
+  await expect
+    .poll(async () => page.evaluate(() => window.__APP_TEST_API__.getViewportState().scale))
+    .toBeGreaterThan(beforeScale);
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary?.text ?? "")
+    .toBe("Saved from blank canvas zoom");
+});
+
 test("edits shape text inline and preserves shape style through resize and document load", async ({ page }) => {
   const shape = await addComponent(page, "shape", {
     x: 220,

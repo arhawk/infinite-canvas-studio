@@ -1,3 +1,9 @@
+const DEBUG_PREFIX = "[inline-text]";
+
+function debugInlineText(message, payload = {}) {
+  console.info(DEBUG_PREFIX, message, payload);
+}
+
 export class EditableTextBehavior {
   static attach(textNode, {
     fallbackText = "Text",
@@ -12,6 +18,11 @@ export class EditableTextBehavior {
       const stage = textNode.getStage();
       const app = stage?.getAttr("app");
       if (!stage || (app && !app.modeManager.matches({ mode: "edit", editorTool: "arrange" }))) {
+        debugInlineText("open skipped", {
+          hasStage: Boolean(stage),
+          mode: app?.getMode?.(),
+          editorTool: app?.getEditorTool?.(),
+        });
         return;
       }
 
@@ -24,6 +35,7 @@ export class EditableTextBehavior {
       event.evt?.preventDefault?.();
       event.evt?.stopPropagation?.();
 
+      const editorId = `${textNode.id?.() || "text"}-${Date.now()}`;
       textNode.setAttr("inlineEditing", true);
       const wasDraggable = textNode.draggable();
       const previousOpacity = textNode.opacity();
@@ -83,9 +95,38 @@ export class EditableTextBehavior {
       resizeToContent();
       area.focus();
       area.select();
+      debugInlineText("opened", {
+        editorId,
+        nodeId: textNode.id?.(),
+        componentType: getHistoryNode?.(textNode)?.getAttr?.("componentType"),
+        stageScale,
+        editorBox,
+        areaRect: area.getBoundingClientRect(),
+      });
 
       let cancelled = false;
       let committed = false;
+      let closed = false;
+      let cleanupViewportListener = null;
+
+      const cleanupEditor = (reason) => {
+        if (closed) return;
+        closed = true;
+        cleanupViewportListener?.();
+        cleanupViewportListener = null;
+        document.removeEventListener("wheel", commitOnWheel, true);
+        window.removeEventListener("resize", commitOnWindowResize);
+        window.visualViewport?.removeEventListener?.("resize", commitOnVisualViewportResize);
+        if (app?.activeInlineTextEditor?.element === area) {
+          app.activeInlineTextEditor = null;
+        }
+        debugInlineText("cleanup", {
+          editorId,
+          reason,
+          stillInDom: document.body.contains(area),
+        });
+        area.remove();
+      };
 
       const restoreNodeState = () => {
         textNode.opacity(previousOpacity);
@@ -94,12 +135,22 @@ export class EditableTextBehavior {
         textNode.getLayer()?.batchDraw();
       };
 
-      const closeEditor = () => {
+      const closeEditor = (reason = "close") => {
+        debugInlineText("close requested", { editorId, reason });
         restoreNodeState();
-        area.remove();
+        cleanupEditor(reason);
       };
 
-      const commit = () => {
+      const commit = (reason = "commit") => {
+        debugInlineText("commit requested", {
+          editorId,
+          reason,
+          cancelled,
+          committed,
+          value: area.value,
+          areaRect: area.getBoundingClientRect(),
+          stageScale: app?.stageApi?.getScale?.() ?? stage.scaleX(),
+        });
         if (cancelled || committed) return;
         committed = true;
 
@@ -117,24 +168,59 @@ export class EditableTextBehavior {
         }
 
         textNode.getLayer()?.batchDraw();
-        area.remove();
+        cleanupEditor(reason);
       };
+
+      function commitOnWheel(event) {
+        debugInlineText("document wheel captured", {
+          editorId,
+          deltaY: event.deltaY,
+          ctrlKey: event.ctrlKey,
+          targetClass: event.target?.className,
+        });
+        commit("document-wheel");
+      }
+
+      function commitOnWindowResize() {
+        commit("window-resize");
+      }
+
+      function commitOnVisualViewportResize() {
+        commit("visual-viewport-resize");
+      }
+
+      if (app) {
+        app.activeInlineTextEditor = {
+          element: area,
+          commit,
+          close: closeEditor,
+          editorId,
+        };
+        cleanupViewportListener = app.on?.("viewport:change", (payload) => {
+          debugInlineText("viewport change captured", { editorId, payload });
+          commit("viewport-change");
+        }) ?? null;
+      }
+
+      document.addEventListener("wheel", commitOnWheel, { capture: true, passive: true });
+      window.addEventListener("resize", commitOnWindowResize);
+      window.visualViewport?.addEventListener?.("resize", commitOnVisualViewportResize);
 
       area.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
           cancelled = true;
-          closeEditor();
+          closeEditor("escape");
           return;
         }
 
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
           event.preventDefault();
-          commit();
+          commit("keyboard-submit");
         }
       });
 
       area.addEventListener("input", resizeToContent);
-      area.addEventListener("blur", commit, { once: true });
+      area.addEventListener("blur", () => commit("blur"), { once: true });
     };
 
     textNode.openInlineEditor = openInlineEditor;
