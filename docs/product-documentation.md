@@ -3,19 +3,7 @@
 Version target: the current frontend application in this repository  
 Audience: teachers, students, presenters, content creators, and users who need to organize lessons, activities, or presentations on an infinite canvas
 
-## 1. Documentation, README, And User Manuals
-
-For this project, it is useful to separate three kinds of documentation:
-
-| Type | Primary readers | Main question answered | Recommended location |
-| --- | --- | --- | --- |
-| README | Developers, reviewers, deployers | What is this project? How do I install, run, and test it? | `README.md` |
-| Product Documentation | End users, course reviewers, presenters | How do I create my first board? How do I use each feature? | `docs/product-documentation.md` |
-| Developer Guide | Secondary developers | How do I extend components, plugins, history, serialization, and tests? | `AGENTS.md`, `docs/developer-guide.md`, or a README section |
-
-“Create your first project” and “How to use each feature” can both live in one product documentation file. A natural structure is to start with a complete first-project workflow, then provide feature-by-feature reference sections.
-
-## 2. Product Overview
+## 1. Product Overview
 
 Mimi is an infinite-canvas visual organization and presentation tool. Users can create pages, text blocks, sticky notes, images, embedded web pages, JavaScript runners, local videos, ranking activities, and shapes. These elements can then be organized with an outline, connections, jump buttons, presentation navigation, and page comparison.
 
@@ -30,15 +18,16 @@ Mimi is suitable for:
 Core capabilities:
 
 - Infinite canvas with pan, zoom, and overview navigation
-- Edit and Present modes for creation and delivery
+- Teacher-side modes: Edit for creating and organizing content, Present for maximizing delivery space
+- Student-side views: Host follows the presenter camera, Viewer allows free panning and zooming
 - Components including Page, Button, Text, Sticky Note, Image, Iframe, Ranking Box, JS Code Runner, and Local Video
 - Shapes and connections for concept mapping and navigation
 - Local JSON save/load and single-file HTML export
 - Teaching helpers including pens, highlighter, eraser, page comparison, timer, binary calculator, attachments, bookmarks, and branch collapse
 
-## 3. Quick Start: Create Your First Presentation Board
+## 2. Quick Start: Create Your First Presentation Board
 
-### 3.1 Open The App
+### 2.1 Open The App
 
 In a local development environment, run the following from the repository root:
 
@@ -55,7 +44,7 @@ http://localhost:3000
 
 If you are using the product as an end user, open the deployed web app or an exported single-file HTML document.
 
-### 3.2 Create Your First Page
+### 2.2 Create Your First Page
 
 1. Stay in `Edit` mode.
 2. Click `Components` in the left toolbar.
@@ -64,7 +53,7 @@ If you are using the product as an end user, open the deployed web app or an exp
 
 A Page works like a slide. Components placed on a Page can move with that Page, which makes it useful for grouping one lesson section, activity step, or presentation unit.
 
-### 3.3 Add Content Components
+### 2.3 Add Content Components
 
 From `Components`, add:
 
@@ -79,7 +68,7 @@ From `Components`, add:
 
 Double-click editable components to edit their content, or select them and use the related floating toolbar.
 
-### 3.4 Add Jumps And Connections
+### 2.4 Add Jumps And Connections
 
 1. Select the component that should start the relationship.
 2. Use the relevant `Connect to` action to connect it to a target component.
@@ -87,7 +76,7 @@ Double-click editable components to edit their content, or select them and use t
 
 Buttons are one-way jumps. To create a two-way jump between two pages, create one button on each page and point each button to the other page.
 
-### 3.5 Build The Outline
+### 2.5 Build The Outline
 
 The right-side `Outline` panel turns a freeform canvas into a structured navigation list:
 
@@ -98,7 +87,7 @@ The right-side `Outline` panel turns a freeform canvas into a structured navigat
 5. Double-click an outline item to rename it. The change syncs to the related canvas component.
 6. Collapse an outline branch to hide its child components on the canvas.
 
-### 3.6 Switch To Present Mode
+### 2.6 Switch To Present Mode
 
 When editing is complete, switch to `Present`:
 
@@ -109,7 +98,7 @@ When editing is complete, switch to `Present`:
 - Use page-edge navigation buttons when a Page is enlarged
 - Use connection-edge jump controls to follow relationships between components
 
-## 4. Interface Overview
+## 3. Interface Overview
 
 | Area | Purpose |
 | --- | --- |
@@ -120,11 +109,13 @@ When editing is complete, switch to `Present`:
 | Overview | Bottom-right minimap for global location and unlinked-page warnings |
 | Floating panels | Contextual controls for selected components, attachments, connections, video, code, and styles |
 
-## 5. Modes
+## 4. Modes
 
-### 5.1 Edit Mode
+Mimi has teacher-side modes and student-side views. The teacher side controls content creation and delivery; the student side is used when viewing an online room.
 
-Edit mode is for creating and organizing content. In this mode you can:
+### 4.1 Teacher Edit Mode
+
+Edit mode is for creating and organizing content. Components, toolbars, the right Outline, and floating panels are fully available. In this mode you can:
 
 - Create, move, resize, and rotate components
 - Single-select, multi-select, and marquee-select content
@@ -142,20 +133,29 @@ Common selection interactions:
 - Drag selected content: move components
 - Drag empty canvas: pan the board
 
-### 5.2 Present Mode
+### 4.2 Teacher Present Mode
 
-Present mode is for delivery and navigation:
+Present mode is for delivery. Editing toolbars collapse, the canvas area is maximized, and the focus is on viewing, explaining, and navigating:
 
-- Editing panels are hidden or collapsed
 - Users can pan and zoom the board
 - Buttons, page-edge controls, and connection-edge controls can jump between content
 - Drawing strokes can be shown or hidden
 - Page Compare is available
-- Online room viewers are restricted to read-only viewing
+- Presentation-board fullscreen is available
 
-## 6. Toolbar Features
+### 4.3 Student Host View
 
-### 6.1 Cursor
+When students join through an online room, they can follow the Host view. Host view follows the presenter's canvas position and zoom, which is useful for live teaching or synchronized presentation.
+
+### 4.4 Student Viewer View
+
+Viewer view lets students pan and zoom the canvas freely. If a student pans or zooms while following Host, the app automatically switches to Viewer view so their independent browsing is not overwritten by the presenter camera.
+
+Students can view and save a copy, but they cannot enter Edit mode, modify the board, or load a document over the Host state.
+
+## 5. Toolbar Features
+
+### 5.1 Cursor
 
 Cursor is used to select, move, and arrange content:
 
@@ -164,7 +164,7 @@ Cursor is used to select, move, and arrange content:
 - Move multiple selected components together
 - Drag empty canvas to pan the viewport
 
-### 6.2 Brush Tools
+### 5.2 Brush Tools
 
 Brush tools include:
 
@@ -174,11 +174,11 @@ Brush tools include:
 
 Each brush type has preset colors, widths, and opacity. These tools are useful for classroom explanation, live annotation, emphasis, and presentation notes.
 
-### 6.3 Eraser
+### 5.3 Eraser
 
 Eraser removes whole drawing strokes rather than small stroke fragments. You can adjust the eraser size and clear all drawing strokes.
 
-### 6.4 Shapes
+### 5.4 Shapes
 
 Shapes can create:
 
@@ -195,13 +195,13 @@ Shapes support:
 - Layer ordering
 - Connections to other components
 
-### 6.5 Components
+### 5.5 Components
 
 Components is the main entry point for content creation. Click it to open the component list, then click or drag a component to create it.
 
-## 7. Components
+## 6. Components
 
-### 7.1 Page
+### 6.1 Page
 
 Page is the basic presentation surface. It can be understood as a slide or content container.
 
@@ -221,7 +221,7 @@ Supported features:
 - Layer ordering
 - Presentation navigation target
 
-### 7.2 Button
+### 6.2 Button
 
 Button is a jump control for non-linear presentations.
 
@@ -235,7 +235,7 @@ Supported features:
 
 Note: Button jumps are one-way. For two-way navigation, create two buttons and point them at each other’s destinations.
 
-### 7.3 Text
+### 6.3 Text
 
 Text is the basic text box for titles, explanations, questions, and notes.
 
@@ -247,7 +247,7 @@ Supported features:
 - Layer ordering
 - Outline and connection participation
 
-### 7.4 Sticky Note
+### 6.4 Sticky Note
 
 Sticky Note is a text block with a colored background. It is useful for:
 
@@ -258,7 +258,7 @@ Sticky Note is a text block with a colored background. It is useful for:
 
 It supports font, text color, background color, size, and layer adjustments.
 
-### 7.5 Image
+### 6.5 Image
 
 Image uploads an image file. Common browser-supported image formats such as PNG, JPG, WebP, and GIF can be used.
 
@@ -270,7 +270,7 @@ Supported features:
 - Adjust layer order
 - Save image data inline with exported documents
 
-### 7.6 Iframe
+### 6.6 Iframe
 
 Iframe embeds a web URL inside the canvas.
 
@@ -283,7 +283,7 @@ Supported features:
 
 Limitation: some websites block embedding through their own security policies. In that case, use an attachment link or a regular text link instead.
 
-### 7.7 Ranking Box
+### 6.7 Ranking Box
 
 Ranking Box supports sorting activities. It is useful for:
 
@@ -293,7 +293,7 @@ Ranking Box supports sorting activities. It is useful for:
 
 Text items can be placed into a Ranking Box for ordering. Once placed, those items mainly behave as sortable entries rather than normal editable text boxes.
 
-### 7.8 JS Code Runner
+### 6.8 JS Code Runner
 
 JS Code Runner is used to write and run JavaScript examples.
 
@@ -311,7 +311,7 @@ Common actions:
 
 It is useful for programming teaching, algorithm demonstrations, classroom experiments, and interactive examples.
 
-### 7.9 Local Video
+### 6.9 Local Video
 
 Local Video imports and plays a local video file.
 
@@ -326,7 +326,7 @@ It supports common browser video player capabilities:
 
 Video data can be saved inline with the document, making it available after export.
 
-## 8. Outline
+## 7. Outline
 
 Outline is the right-side panel that turns a freeform board into structured navigation.
 
@@ -348,7 +348,7 @@ Common actions:
 
 The top-right count shows how many items are currently in the outline.
 
-## 9. Connections And Navigation
+## 8. Connections And Navigation
 
 Connections represent relationships between components. They can also act as presentation navigation paths.
 
@@ -365,7 +365,7 @@ Recommendations:
 - Use Button for explicit audience-click jumps
 - Give important Pages connections when possible, because Overview can warn about Pages with no connection target
 
-## 10. Attachments And Bookmarks
+## 9. Attachments And Bookmarks
 
 Attachment-aware components, especially Page, can store URLs, individual files, or folders.
 
@@ -378,7 +378,7 @@ Useful scenarios:
 
 In Present mode, Page attachments appear as bookmark-style entries. Click a bookmark to open the related content. Individual attachments can be removed.
 
-## 11. Overview Minimap
+## 10. Overview Minimap
 
 The bottom-right `Overview` panel is the board minimap.
 
@@ -392,7 +392,7 @@ It can:
 
 The fit-all control from the left toolbar is also attached to the Overview header, making it easy to fit all board content into view.
 
-## 12. Page Compare
+## 11. Page Compare
 
 Page Compare lets users compare two Pages side by side in Present mode.
 
@@ -414,9 +414,9 @@ The comparison window supports:
 
 It is useful for comparing two solutions, before/after states, student outputs, experiment results, or alternative plans.
 
-## 13. Save, Load, And Export
+## 12. Save, Load, And Export
 
-### 13.1 JSON Save
+### 12.1 JSON Save
 
 JSON is the structured document format for continued editing.
 
@@ -427,13 +427,13 @@ Saved data includes:
 - Pages, outline data, connections, attachments, annotations, and drawings
 - Current viewport position and zoom
 
-### 13.2 JSON Load
+### 12.2 JSON Load
 
 Loading JSON replaces the current board. The app asks for confirmation if the current board already has content.
 
 After loading, the loaded document becomes the new undo/redo baseline so old history does not affect the new document.
 
-### 13.3 Single-File HTML Export
+### 12.3 Single-File HTML Export
 
 HTML export creates a standalone file that can be opened in a browser. It is suitable for:
 
@@ -444,11 +444,11 @@ HTML export creates a standalone file that can be opened in a browser. It is sui
 
 Note: local `file://` HTML exports hide the Share button because a local file cannot reliably use the online room service.
 
-## 14. Online Room Sharing
+## 13. Online Room Sharing
 
-Online sharing lets a host create a four-digit room link such as `/room/1234`. Viewers open the link and enter viewer mode.
+Online sharing lets a Host create a four-digit room link such as `/room/1234`. Students or audience members open the link and enter the Viewer side, where they can watch the Host board in read-only mode.
 
-Hosts can:
+Teacher-side Hosts can:
 
 - Create a room
 - Set an optional password
@@ -456,7 +456,7 @@ Hosts can:
 - Edit the board and broadcast state to viewers
 - Broadcast their viewport
 
-Viewers can:
+Student-side Viewers can:
 
 - Join through the link
 - Enter a password for protected rooms
@@ -464,25 +464,33 @@ Viewers can:
 - Switch to free viewer camera
 - Save a JSON or HTML copy
 
-Viewers cannot:
+Student-side Viewers cannot:
 
 - Enter Edit mode
 - Modify board content
 - Load a document that replaces the host state
 
-If a viewer pans or zooms while following the host, the app automatically switches them to free viewer camera mode.
+If a student-side Viewer pans or zooms while following Host, the app automatically switches from Host view to free Viewer view.
 
-## 15. Teaching Helpers
+## 14. Teaching Helpers
 
-### 15.1 Timer
+### 14.1 Timer
 
-Timer/Stopwatch can be used for timed classroom activities, countdowns, or pacing a presentation. It supports start, pause, reset, and minute/second duration inputs.
+Timer/Stopwatch can be used for timed classroom activities, countdowns, or pacing a presentation. It supports start, pause, reset, and minute/second duration inputs. Press `Enter` in the minute or second input to finish editing that value.
 
-### 15.2 Binary Calculator
+### 14.2 Binary Calculator
 
-Binary Calculator is a floating calculator for binary calculations and computer science teaching.
+Binary Calculator is a floating calculator for binary calculations, base-conversion teaching, and quick computer science demonstrations.
 
-### 15.3 Background Style
+### 14.3 Overview / Minimap
+
+Overview is the bottom-right minimap. It shows the current viewport, selected component location, page connection status, and supports clicking to move the camera.
+
+### 14.4 Page Compare
+
+Page Compare is used in Present mode to view two Pages side by side. Select one Page, hold `Shift`, and click another Page to open comparison. Press `Esc` to close it.
+
+### 14.5 Background Style
 
 The Style panel adjusts the board background:
 
@@ -492,26 +500,91 @@ The Style panel adjusts the board background:
 - Custom background color
 - Background opacity
 
-## 16. Common Shortcuts
+## 15. Shortcuts
 
-| Shortcut | Function |
+### 15.1 General Canvas And File Shortcuts
+
+| Shortcut / Action | Function |
 | --- | --- |
-| `Mod+Z` | Undo |
-| `Mod+Shift+Z` | Redo |
-| `Mod+Y` | Redo |
-| `Mod+S` | Open save/export menu |
-| `Mod+O` | Load document |
-| `Delete` / `Backspace` | Delete selected components |
-| `Shift` + drag | Marquee select |
-| `Ctrl` / `Cmd` + click | Multi-select |
-| `Esc` | Close selected overlays or leave some presentation-related interfaces |
+| Mouse wheel | Zoom the canvas |
+| Middle-button drag | Pan the canvas |
+| `Space` + drag | Pan the canvas |
 | `Home` | Fit all content to the viewport |
+| `Mod++` / `Mod+=` | Zoom in |
+| `Mod+-` | Zoom out |
+| `Mod+S` | Open save/export menu |
+| `Mod+O` | Load a JSON document |
+| `Esc` | Close the save menu, comparison window, selected overlays, or current tool panels |
 
-`Mod` usually means `Ctrl` on Windows/Linux and `Cmd` on macOS.
+### 15.2 Edit Mode Shortcuts
 
-## 17. Recommended Workflows
+| Shortcut / Action | Function |
+| --- | --- |
+| Drag empty canvas | Pan the canvas while using the Arrange tool |
+| `Mod` + click | Multi-select components |
+| `Shift` + drag empty canvas | Marquee-select components |
+| `Delete` / `Backspace` | Delete selected components |
+| `Mod+C` | Copy selected components |
+| `Mod+V` | Paste components |
+| `Mod+Z` | Undo |
+| `Mod+Shift+Z` / `Mod+Y` | Redo |
+| `Enter` | Open the selected component's edit entry; migrated components usually use floating toolbars or inline editing |
+| `Mod+Alt+A` | Add the selected node to the right Outline |
+| Hold `Shift` while drawing with Shape | Constrain shape proportion or direction |
 
-### 17.1 Build A Lesson Presentation
+### 15.3 Present Mode Shortcuts
+
+| Shortcut / Action | Function |
+| --- | --- |
+| `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` | Navigate by page or saved focus direction |
+| `Esc` | Exit Present and return to Edit |
+| `Mod+Shift+F` | Toggle presentation-board fullscreen |
+| Move the mouse to the top area | Reveal the auto-hidden presentation toolbar |
+| `Shift` + click another Page | Open Page Compare |
+
+### 15.4 Student Viewer Restrictions
+
+| Shortcut / Action | Function |
+| --- | --- |
+| `Mod+S` | Allowed: save/export the current viewed copy |
+| `Mod+O` | Blocked: viewers cannot load a document over the host state |
+| `Mod+Z` / `Mod+Y` | Blocked: viewers cannot undo or redo host state |
+| Pan or zoom | If following Host, automatically switch to free Viewer camera |
+| Click the `Host` / `Viewer` mode capsule | Switch between following the host and free viewing |
+
+### 15.5 Right Outline Shortcuts
+
+| Context | Shortcut / Action | Function |
+| --- | --- | --- |
+| Outline item focused | `Enter` / `Space` | Jump to and center the linked component |
+| Outline item focused and editable | `ArrowUp` / `ArrowDown` | Reorder within the same level |
+| Outline item focused and editable | `ArrowRight` | Indent under the previous sibling |
+| Outline item focused and editable | `ArrowLeft` | Promote to the parent's level |
+| Outline item focused and editable | `Delete` / `Backspace` | Remove the item from the Outline and promote its children |
+| Renaming after double-click | `Enter` | Finish renaming |
+| Renaming after double-click | `Esc` | Cancel renaming |
+| Title text editing | Normal arrow keys | Move the text cursor |
+| Title text editing | Double-tap `ArrowLeft` / `ArrowRight` | Finish editing and adjust outline hierarchy |
+
+### 15.6 Left Component Area And Component Shortcuts
+
+| Component / Area | Shortcut / Action | Function |
+| --- | --- | --- |
+| Components panel | Drag component to canvas | Create a component |
+| Text / Sticky / Button / Shape text | `Mod+Enter` | Commit inline text editing |
+| Text / Sticky / Button / Shape text | `Esc` | Cancel or close inline text editing |
+| Iframe URL input | `Enter` | Apply the URL change |
+| Iframe interaction mode | `Esc` | Exit webpage interaction mode |
+| Iframe more-actions button | `Enter` / `Space` | Open or close the Iframe action menu |
+| JS Code Runner | `Mod+Enter` | Run code |
+| Component Editor modal | `Esc` | Close the modal |
+| Connection creation | `Esc` | Cancel connection creation |
+| Pen preset popup | `Esc` | Close pen presets |
+| Eraser panel | `Esc` | Close the eraser panel |
+
+## 16. Recommended Workflows
+
+### 16.1 Build A Lesson Presentation
 
 1. Use Pages to divide lesson sections.
 2. Add Text, Sticky Note, Image, and Video content.
@@ -521,7 +594,7 @@ The Style panel adjusts the board background:
 6. Test navigation in Present mode.
 7. Export HTML for offline delivery or JSON for continued editing.
 
-### 17.2 Build A Classroom Ranking Activity
+### 16.2 Build A Classroom Ranking Activity
 
 1. Create a Page for the activity instructions.
 2. Add Text for the task prompt.
@@ -530,7 +603,7 @@ The Style panel adjusts the board background:
 5. Let students place text entries into the Ranking Box.
 6. Use Page Compare to compare different ranking results.
 
-### 17.3 Build A Programming Teaching Example
+### 16.3 Build A Programming Teaching Example
 
 1. Create a Page.
 2. Add Text to explain the concept.
@@ -539,7 +612,7 @@ The Style panel adjusts the board background:
 5. Run the code and inspect Preview or Console output.
 6. Use brush tools to annotate key outputs or error locations.
 
-## 18. FAQ
+## 17. FAQ
 
 ### Why can’t some websites display inside an Iframe?
 
@@ -559,61 +632,10 @@ Local `file://` files cannot reliably use the online room service, so Share is h
 
 Present mode is mainly for delivery. Editing controls are hidden or disabled. Switch back to Edit mode to modify content.
 
+### What is the difference between student Host view and Viewer view?
+
+Host view follows the presenter's canvas position and zoom, which is useful for synchronized teaching. Viewer view lets students browse the board freely. If a student pans or zooms while following Host, the app automatically switches to Viewer view.
+
 ### Why does a Button only jump one way?
 
 A Button represents a one-way jump. For two-way navigation, create two Buttons and point them at each other’s destinations.
-
-## 19. Developer Appendix
-
-If readers need to start the project from scratch, use the minimum workflow below.
-
-### 19.1 Requirements
-
-- Node.js `^20.19.0` or `>=22.12.0`
-- pnpm `10.23.0`
-
-### 19.2 Local Development
-
-```bash
-pnpm install
-pnpm dev
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
-
-### 19.3 Room Relay Server
-
-```bash
-pnpm server
-```
-
-The frontend’s default room backend host is `au.baitian.moe:3001`. Tests may override it with `window.__ROOM_BACKEND_HOST__`.
-
-### 19.4 Build And Test
-
-```bash
-pnpm build
-pnpm test:unit
-pnpm test:e2e
-pnpm test
-```
-
-Before the first Playwright E2E run on a new machine, you may need:
-
-```bash
-pnpm exec playwright install chromium
-```
-
-### 19.5 Secondary Development Notes
-
-- New components should live under `src/component/`
-- Components own their creation, serialization, and restoration logic
-- Behaviors should live under `src/plugins/`
-- Reversible changes should emit `node:change:start` and `node:changed`
-- New components should have at least one undo/redo or document-load roundtrip test
-- Normal frontend feature work should not change `server/` unless backend changes are explicitly required
-

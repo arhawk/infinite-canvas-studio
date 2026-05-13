@@ -238,13 +238,12 @@
         <a href="#navigation" data-tab="navigation">目录、连接与导航</a>
         <a href="#export" data-tab="export">保存、导出与分享</a>
         <a href="#tools" data-tab="tools">辅助工具与快捷键</a>
-        <a href="#developer" data-tab="developer">开发者附录</a>
       </nav>
     </aside>
     <main>
       <header class="hero">
         <h2>Mimi Mind Map Infinite Canvas 产品文档</h2>
-        <p>这是一份面向最终用户的 documentation：先用“创建第一个项目”建立完整使用路径，再按功能模块解释每个工具的用途。开发者从 0 到 1 启动项目的内容放在末尾附录。</p>
+        <p>这是一份面向最终用户的产品文档：先用“创建第一个项目”建立完整使用路径，再按功能模块解释每个工具的用途、模式差异和常用快捷键。</p>
       </header>
       <div class="tabs" role="tablist" aria-label="文档标签">
         <button class="tab" role="tab" data-tab="overview">概览</button>
@@ -254,28 +253,25 @@
         <button class="tab" role="tab" data-tab="navigation">导航</button>
         <button class="tab" role="tab" data-tab="export">导出分享</button>
         <button class="tab" role="tab" data-tab="tools">工具快捷键</button>
-        <button class="tab" role="tab" data-tab="developer">开发者</button>
       </div>
       <div class="content" id="content">
-        <section class="section active" id="overview" data-section="overview">
+                <section class="section active" id="overview" data-section="overview">
           <h3>产品概览</h3>
           <p>Mimi 是一个基于无限画布的可视化内容组织与展示工具。用户可以创建页面、文字、便签、图片、网页嵌入、代码运行器、本地视频、排序活动和图形，并通过目录、连接线、按钮跳转和演示模式组织成可讲解的内容空间。</p>
           <div class="grid">
             <div class="card"><strong>适合课程演示</strong>把多个 Page 组织成非线性课件，用按钮和连接线控制讲解路径。</div>
             <div class="card"><strong>适合课堂互动</strong>使用 Ranking Box、画笔、高亮、计时器和页面对比进行活动。</div>
             <div class="card"><strong>适合资料导航</strong>把网页、图片、视频、附件和说明文本集中到同一画布中。</div>
-            <div class="card"><strong>适合离线提交</strong>可导出 JSON 继续编辑，也可导出单文件 HTML 浏览器打开。</div>
+            <div class="card"><strong>适合在线观看</strong>教师端 Host 演示画布，学生端 Viewer 可以跟随讲解或自由浏览。</div>
           </div>
-          <h4>Documentation 与 README 的区别</h4>
-          <table>
-            <thead><tr><th>类型</th><th>读者</th><th>回答的问题</th></tr></thead>
-            <tbody>
-              <tr><td>README</td><td>开发者、评审者</td><td>项目是什么，如何安装、运行、测试。</td></tr>
-              <tr><td>Product Documentation</td><td>最终用户</td><td>如何创建第一个作品，各功能如何使用。</td></tr>
-              <tr><td>Developer Guide</td><td>二次开发者</td><td>如何扩展组件、插件、历史记录和测试。</td></tr>
-            </tbody>
-          </table>
-          <div class="callout">建议当前项目使用 Markdown 作为源文档，并额外生成 HTML 互动版。Markdown 便于版本管理，HTML 便于展示和阅读。</div>
+          <h4>核心特点</h4>
+          <ul>
+            <li>无限画布：支持平移、缩放和全局概览。</li>
+            <li>教师端双模式：Edit 用于创建和组织内容，Present 用于最大化展示空间。</li>
+            <li>学生端双视角：Host 视角跟随演讲者，Viewer 视角允许自由拖动和缩放。</li>
+            <li>组件化内容：Page、Button、Text、Sticky Note、Image、Iframe、Ranking Box、JS Code Runner 和 Local Video。</li>
+            <li>本地保存：支持 JSON 文档保存/加载，以及可离线打开的单文件 HTML 导出。</li>
+          </ul>
         </section>
 
         <section class="section" id="quickstart" data-section="quickstart">
@@ -305,24 +301,24 @@ pnpm dev</code></pre>
           </details>
         </section>
 
-        <section class="section" id="interface" data-section="interface">
+                <section class="section" id="interface" data-section="interface">
           <h3>界面与模式</h3>
           <h4>主要界面区域</h4>
-          <table>
-            <thead><tr><th>区域</th><th>用途</th></tr></thead>
-            <tbody>
-              <tr><td>左侧工具栏</td><td>Cursor、Brush tools、Eraser、Shapes、Components、计时器、计算器、背景和全局适配。</td></tr>
-              <tr><td>顶部栏</td><td>项目标题、保存、加载、分享、Edit/Present 切换和上下文操作。</td></tr>
-              <tr><td>无限画布</td><td>创建、移动、缩放、连接和展示内容。</td></tr>
-              <tr><td>右侧 Outline</td><td>管理目录、层级、顺序、重命名和分支折叠。</td></tr>
-              <tr><td>Overview</td><td>右下角小地图，显示全局位置和未连接页面提示。</td></tr>
-            </tbody>
-          </table>
-          <h4>Edit 模式</h4>
-          <p>Edit 用于创建和组织内容。支持单选、多选、框选、移动、缩放、编辑样式、绘图、连接、目录管理和导出。</p>
-          <h4>Present 模式</h4>
-          <p>Present 用于展示。编辑栏会收起，画布空间最大化。可以使用页面边缘浮球、Button、连接线导航入口、页面对比和全屏展示。</p>
-          <div class="callout warn">在线房间中的 viewer 处于只读观看状态，不能进入 Edit 模式或加载文档覆盖 host 内容。</div>
+          <table><thead><tr><th>区域</th><th>用途</th></tr></thead><tbody>
+            <tr><td>左侧工具栏</td><td>Cursor、Brush tools、Eraser、Shapes、Components、计时器、计算器、背景和全局适配。</td></tr>
+            <tr><td>顶部栏</td><td>项目标题、保存、加载、分享、Edit/Present 切换和上下文操作。</td></tr>
+            <tr><td>无限画布</td><td>创建、移动、缩放、连接和展示内容。</td></tr>
+            <tr><td>右侧 Outline</td><td>管理目录、层级、顺序、重命名和分支折叠。</td></tr>
+            <tr><td>Overview</td><td>右下角小地图，显示全局位置和未连接页面提示。</td></tr>
+          </tbody></table>
+          <h4>模式概念</h4>
+          <table><thead><tr><th>使用者</th><th>模式</th><th>含义</th></tr></thead><tbody>
+            <tr><td>教师端 / Host</td><td>Edit</td><td>创建和编辑内容，组件区、工具栏、右侧目录和浮动面板都会完整展开。</td></tr>
+            <tr><td>教师端 / Host</td><td>Present</td><td>演示内容，编辑工具栏收起，画布空间最大化，只保留演示导航和必要浮动工具。</td></tr>
+            <tr><td>学生端 / Viewer</td><td>Host</td><td>跟随演讲者的画布位置和缩放。</td></tr>
+            <tr><td>学生端 / Viewer</td><td>Viewer</td><td>自由观看视角。学生主动拖动或缩放页面时，会自动从 Host 视角切换到 Viewer 视角。</td></tr>
+          </tbody></table>
+          <div class="callout warn">在线房间中的学生端 Viewer 只能观看和保存副本，不能进入 Edit 模式、修改画布内容或加载文档覆盖 Host 状态。</div>
         </section>
 
         <section class="section" id="components" data-section="components">
@@ -360,69 +356,52 @@ pnpm dev</code></pre>
           <p>在 Present 模式下，选中一个 Page 后按住 <code>Shift</code> 点击另一个 Page，即可打开页面对比。对比窗口支持交换位置、缩放、适配窗口、全屏和 <code>Esc</code> 关闭。</p>
         </section>
 
-        <section class="section" id="export" data-section="export">
+                <section class="section" id="export" data-section="export">
           <h3>保存、导出与在线分享</h3>
           <div class="grid">
             <div class="card"><strong>JSON</strong>适合继续编辑。保存组件、样式、连接、目录、附件、绘图、注释和视口状态。</div>
             <div class="card"><strong>HTML</strong>适合离线展示或提交。生成一个浏览器可打开的单文件快照。</div>
-            <div class="card"><strong>Load</strong>加载 JSON 会替换当前画布，加载完成后成为新的 undo/redo 基线。</div>
-            <div class="card"><strong>Share</strong>创建四位房间链接和二维码，可设置可选密码。</div>
+            <div class="card"><strong>Host</strong>创建房间、编辑画布，并向 Viewer 广播内容状态和视角。</div>
+            <div class="card"><strong>Viewer</strong>可以跟随 Host 或自由观看，也可以保存副本，但不能编辑 Host 内容。</div>
           </div>
-          <h4>在线房间</h4>
-          <p>Host 创建房间后可以分享链接。Viewer 打开链接后可以跟随 host 视角，也可以切换自由观看视角。Viewer 可以保存副本，但不能编辑 host 的画布。</p>
           <div class="callout warn">本地 <code>file://</code> 打开的 HTML 导出版会隐藏 Share 按钮，因为本地文件不能稳定使用在线房间服务。</div>
         </section>
 
-        <section class="section" id="tools" data-section="tools">
+                <section class="section" id="tools" data-section="tools">
           <h3>辅助工具与快捷键</h3>
           <h4>课堂辅助</h4>
           <ul>
-            <li><strong>Timer</strong>：用于倒计时、课堂活动计时或展示节奏控制。</li>
+            <li><strong>Timer</strong>：用于倒计时、课堂活动计时或展示节奏控制。分钟和秒数输入框中按 <code>Enter</code> 会结束输入。</li>
             <li><strong>Binary Calculator</strong>：用于二进制计算和计算机基础教学。</li>
+            <li><strong>Overview / Minimap</strong>：显示当前视口、选中组件位置、页面连接状态，并支持点击快速移动视角。</li>
+            <li><strong>Page Compare</strong>：在 Present 模式下并排查看两个 Page。选中一个 Page 后按住 <code>Shift</code> 点击另一个 Page 即可打开，按 <code>Esc</code> 关闭。</li>
             <li><strong>Background Style</strong>：支持 Default/Colorful、Blank/Grid/Dot、背景颜色和透明度。</li>
           </ul>
-          <h4>快捷键</h4>
-          <table>
-            <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
-            <tbody>
-              <tr><td><code>Mod+Z</code></td><td>撤销</td></tr>
-              <tr><td><code>Mod+Shift+Z</code> / <code>Mod+Y</code></td><td>重做</td></tr>
-              <tr><td><code>Mod+S</code></td><td>保存/导出</td></tr>
-              <tr><td><code>Mod+O</code></td><td>加载文档</td></tr>
-              <tr><td><code>Delete</code> / <code>Backspace</code></td><td>删除选中组件</td></tr>
-              <tr><td><code>Shift</code> + 拖拽</td><td>框选</td></tr>
-              <tr><td><code>Ctrl</code> / <code>Cmd</code> + 点击</td><td>多选</td></tr>
-              <tr><td><code>Home</code></td><td>适配全部内容</td></tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section class="section" id="developer" data-section="developer">
-          <h3>开发者运行附录</h3>
-          <p>这部分不是最终用户手册的主体，只是给需要从 0 到 1 启动项目的人一个最小路径。</p>
-          <h4>环境要求</h4>
-          <ul>
-            <li>Node.js <code>^20.19.0</code> 或 <code>&gt;=22.12.0</code></li>
-            <li>pnpm <code>10.23.0</code></li>
-          </ul>
-          <h4>本地运行</h4>
-          <pre><code>pnpm install
-pnpm dev</code></pre>
-          <h4>房间服务</h4>
-          <pre><code>pnpm server</code></pre>
-          <h4>构建与测试</h4>
-          <pre><code>pnpm build
-pnpm test:unit
-pnpm test:e2e
-pnpm test</code></pre>
-          <h4>二次开发提醒</h4>
-          <ul>
-            <li>组件放在 <code>src/component/</code>，行为放在 <code>src/plugins/</code>。</li>
-            <li>组件需要实现创建、序列化和恢复。</li>
-            <li>可撤销修改应发出 <code>node:change:start</code> 和 <code>node:changed</code>。</li>
-            <li>新组件至少要通过 undo/redo 或 document load 的 roundtrip 测试。</li>
-            <li>普通前端功能不要修改 <code>server/</code>，除非明确需要后端变化。</li>
-          </ul>
+          <p><code>Mod</code> 在 Windows/Linux 上通常是 <code>Ctrl</code>，在 macOS 上通常是 <code>Cmd</code>。</p>
+          <h4>通用画布与文件快捷键</h4>
+          <table><thead><tr><th>快捷键 / 操作</th><th>功能</th></tr></thead><tbody>
+            <tr><td>鼠标滚轮</td><td>缩放画布</td></tr><tr><td>鼠标中键拖拽</td><td>平移画布</td></tr><tr><td><code>Space</code> + 拖拽</td><td>平移画布</td></tr><tr><td><code>Home</code></td><td>适配全部内容到视口</td></tr><tr><td><code>Mod+S</code></td><td>打开保存/导出菜单</td></tr><tr><td><code>Mod+O</code></td><td>加载 JSON 文档</td></tr><tr><td><code>Esc</code></td><td>关闭保存菜单、对比窗口、部分浮层或当前工具面板</td></tr>
+          </tbody></table>
+          <h4>Edit 模式快捷键</h4>
+          <table><thead><tr><th>快捷键 / 操作</th><th>功能</th></tr></thead><tbody>
+            <tr><td>空白画布拖拽</td><td>在 Arrange 工具下平移画布</td></tr><tr><td><code>Mod</code> + 点击</td><td>多选组件</td></tr><tr><td><code>Shift</code> + 拖拽空白画布</td><td>框选组件</td></tr><tr><td><code>Delete</code> / <code>Backspace</code></td><td>删除选中组件</td></tr><tr><td><code>Mod+C</code></td><td>复制选中组件</td></tr><tr><td><code>Mod+V</code></td><td>粘贴组件</td></tr><tr><td><code>Mod+Z</code></td><td>撤销</td></tr><tr><td><code>Mod+Shift+Z</code> / <code>Mod+Y</code></td><td>重做</td></tr><tr><td><code>Enter</code></td><td>打开当前选中组件的编辑入口；已迁移的组件通常使用浮动工具栏或内联编辑。</td></tr><tr><td><code>Mod+Alt+A</code></td><td>将选中节点加入右侧目录</td></tr><tr><td>Shape 工具中按住 <code>Shift</code> 绘制</td><td>约束形状比例或方向</td></tr>
+          </tbody></table>
+          <h4>Present 模式快捷键</h4>
+          <table><thead><tr><th>快捷键 / 操作</th><th>功能</th></tr></thead><tbody>
+            <tr><td><code>ArrowUp</code> / <code>ArrowDown</code> / <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>按页面或焦点方向导航</td></tr><tr><td><code>Esc</code></td><td>退出 Present 并返回 Edit</td></tr><tr><td><code>Mod+Shift+F</code></td><td>切换演示画布全屏</td></tr><tr><td>鼠标移到顶部区域</td><td>显示自动隐藏的演示工具栏</td></tr><tr><td><code>Shift</code> + 点击另一个 Page</td><td>打开 Page Compare</td></tr>
+          </tbody></table>
+          <h4>学生端 Viewer 限制</h4>
+          <table><thead><tr><th>快捷键 / 操作</th><th>功能</th></tr></thead><tbody>
+            <tr><td><code>Mod+S</code></td><td>允许保存/导出当前观看副本</td></tr><tr><td><code>Mod+O</code></td><td>被拦截，不能加载文档覆盖 Host 内容</td></tr><tr><td><code>Mod+Z</code> / <code>Mod+Y</code></td><td>被拦截，不能撤销或重做 Host 内容</td></tr><tr><td>平移或缩放</td><td>如果正在跟随 Host 视角，会自动切换到 Viewer 自由视角</td></tr><tr><td>点击 <code>Host</code> / <code>Viewer</code> 模式胶囊</td><td>在跟随 Host 和自由观看之间切换</td></tr>
+          </tbody></table>
+          <h4>右侧目录快捷键</h4>
+          <table><thead><tr><th>场景</th><th>快捷键 / 操作</th><th>功能</th></tr></thead><tbody>
+            <tr><td>目录项聚焦时</td><td><code>Enter</code> / <code>Space</code></td><td>跳转并居中到该目录项对应组件</td></tr><tr><td>目录项聚焦且可编辑时</td><td><code>ArrowUp</code> / <code>ArrowDown</code></td><td>调整同级顺序</td></tr><tr><td>目录项聚焦且可编辑时</td><td><code>ArrowRight</code></td><td>缩进为上一个同级项的子项</td></tr><tr><td>目录项聚焦且可编辑时</td><td><code>ArrowLeft</code></td><td>提升到父级的同级</td></tr><tr><td>目录项聚焦且可编辑时</td><td><code>Delete</code> / <code>Backspace</code></td><td>从目录中移除该项，并提升其子项</td></tr><tr><td>双击标题进入重命名时</td><td><code>Enter</code></td><td>完成重命名</td></tr><tr><td>双击标题进入重命名时</td><td><code>Esc</code></td><td>取消重命名</td></tr><tr><td>标题编辑中</td><td>普通方向键</td><td>移动文本输入光标</td></tr><tr><td>标题编辑中</td><td>连续两次 <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>结束编辑并调整目录层级</td></tr>
+          </tbody></table>
+          <h4>左侧组件区与组件内快捷键</h4>
+          <table><thead><tr><th>组件 / 区域</th><th>快捷键 / 操作</th><th>功能</th></tr></thead><tbody>
+            <tr><td>Components 面板</td><td>拖拽组件到画布</td><td>创建组件</td></tr><tr><td>Text / Sticky / Button / Shape 文本</td><td><code>Mod+Enter</code></td><td>提交内联文字编辑</td></tr><tr><td>Text / Sticky / Button / Shape 文本</td><td><code>Esc</code></td><td>取消或关闭内联文字编辑</td></tr><tr><td>Iframe URL 输入框</td><td><code>Enter</code></td><td>应用 URL 修改</td></tr><tr><td>Iframe 交互模式</td><td><code>Esc</code></td><td>退出网页交互模式</td></tr><tr><td>Iframe 更多菜单按钮</td><td><code>Enter</code> / <code>Space</code></td><td>打开或关闭 Iframe 操作菜单</td></tr><tr><td>JS Code Runner</td><td><code>Mod+Enter</code></td><td>运行代码</td></tr><tr><td>Component Editor 弹窗</td><td><code>Esc</code></td><td>关闭弹窗</td></tr><tr><td>Connection 创建中</td><td><code>Esc</code></td><td>取消连接创建</td></tr><tr><td>Pen preset 弹窗</td><td><code>Esc</code></td><td>关闭画笔预设</td></tr><tr><td>Eraser 面板</td><td><code>Esc</code></td><td>关闭橡皮擦面板</td></tr>
+          </tbody></table>
         </section>
       </div>
     </main>
