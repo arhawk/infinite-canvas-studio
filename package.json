@@ -11,9 +11,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/src/index.js",
-    "build": "vite build && pnpm export:html",
-    "export:html": "node scripts/build-export-template.mjs",
-    "export:shell:refresh": "pnpm export:html",
+    "build": "vite build && node scripts/build-export-template.mjs",
     "preview": "vite preview",
     "test": "pnpm test:smoke && pnpm test:unit && pnpm test:e2e",
     "test:smoke": "pnpm build",

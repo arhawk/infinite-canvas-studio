@@ -79,15 +79,16 @@ Feature implementation constraint:
 - Start local dev server: `pnpm dev`
 - Start room relay server: `pnpm server`
 - Build static output: `pnpm build`
-- Refresh runtime HTML export template: `pnpm export:html`
 - Preview production build: `pnpm preview`
 - Run unit tests: `pnpm test:unit`
-- Run E2E smoke tests: `pnpm test:e2e`
+- Run smoke build check: `pnpm test:smoke`
+- Run E2E browser tests: `pnpm test:e2e`
 - Run full local verification: `pnpm test`
 - First-time Playwright browser install on a new machine: `pnpm exec playwright install chromium`
 
 The Vite dev server is configured in [vite.config.js](vite.config.js) and runs at `http://localhost:3000`.
 The room relay server is started from the repository root with `pnpm server`. The frontend's default room backend host is `au.baitian.moe:3001`; tests may override it with `window.__ROOM_BACKEND_HOST__`.
+`pnpm build` generates `dist/__export-template`, and runtime HTML export reads it through `/__export-template`.
 
 ## Project Structure
 
@@ -142,7 +143,8 @@ The room relay server is started from the repository root with `pnpm server`. Th
 ### Plugins (`src/plugins/`)
 
 - [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, mode toggle, history/document controls, drawing controls, center-map controls, and floating utility toggles
-- [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and generated Konva previews
+- [src/component/LeftToolbar/index.js](src/component/LeftToolbar/index.js): Left toolbar UI and trigger controls
+- [src/component/ComponentsDropdown/index.js](src/component/ComponentsDropdown/index.js): Primary component-add dropdown UI wired from left toolbar
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, multi-select, marquee select, copy/paste, image paste, snap guides, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with pen, pencil, highlighter, eraser, draw-layer visibility, and whole-stroke clear support
 - [src/plugins/annotator.js](src/plugins/annotator.js): Text annotation plugin for underline-style marking and erasing annotations on `text` and `sticky` content
@@ -156,7 +158,7 @@ The room relay server is started from the repository root with `pnpm server`. Th
 - [src/plugins/catalogActions.js](src/plugins/catalogActions.js): Command plugin for adding selected nodes into the catalog data node
 - [src/plugins/catalogPanel.js](src/plugins/catalogPanel.js): Right-side outline panel for rendering, renaming, reordering, and reparenting catalog items
 - [src/plugins/mindMapBranch.js](src/plugins/mindMapBranch.js): Catalog-driven branch visibility plugin that hides descendant nodes under collapsed outline branches
-- [src/plugins/attachments.js](src/plugins/attachments.js): Attachment browser for attachment-capable components, including URLs, uploads, and File System Access directory handles
+- [src/plugins/attachmentsBookmarks.js](src/plugins/attachmentsBookmarks.js): Attachment/bookmark browser for attachment-capable components, including URLs, uploads, and File System Access directory handles
 - [src/plugins/pageCompare.js](src/plugins/pageCompare.js): Presentation-only page compare overlay with side-by-side snapshots
 - [src/plugins/minimap.js](src/plugins/minimap.js): Bottom-right minimap with viewport rectangle and selection laser marker
 - [src/plugins/centerMap.js](src/plugins/centerMap.js): Fit-all panorama toggle and zoom controls
@@ -381,7 +383,7 @@ app.destroy()
 
 The app is split into three main regions:
 
-- Left sidebar: draggable component palette
+- Left toolbar + components dropdown: primary component-add entry
 - Top toolbar: tools plus contextual helper controls for the active tool
 - Main board: Konva infinite canvas
 - Right sidebar: catalog / outline panel
@@ -419,15 +421,15 @@ app.stageApi.getScreenSize()
 
 This is used for:
 
-- Dropping sidebar components onto the canvas
+- Dropping components from the components dropdown onto the canvas
 - Freehand drawing under pan and zoom
 - Positioning new content in canvas coordinates
 - Saving and restoring presentation focus views
 - Computing whether navigation buttons should appear on a viewport edge
 
-### 3. Sidebar Component Palette
+### 3. LeftToolbar + ComponentsDropdown Component Palette
 
-Implemented in [src/plugins/sidebar.js](src/plugins/sidebar.js).
+Implemented in [src/component/LeftToolbar/index.js](src/component/LeftToolbar/index.js) and [src/component/ComponentsDropdown/index.js](src/component/ComponentsDropdown/index.js).
 
 Available component types:
 
@@ -443,9 +445,9 @@ Available component types:
 
 Behavior:
 
-- Non-image components are draggable from the sidebar onto the canvas
+- Non-image components are draggable from the components dropdown onto the canvas
 - `Page` appears first in the palette and creates a fixed-size landscape page surface
-- Image icon in the sidebar is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
+- Image icon in the components dropdown is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
 - `Iframe`, `JS Code Runner`, and `Local Video` use DOM overlays at runtime, but still participate in the same component registration and serialization flow as canvas-native nodes.
 - Drop coordinates are converted from screen space to canvas space.
 - Internal-only components such as `catalog`, `connection`, and legacy `container` are hidden from the palette via component metadata and are created programmatically or kept for compatibility.
@@ -482,7 +484,7 @@ Component rules:
 - `BaseComponent` marks component nodes with `name: "selectable"` and `componentType`
 - Components control their own Konva node creation through `createNode(payload)`
 - Components now support serialization / restoration hooks used by local history replay
-- Components can opt out of appearing in the sidebar by setting `static palette = false`
+- Components can opt out of appearing in the component picker by setting `static palette = false`
 - Text-like components reuse `EditableTextBehavior`
 - New components should be added by extending `BaseComponent`
 - For new components, the key extension contract is:
@@ -733,7 +735,7 @@ UI Transitions:
 
 Responsive behavior:
 
-- Desktop: left sidebar
+- Desktop: left toolbar + components dropdown
 - Narrow screens: layout stacks
 
 ## Current Limitations
@@ -1108,3 +1110,10 @@ The project has been verified with:
 - `pnpm test:unit`
 - `pnpm test:e2e`
 - `pnpm test`
+
+## Legacy Candidates
+
+The following modules are currently treated as legacy candidates and should be evaluated in a separate cleanup PR (with regression tests) instead of this documentation-only alignment pass:
+
+- `src/plugins/sidebar.js`: legacy palette implementation; current runtime entry is `LeftToolbarPlugin` + `ComponentsDropdownPlugin` from `src/main.js`.
+- `src/plugins/ranking.js`: compatibility/legacy plugin candidate; keep until dedicated removal assessment confirms no runtime dependency.

@@ -6,20 +6,20 @@ import {
 
 describe("documentExportMode", () => {
   it("uses html export in dev mode", () => {
-    expect(getDocumentExportFormat({ isDevMode: true, isStandaloneSingleFile: false })).toBe("html");
+    expect(getDocumentExportFormat({ isDevMode: true, isExportTemplateBuild: false })).toBe("html");
   });
 
-  it("uses html export in standalone single-file mode", () => {
-    expect(getDocumentExportFormat({ isDevMode: false, isStandaloneSingleFile: true })).toBe("html");
+  it("uses html export in export-template build mode", () => {
+    expect(getDocumentExportFormat({ isDevMode: false, isExportTemplateBuild: true })).toBe("html");
   });
 
-  it("prefers prebuilt shell template when available", () => {
+  it("prefers prebuilt export template when available", () => {
     expect(resolveRuntimeHtmlTemplate({
-      exportTemplate: "<html>shell</html>",
-    })).toBe("<html>shell</html>");
+      exportTemplate: "<html>template</html>",
+    })).toBe("<html>template</html>");
   });
 
-  it("returns empty when shell is missing", () => {
+  it("returns empty when export template is missing", () => {
     expect(resolveRuntimeHtmlTemplate({
       exportTemplate: "",
     })).toBe("");

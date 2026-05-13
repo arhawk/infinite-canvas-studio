@@ -2,9 +2,9 @@ import { defineConfig } from "vite";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-function inlineSingleFileBuild() {
+function inlineExportTemplateBuild() {
   return {
-    name: "inline-single-file-build",
+    name: "inline-export-template-build",
     enforce: "post",
     generateBundle(_, bundle) {
       const htmlAsset = Object.values(bundle).find(
@@ -92,14 +92,14 @@ function serveExportTemplate() {
 }
 
 export default defineConfig(() => {
-  const isSingleFileExport = process.env.SINGLE_FILE_EXPORT === "1";
+  const isExportTemplateBuild = process.env.EXPORT_TEMPLATE_BUILD === "1";
 
   return {
-    base: isSingleFileExport ? "./" : undefined,
+    base: isExportTemplateBuild ? "./" : undefined,
     define: {
-      __SINGLE_FILE_EXPORT__: JSON.stringify(isSingleFileExport),
+      __EXPORT_TEMPLATE_BUILD__: JSON.stringify(isExportTemplateBuild),
     },
-    plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [serveExportTemplate()],
+    plugins: isExportTemplateBuild ? [inlineExportTemplateBuild()] : [serveExportTemplate()],
     server: {
       port: 3000,
       strictPort: true,
@@ -115,7 +115,7 @@ export default defineConfig(() => {
       port: 3000,
       strictPort: true,
     },
-    build: isSingleFileExport
+    build: isExportTemplateBuild
       ? {
           cssCodeSplit: false,
           modulePreload: false,

@@ -45,7 +45,6 @@ Runtime HTML export uses the generated `dist/__export-template` file as the temp
 
 ```bash
 pnpm build
-pnpm export:html
 pnpm preview
 pnpm test:unit
 pnpm test:e2e
@@ -58,7 +57,7 @@ pnpm test
 - `dist/assets/*`
 - `dist/__export-template`
 
-`pnpm export:html` refreshes only the runtime HTML export template. Users create a self-contained HTML document from the app's save/export menu.
+`dist/__export-template` is generated during `pnpm build`, and runtime HTML export loads the template from `/__export-template`. Users create a self-contained HTML document from the app's save/export menu.
 
 On a new machine, install the Playwright browser once before the first E2E run:
 
@@ -115,14 +114,15 @@ Current limitation:
 
 ## Project Structure
 
-- `index.html`: application shell and toolbar/sidebar layout
+- `index.html`: application shell and toolbar layout
 - `src/main.js`: app bootstrap, component registration, plugin mounting, starter data, and E2E hook-up
 - `src/styles.css`: global styling and responsive layout
 - `src/core/`: app infrastructure, mode management, registries, and base classes
 - `src/document/`: document schema, import/export helpers, and runtime HTML export support
 - `src/online/`: room route helpers plus host/viewer WebSocket clients
 - `src/component/`: component definitions for page, button, text, sticky, image, iframe, video, ranking box, JavaScript editor, catalog, connection, and legacy container
-- `src/plugins/`: selection, drawing, annotation, toolbar, sidebar, catalog, connections, focus, attachments, history, document, minimap, page compare, timer, calculator, and related UI behavior
+- `src/plugins/`: selection, drawing, annotation, toolbar, catalog, connections, focus, attachments/bookmarks, history, document, minimap, page compare, timer, calculator, and related UI behavior
+- `src/component/LeftToolbar/` + `src/component/ComponentsDropdown/`: primary add-component entry UI (left toolbar trigger + components dropdown)
 - `server/`: stateless Node.js room relay for HTTP room creation and WebSocket message forwarding
 - `src/testApi.js`: browser-only helpers used by Playwright
 - `tests/unit/`: Vitest coverage for core logic and selected extension modules

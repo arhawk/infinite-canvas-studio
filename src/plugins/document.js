@@ -117,7 +117,7 @@ export class DocumentPlugin extends BasePlugin {
     this.documentState = this.createDocumentState();
     this.statusTimeout = null;
     this.isDevMode = Boolean(import.meta.env?.DEV);
-    this.isStandaloneSingleFile = Boolean(__SINGLE_FILE_EXPORT__);
+    this.isExportTemplateBuild = Boolean(__EXPORT_TEMPLATE_BUILD__);
     this.buildStatusToast();
     this.buildExportMenu();
 
@@ -480,7 +480,7 @@ export class DocumentPlugin extends BasePlugin {
 
   getFallbackExportFormat() {
     return getDocumentExportFormat({
-      isStandaloneSingleFile: this.isStandaloneSingleFile,
+      isExportTemplateBuild: this.isExportTemplateBuild,
       isDevMode: this.isDevMode,
     });
   }

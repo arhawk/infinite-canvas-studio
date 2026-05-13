@@ -1,5 +1,5 @@
-export function getDocumentExportFormat({ isStandaloneSingleFile = false, isDevMode = false } = {}) {
-  if (isStandaloneSingleFile) return "html";
+export function getDocumentExportFormat({ isExportTemplateBuild = false, isDevMode = false } = {}) {
+  if (isExportTemplateBuild) return "html";
   if (isDevMode) return "html";
   return "json";
 }

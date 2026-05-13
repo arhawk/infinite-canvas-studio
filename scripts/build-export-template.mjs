@@ -15,7 +15,7 @@ try {
       stdio: "inherit",
       env: {
         ...process.env,
-        SINGLE_FILE_EXPORT: "1",
+        EXPORT_TEMPLATE_BUILD: "1",
       },
     },
   );

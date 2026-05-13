@@ -117,11 +117,11 @@ const ui = {
   modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
 };
 
-async function preloadExportShellTemplate() {
+async function preloadRuntimeExportTemplate() {
   if (typeof window === "undefined") return;
   window.__APP_EXPORT_TEMPLATE_READY__ = false;
 
-  if (__SINGLE_FILE_EXPORT__) {
+  if (__EXPORT_TEMPLATE_BUILD__) {
     const template = captureRuntimeHtmlTemplate();
     window.__APP_EXPORT_TEMPLATE__ = template;
     window.__APP_EXPORT_TEMPLATE_READY__ = Boolean(template.trim());
@@ -150,7 +150,7 @@ async function preloadExportShellTemplate() {
   }
 }
 
-await preloadExportShellTemplate();
+await preloadRuntimeExportTemplate();
 
 const app = new App({
   container: ui.canvasContainer,
