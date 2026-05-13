@@ -141,7 +141,9 @@ function getNodeSummary(node) {
     const textNode = node.findOne(".sticky-text");
     return {
       text: textNode?.text() ?? "",
-      fill: background?.fill() ?? null,
+      fill: node.getAttr("stickyFill") ?? background?.fill() ?? null,
+      fillOpacity: node.getAttr("stickyFillOpacity") ?? 1,
+      renderedFill: background?.fill() ?? null,
       textColor: textNode?.fill() ?? null,
       fontSize: textNode?.fontSize() ?? null,
       width: background?.width() ?? node.width?.() ?? null,
@@ -172,6 +174,10 @@ function getNodeSummary(node) {
       label: labelNode?.text() ?? "",
       renderedLabel: labelNode?.textArr?.[0]?.text ?? labelNode?.text?.() ?? "",
       stroke: background?.stroke() ?? null,
+      fill: node.getAttr("pageFill") ?? background?.fill() ?? null,
+      fillOpacity: node.getAttr("pageFillOpacity") ?? 1,
+      renderedFill: background?.fill() ?? null,
+      opacity: node.opacity?.() ?? null,
       width: background?.width() ?? node.width?.() ?? null,
       height: background?.height() ?? node.height?.() ?? null,
       scaleX: node.scaleX?.() ?? null,

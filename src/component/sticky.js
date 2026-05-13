@@ -22,9 +22,33 @@ const MIN_TEXT_HEIGHT = 40;
 export const DEFAULT_STICKY_FILL = "#ffe082";
 export const DEFAULT_STICKY_TEXT_COLOR = "#47361c";
 export const DEFAULT_STICKY_FONT_SIZE = DEFAULT_FONT_SIZE;
+export const DEFAULT_STICKY_FILL_OPACITY = 1;
 
 function normalizeDimension(value, fallback, minimum) {
   return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
+}
+
+function clamp01(value, fallback = 1) {
+  if (!Number.isFinite(value)) return fallback;
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function fillWithOpacity(color, opacity) {
+  const alpha = clamp01(opacity, DEFAULT_STICKY_FILL_OPACITY);
+  if (alpha >= 1) return color;
+  const hex = typeof color === "string" ? color.trim() : "";
+  const shortMatch = hex.match(/^#([0-9a-f]{3})$/i);
+  const longMatch = hex.match(/^#([0-9a-f]{6})$/i);
+  const digits = shortMatch
+    ? shortMatch[1].split("").map((char) => `${char}${char}`).join("")
+    : longMatch?.[1] ?? null;
+  if (!digits) return alpha <= 0 ? "rgba(0, 0, 0, 0)" : color;
+  const red = Number.parseInt(digits.slice(0, 2), 16);
+  const green = Number.parseInt(digits.slice(2, 4), 16);
+  const blue = Number.parseInt(digits.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function syncStickyVisuals(node, data = {}) {
@@ -32,6 +56,7 @@ function syncStickyVisuals(node, data = {}) {
   const height = normalizeDimension(data.height, DEFAULT_HEIGHT, MIN_HEIGHT);
   const text = typeof data.text === "string" && data.text ? data.text : "Sticky note";
   const fill = typeof data.fill === "string" && data.fill ? data.fill : DEFAULT_STICKY_FILL;
+  const fillOpacity = clamp01(data.fillOpacity, DEFAULT_STICKY_FILL_OPACITY);
   const textColor = typeof data.textColor === "string" && data.textColor ? data.textColor : DEFAULT_STICKY_TEXT_COLOR;
   const fontSize = normalizeDimension(data.fontSize, DEFAULT_STICKY_FONT_SIZE, 12);
   const rect = node.findOne(".sticky-bg");
@@ -43,8 +68,10 @@ function syncStickyVisuals(node, data = {}) {
   if (rect) {
     rect.width(width);
     rect.height(height);
-    rect.fill(fill);
+    rect.fill(fillWithOpacity(fill, fillOpacity));
   }
+  node.setAttr("stickyFill", fill);
+  node.setAttr("stickyFillOpacity", fillOpacity);
 
   if (textNode) {
     textNode.text(text);
@@ -65,7 +92,8 @@ export function getStickyData(node) {
     width: rect?.width() ?? node?.width?.() ?? DEFAULT_WIDTH,
     height: rect?.height() ?? node?.height?.() ?? DEFAULT_HEIGHT,
     text: textNode?.text() ?? "Sticky note",
-    fill: rect?.fill() ?? DEFAULT_STICKY_FILL,
+    fill: node?.getAttr?.("stickyFill") ?? rect?.fill() ?? DEFAULT_STICKY_FILL,
+    fillOpacity: clamp01(node?.getAttr?.("stickyFillOpacity"), DEFAULT_STICKY_FILL_OPACITY),
     textColor: textNode?.fill() ?? DEFAULT_STICKY_TEXT_COLOR,
     fontSize: textNode?.fontSize() ?? DEFAULT_STICKY_FONT_SIZE,
     annotations: serializeNodeTextAnnotations(node),
@@ -93,7 +121,8 @@ function installStickyResize(group) {
       width: currentWidth * scaleX,
       height: currentHeight * scaleY,
       text: textNode?.text() ?? "Sticky note",
-      fill: rect?.fill() ?? "#ffe082",
+      fill: group.getAttr("stickyFill") ?? "#ffe082",
+      fillOpacity: clamp01(group.getAttr("stickyFillOpacity"), DEFAULT_STICKY_FILL_OPACITY),
       textColor: textNode?.fill() ?? "#47361c",
       fontSize: textNode?.fontSize() ?? DEFAULT_FONT_SIZE,
     });
@@ -137,7 +166,7 @@ export class StickyComponent extends BaseComponent {
       }),
       new ColorEditorField({
         id: "fill",
-        label: "Card Color",
+        label: "Fill Color",
         getValue: (node) => node.findOne(".sticky-bg")?.fill() ?? "#ffe082",
         setValue: (node, value) => {
           syncStickyVisuals(node, {
@@ -167,6 +196,7 @@ export class StickyComponent extends BaseComponent {
     height = DEFAULT_HEIGHT,
     text = "Sticky note",
     fill = DEFAULT_STICKY_FILL,
+    fillOpacity = DEFAULT_STICKY_FILL_OPACITY,
     textColor = DEFAULT_STICKY_TEXT_COLOR,
     fontSize = DEFAULT_STICKY_FONT_SIZE,
   }) {
@@ -216,6 +246,7 @@ export class StickyComponent extends BaseComponent {
       height,
       text,
       fill,
+      fillOpacity,
       textColor,
       fontSize,
     });

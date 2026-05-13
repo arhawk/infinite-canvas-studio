@@ -199,22 +199,22 @@ export class PageToolbarPlugin extends BasePlugin {
             id="page-fill-style-trigger"
             class="toolbar__button-style-trigger"
             type="button"
-            title="Card color"
-            aria-label="Card color"
+            title="Fill color"
+            aria-label="Fill color"
             data-testid="page-style-fill"
           >
             <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
           </button>
-          <div class="toolbar__button-style-popover" role="group" aria-label="Page card color settings">
-            <div id="page-fill-swatches" class="toolbar__button-color-grid" role="group" aria-label="Page card color swatches"></div>
-            <div class="toolbar__button-custom-color" title="Custom card color">
-              <span class="toolbar__sr-only">Custom card color</span>
+          <div class="toolbar__button-style-popover" role="group" aria-label="Page fill settings">
+            <div id="page-fill-swatches" class="toolbar__button-color-grid" role="group" aria-label="Page fill color swatches"></div>
+            <div class="toolbar__button-custom-color" title="Custom fill color">
+              <span class="toolbar__sr-only">Custom fill color</span>
               <input
                 id="page-fill-color"
                 type="color"
                 value="#fffdf8"
-                aria-label="Custom card color"
-                title="Card color"
+                aria-label="Custom fill color"
+                title="Fill color"
                 data-testid="page-fill-color"
               />
             </div>
@@ -225,7 +225,7 @@ export class PageToolbarPlugin extends BasePlugin {
                 type="range"
                 min="0"
                 max="1"
-                step="0.01"
+                step="0.05"
                 value="1"
                 data-testid="page-fill-opacity"
                 aria-labelledby="page-fill-opacity-label"
@@ -449,9 +449,22 @@ export class PageToolbarPlugin extends BasePlugin {
         fill: {
           input: this.panelEl.querySelector("#page-fill-color"),
           swatchesEl: this.panelEl.querySelector("#page-fill-swatches"),
-          label: "Card color",
-          baseColors: withoutTransparent,
+          label: "Fill color",
+          baseColors: DEFAULT_COLOR_SWATCHES,
           onChange: () => this.applyStyleFromPanel(),
+          onSwatch: (color, { input }) => {
+            const opacityEl = this.panelEl.querySelector("#page-fill-opacity");
+            if (!input || !opacityEl) return;
+            if (color === "transparent") {
+              opacityEl.value = "0";
+            } else {
+              input.value = color;
+              if (Number(opacityEl.value) === 0) {
+                opacityEl.value = "1";
+              }
+            }
+            this.applyStyleFromPanel();
+          },
         },
       },
     });
@@ -476,8 +489,8 @@ export class PageToolbarPlugin extends BasePlugin {
     return {
       fontSize: labelNode?.fontSize?.() ?? 16,
       textColor: labelNode?.fill?.() ?? "#ab4f28",
-      fill: background?.fill?.() ?? "#fffdf8",
-      opacity: clamp01(node?.opacity?.() ?? 1),
+      fill: node?.getAttr?.("pageFill") ?? background?.fill?.() ?? "#fffdf8",
+      opacity: clamp01(node?.getAttr?.("pageFillOpacity") ?? 1),
     };
   }
 
@@ -536,7 +549,11 @@ export class PageToolbarPlugin extends BasePlugin {
     labelNode?.fontSize?.(fontSize);
     labelNode?.fill?.(textColor);
     headerLine?.stroke?.(lineColors.headerLine);
-    node.opacity(opacity);
+    node.setAttr("pageFill", fill);
+    node.setAttr("pageFillOpacity", opacity);
+    background?.fill?.(opacity <= 0 ? "rgba(0, 0, 0, 0)" : fill);
+    background?.opacity?.(opacity);
+    node.opacity(1);
     this.app.events.emit("node:changed", { node });
     node.getLayer()?.batchDraw?.();
 
@@ -551,7 +568,11 @@ export class PageToolbarPlugin extends BasePlugin {
       outputEl: this.panelEl.querySelector("#page-fill-opacity-value"),
       triggerEl: this.panelEl.querySelector("#page-fill-style-trigger"),
       value: opacity,
+      triggerLabel: "Fill color",
     });
+    const fillToolEl = this.panelEl.querySelector(".toolbar__button-tool--fill-color");
+    fillToolEl?.classList.toggle("is-button-fill-transparent", opacity <= 0);
+    fillToolEl?.style.setProperty("--button-tool-opacity", String(opacity));
   }
 
   syncToolbar() {
@@ -595,7 +616,11 @@ export class PageToolbarPlugin extends BasePlugin {
       outputEl: fillOpacityValueEl,
       triggerEl: this.panelEl.querySelector("#page-fill-style-trigger"),
       value: state.opacity,
+      triggerLabel: "Fill color",
     });
+    const fillToolEl = this.panelEl.querySelector(".toolbar__button-tool--fill-color");
+    fillToolEl?.classList.toggle("is-button-fill-transparent", state.opacity <= 0);
+    fillToolEl?.style.setProperty("--button-tool-opacity", String(state.opacity));
 
     this.syncAttachmentUi();
     this.syncAttachmentList();

@@ -112,6 +112,8 @@ const ui = {
   stickyFontSizeValue: getRequiredElement("#sticky-font-size-value"),
   stickyTextColor: getRequiredElement("#sticky-text-color"),
   stickyFillColor: getRequiredElement("#sticky-fill-color"),
+  stickyOpacity: getRequiredElement("#sticky-opacity"),
+  stickyOpacityValue: getRequiredElement("#sticky-opacity-value"),
   catalogPanel: getRequiredElement("#catalog-panel"),
   modeCapsuleEdit: getRequiredElement("#mode-capsule-edit"),
   modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
@@ -224,6 +226,8 @@ const toolbarPlugin = app.use(ToolbarPlugin, {
   stickyFontSizeValueEl: ui.stickyFontSizeValue,
   stickyTextColorEl: ui.stickyTextColor,
   stickyFillColorEl: ui.stickyFillColor,
+  stickyOpacityEl: ui.stickyOpacity,
+  stickyOpacityValueEl: ui.stickyOpacityValue,
 });
 app.use(ImageToolbarPlugin);
 app.use(VideoToolbarPlugin);

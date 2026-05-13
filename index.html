@@ -668,22 +668,37 @@
                   id="sticky-fill-style-trigger"
                   class="toolbar__button-style-trigger"
                   type="button"
-                  title="Card color"
-                  aria-label="Card color"
+                  title="Fill color"
+                  aria-label="Fill color"
                   data-testid="sticky-style-fill"
                 >
                   <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
                 </button>
-                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note card color settings">
-                  <div class="toolbar__button-color-grid" id="sticky-fill-swatches" aria-label="Sticky note card colors"></div>
-                  <div class="toolbar__button-custom-color" title="Custom card color">
-                    <span class="toolbar__sr-only">Custom card color</span>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note fill settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="sticky-opacity-label">Opacity</span>
+                    <input
+                      id="sticky-opacity"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="1"
+                      data-testid="sticky-opacity"
+                      aria-labelledby="sticky-opacity-label"
+                      title="Opacity: 100%"
+                    />
+                    <output id="sticky-opacity-value" data-testid="sticky-opacity-value" title="Opacity: 100%">100%</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="sticky-fill-swatches" aria-label="Sticky note fill colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom fill color">
+                    <span class="toolbar__sr-only">Custom fill color</span>
                     <input
                       id="sticky-fill-color"
                       type="color"
                       value="#ffe082"
-                      aria-label="Custom card color"
-                      title="Card color"
+                      aria-label="Custom fill color"
+                      title="Fill color"
                       data-testid="sticky-fill-color"
                     />
                   </div>

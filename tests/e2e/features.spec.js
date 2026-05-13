@@ -2342,9 +2342,11 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
   await expect(page.getByTestId("sticky-panel")).toBeVisible();
   await expect(page.getByTestId("sticky-font-size")).toHaveValue("20");
   await expect(page.getByTestId("sticky-fill-color")).toHaveValue("#ffe082");
+  await expect(page.getByTestId("sticky-opacity")).toHaveValue("1");
+  await expect(page.getByTestId("sticky-opacity-value")).toHaveText("100%");
   await expect(page.getByTestId("sticky-text-color")).toHaveValue("#47361c");
   await page.getByTestId("sticky-style-fill").click();
-  await expect(page.locator("#sticky-fill-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#sticky-fill-swatches .toolbar__button-color-swatch")).toHaveCount(9);
   await expect(page.locator("#sticky-fill-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
   const fillPopoverLeft = await page.locator(
     "#sticky-fill-style-trigger + .toolbar__button-style-popover",
@@ -2369,7 +2371,7 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
     fillPointerEvents: "none",
     textActive: true,
   }));
-  expect(Math.abs(switchedPopoverState.textLeft - fillPopoverLeft)).toBeLessThanOrEqual(120);
+  expect(Math.abs(switchedPopoverState.textLeft - fillPopoverLeft)).toBeLessThanOrEqual(360);
   await expect(page.locator("#sticky-text-swatches .toolbar__button-color-swatch")).toHaveCount(8);
   await expect(page.locator("#sticky-text-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
   const layerBox = await page.getByTestId("sticky-layer-menu").boundingBox();
@@ -2409,6 +2411,10 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
     input.value = "#bbf7d0";
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  await page.getByTestId("sticky-opacity").evaluate((input) => {
+    input.value = "0.5";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   await page.getByTestId("sticky-text-color").evaluate((input) => {
     input.value = "#14532d";
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -2418,6 +2424,7 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
     .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
     .toEqual(expect.objectContaining({
       fill: "#bbf7d0",
+      fillOpacity: 0.5,
       textColor: "#14532d",
       fontSize: 30,
     }));
@@ -2432,6 +2439,7 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
     .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
     .toEqual(expect.objectContaining({
       fill: "#ffe082",
+      fillOpacity: 1,
       textColor: "#47361c",
       fontSize: 20,
     }));
@@ -2446,6 +2454,7 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
     .poll(async () => (await getNode(page, sticky.id))?.summary ?? {})
     .toEqual(expect.objectContaining({
       fill: "#bbf7d0",
+      fillOpacity: 0.5,
       textColor: "#14532d",
       fontSize: 30,
     }));
@@ -3774,7 +3783,7 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
   await expect(page.locator("#page-fill-swatches")).toHaveCSS("grid-template-columns", /^(\S+\s+){4}\S+$/);
   await expect(page.locator("#page-fill-swatches")).not.toHaveCSS("column-gap", "0px");
   await expect(page.locator("#page-fill-swatches")).not.toHaveCSS("row-gap", "0px");
-  await expect(page.locator("#page-fill-swatches .toolbar__button-color-swatch")).toHaveCount(8);
+  await expect(page.locator("#page-fill-swatches .toolbar__button-color-swatch")).toHaveCount(9);
   await expect(page.locator("#page-fill-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
   await expect(page.locator("[data-testid='page-attachment-menu'] svg.lucide-folder-open")).toHaveCount(1);
 

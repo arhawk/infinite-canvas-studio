@@ -14,6 +14,7 @@ export function syncOpacityUi({
   sliderEl,
   outputEl,
   triggerEl = null,
+  triggerLabel = "Card color",
   value,
 }) {
   const opacity = clamp01(value);
@@ -28,6 +29,6 @@ export function syncOpacityUi({
   }
   if (triggerEl) {
     triggerEl.style.setProperty("--button-tool-opacity", String(opacity));
-    triggerEl.title = `Card color (Opacity: ${percent})`;
+    triggerEl.title = `${triggerLabel} (Opacity: ${percent})`;
   }
 }

@@ -26,6 +26,7 @@ import {
 } from "../component/button.js";
 import {
   DEFAULT_STICKY_FILL,
+  DEFAULT_STICKY_FILL_OPACITY,
   DEFAULT_STICKY_FONT_SIZE,
   DEFAULT_STICKY_TEXT_COLOR,
   applyStickyStyle,
@@ -87,6 +88,7 @@ const DEFAULT_BUTTON_PANEL_STATE = {
 };
 const DEFAULT_STICKY_PANEL_STATE = {
   fill: DEFAULT_STICKY_FILL,
+  fillOpacity: DEFAULT_STICKY_FILL_OPACITY,
   textColor: DEFAULT_STICKY_TEXT_COLOR,
   fontSize: DEFAULT_STICKY_FONT_SIZE,
 };
@@ -289,6 +291,8 @@ export class ToolbarPlugin extends BasePlugin {
       stickyFontSizeValueEl,
       stickyTextColorEl,
       stickyFillColorEl,
+      stickyOpacityEl,
+      stickyOpacityValueEl,
     } = this.options;
 
     this.ui = {
@@ -325,6 +329,8 @@ export class ToolbarPlugin extends BasePlugin {
       stickyFontSizeValueEl,
       stickyTextColorEl,
       stickyFillColorEl,
+      stickyOpacityEl,
+      stickyOpacityValueEl,
     };
     this.floatingToolbar = this.app.floatingToolbar ?? null;
     this.pendingShapeLayerContextMenu = null;
@@ -612,6 +618,9 @@ export class ToolbarPlugin extends BasePlugin {
         this.stickyColorToolbar?.recordCustomColor("fill", stickyFillColorEl.value);
         this.emitStickyStyleChange();
       });
+    }
+    if (stickyOpacityEl) {
+      this.listenDom(stickyOpacityEl, "input", () => this.emitStickyStyleChange());
     }
     const stickyConnectTriggerEl = stickyPanelEl?.querySelector("#sticky-connect-trigger") ?? null;
     if (stickyConnectTriggerEl) {
@@ -1040,9 +1049,21 @@ export class ToolbarPlugin extends BasePlugin {
         fill: {
           input: this.ui.stickyFillColorEl,
           swatchesEl: this.ui.stickyPanelEl?.querySelector?.("#sticky-fill-swatches") ?? null,
-          label: "Card color",
-          baseColors: withoutTransparent,
+          label: "Fill color",
+          baseColors: BUTTON_STYLE_SWATCHES,
           onChange: () => this.emitStickyStyleChange(),
+          onSwatch: (color, { input }) => {
+            if (!input || !this.ui.stickyOpacityEl) return;
+            if (color === "transparent") {
+              this.ui.stickyOpacityEl.value = "0";
+            } else {
+              input.value = color;
+              if (Number(this.ui.stickyOpacityEl.value) === 0) {
+                this.ui.stickyOpacityEl.value = "1";
+              }
+            }
+            this.emitStickyStyleChange();
+          },
         },
       },
     });
@@ -3097,6 +3118,8 @@ export class ToolbarPlugin extends BasePlugin {
       stickyFontSizeValueEl,
       stickyTextColorEl,
       stickyFillColorEl,
+      stickyOpacityEl,
+      stickyOpacityValueEl,
     } = this.ui;
     const state = this.selectedStickyNode
       ? getStickyData(this.selectedStickyNode)
@@ -3105,6 +3128,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.stickyPanelState = {
       ...this.stickyPanelState,
       fill: state.fill ?? this.stickyPanelState.fill,
+      fillOpacity: Number.isFinite(state.fillOpacity) ? state.fillOpacity : this.stickyPanelState.fillOpacity,
       textColor: state.textColor ?? this.stickyPanelState.textColor,
       fontSize: Number.isFinite(state.fontSize) ? state.fontSize : this.stickyPanelState.fontSize,
     };
@@ -3113,6 +3137,8 @@ export class ToolbarPlugin extends BasePlugin {
     if (stickyFontSizeValueEl) stickyFontSizeValueEl.value = String(this.stickyPanelState.fontSize);
     if (stickyTextColorEl) stickyTextColorEl.value = this.stickyPanelState.textColor;
     if (stickyFillColorEl) stickyFillColorEl.value = this.stickyPanelState.fill;
+    if (stickyOpacityEl) stickyOpacityEl.value = String(this.stickyPanelState.fillOpacity);
+    if (stickyOpacityValueEl) stickyOpacityValueEl.value = formatPercentValue(this.stickyPanelState.fillOpacity);
     this.syncStickyControlTooltips();
     this.syncStickyLayerActions();
   }
@@ -3122,6 +3148,7 @@ export class ToolbarPlugin extends BasePlugin {
       stickyFontSizeEl,
       stickyTextColorEl,
       stickyFillColorEl,
+      stickyOpacityEl,
     } = this.ui;
 
     this.stickyPanelState = {
@@ -3129,6 +3156,7 @@ export class ToolbarPlugin extends BasePlugin {
       fontSize: Number(stickyFontSizeEl?.value ?? this.stickyPanelState.fontSize),
       textColor: stickyTextColorEl?.value ?? this.stickyPanelState.textColor,
       fill: stickyFillColorEl?.value ?? this.stickyPanelState.fill,
+      fillOpacity: Number(stickyOpacityEl?.value ?? this.stickyPanelState.fillOpacity),
     };
     return this.stickyPanelState;
   }
@@ -3139,12 +3167,15 @@ export class ToolbarPlugin extends BasePlugin {
       stickyFontSizeValueEl,
       stickyTextColorEl,
       stickyFillColorEl,
+      stickyOpacityEl,
+      stickyOpacityValueEl,
     } = this.ui;
-    if (!stickyFontSizeEl || !stickyTextColorEl || !stickyFillColorEl) return;
+    if (!stickyFontSizeEl || !stickyTextColorEl || !stickyFillColorEl || !stickyOpacityEl) return;
 
     const fontSizeTitle = `Font size: ${stickyFontSizeEl.value}`;
     const textTitle = "Text color";
-    const fillTitle = "Card color";
+    const fillTitle = "Fill color";
+    const opacityTitle = `Opacity: ${formatPercentValue(stickyOpacityEl.value)}`;
     const textToolEl = stickyTextColorEl.closest(".toolbar__button-style-tool");
     const fontSizeToolEl = stickyFontSizeEl.closest(".toolbar__button-style-tool");
     const fillToolEl = stickyFillColorEl.closest(".toolbar__button-style-tool");
@@ -3158,8 +3189,10 @@ export class ToolbarPlugin extends BasePlugin {
     stickyFillColorEl.title = fillTitle;
     fillToolEl?.querySelector?.(".toolbar__button-style-trigger")?.setAttribute("title", fillTitle);
     fillToolEl?.style.setProperty("--button-tool-fill", stickyFillColorEl.value);
-    fillToolEl?.style.setProperty("--button-tool-opacity", "1");
-    fillToolEl?.classList.remove("is-button-fill-transparent");
+    fillToolEl?.style.setProperty("--button-tool-opacity", formatOpacityValue(stickyOpacityEl.value));
+    fillToolEl?.classList.toggle("is-button-fill-transparent", Number(stickyOpacityEl.value) <= 0);
+    stickyOpacityEl.title = opacityTitle;
+    if (stickyOpacityValueEl) stickyOpacityValueEl.title = opacityTitle;
     this.syncStickyCustomPickers();
   }
 
@@ -3188,10 +3221,11 @@ export class ToolbarPlugin extends BasePlugin {
   }
 
   emitStickyStyleChange() {
-    const { stickyFontSizeValueEl } = this.ui;
+    const { stickyFontSizeValueEl, stickyOpacityValueEl } = this.ui;
     const state = this.saveStickyUiToState();
 
     if (stickyFontSizeValueEl) stickyFontSizeValueEl.value = String(state.fontSize);
+    if (stickyOpacityValueEl) stickyOpacityValueEl.value = formatPercentValue(state.fillOpacity);
     this.syncStickyControlTooltips();
 
     const node = this.selectedStickyNode;

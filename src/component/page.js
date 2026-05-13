@@ -10,6 +10,30 @@ const MIN_PAGE_WIDTH = 320;
 const MIN_PAGE_HEIGHT = 220;
 const PAGE_HEADER_HEIGHT = 56;
 const DEFAULT_PAGE_LABEL = "New Page";
+export const DEFAULT_PAGE_FILL_OPACITY = 1;
+
+function clamp01(value, fallback = 1) {
+  if (!Number.isFinite(value)) return fallback;
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function fillWithOpacity(color, opacity) {
+  const alpha = clamp01(opacity, DEFAULT_PAGE_FILL_OPACITY);
+  if (alpha >= 1) return color;
+  const hex = typeof color === "string" ? color.trim() : "";
+  const shortMatch = hex.match(/^#([0-9a-f]{3})$/i);
+  const longMatch = hex.match(/^#([0-9a-f]{6})$/i);
+  const digits = shortMatch
+    ? shortMatch[1].split("").map((char) => `${char}${char}`).join("")
+    : longMatch?.[1] ?? null;
+  if (!digits) return alpha <= 0 ? "rgba(0, 0, 0, 0)" : color;
+  const red = Number.parseInt(digits.slice(0, 2), 16);
+  const green = Number.parseInt(digits.slice(2, 4), 16);
+  const blue = Number.parseInt(digits.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 function syncPageHeader(node, {
   width,
@@ -143,9 +167,13 @@ export class PageComponent extends ContainerComponent {
   onCreated(node, payload = {}) {
     const width = Number.isFinite(payload.width) ? payload.width : PAGE_WIDTH;
     const height = Number.isFinite(payload.height) ? payload.height : PAGE_HEIGHT;
+    const fill = typeof payload.fill === "string" && payload.fill ? payload.fill : "#fffdf8";
+    const fillOpacity = clamp01(payload.fillOpacity, DEFAULT_PAGE_FILL_OPACITY);
 
     node.setAttrs({
       transformLocked: false,
+      pageFill: fill,
+      pageFillOpacity: fillOpacity,
       focusPositionMode: "relative",
       savedFocus: {
         positionMode: "relative",
@@ -153,20 +181,37 @@ export class PageComponent extends ContainerComponent {
         scale: getDefaultPageScale(this.app, width, height),
       },
     });
+    node.findOne(".container-bg")?.fill(fillWithOpacity(fill, fillOpacity));
+    node.opacity(1);
   }
 
   serializeNode(node) {
     const base = super.serializeNode(node);
     const headerLine = node.findOne(".page-header-line");
+    const background = node.findOne(".container-bg");
 
     return {
       ...base,
+      fill: node.getAttr("pageFill") ?? base.fill,
+      fillOpacity: clamp01(
+        node.getAttr("pageFillOpacity"),
+        Number.isFinite(node.opacity?.()) ? node.opacity() : DEFAULT_PAGE_FILL_OPACITY,
+      ),
+      renderedFill: background?.fill() ?? base.fill,
       headerLineStroke: headerLine?.stroke() ?? "rgba(171, 79, 40, 0.12)",
     };
   }
 
   async applySerializedData(node, data = {}) {
     await super.applySerializedData(node, data);
+    const background = node.findOne(".container-bg");
+    const fill = typeof data.fill === "string" && data.fill
+      ? data.fill
+      : node.getAttr("pageFill") ?? "#fffdf8";
+    const fillOpacity = clamp01(data.fillOpacity, DEFAULT_PAGE_FILL_OPACITY);
+    node.setAttr("pageFill", fill);
+    node.setAttr("pageFillOpacity", fillOpacity);
+    background?.fill(fillWithOpacity(fill, fillOpacity));
 
     const width = Number.isFinite(data.width) ? data.width : PAGE_WIDTH;
     syncPageHeader(node, {
@@ -174,5 +219,17 @@ export class PageComponent extends ContainerComponent {
       label: data.label,
       headerLineStroke: data.headerLineStroke,
     });
+  }
+
+  applySerializedState(node, snapshot = {}) {
+    super.applySerializedState(node, snapshot);
+    const hasFillOpacity = Number.isFinite(snapshot?.data?.fillOpacity);
+    const legacyOpacity = Number.isFinite(snapshot?.opacity) ? clamp01(snapshot.opacity) : 1;
+    const migratedOpacity = hasFillOpacity ? clamp01(snapshot.data.fillOpacity) : legacyOpacity;
+    const fill = node.getAttr("pageFill") ?? node.findOne(".container-bg")?.fill?.() ?? "#fffdf8";
+    node.setAttr("pageFill", fill);
+    node.setAttr("pageFillOpacity", migratedOpacity);
+    node.findOne(".container-bg")?.fill(fillWithOpacity(fill, migratedOpacity));
+    node.opacity(1);
   }
 }
