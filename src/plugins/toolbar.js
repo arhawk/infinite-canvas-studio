@@ -233,6 +233,21 @@ class TogglePresentationBoardFullscreenCommand extends BaseCommand {
 export class ToolbarPlugin extends BasePlugin {
   static pluginId = "toolbar";
 
+  constructor(app, options) {
+    super(app, options);
+    // Create the timer button immediately so it can be passed to TimerPlugin
+    // before app.start() calls onSetup() for all plugins.
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "presentation-brush-fab__tool";
+    btn.setAttribute("aria-label", "Timer / Stopwatch");
+    btn.setAttribute("aria-pressed", "false");
+    btn.dataset.tooltip = "Timer / Stopwatch";
+    btn.dataset.testid = "presentation-tool-timer";
+    btn.innerHTML = `<i data-lucide="timer" aria-hidden="true"></i>`;
+    this.presentationTimerBtnEl = btn;
+  }
+
   commands() {
     return [TogglePresentationBoardFullscreenCommand];
   }
@@ -1062,10 +1077,13 @@ export class ToolbarPlugin extends BasePlugin {
     this.presentationArrangeBtnEl = createToolButton("mouse-pointer-2", "Pan board", "presentation-tool-arrange");
     this.presentationBrushBtnEl = createToolButton("pen", "Brush tools", "presentation-tool-brush");
     this.presentationEraserBtnEl = createToolButton("eraser", "Erase strokes", "presentation-tool-eraser");
+    // presentationTimerBtnEl was created in the constructor so TimerPlugin can receive it
+    // before app.start() is called; just append it here.
     panel.append(
       this.presentationArrangeBtnEl,
       this.presentationBrushBtnEl,
       this.presentationEraserBtnEl,
+      this.presentationTimerBtnEl,
     );
 
     const fabButton = document.createElement("button");

@@ -47,16 +47,14 @@ export class LeftToolbarPlugin extends BasePlugin {
 
     el.appendChild(this._makeSep());
 
-    // Plugins group (calculator + timer + background)
+    // Plugins group (calculator + background)
     const pluginsGroup = document.createElement("div");
     pluginsGroup.className = "left-toolbar__group";
     this.calculatorBtn = this._makeBtn("calculator", "Binary Calculator", "calculator-toggle");
-    this.timerBtn = this._makeBtn("timer", "Timer / Stopwatch", "timer-toggle");
     this.backgroundBtn = this._makeBtn("palette", "Style", "background-toggle");
     this.calculatorBtn.setAttribute("aria-pressed", "false");
-    this.timerBtn.setAttribute("aria-pressed", "false");
     this.backgroundBtn.setAttribute("aria-pressed", "false");
-    pluginsGroup.append(this.calculatorBtn, this.timerBtn, this.backgroundBtn);
+    pluginsGroup.append(this.calculatorBtn, this.backgroundBtn);
     el.appendChild(pluginsGroup);
 
     el.appendChild(this._makeSep());

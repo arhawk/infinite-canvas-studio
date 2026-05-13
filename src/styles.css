@@ -855,6 +855,7 @@ body.is-presentation-mode .toolbar.is-visible {
   pointer-events: none;
 }
 
+
 .toolbar__title-area {
   flex: 1;
   display: flex;
@@ -4340,9 +4341,9 @@ body.is-room-viewer #load-document-action {
 
 .timer-widget {
   position: absolute;
-  top: 1.25rem;
+  top: 3rem;
   right: 1.25rem;
-  z-index: 20;
+  z-index: 70;
   width: 15rem;
   padding: 0.75rem;
   border: 1px solid var(--line);
@@ -4355,6 +4356,13 @@ body.is-room-viewer #load-document-action {
   gap: 0.5rem;
   font-size: 0.8rem;
   user-select: none;
+  cursor: grab;
+}
+
+.timer-widget button,
+.timer-widget input,
+.timer-widget label {
+  cursor: default;
 }
 
 .timer-widget[hidden] {

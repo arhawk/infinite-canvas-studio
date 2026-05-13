@@ -189,7 +189,7 @@ const penDropdown = app.use(PenDropdownPlugin);
 penDropdown.wireTrigger(leftToolbar.penBtn);
 const shapeDropdown = app.use(ShapeDropdownPlugin);
 shapeDropdown.wireTrigger(leftToolbar.shapeBtn);
-app.use(ToolbarPlugin, {
+const toolbarPlugin = app.use(ToolbarPlugin, {
   presentationToolbarHoverZoneEl: ui.presentationToolbarHoverZone,
   modeCapsuleEditEl: ui.modeCapsuleEdit,
   modeCapsulePresentEl: ui.modeCapsulePresent,
@@ -273,7 +273,7 @@ app.use(BinaryCalculatorPlugin, {
 const minimapPlugin = app.use(MinimapPlugin);
 minimapPlugin.attachHeaderAction(leftToolbar.centerMapBtn);
 app.use(TimerPlugin, {
-  toggleEl: leftToolbar.timerBtn,
+  toggleEl: toolbarPlugin.presentationTimerBtnEl,
   widgetEl: ui.timerWidget,
   headerEl: ui.timerHeader,
   closeEl: ui.timerClose,
