@@ -40,6 +40,7 @@ import {
   captureRuntimeHtmlTemplate,
   readEmbeddedSnapshot,
 } from "./document/runtimeHtmlExport.js";
+import { disablePageZoom } from "./lib/disablePageZoom.js";
 import { setupAppTestApi } from "./testApi.js";
 
 import { TextComponent } from "./component/text.js";
@@ -55,6 +56,8 @@ import { RankingBoxComponent } from "./component/rankingBox.js";
 import { JavaScriptEditorComponent } from "./component/javascriptEditor.js";
 import { VideoComponent } from "./component/video.js";
 import { ShapeComponent } from "./component/shape.js";
+
+disablePageZoom();
 
 function getRequiredElement(selector) {
   const element = document.querySelector(selector);
