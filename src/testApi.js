@@ -289,9 +289,11 @@ function getNodeSummary(node) {
 
   if (componentType === "image") {
     const src = node.getAttr("imageSrc") ?? null;
+    const imageNode = node.findOne(".image-node");
     return {
-      hasImageNode: Boolean(node.findOne(".image-node")),
+      hasImageNode: Boolean(imageNode),
       hasPlaceholder: Boolean(node.findOne(".placeholder-rect")),
+      imageCornerRadius: imageNode?.cornerRadius?.() ?? null,
       srcLength: typeof src === "string" ? src.length : 0,
     };
   }

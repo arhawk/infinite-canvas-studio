@@ -87,7 +87,6 @@ export class ImageComponent extends BaseComponent {
       image,
       width,
       height,
-      cornerRadius: 18,
       name: "image-node",
     });
 

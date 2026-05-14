@@ -663,6 +663,7 @@ test("edits image sources from the floating toolbar", async ({ page }) => {
     expect.objectContaining({
       hasImageNode: true,
       hasPlaceholder: false,
+      imageCornerRadius: 0,
     }),
   );
   const uploaded = await getNode(page, image.id);
