@@ -295,6 +295,7 @@ export class RoomSharePlugin extends BasePlugin {
     });
     client.on("host:joined", () => {
       this.host.connected = true;
+      this.app.emit("room:share:change");
       void this.sendHostState();
       this.flushHostViewport();
     });
@@ -310,6 +311,7 @@ export class RoomSharePlugin extends BasePlugin {
     });
     client.on("close", () => {
       this.host.connected = false;
+      this.app.emit("room:share:change");
       this.updateRoomBadge();
     });
     client.connect();
@@ -395,6 +397,7 @@ export class RoomSharePlugin extends BasePlugin {
     });
     client.on("room:joined", () => {
       this.viewer.joined = true;
+      this.app.emit("room:share:change");
       this.hidePasswordPrompt();
       this.updateRoomBadge("Waiting for host...");
       this.startViewerReadyTimer();
@@ -425,6 +428,7 @@ export class RoomSharePlugin extends BasePlugin {
     client.on("close", () => {
       if (!this.viewer.joined) return;
       if (this.viewer.closedByServer) return;
+      this.app.emit("room:share:change");
       this.updateRoomBadge("Room disconnected");
     });
     client.connect();

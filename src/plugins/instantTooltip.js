@@ -6,6 +6,7 @@ const TOOLTIP_TARGET_REGION_SELECTOR = [
   ".toolbar__floating-panel",
   ".components-dropdown",
   ".sidebar",
+  ".presentation-brush-fab",
 ].join(", ");
 
 const INTERACTIVE_SELECTOR = [

@@ -45,15 +45,15 @@ describe("LeftToolbarPlugin", () => {
     expect(plugin.componentsBtn.getAttribute("aria-label")).toBe("Components");
   });
 
-  it("renders a Background button under Calculator in the left plugin group", () => {
+  it("does NOT render a calculator button in the left toolbar (OIP-164: relocated to present-mode FAB)", () => {
     const plugin = new LeftToolbarPlugin(createApp());
 
-    const pluginButtons = Array.from(plugin.calculatorBtn.parentElement.children);
-    const calculatorIndex = pluginButtons.indexOf(plugin.calculatorBtn);
-    const backgroundIndex = pluginButtons.indexOf(plugin.backgroundBtn);
+    expect(plugin.calculatorBtn).toBeUndefined();
+  });
 
-    expect(calculatorIndex).toBeGreaterThanOrEqual(0);
-    expect(backgroundIndex).toBe(calculatorIndex + 1);
+  it("renders a Background (Style) button in the left plugin group", () => {
+    const plugin = new LeftToolbarPlugin(createApp());
+
     expect(plugin.backgroundBtn).toBeTruthy();
     expect(plugin.backgroundBtn.textContent).toBe("");
     expect(plugin.backgroundBtn.querySelector('[data-lucide="palette"]')).toBeTruthy();

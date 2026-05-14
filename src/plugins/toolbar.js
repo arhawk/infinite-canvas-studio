@@ -244,10 +244,35 @@ export class ToolbarPlugin extends BasePlugin {
     btn.className = "presentation-brush-fab__tool";
     btn.setAttribute("aria-label", "Timer / Stopwatch");
     btn.setAttribute("aria-pressed", "false");
-    btn.dataset.tooltip = "Timer / Stopwatch";
+    btn.dataset.tooltip = "Timer";
     btn.dataset.testid = "presentation-tool-timer";
     btn.innerHTML = `<i data-lucide="timer" aria-hidden="true"></i>`;
     this.presentationTimerBtnEl = btn;
+
+    // Create the calculator button immediately so it can be passed to BinaryCalculatorPlugin
+    // before app.start() calls onSetup() for all plugins.
+    const calcBtn = document.createElement("button");
+    calcBtn.type = "button";
+    calcBtn.className = "presentation-brush-fab__tool";
+    calcBtn.setAttribute("aria-label", "Binary Calculator");
+    calcBtn.setAttribute("aria-pressed", "false");
+    calcBtn.dataset.tooltip = "Binary Calculator";
+    calcBtn.dataset.testid = "presentation-tool-calculator";
+    calcBtn.innerHTML = `<i data-lucide="calculator" aria-hidden="true"></i>`;
+    this.presentationCalculatorBtnEl = calcBtn;
+
+    // Create the reactions button immediately so it can be passed to EmojiReactionsPlugin
+    // before app.start() calls onSetup() for all plugins.
+    const reactBtn = document.createElement("button");
+    reactBtn.type = "button";
+    reactBtn.className = "presentation-brush-fab__tool";
+    reactBtn.setAttribute("aria-label", "Emoji Reactions");
+    reactBtn.setAttribute("aria-pressed", "false");
+    reactBtn.dataset.tooltip = "Reactions";
+    reactBtn.dataset.testid = "presentation-tool-reactions";
+    reactBtn.innerHTML = `<i data-lucide="smile-plus" aria-hidden="true"></i>`;
+    reactBtn.hidden = true;
+    this.presentationReactionsBtnEl = reactBtn;
   }
 
   commands() {
@@ -1095,9 +1120,9 @@ export class ToolbarPlugin extends BasePlugin {
       return button;
     };
 
-    this.presentationArrangeBtnEl = createToolButton("mouse-pointer-2", "Pan board", "presentation-tool-arrange");
-    this.presentationBrushBtnEl = createToolButton("pen", "Brush tools", "presentation-tool-brush");
-    this.presentationEraserBtnEl = createToolButton("eraser", "Erase strokes", "presentation-tool-eraser");
+    this.presentationArrangeBtnEl = createToolButton("mouse-pointer-2", "Pointer", "presentation-tool-arrange");
+    this.presentationBrushBtnEl = createToolButton("pen", "Pen", "presentation-tool-brush");
+    this.presentationEraserBtnEl = createToolButton("eraser", "Eraser", "presentation-tool-eraser");
     // presentationTimerBtnEl was created in the constructor so TimerPlugin can receive it
     // before app.start() is called; just append it here.
     panel.append(
@@ -1105,6 +1130,8 @@ export class ToolbarPlugin extends BasePlugin {
       this.presentationBrushBtnEl,
       this.presentationEraserBtnEl,
       this.presentationTimerBtnEl,
+      this.presentationCalculatorBtnEl,
+      this.presentationReactionsBtnEl,
     );
 
     const fabButton = document.createElement("button");

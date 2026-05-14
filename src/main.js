@@ -30,6 +30,7 @@ import { DocumentPlugin } from "./plugins/document.js";
 import { RoomSharePlugin } from "./plugins/roomShare.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
+import { EmojiReactionsPlugin } from "./plugins/emojiReactions.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { AnnotatorPlugin } from "./plugins/annotator.js";
@@ -271,7 +272,7 @@ const roomSharePlugin = app.use(RoomSharePlugin, {
   modeCapsulePresentEl: ui.modeCapsulePresent,
 });
 app.use(BinaryCalculatorPlugin, {
-  toggleEl: leftToolbar.calculatorBtn,
+  toggleEl: toolbarPlugin.presentationCalculatorBtnEl,
   widgetEl: ui.calculatorWidget,
 });
 const minimapPlugin = app.use(MinimapPlugin);
@@ -287,6 +288,9 @@ app.use(TimerPlugin, {
   mmInputEl: ui.timerMm,
   ssInputEl: ui.timerSs,
   durationRowEl: ui.timerDurationRow,
+});
+app.use(EmojiReactionsPlugin, {
+  toggleEl: toolbarPlugin.presentationReactionsBtnEl,
 });
 app.use(CenterMapPlugin, {
   centerMapEl: leftToolbar.centerMapBtn,
