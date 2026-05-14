@@ -262,7 +262,7 @@ const historyPlugin = app.use(HistoryPlugin, {
   undoEl: leftToolbar.undoBtn,
   redoEl: leftToolbar.redoBtn,
 });
-app.use(DocumentPlugin, {
+const documentPlugin = app.use(DocumentPlugin, {
   exportEl: ui.saveDocumentAction,
   importEl: ui.loadDocumentAction,
   importInputEl: ui.loadDocumentInput,
@@ -299,16 +299,29 @@ app.use(CenterMapPlugin, {
   centerMapEl: leftToolbar.centerMapBtn,
 });
 
-app.start();
-
 const embeddedSnapshot = readEmbeddedSnapshot();
 const routeRoomId = roomSharePlugin.getRouteRoomId();
+const bootLoadingLayer = routeRoomId
+  ? documentPlugin.showDocumentLoadingLayer({
+    label: "Waiting for host...",
+    total: 0,
+  })
+  : embeddedSnapshot
+    ? documentPlugin.showDocumentLoadingLayer({
+      label: "Loading document...",
+      total: Array.isArray(embeddedSnapshot.nodes) ? embeddedSnapshot.nodes.length : 0,
+    })
+    : null;
+
+app.start();
 
 if (routeRoomId) {
+  roomSharePlugin.adoptViewerWaitingLayer(bootLoadingLayer);
   await roomSharePlugin.startViewer(routeRoomId);
 } else if (embeddedSnapshot) {
   await app.documentManager?.loadDocument?.(embeddedSnapshot, {
     source: "embedded-html",
+    loadingLayer: bootLoadingLayer,
   });
 } else {
   // Seed starter nodes

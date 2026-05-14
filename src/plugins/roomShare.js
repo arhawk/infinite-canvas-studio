@@ -75,6 +75,7 @@ export class RoomSharePlugin extends BasePlugin {
       receivedState: false,
       readyTimer: null,
       autoJoinTimer: null,
+      waitingLayer: null,
     };
 
     this.app.roomShare = this;
@@ -112,6 +113,12 @@ export class RoomSharePlugin extends BasePlugin {
 
   getRouteRoomId() {
     return getRoomIdFromPath();
+  }
+
+  adoptViewerWaitingLayer(layer) {
+    if (!layer) return;
+    this.viewer.waitingLayer?.hide?.();
+    this.viewer.waitingLayer = layer;
   }
 
   buildSharePopover() {
@@ -408,6 +415,7 @@ export class RoomSharePlugin extends BasePlugin {
       this.app.emit("room:share:change");
       this.hidePasswordPrompt();
       this.updateRoomBadge("Waiting for host...");
+      this.showViewerWaitingLayer();
       this.startViewerReadyTimer();
     });
     client.on("room:state", ({ document }) => {
@@ -417,6 +425,9 @@ export class RoomSharePlugin extends BasePlugin {
       void this.app.documentManager?.loadDocument?.(document, { source: "room" }).then(() => {
         this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
         this.syncViewerUi();
+        this.hideViewerWaitingLayer();
+      }).catch(() => {
+        this.hideViewerWaitingLayer();
       });
     });
     client.on("room:viewport", (payload) => {
@@ -425,9 +436,11 @@ export class RoomSharePlugin extends BasePlugin {
     client.on("room:closed", ({ reason }) => {
       this.viewer.closedByServer = true;
       this.clearViewerReadyTimer();
+      this.hideViewerWaitingLayer();
       this.updateRoomBadge(reason === "host-disconnected" ? "Host disconnected" : "Room closed");
     });
     client.on("room:error", ({ message }) => {
+      this.hideViewerWaitingLayer();
       if (this.viewer.client) {
         this.showPasswordPrompt();
       }
@@ -440,6 +453,7 @@ export class RoomSharePlugin extends BasePlugin {
       if (!this.viewer.joined) return;
       if (this.viewer.closedByServer) return;
       this.app.emit("room:share:change");
+      this.hideViewerWaitingLayer();
       this.updateRoomBadge("Room disconnected");
     });
     client.connect();
@@ -495,7 +509,30 @@ export class RoomSharePlugin extends BasePlugin {
 
   submitViewerJoin(password) {
     this.hidePasswordPrompt();
+    this.showViewerWaitingLayer();
     this.viewer.client?.send("viewer:join", { password });
+  }
+
+  showViewerWaitingLayer() {
+    if (this.viewer.waitingLayer || !this.app.documentManager?.showDocumentLoadingLayer) {
+      this.viewer.waitingLayer?.update?.({
+        completed: 0,
+        total: 0,
+        remaining: 0,
+        label: "Waiting for host...",
+      });
+      return;
+    }
+
+    this.viewer.waitingLayer = this.app.documentManager.showDocumentLoadingLayer({
+      label: "Waiting for host...",
+      total: 0,
+    });
+  }
+
+  hideViewerWaitingLayer() {
+    this.viewer.waitingLayer?.hide?.();
+    this.viewer.waitingLayer = null;
   }
 
   handleRemoteViewport(payload) {

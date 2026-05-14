@@ -3511,7 +3511,7 @@ body.is-room-viewer #load-document-action {
 .room-password-prompt {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 1000001;
   display: grid;
   place-items: center;
   padding: 1rem;
