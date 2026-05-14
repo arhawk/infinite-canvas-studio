@@ -112,18 +112,33 @@ async function restoreNodeSnapshot(app, snapshot = {}) {
   return node;
 }
 
-async function restoreNodeSnapshots(app, snapshots = []) {
+async function restoreNodeSnapshots(app, snapshots = [], { onProgress = null } = {}) {
   if (!snapshots.length) return;
 
   const regularSnapshots = snapshots.filter((snapshot) => !isConnectionSnapshot(snapshot));
   const connectionSnapshots = snapshots.filter((snapshot) => isConnectionSnapshot(snapshot));
   const restoredNodes = new Map();
+  let completed = 0;
+  const total = snapshots.length;
+  const reportProgress = async (snapshot, node = null) => {
+    completed += 1;
+    if (typeof onProgress === "function") {
+      await onProgress({
+        completed,
+        total,
+        remaining: Math.max(0, total - completed),
+        snapshot,
+        node,
+      });
+    }
+  };
 
   for (const snapshot of regularSnapshots) {
     const node = await restoreNodeSnapshot(app, snapshot);
     if (node) {
       restoredNodes.set(snapshot.id, node);
     }
+    await reportProgress(snapshot, node);
   }
 
   regularSnapshots.forEach((snapshot) => {
@@ -148,6 +163,7 @@ async function restoreNodeSnapshots(app, snapshots = []) {
     if (node) {
       app.setSelectableIndex(node, snapshot.zIndex ?? 0);
     }
+    await reportProgress(snapshot, node);
   }
 }
 
@@ -293,11 +309,12 @@ export function exportDocumentSnapshot(app, {
 
 export async function importDocumentSnapshot(app, snapshot, {
   includeView = true,
+  onProgress = null,
 } = {}) {
   const documentSnapshot = normalizeDocumentSnapshot(snapshot);
 
   clearDocumentContents(app);
-  await restoreNodeSnapshots(app, documentSnapshot.nodes);
+  await restoreNodeSnapshots(app, documentSnapshot.nodes, { onProgress });
   await migrateLegacyTermDefLinks(app, documentSnapshot.nodes);
   restoreDrawingSnapshots(app, documentSnapshot.drawings);
   app.setBackgroundState?.(documentSnapshot.background) ?? app.stageApi.setBackgroundState(documentSnapshot.background);

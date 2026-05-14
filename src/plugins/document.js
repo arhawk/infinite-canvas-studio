@@ -169,6 +169,7 @@ export class DocumentPlugin extends BasePlugin {
     this.cleanups.push(() => {
       window.clearTimeout(this.statusTimeout);
       this.statusEl?.remove();
+      this.loadingOverlayEl?.remove();
       this.exportMenuEl?.remove();
       if (this.app.documentManager === this) {
         this.app.documentManager = null;
@@ -575,6 +576,10 @@ export class DocumentPlugin extends BasePlugin {
 
   async loadDocument(snapshot, { source = "api" } = {}) {
     const normalized = normalizeDocumentSnapshot(snapshot);
+    const loadingLayer = this.showDocumentLoadingLayer({
+      total: normalized.nodes.length,
+    });
+    await this.waitForDocumentLoadingLayerPaint();
 
     this.app.events.emit("document:load:start", {
       source,
@@ -584,7 +589,19 @@ export class DocumentPlugin extends BasePlugin {
     this.app.isRestoringDocument = true;
 
     try {
-      const imported = await importDocumentSnapshot(this.app, normalized);
+      let lastProgressPaint = 0;
+      const imported = await importDocumentSnapshot(this.app, normalized, {
+        onProgress: async (progress) => {
+          loadingLayer.update(progress);
+          const shouldPaint =
+            progress.completed === progress.total ||
+            progress.completed - lastProgressPaint >= 12;
+          if (shouldPaint) {
+            lastProgressPaint = progress.completed;
+            await this.waitForDocumentLoadingLayerPaint({ frames: 1 });
+          }
+        },
+      });
       this.documentState = this.createDocumentState({
         documentId: imported.documentId,
         revision: imported.revision,
@@ -604,6 +621,125 @@ export class DocumentPlugin extends BasePlugin {
       throw error;
     } finally {
       this.app.isRestoringDocument = false;
+      loadingLayer.hide();
     }
+  }
+
+  showDocumentLoadingLayer({ total = 0 } = {}) {
+    if (typeof document === "undefined") {
+      return {
+        update: () => {},
+        hide: () => {},
+      };
+    }
+
+    if (!this.loadingOverlayEl) {
+      const overlay = document.createElement("div");
+      overlay.className = "document-loading-layer";
+      overlay.dataset.testid = "document-loading-layer";
+      overlay.setAttribute("role", "status");
+      overlay.setAttribute("aria-live", "polite");
+      overlay.innerHTML = `
+        <div class="document-loading-layer__panel">
+          <div class="document-loading-layer__spinner" aria-hidden="true"></div>
+          <div class="document-loading-layer__content">
+            <div class="document-loading-layer__text">Loading document...</div>
+            <div
+              class="document-loading-layer__progress"
+              role="progressbar"
+              aria-label="Document loading progress"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            >
+              <div class="document-loading-layer__progress-bar"></div>
+            </div>
+            <div class="document-loading-layer__meta">Preparing components...</div>
+          </div>
+        </div>
+      `;
+      this.loadingOverlayEl = overlay;
+    }
+
+    if (!this.loadingOverlayEl.isConnected) {
+      document.body.append(this.loadingOverlayEl);
+    }
+
+    const depth = Number(document.body.dataset.documentLoadingDepth ?? 0) + 1;
+    document.body.dataset.documentLoadingDepth = String(depth);
+    document.body.setAttribute("aria-busy", "true");
+    this.loadingOverlayEl.hidden = false;
+    this.updateDocumentLoadingLayer({ completed: 0, total, remaining: total });
+
+    return {
+      update: (progress) => this.updateDocumentLoadingLayer(progress),
+      hide: () => {
+        const nextDepth = Math.max(0, Number(document.body.dataset.documentLoadingDepth ?? 1) - 1);
+        if (nextDepth > 0) {
+          document.body.dataset.documentLoadingDepth = String(nextDepth);
+          return;
+        }
+
+        delete document.body.dataset.documentLoadingDepth;
+        document.body.removeAttribute("aria-busy");
+        if (this.loadingOverlayEl) {
+          this.updateDocumentLoadingLayer({
+            completed: total,
+            total,
+            remaining: 0,
+          });
+          this.loadingOverlayEl.hidden = true;
+        }
+      },
+    };
+  }
+
+  updateDocumentLoadingLayer({ completed = 0, total = 0, remaining = null } = {}) {
+    const overlay = this.loadingOverlayEl;
+    if (!overlay) return;
+
+    const safeTotal = Math.max(0, Number(total) || 0);
+    const safeCompleted = Math.min(safeTotal, Math.max(0, Number(completed) || 0));
+    const safeRemaining = Number.isFinite(remaining)
+      ? Math.max(0, Number(remaining))
+      : Math.max(0, safeTotal - safeCompleted);
+    const percent = safeTotal > 0 ? Math.round((safeCompleted / safeTotal) * 100) : 100;
+
+    const progressEl = overlay.querySelector(".document-loading-layer__progress");
+    const barEl = overlay.querySelector(".document-loading-layer__progress-bar");
+    const metaEl = overlay.querySelector(".document-loading-layer__meta");
+
+    if (progressEl) {
+      progressEl.setAttribute("aria-valuenow", String(percent));
+    }
+
+    if (barEl) {
+      barEl.style.transform = `scaleX(${percent / 100})`;
+    }
+
+    if (metaEl) {
+      metaEl.textContent = safeTotal > 0
+        ? `${safeCompleted} / ${safeTotal} components loaded, ${safeRemaining} remaining`
+        : "Preparing document...";
+    }
+  }
+
+  waitForDocumentLoadingLayerPaint({ frames = 2 } = {}) {
+    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      let remainingFrames = Math.max(1, Math.trunc(frames));
+      const step = () => {
+        remainingFrames -= 1;
+        if (remainingFrames <= 0) {
+          window.setTimeout(resolve, 0);
+          return;
+        }
+        window.requestAnimationFrame(step);
+      };
+      window.requestAnimationFrame(step);
+    });
   }
 }

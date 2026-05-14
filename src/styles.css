@@ -3582,6 +3582,7 @@ body.is-room-viewer #load-document-action {
 }
 
 .canvas-container {
+  position: relative;
   min-width: 0;
   min-height: 0;
   width: 100%;
@@ -3630,6 +3631,85 @@ body.is-room-viewer #load-document-action {
 
 .canvas-container canvas {
   display: block;
+}
+
+.document-loading-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--canvas-base-bg);
+  pointer-events: auto;
+}
+
+.document-loading-layer[hidden] {
+  display: none !important;
+}
+
+.document-loading-layer__panel {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: min(25rem, 100%);
+  padding: 1rem;
+  border: 1px solid rgba(61, 47, 32, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 1rem 2.2rem rgba(54, 41, 25, 0.16);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.document-loading-layer__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-loading-layer__spinner {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(61, 47, 32, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: document-loading-spin 0.8s linear infinite;
+}
+
+.document-loading-layer__text {
+  line-height: 1.2;
+}
+
+.document-loading-layer__progress {
+  height: 0.45rem;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(61, 47, 32, 0.12);
+}
+
+.document-loading-layer__progress-bar {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.document-loading-layer__meta {
+  margin-top: 0.45rem;
+  color: rgba(61, 47, 32, 0.72);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+@keyframes document-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .page-compare-selection-bar {
