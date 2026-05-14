@@ -29,6 +29,11 @@ export class MinimapPlugin extends BasePlugin {
     this.minimapTransform = null;
     this.laserTimeout = null;
     this.warningAnimationFrame = null;
+    this.updateFrame = null;
+    this.pendingUpdateOptions = null;
+    this.cachedMinimapFrame = null;
+    this.cachedUnlinkedPageMarkers = [];
+    this.cachedNodeFrame = null;
     this.hasUnlinkedPageWarnings = false;
     this.unlinkedPageCursorId = null;
     this.collapsed = false;
@@ -36,10 +41,10 @@ export class MinimapPlugin extends BasePlugin {
 
     this.buildPanel();
 
-    this.listen("viewport:change", () => this.update());
-    this.listen("node:added", () => this.update());
-    this.listen("node:removed", () => this.update());
-    this.listen("node:changed", () => this.update());
+    this.listen("viewport:change", () => this.scheduleUpdate({ viewportOnly: true }));
+    this.listen("node:added", () => this.scheduleUpdate());
+    this.listen("node:removed", () => this.scheduleUpdate());
+    this.listen("node:changed", () => this.scheduleUpdate());
     this.listen("selection:change", ({ nodes }) => this.onSelectionChange(nodes));
 
     this.update();
@@ -47,6 +52,7 @@ export class MinimapPlugin extends BasePlugin {
     this.cleanups.push(() => {
       clearTimeout(this.laserTimeout);
       this.stopWarningAnimation();
+      this.cancelScheduledUpdate();
       this.panelEl?.remove();
     });
   }
@@ -194,6 +200,10 @@ export class MinimapPlugin extends BasePlugin {
   displayBounds(nodes) {
     const vp = this.app.stageApi.getViewportBounds();
     const nb = this.nodeBounds(nodes);
+    return this.displayBoundsFromNodeBounds(nb, vp);
+  }
+
+  displayBoundsFromNodeBounds(nb, vp = this.app.stageApi.getViewportBounds()) {
 
     const minX = nb ? Math.min(nb.x, vp.x) : vp.x;
     const minY = nb ? Math.min(nb.y, vp.y) : vp.y;
@@ -256,6 +266,38 @@ export class MinimapPlugin extends BasePlugin {
       mapped.push(this.toMinimap(points[i], points[i + 1]));
     }
     return { line, points: mapped };
+  }
+
+  buildNodeFrame(nodes, unlinkedPageIds) {
+    const items = [];
+    for (const node of nodes) {
+      if (isConnectionNode(node)) {
+        const line = node.findOne(".connection-line");
+        const points = line?.points?.() ?? [];
+        if (points.length >= 4) {
+          items.push({
+            kind: "connection",
+            points: [...points],
+            dash: line.dash?.() ?? [],
+            bezier: line.bezier?.() === true,
+          });
+        }
+        continue;
+      }
+
+      items.push({
+        kind: isShapeNode(node) ? "shape" : "box",
+        shapeType: node.getAttr("shapeType") ?? "rectangle",
+        rect: node.getClientRect({ relativeTo: this.mainLayer }),
+        unlinkedPage: unlinkedPageIds.has(node.id()),
+      });
+    }
+
+    return {
+      bounds: this.nodeBounds(nodes),
+      items,
+      unlinkedPageCount: unlinkedPageIds.size,
+    };
   }
 
   drawConnection(ctx, node) {
@@ -470,6 +512,25 @@ export class MinimapPlugin extends BasePlugin {
     this.warningAnimationFrame = null;
   }
 
+  cancelScheduledUpdate() {
+    if (this.updateFrame == null) return;
+    cancelAnimationFrame(this.updateFrame);
+    this.updateFrame = null;
+  }
+
+  scheduleUpdate(options = {}) {
+    this.pendingUpdateOptions = {
+      viewportOnly: this.pendingUpdateOptions?.viewportOnly !== false && options.viewportOnly === true,
+    };
+    if (this.updateFrame != null) return;
+    this.updateFrame = requestAnimationFrame(() => {
+      const nextOptions = this.pendingUpdateOptions ?? {};
+      this.pendingUpdateOptions = null;
+      this.updateFrame = null;
+      this.update(nextOptions);
+    });
+  }
+
   syncWarningAnimation(shouldAnimate) {
     this.hasUnlinkedPageWarnings = shouldAnimate;
     if (!shouldAnimate || this.collapsed) {
@@ -481,72 +542,130 @@ export class MinimapPlugin extends BasePlugin {
     this.warningAnimationFrame = requestAnimationFrame(() => {
       this.warningAnimationFrame = null;
       if (!this.collapsed) {
-        this.update();
+        this.update({ pulseOnly: true });
       }
     });
   }
 
   // ── Drawing ───────────────────────────────────────────────────────────────
 
-  update() {
-    const nodes = this.selectableNodes();
-    const unlinkedPageIds = this.getUnlinkedPageIds(nodes);
-    this.syncUnlinkedPageButton(unlinkedPageIds.size);
+  drawWarningPulseFrame(ctx) {
+    if (!this.cachedMinimapFrame || !this.cachedUnlinkedPageMarkers.length) return false;
+    ctx.clearRect(0, 0, MINIMAP_W, MINIMAP_H);
+    ctx.drawImage(this.cachedMinimapFrame, 0, 0);
+    const warningPulse = this.getWarningPulse();
+    this.cachedUnlinkedPageMarkers.forEach((marker) => this.drawUnlinkedPageWarning(ctx, marker, warningPulse));
+    this.syncWarningAnimation(true);
+    return true;
+  }
 
-    if (this.collapsed) {
-      this.stopWarningAnimation();
+  drawCachedConnection(ctx, item) {
+    if (!Array.isArray(item.points) || item.points.length < 4) return;
+
+    const points = [];
+    for (let i = 0; i < item.points.length; i += 2) {
+      points.push(this.toMinimap(item.points[i], item.points[i + 1]));
+    }
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(84, 64, 43, 0.35)";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.setLineDash(item.dash ?? []);
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    if (item.bezier && points.length >= 4) {
+      ctx.bezierCurveTo(
+        points[1].x,
+        points[1].y,
+        points[2].x,
+        points[2].y,
+        points[3].x,
+        points[3].y,
+      );
+    } else {
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawCachedShapeNode(ctx, item, rect) {
+    const shapeType = item.shapeType ?? "rectangle";
+    const centerX = rect.x + rect.width / 2;
+    const centerY = rect.y + rect.height / 2;
+
+    ctx.beginPath();
+    if (shapeType === "oval") {
+      ctx.ellipse(centerX, centerY, rect.width / 2, rect.height / 2, 0, 0, Math.PI * 2);
+    } else if (shapeType === "rhombus") {
+      ctx.moveTo(centerX, rect.y);
+      ctx.lineTo(rect.x + rect.width, centerY);
+      ctx.lineTo(centerX, rect.y + rect.height);
+      ctx.lineTo(rect.x, centerY);
+      ctx.closePath();
+    } else if (shapeType === "triangle") {
+      ctx.moveTo(centerX, rect.y);
+      ctx.lineTo(rect.x + rect.width, rect.y + rect.height);
+      ctx.lineTo(rect.x, rect.y + rect.height);
+      ctx.closePath();
+    } else {
+      this.drawNodeBox(ctx, rect);
       return;
     }
 
-    const ctx = this.canvas.getContext("2d");
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  renderNodeFrame(ctx, nodeFrame) {
     const w = MINIMAP_W;
     const h = MINIMAP_H;
-
     ctx.clearRect(0, 0, w, h);
 
-    const bounds = this.displayBounds(nodes);
-
-    // Uniform scale that fits bounds into the canvas, letterboxed
+    const bounds = this.displayBoundsFromNodeBounds(nodeFrame?.bounds ?? null);
     const scale = Math.min(w / bounds.width, h / bounds.height);
     const offsetX = (w - bounds.width * scale) / 2;
     const offsetY = (h - bounds.height * scale) / 2;
-
     this.minimapTransform = { bounds, scale, offsetX, offsetY };
 
-    // Background wash
     ctx.fillStyle = "rgba(61, 47, 32, 0.03)";
     ctx.fillRect(0, 0, w, h);
 
-    // Draw selectable nodes in miniature. Connections and shapes keep their
-    // actual geometry so the overview does not collapse them into bounding boxes.
     const unlinkedPageMarkers = [];
-    for (const node of nodes) {
-      if (isConnectionNode(node)) {
-        this.drawConnection(ctx, node);
+    for (const item of nodeFrame?.items ?? []) {
+      if (item.kind === "connection") {
+        this.drawCachedConnection(ctx, item);
         continue;
       }
 
-      const r = node.getClientRect({ relativeTo: this.mainLayer });
-      const { x, y } = this.toMinimap(r.x, r.y);
-      const nw = Math.max(2, r.width * scale);
-      const nh = Math.max(2, r.height * scale);
+      const { x, y } = this.toMinimap(item.rect.x, item.rect.y);
+      const rect = {
+        x,
+        y,
+        width: Math.max(2, item.rect.width * scale),
+        height: Math.max(2, item.rect.height * scale),
+      };
 
       ctx.fillStyle = "rgba(84, 64, 43, 0.28)";
       ctx.strokeStyle = "rgba(84, 64, 43, 0.5)";
       ctx.lineWidth = 0.5;
 
-      if (isShapeNode(node)) {
-        this.drawShapeNode(ctx, node, r);
+      if (item.kind === "shape") {
+        this.drawCachedShapeNode(ctx, item, rect);
       } else {
-        this.drawNodeBox(ctx, { x, y, width: nw, height: nh });
+        this.drawNodeBox(ctx, rect);
       }
 
-      if (unlinkedPageIds.has(node.id())) {
-        unlinkedPageMarkers.push({ x, y, width: nw });
+      if (item.unlinkedPage) {
+        unlinkedPageMarkers.push({ x: rect.x, y: rect.y, width: rect.width });
       }
     }
 
-    // Draw viewport rect
     const vp = this.app.stageApi.getViewportBounds();
     const vpTL = this.toMinimap(vp.x, vp.y);
     const vpW = vp.width * scale;
@@ -561,9 +680,42 @@ export class MinimapPlugin extends BasePlugin {
     ctx.fill();
     ctx.stroke();
 
+    this.cachedUnlinkedPageMarkers = unlinkedPageMarkers;
+    this.cachedMinimapFrame ??= document.createElement("canvas");
+    this.cachedMinimapFrame.width = w;
+    this.cachedMinimapFrame.height = h;
+    const cachedCtx = this.cachedMinimapFrame.getContext("2d");
+    cachedCtx.clearRect(0, 0, w, h);
+    cachedCtx.drawImage(this.canvas, 0, 0);
+
     const warningPulse = this.getWarningPulse();
     unlinkedPageMarkers.forEach((marker) => this.drawUnlinkedPageWarning(ctx, marker, warningPulse));
     this.syncWarningAnimation(unlinkedPageMarkers.length > 0);
+  }
+
+  update({ pulseOnly = false, viewportOnly = false } = {}) {
+    const ctx = this.canvas.getContext("2d");
+
+    if (pulseOnly && this.drawWarningPulseFrame(ctx)) {
+      return;
+    }
+
+    if (viewportOnly && this.cachedNodeFrame) {
+      this.renderNodeFrame(ctx, this.cachedNodeFrame);
+      return;
+    }
+
+    const nodes = this.selectableNodes();
+    const unlinkedPageIds = this.getUnlinkedPageIds(nodes);
+    this.syncUnlinkedPageButton(unlinkedPageIds.size);
+    this.cachedNodeFrame = this.buildNodeFrame(nodes, unlinkedPageIds);
+
+    if (this.collapsed) {
+      this.stopWarningAnimation();
+      return;
+    }
+
+    this.renderNodeFrame(ctx, this.cachedNodeFrame);
   }
 
   // ── Laser dot ─────────────────────────────────────────────────────────────

@@ -19,7 +19,15 @@ function isRankingItemInteractionTarget(target) {
 }
 
 function debugStageViewport(message, payload = {}) {
-  console.info("[stage-viewport]", message, payload);
+  try {
+    const enabled = globalThis?.localStorage?.getItem?.("debugStageViewport") === "1" ||
+      globalThis?.location?.search?.includes?.("debugStageViewport=1");
+    if (enabled) {
+      console.info("[stage-viewport]", message, payload);
+    }
+  } catch {
+    // Some embedded/file contexts can block storage access; debug logging is optional.
+  }
 }
 
 function commitActiveInlineTextEditor(stage, reason) {

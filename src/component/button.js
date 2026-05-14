@@ -153,6 +153,7 @@ function syncButtonVisuals(node, data = {}) {
     stroke,
     strokeWidth,
     listening: true,
+    perfectDrawEnabled: false,
   };
 
   node.width(width);

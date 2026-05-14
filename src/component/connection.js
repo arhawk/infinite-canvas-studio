@@ -157,6 +157,7 @@ export class ConnectionComponent extends BaseComponent {
       shadowBlur: 2,
       shadowOffset: { x: 1, y: 1 },
       shadowOpacity: 0.08,
+      perfectDrawEnabled: false,
       name: "connection-line",
     });
 

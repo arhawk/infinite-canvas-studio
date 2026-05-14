@@ -157,6 +157,7 @@ export class StickyComponent extends BaseComponent {
       shadowBlur: 18,
       shadowOffsetY: 10,
       shadowOpacity: 0.4,
+      perfectDrawEnabled: false,
       name: "sticky-bg",
     });
 

@@ -109,6 +109,7 @@ export class PageComponent extends ContainerComponent {
       shadowBlur: 28,
       shadowOffsetY: 12,
       shadowOpacity: 0.4,
+      perfectDrawEnabled: false,
       name: "container-bg page-bg",
     });
 

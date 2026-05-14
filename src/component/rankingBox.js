@@ -324,6 +324,7 @@ function renderCard({
     shadowBlur: 8,
     shadowOffsetY: 3,
     shadowOpacity: 0.24,
+    perfectDrawEnabled: false,
     name: "ranking-item-bg",
   });
 
@@ -542,6 +543,7 @@ export class RankingBoxComponent extends BaseComponent {
       shadowBlur: 16,
       shadowOffsetY: 8,
       shadowOpacity: 0.3,
+      perfectDrawEnabled: false,
       name: "ranking-box-bg",
     });
 

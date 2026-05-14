@@ -126,6 +126,7 @@ function syncShapeVisuals(node, overrides = {}) {
     strokeWidth,
     opacity: 1,
     listening: true,
+    perfectDrawEnabled: false,
   };
   const visibleFill = fillWithOpacity(fill, fillOpacity);
 
