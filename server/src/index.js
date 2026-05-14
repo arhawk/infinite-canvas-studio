@@ -4,11 +4,13 @@ import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import {
-  HOST_MESSAGE_TYPES,
   MAX_HTTP_BODY_BYTES,
   MAX_WS_MESSAGE_BYTES,
   SERVER_MESSAGE_TYPES,
-  VIEWER_MESSAGE_TYPES,
+  VIEWER_CONTROL_MESSAGE_TYPES,
+  VIEWER_CONTROL_ROOM_MESSAGE_TYPES,
+  canHostRelayMessageType,
+  canViewerRelayMessageType,
   isRoomId,
   readMessage,
   safeJsonParse,
@@ -269,7 +271,7 @@ function relayHostMessage(room, socket, message) {
     return;
   }
 
-  if (!HOST_MESSAGE_TYPES.has(message.type)) {
+  if (!canHostRelayMessageType(message.type)) {
     sendError(socket, "Unsupported host message type.", "bad-host-message");
     return;
   }
@@ -281,12 +283,7 @@ function relayHostMessage(room, socket, message) {
 }
 
 function handleViewerMessage(room, socket, message) {
-  if (!VIEWER_MESSAGE_TYPES.has(message.type)) {
-    sendError(socket, "Unsupported viewer message type.", "bad-viewer-message");
-    return;
-  }
-
-  if (message.type === "viewer:join") {
+  if (VIEWER_CONTROL_MESSAGE_TYPES.has(message.type)) {
     handleViewerJoin(room, socket, message.payload);
     return;
   }
@@ -296,8 +293,21 @@ function handleViewerMessage(room, socket, message) {
     return;
   }
 
-  if (message.type === "room:request-state" && room.hostSocket) {
-    sendJson(room.hostSocket, SERVER_MESSAGE_TYPES.VIEWER_JOINED, { viewerId: socket.connectionId });
+  if (VIEWER_CONTROL_ROOM_MESSAGE_TYPES.has(message.type)) {
+    if (message.type === "room:request-state" && room.hostSocket) {
+      sendJson(room.hostSocket, SERVER_MESSAGE_TYPES.VIEWER_JOINED, { viewerId: socket.connectionId });
+    }
+    return;
+  }
+
+  if (!canViewerRelayMessageType(message.type)) {
+    sendError(socket, "Unsupported viewer message type.", "bad-viewer-message");
+    return;
+  }
+
+  if (room.hostSocket) {
+    sendJson(room.hostSocket, message.type, message.payload);
+    store.touchRoom(room);
   }
 }
 

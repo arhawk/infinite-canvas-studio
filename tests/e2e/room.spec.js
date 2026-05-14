@@ -316,6 +316,49 @@ test("shows room not ready when a viewer joins before the host socket", async ({
   )).toBe("presentation");
 });
 
+test("server relays forward-compatible app events after authorization", async ({ request }) => {
+  const response = await request.post(getCreateRoomApiUrl(), {
+    data: { password: "" },
+  });
+  expect(response.ok()).toBe(true);
+  const room = await response.json();
+
+  const host = createRawRoomSocket(room.url, "host");
+  await host.opened();
+  host.send("host:join", { hostToken: room.hostToken });
+  await host.waitFor("host:joined");
+
+  const viewer = createRawRoomSocket(room.url, "viewer");
+  await viewer.opened();
+  await viewer.waitFor("room:auth-required");
+  viewer.send("viewer:join");
+  await viewer.waitFor("room:joined");
+  await host.waitFor("viewer:joined");
+
+  host.send("app:future-widget-event", { value: "from-host" });
+  await expect(viewer.waitFor("app:future-widget-event")).resolves.toMatchObject({
+    payload: { value: "from-host" },
+  });
+
+  viewer.send("app:reaction", { emoji: "👍", id: "unit-reaction", relay: false });
+  await expect(host.waitFor("app:reaction")).resolves.toMatchObject({
+    payload: { emoji: "👍", id: "unit-reaction", relay: false },
+  });
+
+  host.send("app:reaction", { emoji: "👍", id: "unit-reaction", relay: true });
+  await expect(viewer.waitFor("app:reaction")).resolves.toMatchObject({
+    payload: { emoji: "👍", id: "unit-reaction", relay: true },
+  });
+
+  viewer.send("room:reaction", { emoji: "👍" });
+  await expect(viewer.waitFor("room:error")).resolves.toMatchObject({
+    payload: { code: "bad-viewer-message" },
+  });
+
+  host.close();
+  viewer.close();
+});
+
 test("server rejects unauthorized room WebSocket messages", async ({ request }) => {
   const response = await request.post(getCreateRoomApiUrl(), {
     data: { password: "secret" },

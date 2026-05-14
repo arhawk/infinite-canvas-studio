@@ -8,6 +8,7 @@ const EMOJIS = [
 ];
 
 const SENT_ID_TTL_MS = 3000;
+const REACTION_MESSAGE_TYPE = "app:reaction";
 
 export class EmojiReactionsPlugin extends BasePlugin {
   static pluginId = "emojiReactions";
@@ -127,18 +128,18 @@ export class EmojiReactionsPlugin extends BasePlugin {
     const hc = rs?.host?.client;
     if (hc && hc !== this._registeredHostClient) {
       this._registeredHostClient = hc;
-      hc.on("room:reaction", ({ emoji, id, relay }) => {
+      hc.on(REACTION_MESSAGE_TYPE, ({ emoji, id, relay }) => {
         if (relay) return;
         this._playAnimation(emoji);
         // Fan-out: re-broadcast viewer reaction to all viewers via host
-        hc.send("room:reaction", { emoji, id, relay: true });
+        hc.send(REACTION_MESSAGE_TYPE, { emoji, id, relay: true });
       });
     }
 
     const vc = rs?.viewer?.client;
     if (vc && vc !== this._registeredViewerClient) {
       this._registeredViewerClient = vc;
-      vc.on("room:reaction", ({ emoji, id }) => {
+      vc.on(REACTION_MESSAGE_TYPE, ({ emoji, id }) => {
         // Suppress echo of our own reaction that was re-broadcast by the host
         if (id && this._sentIds.has(id)) {
           this._sentIds.delete(id);
@@ -155,11 +156,11 @@ export class EmojiReactionsPlugin extends BasePlugin {
 
     const rs = this.app.roomShare;
     if (rs?.host?.connected) {
-      rs.host.client?.send("room:reaction", { emoji, id, relay: false });
+      rs.host.client?.send(REACTION_MESSAGE_TYPE, { emoji, id, relay: false });
     } else if (rs?.viewer?.joined) {
       this._sentIds.add(id);
       window.setTimeout(() => this._sentIds.delete(id), SENT_ID_TTL_MS);
-      rs.viewer.client?.send("room:reaction", { emoji, id, relay: false });
+      rs.viewer.client?.send(REACTION_MESSAGE_TYPE, { emoji, id, relay: false });
     }
   }
 
