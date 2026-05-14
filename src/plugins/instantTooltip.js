@@ -50,9 +50,6 @@ function normalizeTooltipAttrs(element) {
       element.setAttribute("aria-label", nextTooltip);
     }
   }
-  if (element.hasAttribute("title")) {
-    element.removeAttribute("title");
-  }
 }
 
 export class InstantTooltipPlugin extends BasePlugin {

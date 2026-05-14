@@ -5,6 +5,7 @@ export class RoomClient {
     this.getUrl = getUrl;
     this.socket = null;
     this.handlers = new Map();
+    this.pendingMessages = [];
   }
 
   on(type, handler) {
@@ -23,7 +24,11 @@ export class RoomClient {
   connect() {
     this.close();
     this.socket = new WebSocket(this.getUrl(this.roomId, this.role));
-    this.socket.addEventListener("open", () => this.emit("open"));
+    this.socket.addEventListener("open", () => {
+      const pending = this.pendingMessages.splice(0);
+      pending.forEach(({ type, payload }) => this.send(type, payload));
+      this.emit("open");
+    });
     this.socket.addEventListener("close", (event) => this.emit("close", event));
     this.socket.addEventListener("error", (event) => this.emit("error", event));
     this.socket.addEventListener("message", (event) => {
@@ -41,12 +46,18 @@ export class RoomClient {
   }
 
   send(type, payload = {}) {
-    if (this.socket?.readyState !== WebSocket.OPEN) return false;
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      if (this.socket?.readyState === WebSocket.CONNECTING) {
+        this.pendingMessages.push({ type, payload });
+      }
+      return false;
+    }
     this.socket.send(JSON.stringify({ type, payload }));
     return true;
   }
 
   close() {
+    this.pendingMessages = [];
     if (!this.socket) return;
     this.socket.close();
     this.socket = null;

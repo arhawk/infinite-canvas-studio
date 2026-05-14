@@ -74,6 +74,7 @@ export class RoomSharePlugin extends BasePlugin {
       closedByServer: false,
       receivedState: false,
       readyTimer: null,
+      autoJoinTimer: null,
     };
 
     this.app.roomShare = this;
@@ -96,6 +97,7 @@ export class RoomSharePlugin extends BasePlugin {
 
     this.cleanups.push(() => {
       this.clearViewerReadyTimer();
+      this.clearViewerAutoJoinTimer();
       this.app.unlockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
       this.host.client?.close();
       this.viewer.client?.close();
@@ -378,6 +380,7 @@ export class RoomSharePlugin extends BasePlugin {
     this.viewer.closedByServer = false;
     this.viewer.receivedState = false;
     this.clearViewerReadyTimer();
+    this.clearViewerAutoJoinTimer();
     document.body.classList.add("is-room-viewer");
     this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
     this.syncViewerUi();
@@ -386,17 +389,22 @@ export class RoomSharePlugin extends BasePlugin {
     const client = createViewerClient(roomId);
     this.viewer.client = client;
     client.on("open", () => {
-      this.updateRoomBadge("Joining room...");
+      this.updateRoomBadge("Waiting for host...");
+      this.startViewerReadyTimer();
+      this.scheduleViewerAutoJoin();
     });
     client.on("room:auth-required", ({ requiresPassword }) => {
       if (requiresPassword) {
+        this.clearViewerAutoJoinTimer();
         this.showPasswordPrompt();
       } else {
+        this.clearViewerAutoJoinTimer();
         this.submitViewerJoin("");
       }
     });
     client.on("room:joined", () => {
       this.viewer.joined = true;
+      this.clearViewerAutoJoinTimer();
       this.app.emit("room:share:change");
       this.hidePasswordPrompt();
       this.updateRoomBadge("Waiting for host...");
@@ -420,6 +428,9 @@ export class RoomSharePlugin extends BasePlugin {
       this.updateRoomBadge(reason === "host-disconnected" ? "Host disconnected" : "Room closed");
     });
     client.on("room:error", ({ message }) => {
+      if (this.viewer.client) {
+        this.showPasswordPrompt();
+      }
       if (this.passwordStatusEl) {
         this.passwordStatusEl.textContent = message || "Room error.";
       }
@@ -464,7 +475,26 @@ export class RoomSharePlugin extends BasePlugin {
     this.viewer.readyTimer = null;
   }
 
+  scheduleViewerAutoJoin() {
+    this.clearViewerAutoJoinTimer();
+    this.viewer.autoJoinTimer = window.setTimeout(() => {
+      this.viewer.autoJoinTimer = null;
+      if (this.viewer.joined) return;
+      if (!this.passwordPromptEl?.hidden) return;
+      this.updateRoomBadge("Waiting for host...");
+      this.startViewerReadyTimer();
+      this.submitViewerJoin("");
+    }, 100);
+  }
+
+  clearViewerAutoJoinTimer() {
+    if (this.viewer?.autoJoinTimer == null) return;
+    window.clearTimeout(this.viewer.autoJoinTimer);
+    this.viewer.autoJoinTimer = null;
+  }
+
   submitViewerJoin(password) {
+    this.hidePasswordPrompt();
     this.viewer.client?.send("viewer:join", { password });
   }
 

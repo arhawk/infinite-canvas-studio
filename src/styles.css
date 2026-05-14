@@ -1100,7 +1100,7 @@ body.is-room-viewer #load-document-action {
   left: 1rem;
   right: auto;
   transform: none;
-  z-index: 30;
+  z-index: 2000;
   width: fit-content;
   max-width: calc(100% - 2rem);
   pointer-events: auto;
@@ -1224,7 +1224,7 @@ body.is-room-viewer #load-document-action {
   left: 50%;
   right: auto;
   transform: translate(-50%, -100%);
-  z-index: 60;
+  z-index: 2000;
   width: max-content;
   max-width: min(calc(100vw - 1.5rem), 37rem);
   min-height: 0;

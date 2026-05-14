@@ -231,6 +231,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.saveToastTimeout = null;
     this.navigationCorrectionTimeout = null;
     this.navigationCorrectionTimeout2 = null;
+    this.navigationCorrectionToken = 0;
 
     this.navButtonGroup = new Konva.Group({
       visible: false,
@@ -550,6 +551,8 @@ export class FocusNavigationPlugin extends BasePlugin {
   navigateToSavedFocus(node, savedFocus = this.getSavedFocus(node)) {
     if (!savedFocus || !node?.getStage?.()) return false;
 
+    const correctionToken = this.navigationCorrectionToken + 1;
+    this.navigationCorrectionToken = correctionToken;
     this.app.stageApi.centerOn(savedFocus.center, {
       duration: 0.45,
       scale: savedFocus.scale,
@@ -557,7 +560,16 @@ export class FocusNavigationPlugin extends BasePlugin {
     window.clearTimeout(this.navigationCorrectionTimeout);
     window.clearTimeout(this.navigationCorrectionTimeout2);
     const correct = () => {
+      if (this.navigationCorrectionToken !== correctionToken) return;
       if (!node?.getStage?.()) return;
+      const viewport = this.app.stageApi.getViewportBounds();
+      const currentCenter = {
+        x: viewport.x + viewport.width / 2,
+        y: viewport.y + viewport.height / 2,
+      };
+      if (Math.hypot(currentCenter.x - savedFocus.center.x, currentCenter.y - savedFocus.center.y) > 16) {
+        return;
+      }
       this.app.stageApi.centerOn(savedFocus.center, {
         duration: 0,
         scale: savedFocus.scale,
