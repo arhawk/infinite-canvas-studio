@@ -316,6 +316,17 @@ test("shows room not ready when a viewer joins before the host socket", async ({
   )).toBe("presentation");
 });
 
+test("keeps the loading overlay in an error state for a missing room", async ({ page }) => {
+  await page.goto(getRoomUrl("/room/9999"));
+  await waitForTestApi(page);
+
+  const loadingLayer = page.getByTestId("document-loading-layer");
+  await expect(loadingLayer).toBeVisible();
+  await expect(loadingLayer).toContainText("Room not found");
+  await expect(loadingLayer).toHaveAttribute("data-tone", "error");
+  await expect(page.getByTestId("room-status-badge")).toContainText("Room not found");
+});
+
 test("server relays forward-compatible app events after authorization", async ({ request }) => {
   const response = await request.post(getCreateRoomApiUrl(), {
     data: { password: "" },

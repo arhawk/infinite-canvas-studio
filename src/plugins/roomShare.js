@@ -73,6 +73,7 @@ export class RoomSharePlugin extends BasePlugin {
       applyingRemoteViewport: false,
       closedByServer: false,
       receivedState: false,
+      connectionFailed: false,
       readyTimer: null,
       autoJoinTimer: null,
       waitingLayer: null,
@@ -386,6 +387,7 @@ export class RoomSharePlugin extends BasePlugin {
     this.viewer.latestHostViewport = null;
     this.viewer.closedByServer = false;
     this.viewer.receivedState = false;
+    this.viewer.connectionFailed = false;
     this.clearViewerReadyTimer();
     this.clearViewerAutoJoinTimer();
     document.body.classList.add("is-room-viewer");
@@ -449,8 +451,17 @@ export class RoomSharePlugin extends BasePlugin {
       }
       this.updateRoomBadge(message || "Room error");
     });
+    client.on("error", () => {
+      if (this.viewer.joined || this.viewer.closedByServer) return;
+      this.showViewerRoomUnavailable();
+    });
     client.on("close", () => {
-      if (!this.viewer.joined) return;
+      if (!this.viewer.joined) {
+        if (!this.viewer.closedByServer) {
+          this.showViewerRoomUnavailable();
+        }
+        return;
+      }
       if (this.viewer.closedByServer) return;
       this.app.emit("room:share:change");
       this.hideViewerWaitingLayer();
@@ -533,6 +544,24 @@ export class RoomSharePlugin extends BasePlugin {
   hideViewerWaitingLayer() {
     this.viewer.waitingLayer?.hide?.();
     this.viewer.waitingLayer = null;
+  }
+
+  showViewerRoomUnavailable(message = "Room not found") {
+    if (this.viewer.connectionFailed) return;
+    this.viewer.connectionFailed = true;
+    this.clearViewerReadyTimer();
+    this.clearViewerAutoJoinTimer();
+    this.hidePasswordPrompt();
+    this.showViewerWaitingLayer();
+    this.viewer.waitingLayer?.update?.({
+      completed: 0,
+      total: 0,
+      remaining: 0,
+      label: message,
+      meta: "Check the room code and try again.",
+      tone: "error",
+    });
+    this.updateRoomBadge(message);
   }
 
   handleRemoteViewport(payload) {

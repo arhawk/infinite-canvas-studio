@@ -585,6 +585,7 @@ export class DocumentPlugin extends BasePlugin {
       total: normalized.nodes.length,
       remaining: normalized.nodes.length,
       label: "Loading document...",
+      tone: "loading",
     });
     await this.waitForDocumentLoadingLayerPaint();
 
@@ -676,7 +677,13 @@ export class DocumentPlugin extends BasePlugin {
     document.body.dataset.documentLoadingDepth = String(depth);
     document.body.setAttribute("aria-busy", "true");
     this.loadingOverlayEl.hidden = false;
-    this.updateDocumentLoadingLayer({ completed: 0, total, remaining: total, label });
+    this.updateDocumentLoadingLayer({
+      completed: 0,
+      total,
+      remaining: total,
+      label,
+      tone: "loading",
+    });
 
     return {
       update: (progress) => this.updateDocumentLoadingLayer(progress),
@@ -706,6 +713,8 @@ export class DocumentPlugin extends BasePlugin {
     total = 0,
     remaining = null,
     label = null,
+    tone = null,
+    meta = null,
   } = {}) {
     const overlay = this.loadingOverlayEl;
     if (!overlay) return;
@@ -726,6 +735,10 @@ export class DocumentPlugin extends BasePlugin {
       textEl.textContent = label;
     }
 
+    if (typeof tone === "string") {
+      overlay.dataset.tone = tone;
+    }
+
     if (progressEl) {
       progressEl.setAttribute("aria-valuenow", String(percent));
     }
@@ -735,7 +748,9 @@ export class DocumentPlugin extends BasePlugin {
     }
 
     if (metaEl) {
-      metaEl.textContent = safeTotal > 0
+      metaEl.textContent = typeof meta === "string"
+        ? meta
+        : safeTotal > 0
         ? `${safeCompleted} / ${safeTotal} components loaded, ${safeRemaining} remaining`
         : "Preparing document...";
     }

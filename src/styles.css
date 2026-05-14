@@ -3699,6 +3699,32 @@ body.is-room-viewer #load-document-action {
   transform-origin: left center;
 }
 
+.document-loading-layer[data-tone="error"] .document-loading-layer__spinner {
+  position: relative;
+  border-color: #d33f2f;
+  animation: none;
+}
+
+.document-loading-layer[data-tone="error"] .document-loading-layer__spinner::before,
+.document-loading-layer[data-tone="error"] .document-loading-layer__spinner::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.55rem;
+  height: 2px;
+  border-radius: 999px;
+  background: #d33f2f;
+}
+
+.document-loading-layer[data-tone="error"] .document-loading-layer__spinner::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.document-loading-layer[data-tone="error"] .document-loading-layer__spinner::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 .document-loading-layer__meta {
   margin-top: 0.45rem;
   color: rgba(61, 47, 32, 0.72);
