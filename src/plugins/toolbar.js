@@ -1125,6 +1125,9 @@ export class ToolbarPlugin extends BasePlugin {
     this.presentationEraserBtnEl = createToolButton("eraser", "Eraser", "presentation-tool-eraser");
     // presentationTimerBtnEl was created in the constructor so TimerPlugin can receive it
     // before app.start() is called; just append it here.
+    const cancelBtn = createToolButton("x", "Close", "presentation-tool-cancel");
+    cancelBtn.removeAttribute("aria-pressed");
+
     panel.append(
       this.presentationArrangeBtnEl,
       this.presentationBrushBtnEl,
@@ -1132,6 +1135,7 @@ export class ToolbarPlugin extends BasePlugin {
       this.presentationTimerBtnEl,
       this.presentationCalculatorBtnEl,
       this.presentationReactionsBtnEl,
+      cancelBtn,
     );
 
     const fabButton = document.createElement("button");
@@ -1185,6 +1189,9 @@ export class ToolbarPlugin extends BasePlugin {
     this.listenDom(this.presentationEraserBtnEl, "click", (event) => {
       event.stopPropagation();
       this.togglePresentationEraserPanel();
+    });
+    this.listenDom(cancelBtn, "click", () => {
+      this.closePresentationBrushMenu();
     });
     this.listenDom(document, "pointermove", (event) => {
       this.handlePresentationBrushFabPointerMove(event);

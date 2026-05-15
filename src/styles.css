@@ -4925,6 +4925,14 @@ body.theme-colorful [data-testid="calculator-toggle"] { color: var(--icon-calcul
 body.theme-colorful [data-testid="timer-toggle"] { color: var(--icon-timer); }
 body.theme-colorful [data-testid="background-toggle"] { color: var(--icon-palette); }
 
+body.theme-colorful [data-testid="presentation-tool-arrange"] { color: var(--icon-arrange); }
+body.theme-colorful [data-testid="presentation-tool-brush"] { color: var(--icon-pen); }
+body.theme-colorful [data-testid="presentation-tool-eraser"] { color: var(--icon-eraser); }
+body.theme-colorful [data-testid="presentation-tool-timer"] { color: var(--icon-timer); }
+body.theme-colorful [data-testid="presentation-tool-calculator"] { color: var(--icon-calculator); }
+body.theme-colorful [data-testid="presentation-tool-reactions"] { color: var(--icon-shape); }
+body.theme-colorful [data-testid="presentation-tool-cancel"] { color: #e94335; }
+
 body.theme-colorful .mimi-circle { fill: #e94335; }
 body.theme-colorful .mimi-letter--1 { color: #e94335; }
 body.theme-colorful .mimi-letter--2 { color: #34a853; }

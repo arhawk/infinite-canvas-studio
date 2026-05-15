@@ -35,6 +35,7 @@ import {
   Undo2,
   Upload,
   Wallpaper,
+  X,
   ZoomIn,
   ZoomOut,
   createIcons,
@@ -77,6 +78,7 @@ const PROJECT_ICONS = {
   Undo2,
   Upload,
   Wallpaper,
+  X,
   ZoomIn,
   ZoomOut,
 };
