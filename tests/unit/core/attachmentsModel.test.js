@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendAttachmentEntries,
+  normalizeAttachmentEntry,
   normalizeAttachmentState,
   replaceDirectoryEntries,
 } from "../../../src/attachments/model.js";
@@ -63,6 +64,9 @@ describe("attachment model helpers", () => {
     expect(replaced.directory).toEqual({
       handleKey: "dir-new",
       name: "Week 2",
+      path: null,
+      sourceName: null,
+      url: null,
     });
     expect(replaced.entries.map((entry) => entry.id)).toEqual(["dropped-file", "new-dir"]);
   });
@@ -82,6 +86,51 @@ describe("attachment model helpers", () => {
       sourceKind: "url",
       url: "https://example.com",
       label: "example.com",
+    });
+  });
+
+  it("normalizes new attachment metadata fields", () => {
+    const normalized = normalizeAttachmentEntry({
+      kind: "local-file",
+      sourceKind: "upload",
+      fileName: "demo.txt",
+      path: "docs/demo.txt",
+      url: "./docs/demo.txt",
+      sourceName: "Workspace",
+      mimeType: "text/plain",
+      size: 12,
+      addedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(normalized).toMatchObject({
+      kind: "local-file",
+      sourceKind: "upload",
+      fileName: "demo.txt",
+      path: "docs/demo.txt",
+      url: "./docs/demo.txt",
+      sourceName: "Workspace",
+      mimeType: "text/plain",
+      size: 12,
+      addedAt: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
+  it("keeps directory metadata even when handleKey is missing", () => {
+    const state = normalizeAttachmentState({
+      directory: {
+        name: "DemoFolder",
+        sourceName: "DemoFolder",
+        path: "projects",
+      },
+      entries: [],
+    });
+
+    expect(state.directory).toEqual({
+      name: "DemoFolder",
+      sourceName: "DemoFolder",
+      path: "projects",
+      url: null,
+      handleKey: null,
     });
   });
 });

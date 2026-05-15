@@ -11,9 +11,10 @@ import {
   validateRuntimeExportTemplate,
   validateEmbeddedSnapshotInHtml,
 } from "../document/runtimeHtmlExport.js";
+import { exportDocumentAsProject, isProjectExportSupported } from "../document/projectExport.js";
 import { getDocumentExportFormat, resolveRuntimeHtmlTemplate } from "./documentExportMode.js";
 
-const EXPORT_FORMATS = new Set(["html", "json"]);
+const EXPORT_FORMATS = new Set(["html", "json", "project"]);
 
 function clonePlainData(value) {
   if (value == null) return value;
@@ -311,7 +312,18 @@ export class DocumentPlugin extends BasePlugin {
     jsonBtn.setAttribute("role", "menuitem");
     jsonBtn.textContent = "Save as JSON";
 
-    menu.append(htmlBtn, jsonBtn);
+    const projectBtn = document.createElement("button");
+    projectBtn.type = "button";
+    projectBtn.className = "document-export-menu__item";
+    projectBtn.dataset.testid = "save-document-as-project";
+    projectBtn.setAttribute("role", "menuitem");
+    projectBtn.textContent = "Save as PROJ";
+    if (!isProjectExportSupported()) {
+      projectBtn.disabled = true;
+      projectBtn.title = "Save as PROJ requires File System Access API (Chromium-based browser).";
+    }
+
+    menu.append(htmlBtn, jsonBtn, projectBtn);
     document.body.append(menu);
     this.exportMenuEl = menu;
 
@@ -323,6 +335,18 @@ export class DocumentPlugin extends BasePlugin {
     this.listenDom(jsonBtn, "click", () => {
       this.closeExportMenu();
       void this.app.commands.execute("document:export", { format: "json" });
+    });
+
+    this.listenDom(projectBtn, "click", () => {
+      if (projectBtn.disabled) {
+        this.showStatus(
+          "Save as PROJ requires File System Access API (Chromium-based browser).",
+          "error",
+        );
+        return;
+      }
+      this.closeExportMenu();
+      void this.app.commands.execute("document:export", { format: "project" });
     });
 
     this.listenDom(window, "pointerdown", (event) => {
@@ -508,6 +532,20 @@ export class DocumentPlugin extends BasePlugin {
         validateEmbeddedSnapshotInHtml(html, snapshot);
         downloadTextFile(`${suggestedBase}.html`, html, "text/html");
         this.showStatus("HTML saved");
+      } else if (exportFormat === "project") {
+        const template = await this.ensureRuntimeHtmlTemplate();
+        const result = await exportDocumentAsProject({
+          snapshot,
+          title: this.documentState.title,
+          suggestedBase,
+          htmlTemplate: template,
+        });
+        if (result.warnings.length) {
+          this.showStatus(`Project saved with ${result.warnings.length} attachment warning(s).`, "error");
+          console.warn("Project export warnings:", result.warnings);
+        } else {
+          this.showStatus("Project saved");
+        }
       } else {
         downloadTextFile(
           `${suggestedBase}.json`,

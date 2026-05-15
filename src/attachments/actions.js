@@ -6,8 +6,8 @@ import {
 } from "./model.js";
 import {
   saveHandleRecord,
-  supportsHandlePersistence,
 } from "./handleStore.js";
+import { setRuntimeAttachmentHandle } from "./openAttachment.js";
 
 function createHandleKey(prefix = "attachment-handle") {
   if (typeof crypto?.randomUUID === "function") {
@@ -34,6 +34,14 @@ export function isHttpUrl(value) {
   } catch {
     return false;
   }
+}
+
+function toRelativeAttachmentUrl(path) {
+  const normalized = String(path ?? "")
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\.?\/*/, "");
+  return normalized ? `./${normalized}` : null;
 }
 
 async function collectDirectoryEntries(directoryHandle, parentPath = "") {
@@ -116,15 +124,11 @@ export class AttachmentActions {
   }
 
   async attachDirectoryToNode(node, directoryHandle) {
-    if (!supportsHandlePersistence()) {
-      throw new Error("This browser cannot persist folder handles.");
-    }
-
     const handleKey = createHandleKey("attachment-directory");
     await saveHandleRecord(handleKey, directoryHandle, {
       kind: "directory",
       name: directoryHandle.name,
-    });
+    }).catch(() => false);
 
     const entries = await collectDirectoryEntries(directoryHandle);
     const nextEntries = entries.map((entry) => ({
@@ -132,7 +136,9 @@ export class AttachmentActions {
       handleKey,
       sourceKind: "directory",
       sourceName: directoryHandle.name,
+      url: toRelativeAttachmentUrl(entry.path || entry.fileName),
     }));
+    nextEntries.forEach((entry) => setRuntimeAttachmentHandle(entry.id, directoryHandle));
 
     const nextState = replaceDirectoryEntries(
       this.getAttachmentState(node),
@@ -147,38 +153,32 @@ export class AttachmentActions {
   }
 
   async attachFileHandleToNode(node, fileHandle) {
-    if (!supportsHandlePersistence()) {
-      throw new Error("This browser cannot persist file handles.");
-    }
-
     const file = await fileHandle.getFile();
     const handleKey = createHandleKey("attachment-file");
 
     await saveHandleRecord(handleKey, fileHandle, {
       kind: "file",
       name: file.name,
-    });
+    }).catch(() => false);
 
-    return this.updateAttachmentState(node, appendAttachmentEntries(this.getAttachmentState(node), [
-      normalizeAttachmentEntry({
-        kind: "local-file",
-        sourceKind: "file",
-        handleKey,
-        label: file.name,
-        fileName: file.name,
-        path: file.name,
-        mimeType: file.type || null,
-        size: file.size,
-        sourceName: file.name,
-      }),
-    ]));
+    const entry = normalizeAttachmentEntry({
+      kind: "local-file",
+      sourceKind: "file",
+      handleKey,
+      label: file.name,
+      fileName: file.name,
+      path: file.name,
+      url: toRelativeAttachmentUrl(file.name),
+      mimeType: file.type || null,
+      size: file.size,
+      sourceName: file.name,
+    });
+    setRuntimeAttachmentHandle(entry.id, fileHandle);
+
+    return this.updateAttachmentState(node, appendAttachmentEntries(this.getAttachmentState(node), [entry]));
   }
 
   async attachUploadedFilesToNode(node, files = []) {
-    if (!supportsHandlePersistence()) {
-      throw new Error("This browser cannot persist local file attachments.");
-    }
-
     const nextEntries = [];
     for (const file of files) {
       if (!(file instanceof File)) continue;
@@ -187,21 +187,22 @@ export class AttachmentActions {
       await saveHandleRecord(handleKey, file, {
         kind: "upload",
         name: file.name,
-      });
+      }).catch(() => false);
 
-      nextEntries.push(
-        normalizeAttachmentEntry({
-          kind: "local-file",
-          sourceKind: "upload",
-          handleKey,
-          label: file.name,
-          fileName: file.name,
-          path: file.name,
-          mimeType: file.type || null,
-          size: file.size,
-          sourceName: file.name,
-        }),
-      );
+      const entry = normalizeAttachmentEntry({
+        kind: "local-file",
+        sourceKind: "upload",
+        handleKey,
+        label: file.name,
+        fileName: file.name,
+        path: file.name,
+        url: toRelativeAttachmentUrl(file.name),
+        mimeType: file.type || null,
+        size: file.size,
+        sourceName: file.name,
+      });
+      setRuntimeAttachmentHandle(entry.id, file);
+      nextEntries.push(entry);
     }
 
     if (!nextEntries.length) return false;

@@ -39,7 +39,7 @@ describe("buildRuntimeExportHtml", () => {
     expect(html).toContain('id="app-snapshot"');
   });
 
-  it("removes document import and export controls from runtime html exports", () => {
+  it("keeps document import and export controls in runtime html exports", () => {
     const template = `<!doctype html>
 <html lang="en">
   <head>
@@ -67,13 +67,13 @@ describe("buildRuntimeExportHtml", () => {
       drawings: [],
     });
 
-    expect(html).not.toContain('id="document-controls"');
-    expect(html).not.toContain('id="save-document-action"');
-    expect(html).not.toContain('id="load-document-action"');
+    expect(html).toContain('id="document-controls"');
+    expect(html).toContain('id="save-document-action"');
+    expect(html).toContain('id="load-document-action"');
     expect(html).toContain('id="arrange-controls"');
   });
 
-  it("keeps adjacent toolbar controls when removing document controls", () => {
+  it("keeps adjacent toolbar controls with document controls present", () => {
     const template = `<!doctype html>
 <html lang="en">
   <head>
@@ -104,7 +104,7 @@ describe("buildRuntimeExportHtml", () => {
       drawings: [],
     });
 
-    expect(html).not.toContain('id="document-controls"');
+    expect(html).toContain('id="document-controls"');
     expect(html).toContain('id="catalog-controls"');
     expect(html).toContain('id="catalog-toggle"');
     expect(html).toContain('id="arrange-controls"');

@@ -1,4 +1,63 @@
 import { loadHandleRecord } from "./handleStore.js";
+import { isHttpUrl } from "./actions.js";
+
+const runtimeHandles = new Map();
+
+export function setRuntimeAttachmentHandle(id, handle) {
+  if (!id || !handle) return;
+  runtimeHandles.set(id, handle);
+}
+
+export function getRuntimeAttachmentHandleById(id) {
+  if (!id) return null;
+  return runtimeHandles.get(id) ?? null;
+}
+
+function getRuntimeAttachmentHandle(entry) {
+  if (!entry?.id) return null;
+  return runtimeHandles.get(entry.id) ?? null;
+}
+
+function buildOriginalPath(entry, state) {
+  const sourceName = entry?.sourceName || state?.directory?.name || state?.directory?.sourceName || null;
+  const path = entry?.path || entry?.fileName || null;
+  if (sourceName && path) return `${sourceName}/${path}`;
+  return sourceName || path || "(unknown)";
+}
+
+function showOpenFailure(entry, state, reason, showStatus = () => {}) {
+  const attemptedTarget = resolveAttachmentOpenTarget(entry) || entry?.label || "(none)";
+  const detail = [
+    `附件打开失败：${entry?.label || "Attachment"}`,
+    `尝试访问目标: ${attemptedTarget}`,
+    `原始路径: ${buildOriginalPath(entry, state)}`,
+    `失败原因: ${reason}`,
+  ].join("\n");
+  showStatus(reason, "error");
+  window.alert(detail);
+}
+
+function isOpenableProtocol(protocol) {
+  return protocol === "http:" || protocol === "https:" || protocol === "file:";
+}
+
+function resolveAttachmentOpenTarget(entry) {
+  const explicit = String(entry?.url ?? "").trim();
+  if (explicit) {
+    try {
+      const parsed = new URL(explicit, window.location.href);
+      if (isOpenableProtocol(parsed.protocol)) return explicit;
+    } catch {
+      return null;
+    }
+  }
+
+  const fallbackPath = String(entry?.path || entry?.fileName || "").trim().replaceAll("\\", "/");
+  if (!fallbackPath) return null;
+  if (!explicit && entry?.path === "Attachment" && entry?.fileName === "Attachment") return null;
+  const normalized = fallbackPath.replace(/^\.?\/*/, "");
+  return normalized ? `./${normalized}` : null;
+}
 
 function getFileExtension(value) {
   const label = String(value ?? "").toLowerCase().trim();
@@ -84,23 +143,25 @@ async function getEntryFileHandle(handle, relativePath) {
 }
 
 export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
-  if (entry.kind === "url" && entry.url) {
-    window.open(entry.url, "_blank", "noopener,noreferrer");
+  const directTarget = resolveAttachmentOpenTarget(entry);
+  if (directTarget && (isHttpUrl(directTarget) || directTarget.startsWith(".") || directTarget.startsWith("file:"))) {
+    window.open(directTarget, "_blank", "noopener,noreferrer");
     return true;
   }
 
   if (entry.kind !== "local-file") return false;
 
   try {
-    const record = entry.handleKey ? await loadHandleRecord(entry.handleKey) : null;
-    const handle = record?.handle ?? null;
+    const runtimeHandle = getRuntimeAttachmentHandle(entry);
+    const record = runtimeHandle ? null : (entry.handleKey ? await loadHandleRecord(entry.handleKey) : null);
+    const handle = runtimeHandle ?? record?.handle ?? null;
 
     if (!handle) {
-      showStatus(
-        state.directory
-          ? "Local file handle missing. Reconnect the folder to reopen files."
-          : "Local file handle missing in this browser.",
-        "error",
+      showOpenFailure(
+        entry,
+        state,
+        "缺少可用链接或本地对象，请重新添加附件或重新选择目录/文件。",
+        showStatus,
       );
       return false;
     }
@@ -121,7 +182,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
 
     const granted = await ensureReadPermission(handle);
     if (!granted) {
-      showStatus("Permission to read this file was denied.", "error");
+      showOpenFailure(entry, state, "读取权限被拒绝。", showStatus);
       return false;
     }
 
@@ -140,7 +201,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
     return true;
   } catch (error) {
     console.error(error);
-    showStatus("Failed to open attachment.", "error");
+    showOpenFailure(entry, state, error?.message || "Failed to open attachment.", showStatus);
     return false;
   }
 }

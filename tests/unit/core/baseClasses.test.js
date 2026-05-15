@@ -233,6 +233,9 @@ describe("base classes", () => {
       directory: {
         handleKey: "directory-1",
         name: "Week 1",
+        path: null,
+        sourceName: null,
+        url: null,
       },
       entries: [
         {

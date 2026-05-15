@@ -318,6 +318,20 @@ test("closes save format menu when clicking outside", async ({ page }) => {
   await expect(formatMenu).toBeHidden();
 });
 
+test("shows save as PROJ option and reflects File System Access support", async ({ page }) => {
+  await page.getByTestId("save-document-action").click();
+  const projectAction = page.getByTestId("save-document-as-project");
+  await expect(projectAction).toBeVisible();
+
+  const supported = await page.evaluate(() => typeof window.showDirectoryPicker === "function");
+  if (supported) {
+    await expect(projectAction).toBeEnabled();
+  } else {
+    await expect(projectAction).toBeDisabled();
+    await expect(projectAction).toHaveAttribute("title", /Save as PROJ requires File System Access API/);
+  }
+});
+
 test("exports html with embedded snapshot in dev mode", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.addComponent("sticky", { x: 220, y: 220 }));
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
@@ -356,6 +370,11 @@ test("exports html with embedded snapshot in dev mode", async ({ page }) => {
   await expect(exportedPage.locator("body")).not.toContainText("RegExp(`^`");
   await expect(exportedPage.getByTestId("components-trigger")).toBeVisible();
   await expect(exportedPage.getByTestId("share-btn")).toBeHidden();
+  await exportedPage.getByTestId("save-document-action").click();
+  await expect(exportedPage.getByTestId("save-document-format-menu")).toBeVisible();
+  await expect(exportedPage.getByTestId("save-document-as-html")).toBeVisible();
+  await expect(exportedPage.getByTestId("save-document-as-json")).toBeVisible();
+  await expect(exportedPage.getByTestId("save-document-as-project")).toBeVisible();
   await exportedPage.close();
 });
 

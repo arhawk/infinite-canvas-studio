@@ -222,6 +222,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(viewer.getByTestId("save-document-format-menu")).toBeVisible();
   await expect(viewer.getByTestId("save-document-as-html")).toBeVisible();
   await expect(viewer.getByTestId("save-document-as-json")).toBeVisible();
+  await expect(viewer.getByTestId("save-document-as-project")).toBeVisible();
   const htmlDownloadPromise = viewer.waitForEvent("download");
   await viewer.getByTestId("save-document-as-html").click();
   const htmlDownload = await htmlDownloadPromise;
@@ -244,6 +245,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(exportedViewerCopy.getByTestId("share-btn")).toBeHidden();
   await exportedViewerCopy.getByTestId("save-document-action").click();
   await expect(exportedViewerCopy.getByTestId("save-document-format-menu")).toBeVisible();
+  await expect(exportedViewerCopy.getByTestId("save-document-as-project")).toBeVisible();
   const exportedCopyDownloadPromise = exportedViewerCopy.waitForEvent("download");
   await exportedViewerCopy.getByTestId("save-document-as-html").click();
   const exportedCopyDownload = await exportedCopyDownloadPromise;

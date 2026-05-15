@@ -3398,6 +3398,11 @@ body.is-room-viewer #load-document-action {
   outline: none;
 }
 
+.document-export-menu__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .room-share-popover {
   position: fixed;
   z-index: 70;

@@ -36,7 +36,9 @@ export function normalizeAttachmentEntry(entry = {}) {
         ? "url"
         : "file";
   const fileName = sanitizeText(entry.fileName, sanitizeText(entry.path, "Attachment"));
-  const url = kind === "url" ? sanitizeText(entry.url) : null;
+  const url = sanitizeText(entry.url) || null;
+  const sourceName = sanitizeText(entry.sourceName) || null;
+  const path = kind === "url" ? null : sanitizeText(entry.path, fileName);
 
   return {
     id: sanitizeText(entry.id, createAttachmentId(kind)),
@@ -44,12 +46,12 @@ export function normalizeAttachmentEntry(entry = {}) {
     sourceKind,
     label: sanitizeText(entry.label, kind === "url" ? createUrlLabel(url) : fileName),
     fileName: kind === "url" ? null : fileName,
-    path: kind === "url" ? null : sanitizeText(entry.path, fileName),
+    path,
     url,
     mimeType: sanitizeText(entry.mimeType) || null,
     size: Number.isFinite(entry.size) ? entry.size : null,
     handleKey: sanitizeText(entry.handleKey) || null,
-    sourceName: sanitizeText(entry.sourceName) || null,
+    sourceName,
     addedAt:
       typeof entry.addedAt === "string" && entry.addedAt
         ? entry.addedAt
@@ -60,12 +62,18 @@ export function normalizeAttachmentEntry(entry = {}) {
 export function normalizeAttachmentDirectory(directory = null) {
   if (!directory || typeof directory !== "object") return null;
 
-  const handleKey = sanitizeText(directory.handleKey);
-  if (!handleKey) return null;
+  const name = sanitizeText(directory.name, "Folder");
+  const path = sanitizeText(directory.path) || null;
+  const url = sanitizeText(directory.url) || null;
+  const sourceName = sanitizeText(directory.sourceName) || null;
+  const handleKey = sanitizeText(directory.handleKey) || null;
 
   return {
+    name,
+    path,
+    url,
+    sourceName,
     handleKey,
-    name: sanitizeText(directory.name, "Folder"),
   };
 }
 

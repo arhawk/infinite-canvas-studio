@@ -868,6 +868,13 @@ export function setupAppTestApi(app) {
         scale: app.stageApi.getScale(),
       };
     },
+    clickAttachmentBookmark: (index = 0) => {
+      const bookmarkPlugin = getPlugin(app, "attachments-bookmarks");
+      const item = bookmarkPlugin?.bookmarkGroup?.getChildren?.()?.[index] ?? null;
+      if (!item) return false;
+      item.fire("click", { cancelBubble: false, evt: { button: 0 } });
+      return true;
+    },
     setNodeAttachments: (id, attachmentsState) => {
       const node = getNodeById(app, id);
       if (!node) return false;

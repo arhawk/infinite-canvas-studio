@@ -11,6 +11,7 @@ describe("openAttachmentEntry", () => {
   let openSpy;
   let createObjectUrlSpy;
   let revokeObjectUrlSpy;
+  let alertSpy;
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -21,6 +22,7 @@ describe("openAttachmentEntry", () => {
       URL.revokeObjectURL = () => {};
     }
     openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     createObjectUrlSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
     revokeObjectUrlSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   });
@@ -35,7 +37,6 @@ describe("openAttachmentEntry", () => {
         id: "att-1",
         kind: "local-file",
         handleKey: "h1",
-        fileName: "notes.txt",
       },
       { directory: null, entries: [] },
       vi.fn(),
@@ -60,7 +61,6 @@ describe("openAttachmentEntry", () => {
         id: "att-2",
         kind: "local-file",
         handleKey: "h2",
-        fileName: "image.png",
       },
       { directory: null, entries: [] },
       vi.fn(),
@@ -70,5 +70,106 @@ describe("openAttachmentEntry", () => {
     expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
     expect(createObjectUrlSpy.mock.calls[0][0]).toBe(file);
     expect(openSpy).toHaveBeenCalledWith("blob:test", "_blank", "noopener,noreferrer");
+  });
+
+  it("opens url attachment directly", async () => {
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-url",
+        kind: "url",
+        sourceKind: "url",
+        label: "Docs",
+        url: "https://example.com/docs",
+      },
+      { directory: null, entries: [] },
+      vi.fn(),
+    );
+
+    expect(ok).toBe(true);
+    expect(openSpy).toHaveBeenCalledWith("https://example.com/docs", "_blank", "noopener,noreferrer");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("opens local attachment by relative url", async () => {
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-relative-url",
+        kind: "local-file",
+        sourceKind: "directory",
+        label: "untitled-r1.html",
+        path: "untitled-r1.html",
+        url: "./untitled-r1.html",
+      },
+      { directory: { name: "Downloads" }, entries: [] },
+      vi.fn(),
+    );
+
+    expect(ok).toBe(true);
+    expect(openSpy).toHaveBeenCalledWith("./untitled-r1.html", "_blank", "noopener,noreferrer");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("falls back to derived relative path for legacy entries", async () => {
+    loadHandleRecord.mockResolvedValue(null);
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-legacy-path",
+        kind: "local-file",
+        sourceKind: "directory",
+        label: "outline.md",
+        fileName: "outline.md",
+        path: "projects/outline.md",
+      },
+      { directory: { name: "DemoFolder" }, entries: [] },
+      vi.fn(),
+    );
+
+    expect(ok).toBe(true);
+    expect(openSpy).toHaveBeenCalledWith("./projects/outline.md", "_blank", "noopener,noreferrer");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("alerts with details when no url/path/filename and no local object", async () => {
+    loadHandleRecord.mockResolvedValue(null);
+    const showStatus = vi.fn();
+
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-missing",
+        kind: "local-file",
+        sourceKind: "directory",
+        label: "outline.md",
+        sourceName: "DemoFolder",
+      },
+      { directory: { name: "DemoFolder" }, entries: [] },
+      showStatus,
+    );
+
+    expect(ok).toBe(false);
+    expect(showStatus).toHaveBeenCalledWith(
+      "缺少可用链接或本地对象，请重新添加附件或重新选择目录/文件。",
+      "error",
+    );
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    const message = alertSpy.mock.calls[0][0];
+    expect(message).toContain("尝试访问目标");
+    expect(message).toContain("原始路径: DemoFolder");
+  });
+
+  it("alerts readable error for legacy handleKey-only entries", async () => {
+    loadHandleRecord.mockResolvedValue(null);
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-legacy",
+        kind: "local-file",
+        handleKey: "legacy-only",
+      },
+      { directory: null, entries: [] },
+      vi.fn(),
+    );
+
+    expect(ok).toBe(false);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(String(alertSpy.mock.calls[0][0])).toContain("缺少可用链接或本地对象");
   });
 });

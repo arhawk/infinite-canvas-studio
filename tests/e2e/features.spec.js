@@ -474,12 +474,19 @@ test("presentation page shows attachment bookmarks and does not open attachments
         {
           id: "att-doc",
           kind: "local-file",
+          sourceKind: "directory",
+          label: "untitled-r1.html",
+          fileName: "untitled-r1.html",
+          path: "untitled-r1.html",
+          url: "./untitled-r1.html",
+          mimeType: "text/html",
+          size: 512,
+        },
+        {
+          id: "att-missing",
+          kind: "local-file",
           sourceKind: "upload",
-          label: "slides.pdf",
-          fileName: "slides.pdf",
-          path: "slides.pdf",
-          mimeType: "application/pdf",
-          size: 1024,
+          label: "missing-local",
         },
       ],
     };
@@ -495,13 +502,41 @@ test("presentation page shows attachment bookmarks and does not open attachments
   });
   await waitForPaint(page);
 
+  await page.evaluate((id) => window.__APP_TEST_API__.selectNode(id), pageNode.id);
   const center = await getNodePageCenter(page, pageNode.id);
-  await page.mouse.dblclick(center.x, center.y);
+  await page.mouse.click(center.x, center.y);
 
   await expect.poll(async () => page.evaluate(() => (
     window.__APP_TEST_API__.getAttachmentsBookmarksState()
-  ))).toEqual(expect.objectContaining({ visible: true, count: 2 }));
+  ))).toEqual(expect.objectContaining({ visible: true, count: 3 }));
   await expect(page.getByTestId("attachments-panel")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    window.__TEST_OPENED_URLS__ = [];
+    window.__LAST_ALERT_MESSAGE__ = "";
+    const nativeOpen = window.open.bind(window);
+    window.open = (...args) => {
+      window.__TEST_OPENED_URLS__.push(args[0]);
+      return nativeOpen(...args);
+    };
+    window.alert = (message) => {
+      window.__LAST_ALERT_MESSAGE__ = String(message ?? "");
+    };
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.clickAttachmentBookmark(0));
+  await expect.poll(async () => page.evaluate(() => window.__TEST_OPENED_URLS__)).toEqual(
+    expect.arrayContaining(["https://example.com/rfc"]),
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.clickAttachmentBookmark(1));
+  await expect.poll(async () => page.evaluate(() => window.__TEST_OPENED_URLS__)).toEqual(
+    expect.arrayContaining(["./untitled-r1.html"]),
+  );
+
+  await page.evaluate(() => window.__APP_TEST_API__.clickAttachmentBookmark(2));
+  await expect.poll(async () => page.evaluate(() => window.__LAST_ALERT_MESSAGE__)).toContain("尝试访问目标");
+  await expect.poll(async () => page.evaluate(() => window.__LAST_ALERT_MESSAGE__)).toContain("原始路径");
 });
 
 test("reorders component layers and preserves them through undo and document roundtrip", async ({ page }) => {
