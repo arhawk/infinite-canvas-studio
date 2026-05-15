@@ -168,7 +168,7 @@ export class PageToolbarPlugin extends BasePlugin {
             </label>
           </div>
         </div>
-        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color">
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color" data-popover-role="color">
           <button
             id="page-text-style-trigger"
             class="toolbar__button-style-trigger"
@@ -194,7 +194,7 @@ export class PageToolbarPlugin extends BasePlugin {
             </div>
           </div>
         </div>
-        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color">
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color" data-popover-role="color">
           <button
             id="page-fill-style-trigger"
             class="toolbar__button-style-trigger"

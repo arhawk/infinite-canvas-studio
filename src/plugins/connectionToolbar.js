@@ -111,7 +111,7 @@ export class ConnectionToolbarPlugin extends BasePlugin {
     panel.hidden = true;
     panel.innerHTML = `
       <div class="toolbar__button-tools" role="group" aria-label="Connection actions">
-        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__connection-color-tool">
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__connection-color-tool" data-popover-role="color">
           <button
             id="connection-stroke-style-trigger"
             class="toolbar__button-style-trigger"

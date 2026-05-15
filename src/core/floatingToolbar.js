@@ -2,7 +2,6 @@ import { renderIcons } from "../lib/icons.js";
 
 const DEFAULT_VIEWPORT_MARGIN = 12;
 const DEFAULT_ANCHOR_GAP = 64;
-const DEFAULT_POPOVER_NODE_CLEARANCE = 10;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -34,9 +33,13 @@ export class FloatingToolbarManager {
     this.app = app;
     this.panels = new Map();
     this.handleResize = () => this.queueAllPositions();
+    this.handleDocumentPointerDown = (event) => this.handleGlobalPointerDown(event);
+    this.handleDocumentFocusIn = (event) => this.handleGlobalFocusIn(event);
 
     if (typeof window !== "undefined") {
       window.addEventListener("resize", this.handleResize);
+      document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.addEventListener("focusin", this.handleDocumentFocusIn, true);
     }
   }
 
@@ -151,9 +154,24 @@ export class FloatingToolbarManager {
     const trigger = target?.closest?.(triggerSelector) ?? null;
     const tool = trigger?.closest?.(toolSelector) ?? null;
     if (!trigger || !tool || !panel.element.contains(trigger)) return;
+    const isOpen = this.isPopoverToolOpen(panel, tool);
+    if (isOpen) {
+      this.clearPopoverToolOpen(panel);
+      event.preventDefault();
+      const activeElement = document.activeElement;
+      if (tool.contains(activeElement)) {
+        activeElement.blur?.();
+      } else {
+        trigger.blur?.();
+      }
+    } else {
+      this.setPopoverToolOpen(panel, tool, true);
+    }
 
     panel.element.classList.add(switchingClass);
-    panel.element.classList.remove(readyClass);
+    if (!this.getOpenPopoverTool(panel)) {
+      panel.element.classList.remove(readyClass);
+    }
     for (const entry of panel.element.querySelectorAll(toolSelector)) {
       if (entry !== tool) {
         entry.style.removeProperty(offsetProperty);
@@ -168,12 +186,85 @@ export class FloatingToolbarManager {
       return;
     }
 
-    event.preventDefault();
-    trigger.focus?.({ preventScroll: true });
+    if (!isOpen) {
+      event.preventDefault();
+      trigger.focus?.({ preventScroll: true });
+    }
     this.updatePanelPosition(id);
     window.requestAnimationFrame(() => {
       this.getPanel(id)?.element.classList.remove(switchingClass);
     });
+  }
+
+  handleGlobalPointerDown(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    for (const panel of this.panels.values()) {
+      if (!panel?.popover || panel.element.hidden) continue;
+      if (panel.element.contains(target)) continue;
+      this.clearPopoverToolOpen(panel);
+      this.syncPopoverOpenState(panel.id);
+    }
+  }
+
+  handleGlobalFocusIn(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    for (const panel of this.panels.values()) {
+      if (!panel?.popover || panel.element.hidden) continue;
+
+      if (!panel.element.contains(target)) {
+        this.clearPopoverToolOpen(panel);
+        this.syncPopoverOpenState(panel.id);
+        continue;
+      }
+      this.syncPopoverOpenState(panel.id);
+      this.updatePanelPosition(panel.id);
+    }
+  }
+
+  setPopoverToolOpen(panel, tool, open) {
+    if (!panel || !(tool instanceof HTMLElement)) return;
+    const {
+      toolSelector = ".toolbar__button-popover-tool",
+      openAttribute = "data-popover-open",
+    } = panel.popover ?? {};
+    for (const candidate of panel.element.querySelectorAll(toolSelector)) {
+      if (!(candidate instanceof HTMLElement)) continue;
+      if (candidate === tool && open) {
+        candidate.setAttribute(openAttribute, "true");
+      } else {
+        candidate.removeAttribute(openAttribute);
+      }
+    }
+  }
+
+  clearPopoverToolOpen(panel) {
+    if (!panel?.popover) return;
+    const {
+      toolSelector = ".toolbar__button-popover-tool",
+      openAttribute = "data-popover-open",
+    } = panel.popover;
+    for (const candidate of panel.element.querySelectorAll(toolSelector)) {
+      candidate.removeAttribute(openAttribute);
+    }
+  }
+
+  isPopoverToolOpen(panel, tool) {
+    if (!panel?.popover || !(tool instanceof HTMLElement)) return false;
+    const { openAttribute = "data-popover-open" } = panel.popover;
+    return tool.getAttribute(openAttribute) === "true";
+  }
+
+  getOpenPopoverTool(panel) {
+    if (!panel?.popover) return null;
+    const {
+      toolSelector = ".toolbar__button-popover-tool",
+      openAttribute = "data-popover-open",
+    } = panel.popover;
+    return panel.element.querySelector(`${toolSelector}[${openAttribute}='true']`);
   }
 
   registerButton(panelId, buttonId, target) {
@@ -264,6 +355,7 @@ export class FloatingToolbarManager {
       this.queuePanelPosition(id);
     } else {
       this.bindAnchorNode(panel, null);
+      this.clearPopoverToolOpen(panel);
     }
     return true;
   }
@@ -387,14 +479,20 @@ export class FloatingToolbarManager {
       toolSelector = ".toolbar__button-popover-tool",
       openClass = "is-button-popover-open",
       readyClass = "is-button-popover-ready",
+      openAttribute = "data-popover-open",
     } = panel.popover;
-    const hasOpenPopover = Boolean(panel.element.querySelector(`${toolSelector}:focus-within`));
+    const hasOpenPopover = Boolean(
+      panel.element.querySelector(`${toolSelector}[${openAttribute}='true']`) ??
+      panel.element.querySelector(`${toolSelector}:focus-within`),
+    );
     panel.element.classList.toggle(openClass, hasOpenPopover);
-    panel.element.classList.remove(readyClass);
+    if (!hasOpenPopover) {
+      panel.element.classList.remove(readyClass);
+    }
     return hasOpenPopover;
   }
 
-  syncPopoverOffset(id, { nodeLeft, nodeRight, nodeTop, nodeBottom, placement, stageRect } = {}) {
+  syncPopoverOffset(id, { placement, stageRect } = {}) {
     const panel = this.getPanel(id);
     if (!panel?.popover || !stageRect) return false;
 
@@ -404,7 +502,6 @@ export class FloatingToolbarManager {
       skipOffsetSelector = "[data-popover-offset='none']",
       offsetProperty = "--button-popover-offset",
       readyClass = "is-button-popover-ready",
-      nodeClearance = DEFAULT_POPOVER_NODE_CLEARANCE,
     } = panel.popover;
 
     const tools = Array.from(panel.element.querySelectorAll(toolSelector));
@@ -413,13 +510,23 @@ export class FloatingToolbarManager {
       tool.classList.remove("is-popover-above");
     }
 
-    const openTool = panel.element.querySelector(`${toolSelector}:focus-within`);
+    const openTool =
+      panel.element.querySelector(`${toolSelector}[data-popover-open='true']`) ??
+      panel.element.querySelector(`${toolSelector}:focus-within`);
     const popover = openTool?.querySelector?.(popoverSelector);
     if (!openTool || !popover) {
       panel.element.classList.remove(readyClass);
       return true;
     }
-    if (openTool.matches(skipOffsetSelector) || placement !== "top") {
+
+    if (openTool.matches(skipOffsetSelector)) {
+      panel.element.classList.add(readyClass);
+      return true;
+    }
+
+    const popoverAbove = placement === "bottom";
+    openTool.classList.toggle("is-popover-above", popoverAbove);
+    if (placement !== "top") {
       panel.element.classList.add(readyClass);
       return true;
     }
@@ -434,77 +541,9 @@ export class FloatingToolbarManager {
     const margin = panel.viewportMargin;
     const viewportLeft = Math.max(margin, stageRect.left + margin);
     const viewportRight = Math.min(window.innerWidth - margin, stageRect.right - margin);
-    const viewportTop = Math.max(margin, stageRect.top + margin);
-    const viewportBottom = Math.min(window.innerHeight - margin, stageRect.bottom - margin);
     const baseLeft = toolRect.left + toolRect.width / 2 - popoverWidth / 2;
     const baseRight = baseLeft + popoverWidth;
-    const popoverRect = popover.getBoundingClientRect();
-    const baseTop = popoverRect.top;
-    const baseBottom = popoverRect.bottom;
-    const hasAnchorVerticalBounds = Number.isFinite(nodeTop) && Number.isFinite(nodeBottom);
-    const overlapsAnchorVertically = hasAnchorVerticalBounds &&
-      baseBottom > nodeTop - nodeClearance &&
-      baseTop < nodeBottom + nodeClearance;
-    const overlapsAnchor =
-      overlapsAnchorVertically &&
-      baseRight > nodeLeft - nodeClearance &&
-      baseLeft < nodeRight + nodeClearance;
-
-    let offset = 0;
-    if (overlapsAnchor) {
-      openTool.classList.add("is-popover-above");
-      const flippedRect = popover.getBoundingClientRect();
-      const flippedBaseLeft = toolRect.left + toolRect.width / 2 - popoverWidth / 2;
-      const flippedBaseRight = flippedBaseLeft + popoverWidth;
-      const flippedOverlapsAnchor = hasAnchorVerticalBounds &&
-        flippedRect.bottom > nodeTop - nodeClearance &&
-        flippedRect.top < nodeBottom + nodeClearance &&
-        flippedBaseRight > nodeLeft - nodeClearance &&
-        flippedBaseLeft < nodeRight + nodeClearance;
-      const flippedFitsVertically =
-        flippedRect.top >= viewportTop &&
-        flippedRect.bottom <= viewportBottom;
-
-      if (flippedFitsVertically && !flippedOverlapsAnchor) {
-        offset = clamp(0, viewportLeft - flippedBaseLeft, viewportRight - flippedBaseRight);
-        if (Math.abs(offset) > 0.5) {
-          openTool.style.setProperty(offsetProperty, `${Math.round(offset)}px`);
-        }
-        panel.element.classList.add(readyClass);
-        return true;
-      }
-
-      openTool.classList.remove("is-popover-above");
-      const rightOffset = nodeRight + nodeClearance - baseLeft;
-      const leftOffset = nodeLeft - nodeClearance - baseRight;
-      const rightFits =
-        baseLeft + rightOffset >= viewportLeft &&
-        baseRight + rightOffset <= viewportRight;
-      const leftFits =
-        baseLeft + leftOffset >= viewportLeft &&
-        baseRight + leftOffset <= viewportRight;
-
-      if (rightFits) {
-        offset = rightOffset;
-      } else if (leftFits) {
-        offset = leftOffset;
-      } else {
-        const clampedRight = clamp(baseRight, viewportLeft + popoverWidth, viewportRight);
-        const viewportOffset = clampedRight - baseRight;
-        const candidateRight = baseRight + viewportOffset <= nodeLeft
-          ? viewportOffset
-          : rightOffset;
-        const candidateLeft = baseLeft + viewportOffset >= nodeRight
-          ? viewportOffset
-          : leftOffset;
-        offset = Math.abs(candidateRight) < Math.abs(candidateLeft)
-          ? candidateRight
-          : candidateLeft;
-        offset = clamp(offset, viewportLeft - baseLeft, viewportRight - baseRight);
-      }
-    } else {
-      offset = clamp(0, viewportLeft - baseLeft, viewportRight - baseRight);
-    }
+    const offset = clamp(0, viewportLeft - baseLeft, viewportRight - baseRight);
 
     if (Math.abs(offset) > 0.5) {
       openTool.style.setProperty(offsetProperty, `${Math.round(offset)}px`);
@@ -516,6 +555,8 @@ export class FloatingToolbarManager {
   destroy() {
     if (typeof window !== "undefined") {
       window.removeEventListener("resize", this.handleResize);
+      document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.removeEventListener("focusin", this.handleDocumentFocusIn, true);
     }
 
     for (const id of [...this.panels.keys()]) {

@@ -1633,7 +1633,7 @@ body.is-room-viewer #load-document-action {
 }
 
 .toolbar__floating-panel.is-button-popover-ready
-  .toolbar__button-popover-tool:not([data-popover-offset="none"]):focus-within
+  .toolbar__button-popover-tool:not([data-popover-offset="none"]):is(:focus-within, [data-popover-open="true"])
   .toolbar__button-style-popover {
   opacity: 1;
   pointer-events: auto;
@@ -1666,8 +1666,8 @@ body.is-room-viewer #load-document-action {
   transform: translateX(-0.16rem);
 }
 
-.toolbar__page-layer-tool:focus-within .toolbar__page-layer-popover,
-.toolbar__page-attachment-tool:focus-within .toolbar__page-attachment-popover {
+.toolbar__page-layer-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__page-layer-popover,
+.toolbar__page-attachment-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__page-attachment-popover {
   opacity: 1;
   pointer-events: auto;
   transform: none;
@@ -1764,10 +1764,10 @@ body.is-room-viewer #load-document-action {
   color: #9b2c2c;
 }
 
-.toolbar__shape-layer-tool:focus-within .toolbar__shape-layer-popover,
-.toolbar__button-layer-tool:focus-within .toolbar__button-layer-popover,
-.toolbar__sticky-layer-tool:focus-within .toolbar__sticky-layer-popover,
-.toolbar__iframe-layer-tool:focus-within .toolbar__iframe-layer-popover {
+.toolbar__shape-layer-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__shape-layer-popover,
+.toolbar__button-layer-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__button-layer-popover,
+.toolbar__sticky-layer-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__sticky-layer-popover,
+.toolbar__iframe-layer-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__iframe-layer-popover {
   opacity: 1;
   pointer-events: auto;
   transform: none;

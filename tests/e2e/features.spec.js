@@ -541,6 +541,9 @@ test("reorders component layers and preserves them through undo and document rou
   ]);
 
   await page.getByTestId("sticky-layer-menu").click();
+  if ((await page.locator(".toolbar__sticky-layer-popover").evaluate((el) => getComputedStyle(el).pointerEvents)) !== "auto") {
+    await page.getByTestId("sticky-layer-menu").click();
+  }
   await expect(page.getByTestId("sticky-layer-send-backward")).toBeEnabled();
   await page.getByTestId("sticky-layer-send-backward").click();
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
@@ -2460,6 +2463,100 @@ test("edits sticky notes from the floating toolbar and inline text editor", asyn
       textColor: "#14532d",
       fontSize: 30,
     }));
+});
+
+test("keeps sticky fill popover interactive while applying swatch and dragging opacity", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 240, y: 240 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+  await expect(page.getByTestId("sticky-panel")).toBeVisible();
+
+  await page.getByTestId("sticky-style-fill").click();
+  const fillPopover = page.locator("#sticky-fill-style-trigger + .toolbar__button-style-popover");
+  await expect(fillPopover).toHaveCSS("pointer-events", "auto");
+
+  await page.locator('#sticky-fill-swatches .toolbar__button-color-swatch[data-color="#bbf7d0"]').click();
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary?.fill ?? null)
+    .toBe("#bbf7d0");
+  await expect(fillPopover).toHaveCSS("pointer-events", "auto");
+
+  const opacityBox = await page.getByTestId("sticky-opacity").boundingBox();
+  expect(opacityBox).not.toBeNull();
+  const sliderY = opacityBox.y + opacityBox.height / 2;
+  await page.mouse.move(opacityBox.x + 3, sliderY);
+  await page.mouse.down();
+  await page.mouse.move(opacityBox.x + opacityBox.width - 3, sliderY, { steps: 14 });
+  await page.mouse.up();
+
+  await expect(fillPopover).toHaveCSS("pointer-events", "auto");
+  await expect
+    .poll(async () => (await getNode(page, sticky.id))?.summary?.fillOpacity ?? null)
+    .toBeGreaterThan(0.9);
+
+  await page.getByTestId("sticky-style-fill").click();
+  await expect(fillPopover).toHaveCSS("pointer-events", "none");
+});
+
+test("keeps sticky text color popover direction stable and supports click toggle", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 320, y: 320 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+  await expect(page.getByTestId("sticky-panel")).toBeVisible();
+
+  const textTrigger = page.locator("#sticky-text-style-trigger");
+  const textPopover = page.locator("#sticky-text-style-trigger + .toolbar__button-style-popover");
+
+  await textTrigger.click();
+  await expect(textPopover).toHaveCSS("pointer-events", "auto");
+
+  const state = await page.evaluate(() => {
+    const panel = document.querySelector('[data-testid="sticky-panel"]');
+    const tool = document.querySelector("#sticky-text-style-trigger")?.closest(".toolbar__button-popover-tool");
+    return {
+      placement: panel?.dataset?.placement ?? null,
+      popoverAbove: tool?.classList?.contains("is-popover-above") ?? null,
+    };
+  });
+  expect(state.placement).toBe("top");
+  expect(state.popoverAbove).toBe(false);
+
+  await textTrigger.click();
+  await expect(textPopover).toHaveCSS("pointer-events", "none");
+});
+
+test("keeps sticky fill popover direction stable by floating panel placement and supports click toggle", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 320, y: 320 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+  await expect(page.getByTestId("sticky-panel")).toBeVisible();
+
+  const assertPopoverDirection = async ({ expectPlacement, expectAbove }) => {
+    await page.getByTestId("sticky-style-fill").click();
+    const state = await page.evaluate(() => {
+      const panel = document.querySelector('[data-testid="sticky-panel"]');
+      const tool = document.querySelector("#sticky-fill-style-trigger")?.closest(".toolbar__button-popover-tool");
+      return {
+        placement: panel?.dataset?.placement ?? null,
+        popoverAbove: tool?.classList?.contains("is-popover-above") ?? null,
+      };
+    });
+    expect(state.placement).toBe(expectPlacement);
+    expect(state.popoverAbove).toBe(expectAbove);
+    await page.getByTestId("sticky-style-fill").click();
+    await expect(
+      page.locator("#sticky-fill-style-trigger + .toolbar__button-style-popover"),
+    ).toHaveCSS("pointer-events", "none");
+  };
+
+  await assertPopoverDirection({ expectPlacement: "top", expectAbove: false });
+
+  await page.evaluate(() => {
+    window.__APP_TEST_API__.setViewport({
+      position: { x: 0, y: -320 },
+      scale: 1,
+    });
+  });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+  await expect(page.getByTestId("sticky-panel")).toBeVisible();
+  await assertPopoverDirection({ expectPlacement: "bottom", expectAbove: true });
 });
 
 test("runs JavaScript editor snippets and restores code edits through undo/redo", async ({ page }) => {

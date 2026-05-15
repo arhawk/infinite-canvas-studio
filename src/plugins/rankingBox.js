@@ -247,7 +247,7 @@ export class RankingBoxPlugin extends BasePlugin {
           </div>
         </div>
 
-        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color">
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color" data-popover-role="color">
           <button
             id="ranking-box-title-style-trigger"
             class="toolbar__button-style-trigger"
@@ -274,7 +274,7 @@ export class RankingBoxPlugin extends BasePlugin {
           </div>
         </div>
 
-        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color">
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color" data-popover-role="color">
           <button
             id="ranking-box-theme-style-trigger"
             class="toolbar__button-style-trigger"

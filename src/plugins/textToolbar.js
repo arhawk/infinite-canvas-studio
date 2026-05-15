@@ -158,7 +158,7 @@ export class TextToolbarPlugin extends BasePlugin {
             </label>
           </div>
         </div>
-        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color">
+        <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color" data-popover-role="color">
           <button
             id="text-color-style-trigger"
             class="toolbar__button-style-trigger"
