@@ -992,20 +992,6 @@ body.is-presentation-mode .toolbar__share-btn {
   color: #854f0b;
 }
 
-body.is-room-viewer .toolbar {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-body.is-room-viewer.is-presentation-mode .toolbar,
-body.is-room-viewer.is-presentation-mode .toolbar:not(.is-visible) {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-body.is-room-viewer .presentation-toolbar-hover-zone,
 body.is-room-viewer #share-btn,
 body.is-room-viewer #load-document-action {
   display: none;

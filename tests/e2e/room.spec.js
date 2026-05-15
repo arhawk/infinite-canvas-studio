@@ -73,6 +73,14 @@ async function getViewport(page) {
   return page.evaluate(() => window.__APP_TEST_API__.getViewportState());
 }
 
+async function showTopToolbar(page) {
+  const hoverZone = page.getByTestId("presentation-toolbar-hover-zone");
+  const box = await hoverZone.boundingBox();
+  if (!box) throw new Error("Presentation toolbar hover zone is not available.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.getByTestId("toolbar")).toHaveClass(/is-visible/);
+}
+
 function getRoomUrl(path) {
   const port = process.env.PLAYWRIGHT_PORT || "3000";
   return `http://127.0.0.1:${port}${path}`;
@@ -212,12 +220,14 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(viewer.getByTestId("mode-capsule-edit")).toHaveText("Viewer");
   await expect(viewer.getByTestId("mode-capsule-present")).toHaveText("Host");
   await expect(viewer.getByTestId("load-document-action")).toBeHidden();
-  await expect(viewer.getByTestId("save-document-action")).toBeVisible();
   await expect(viewer.getByTestId("components-trigger")).toBeHidden();
   await expect.poll(async () => (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
 
+  await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
+  await showTopToolbar(viewer);
+  await expect(viewer.getByTestId("save-document-action")).toBeVisible();
   await viewer.getByTestId("save-document-action").click();
   await expect(viewer.getByTestId("save-document-format-menu")).toBeVisible();
   await expect(viewer.getByTestId("save-document-as-html")).toBeVisible();
@@ -291,6 +301,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   expect(viewerViewport.scale).toBeCloseTo(freeViewport.scale, 2);
   expect(viewerViewport.position.x).toBeCloseTo(freeViewport.position.x, 1);
 
+  await showTopToolbar(viewer);
   await viewer.getByTestId("mode-capsule-present").click();
   await expect(viewer.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await getViewport(viewer)).scale).toBeCloseTo(0.4, 1);
