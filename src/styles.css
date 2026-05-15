@@ -825,8 +825,7 @@ body.is-presentation-mode .toolbar.is-visible {
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--fab-ball-from), var(--fab-ball-to));
-  color: #fff7ef;
+  background: var(--panel-strong, #fffdf8);
   box-shadow:
     0 1rem 2rem rgba(54, 41, 25, 0.18),
     0 0 0 1px rgba(255, 255, 255, 0.24) inset;
@@ -865,6 +864,11 @@ body.is-presentation-mode .toolbar.is-visible {
   width: 1.1rem;
   height: 1.1rem;
   pointer-events: none;
+}
+
+.presentation-brush-fab__ball .fab-cat-svg {
+  width: 100%;
+  height: 100%;
 }
 
 
@@ -927,6 +931,23 @@ body.is-presentation-mode .toolbar.is-visible {
   width: 1.625rem;
   height: 1.625rem;
   flex: 0 0 auto;
+}
+
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 14px;
+}
+
+.toolbar__brand-wordmark {
+  font-family: 'Arial Black', 'Helvetica Neue', sans-serif;
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: 1px;
+  color: #b8860b;
+  user-select: none;
+  line-height: 1;
 }
 
 .mode-capsule {
@@ -4808,61 +4829,38 @@ body.is-room-viewer #load-document-action {
   }
 }
 
-/* ── Left Toolbar ──────────────────────────────────────────────────────── */
+/* ── Left Toolbar (floating pills) ────────────────────────────────────── */
 
 .left-toolbar {
+  position: fixed;
+  left: 16px;
+  top: calc(2.5rem + 12px);
+  z-index: 41;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 52px;
-  flex-shrink: 0;
-  height: 100%;
-  background: #fffdf7;
-  border-right: 0.5px solid rgba(61, 47, 32, 0.14);
-  padding: 8px 0 12px;
-  gap: 2px;
-  z-index: 41;
-  overflow: hidden;
+  gap: 12px;
 }
 
-.left-toolbar__logo {
+.mimi-circle {
+  fill: #b8860b;
+}
+
+.left-toolbar__pill {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin-bottom: 6px;
-  flex-shrink: 0;
-}
-
-.left-toolbar__logo-text {
-  font-size: 11px;
-  font-weight: 800;
-  color: #ba7517;
-  letter-spacing: -0.03em;
-  text-transform: uppercase;
+  gap: 4px;
+  padding: 6px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.10),
+    0 0 0 0.5px rgba(61, 47, 32, 0.08);
 }
 
 .left-toolbar__group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  padding: 0 8px;
-  flex-shrink: 0;
-}
-
-.left-toolbar__sep {
-  width: 24px;
-  height: 0.5px;
-  background: rgba(61, 47, 32, 0.15);
-  margin: 4px 0;
-  flex-shrink: 0;
-}
-
-.left-toolbar__spacer {
-  flex: 1;
+  display: contents;
 }
 
 .left-toolbar__btn {
@@ -4872,7 +4870,7 @@ body.is-room-viewer #load-document-action {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: #5f5e5a;
   cursor: pointer;
@@ -4884,7 +4882,7 @@ body.is-room-viewer #load-document-action {
 }
 
 .left-toolbar__btn:hover:not(:disabled) {
-  background: #faf6ee;
+  background: rgba(61, 47, 32, 0.07);
   color: #3d2f20;
 }
 
@@ -4903,13 +4901,10 @@ body.is-room-viewer #load-document-action {
   pointer-events: none;
 }
 
-body.theme-colorful .left-toolbar {
-  background: #ffffff;
-  border-right-color: rgba(30, 30, 80, 0.1);
-}
-
-body.theme-colorful .left-toolbar__logo-text {
-  color: var(--icon-palette);
+body.theme-colorful .left-toolbar__pill {
+  box-shadow:
+    0 2px 8px rgba(30, 30, 80, 0.10),
+    0 0 0 0.5px rgba(30, 30, 80, 0.08);
 }
 
 body.theme-colorful .left-toolbar__btn:hover:not(:disabled) {
@@ -4930,10 +4925,11 @@ body.theme-colorful [data-testid="calculator-toggle"] { color: var(--icon-calcul
 body.theme-colorful [data-testid="timer-toggle"] { color: var(--icon-timer); }
 body.theme-colorful [data-testid="background-toggle"] { color: var(--icon-palette); }
 
-body.theme-colorful .mimi-letter--1 { color: var(--icon-arrange); }
-body.theme-colorful .mimi-letter--2 { color: var(--icon-pen); }
-body.theme-colorful .mimi-letter--3 { color: var(--icon-shape); }
-body.theme-colorful .mimi-letter--4 { color: var(--icon-components); }
+body.theme-colorful .mimi-circle { fill: #e94335; }
+body.theme-colorful .mimi-letter--1 { color: #e94335; }
+body.theme-colorful .mimi-letter--2 { color: #34a853; }
+body.theme-colorful .mimi-letter--3 { color: #4285f4; }
+body.theme-colorful .mimi-letter--4 { color: #d946a0; }
 
 body.theme-colorful .catalog-sidebar__mark {
   background: linear-gradient(180deg, rgba(212, 83, 126, 0.25), rgba(212, 83, 126, 0.1));
@@ -4973,7 +4969,7 @@ body.is-presentation-mode #catalog-panel {
   position: absolute;
   z-index: 200;
   top: 0;
-  left: 52px;
+  left: 76px;
   width: 200px;
   max-height: calc(100dvh - 16px);
   display: flex;
@@ -5085,7 +5081,7 @@ body.is-presentation-mode #catalog-panel {
   position: absolute;
   z-index: 200;
   top: 0;
-  left: 52px;
+  left: 76px;
   border: 1px solid rgba(61, 47, 32, 0.08);
   border-radius: 1rem;
   background: rgba(255, 251, 245, 0.96);

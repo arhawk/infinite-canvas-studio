@@ -1138,10 +1138,24 @@ export class ToolbarPlugin extends BasePlugin {
     fabButton.type = "button";
     fabButton.className = "presentation-brush-fab__ball";
     fabButton.dataset.testid = "presentation-brush-fab";
-    fabButton.setAttribute("aria-label", "Presentation drawing tools");
-    fabButton.dataset.tooltip = "Presentation drawing tools";
+    fabButton.setAttribute("aria-label", "Tool Ball");
+    fabButton.dataset.tooltip = "Tool Ball";
     fabButton.setAttribute("aria-expanded", "false");
-    fabButton.innerHTML = `<i data-lucide="pen" aria-hidden="true"></i>`;
+    fabButton.innerHTML = `<svg class="fab-cat-svg" viewBox="-58 -58 116 116" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <mask id="fab-cat-mask" maskUnits="userSpaceOnUse" x="-55" y="-55" width="110" height="110">
+      <rect x="-55" y="-55" width="110" height="110" fill="white"/>
+      <path d="M -34,-26 Q -32,-44 -20,-44 Q -14,-44 -14,-26 Q -10,-14 0,-14 Q 10,-14 14,-26 Q 14,-44 20,-44 Q 32,-44 34,-26 Q 38,-4 36,16 Q 32,30 16,40 Q 0,44 -16,40 Q -32,30 -36,16 Q -38,-4 -34,-26 Z" fill="black"/>
+      <line x1="-32" y1="-1" x2="-52" y2="-6" stroke="black" stroke-width="3" stroke-linecap="round"/>
+      <line x1="-34" y1="8" x2="-52" y2="8" stroke="black" stroke-width="3" stroke-linecap="round"/>
+      <line x1="-32" y1="16" x2="-50" y2="21" stroke="black" stroke-width="3" stroke-linecap="round"/>
+      <line x1="32" y1="-1" x2="52" y2="-6" stroke="black" stroke-width="3" stroke-linecap="round"/>
+      <line x1="34" y1="8" x2="52" y2="8" stroke="black" stroke-width="3" stroke-linecap="round"/>
+      <line x1="32" y1="16" x2="50" y2="21" stroke="black" stroke-width="3" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <circle class="mimi-circle" cx="0" cy="0" r="55" mask="url(#fab-cat-mask)"/>
+</svg>`;
 
     root.append(panel, fabButton);
     shell.append(root);

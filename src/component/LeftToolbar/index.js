@@ -34,52 +34,35 @@ export class LeftToolbarPlugin extends BasePlugin {
     el.className = "left-toolbar";
     el.setAttribute("aria-label", "Tools");
 
-    // Logo
-    const logo = document.createElement("div");
-    logo.className = "left-toolbar__logo";
-    logo.innerHTML = `<span class="left-toolbar__logo-text"><span class="mimi-letter mimi-letter--1">M</span><span class="mimi-letter mimi-letter--2">i</span><span class="mimi-letter mimi-letter--3">m</span><span class="mimi-letter mimi-letter--4">i</span></span>`;
-    el.appendChild(logo);
+    // Main tool pill — tool buttons + style + center-map
+    const toolPill = document.createElement("div");
+    toolPill.className = "left-toolbar__pill";
 
-    // Tool group — rendered separately in _renderToolButtons
+    // Tool buttons rendered by _renderToolButtons into this._toolGroupEl
     this._toolGroupEl = document.createElement("div");
     this._toolGroupEl.className = "left-toolbar__group";
-    el.appendChild(this._toolGroupEl);
+    toolPill.appendChild(this._toolGroupEl);
 
-    el.appendChild(this._makeSep());
-
-    // Plugins group (background style)
-    const pluginsGroup = document.createElement("div");
-    pluginsGroup.className = "left-toolbar__group";
     this.backgroundBtn = this._makeBtn("palette", "Style", "background-toggle");
     this.backgroundBtn.setAttribute("aria-pressed", "false");
-    pluginsGroup.append(this.backgroundBtn);
-    el.appendChild(pluginsGroup);
+    toolPill.appendChild(this.backgroundBtn);
 
-    el.appendChild(this._makeSep());
-
-    // View group
-    const viewGroup = document.createElement("div");
-    viewGroup.className = "left-toolbar__group";
     this.centerMapBtn = this._makeBtn("crosshair", "Fit all content (Home)", "center-map-btn");
-    viewGroup.append(this.centerMapBtn);
-    el.appendChild(viewGroup);
+    toolPill.appendChild(this.centerMapBtn);
 
-    // Flex spacer pushes history group to the bottom
-    const spacer = document.createElement("div");
-    spacer.className = "left-toolbar__spacer";
-    el.appendChild(spacer);
+    el.appendChild(toolPill);
 
-    // History group (undo + redo) at bottom
-    const historyGroup = document.createElement("div");
-    historyGroup.className = "left-toolbar__group";
+    // 3. History pill — undo + redo
+    const historyPill = document.createElement("div");
+    historyPill.className = "left-toolbar__pill";
     this.undoBtn = this._makeBtn("undo-2", "Undo (Mod+Z)", "undo-action");
     this.redoBtn = this._makeBtn("redo-2", "Redo (Mod+Shift+Z / Mod+Y)", "redo-action");
-    historyGroup.append(this.undoBtn, this.redoBtn);
-    el.appendChild(historyGroup);
+    historyPill.append(this.undoBtn, this.redoBtn);
+    el.appendChild(historyPill);
 
     this._el = el;
 
-    // Insert as first child of .app-shell (before the component sidebar)
+    // Insert as first child of .app-shell (floats over canvas)
     const appShell = document.querySelector(".app-shell");
     appShell.prepend(el);
 
@@ -96,12 +79,6 @@ export class LeftToolbarPlugin extends BasePlugin {
     if (testid) btn.dataset.testid = testid;
     btn.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`;
     return btn;
-  }
-
-  _makeSep() {
-    const sep = document.createElement("div");
-    sep.className = "left-toolbar__sep";
-    return sep;
   }
 
   _renderToolButtons() {
