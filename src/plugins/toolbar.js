@@ -66,10 +66,22 @@ const SHAPE_LAYER_ACTIONS = [
     canRun: "canBringForward",
   },
   {
+    id: "bring-to-front",
+    label: "Bring to Front",
+    run: "bringToFront",
+    canRun: "canBringToFront",
+  },
+  {
     id: "send-backward",
     label: "Send Backward",
     run: "sendBackward",
     canRun: "canSendBackward",
+  },
+  {
+    id: "send-to-back",
+    label: "Send to Back",
+    run: "sendToBack",
+    canRun: "canSendToBack",
   },
 ];
 const SHAPE_PANEL_VIEWPORT_MARGIN = 12;

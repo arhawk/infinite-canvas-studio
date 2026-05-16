@@ -20,10 +20,22 @@ const PAGE_LAYER_ACTIONS = [
     canRun: "canBringForward",
   },
   {
+    id: "bring-to-front",
+    label: "Bring to Front",
+    run: "bringToFront",
+    canRun: "canBringToFront",
+  },
+  {
     id: "send-backward",
     label: "Send Backward",
     run: "sendBackward",
     canRun: "canSendBackward",
+  },
+  {
+    id: "send-to-back",
+    label: "Send to Back",
+    run: "sendToBack",
+    canRun: "canSendToBack",
   },
 ];
 
@@ -298,7 +310,9 @@ export class PageToolbarPlugin extends BasePlugin {
           </button>
           <div class="toolbar__button-style-popover toolbar__shape-layer-popover toolbar__page-layer-popover" role="menu" aria-label="Page layer order">
             <button type="button" class="toolbar__shape-layer-action" data-page-layer-action="bring-forward" data-testid="page-layer-bring-forward">Bring Forward</button>
+            <button type="button" class="toolbar__shape-layer-action" data-page-layer-action="bring-to-front" data-testid="page-layer-bring-to-front">Bring to Front</button>
             <button type="button" class="toolbar__shape-layer-action" data-page-layer-action="send-backward" data-testid="page-layer-send-backward">Send Backward</button>
+            <button type="button" class="toolbar__shape-layer-action" data-page-layer-action="send-to-back" data-testid="page-layer-send-to-back">Send to Back</button>
           </div>
         </div>
       </div>

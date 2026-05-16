@@ -10,10 +10,22 @@ const VIDEO_LAYER_ACTIONS = [
     canRun: "canBringForward",
   },
   {
+    id: "bring-to-front",
+    label: "Bring to Front",
+    run: "bringToFront",
+    canRun: "canBringToFront",
+  },
+  {
     id: "send-backward",
     label: "Send Backward",
     run: "sendBackward",
     canRun: "canSendBackward",
+  },
+  {
+    id: "send-to-back",
+    label: "Send to Back",
+    run: "sendToBack",
+    canRun: "canSendToBack",
   },
 ];
 
@@ -164,10 +176,26 @@ export class VideoToolbarPlugin extends BasePlugin {
             <button
               type="button"
               class="toolbar__shape-layer-action"
+              data-video-layer-action="bring-to-front"
+              data-testid="video-layer-bring-to-front"
+            >
+              Bring to Front
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
               data-video-layer-action="send-backward"
               data-testid="video-layer-send-backward"
             >
               Send Backward
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
+              data-video-layer-action="send-to-back"
+              data-testid="video-layer-send-to-back"
+            >
+              Send to Back
             </button>
           </div>
         </div>

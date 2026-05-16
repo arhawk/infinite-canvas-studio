@@ -32,10 +32,22 @@ const RANKING_BOX_LAYER_ACTIONS = [
     canRun: "canBringForward",
   },
   {
+    id: "bring-to-front",
+    label: "Bring to Front",
+    run: "bringToFront",
+    canRun: "canBringToFront",
+  },
+  {
     id: "send-backward",
     label: "Send Backward",
     run: "sendBackward",
     canRun: "canSendBackward",
+  },
+  {
+    id: "send-to-back",
+    label: "Send to Back",
+    run: "sendToBack",
+    canRun: "canSendToBack",
   },
 ];
 
@@ -328,10 +340,26 @@ export class RankingBoxPlugin extends BasePlugin {
             <button
               type="button"
               class="toolbar__shape-layer-action"
+              data-ranking-box-layer-action="bring-to-front"
+              data-testid="ranking-box-layer-bring-to-front"
+            >
+              Bring to Front
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
               data-ranking-box-layer-action="send-backward"
               data-testid="ranking-box-layer-send-backward"
             >
               Send Backward
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
+              data-ranking-box-layer-action="send-to-back"
+              data-testid="ranking-box-layer-send-to-back"
+            >
+              Send to Back
             </button>
           </div>
         </div>
