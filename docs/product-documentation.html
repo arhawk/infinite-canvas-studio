@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mimi Product Documentation</title>
+  <style>
+    :root {
+      --bg: #f6f7f3;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #65717f;
+      --line: #d9dfd4;
+      --accent: #2f7d6d;
+      --accent-2: #c07a30;
+      --soft: #eaf3ef;
+      --soft-2: #fff3df;
+      --code: #263238;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.65;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .app {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 24px 18px;
+      border-right: 1px solid var(--line);
+      background: #fbfcf9;
+    }
+    .brand {
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+    .brand p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+    nav a.active,
+    nav a:hover {
+      background: var(--soft);
+      text-decoration: none;
+      color: #185b50;
+    }
+    main {
+      min-width: 0;
+      padding: 34px clamp(22px, 5vw, 72px) 64px;
+    }
+    .hero {
+      max-width: 1040px;
+      margin: 0 auto 26px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero h2 {
+      margin: 0 0 10px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+    .hero p { margin: 0; color: var(--muted); max-width: 820px; }
+    .tabs {
+      max-width: 1040px;
+      margin: 0 auto 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 14px;
+    }
+    .tab[aria-selected="true"] {
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .content {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    .section {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: clamp(18px, 3vw, 32px);
+      box-shadow: 0 12px 30px rgba(31, 41, 51, 0.05);
+    }
+    .section.active { display: block; }
+    h3 {
+      margin: 0 0 14px;
+      font-size: 26px;
+      line-height: 1.25;
+    }
+    h4 {
+      margin: 26px 0 8px;
+      font-size: 18px;
+    }
+    p { margin: 8px 0 14px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fcfdfb;
+    }
+    .card strong { display: block; margin-bottom: 6px; }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      border-radius: 6px;
+    }
+    .callout.warn {
+      border-left-color: var(--accent-2);
+      background: var(--soft-2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #eef4ef; }
+    code {
+      font-family: "Cascadia Code", Consolas, monospace;
+      background: #eef1ed;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: var(--code);
+    }
+    pre {
+      overflow: auto;
+      background: #1f2933;
+      color: #ecf2f0;
+      padding: 14px;
+      border-radius: 8px;
+    }
+    pre code { background: transparent; color: inherit; padding: 0; }
+    details {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      background: #fcfdfb;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .search {
+      width: 100%;
+      margin: 12px 0 14px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font: inherit;
+    }
+    .hidden { display: none !important; }
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; }
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 4px;
+      }
+      main { padding-top: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <h1>Mimi Docs</h1>
+        <p>Infinite canvas product guide</p>
+      </div>
+      <input id="search" class="search" placeholder="Search features, e.g. Page, export, share" />
+      <nav id="toc" aria-label="Documentation table of contents">
+        <a href="#overview" data-tab="overview">Overview</a>
+        <a href="#quickstart" data-tab="quickstart">Create Your First Project</a>
+        <a href="#interface" data-tab="interface">Interface And Modes</a>
+        <a href="#components" data-tab="components">Components</a>
+        <a href="#navigation" data-tab="navigation">Outline And Navigation</a>
+        <a href="#export" data-tab="export">Save, Export, Share</a>
+        <a href="#tools" data-tab="tools">Tools And Shortcuts</a>
+      </nav>
+    </aside>
+    <main>
+      <header class="hero">
+        <h2>Mimi Mind Map Infinite Canvas Product Documentation</h2>
+        <p>This is end-user product documentation: it starts with a first-project workflow, then explains each major feature, mode difference, and common shortcut.</p>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Documentation tabs">
+        <button class="tab" role="tab" data-tab="overview">Overview</button>
+        <button class="tab" role="tab" data-tab="quickstart">Quick Start</button>
+        <button class="tab" role="tab" data-tab="interface">Interface</button>
+        <button class="tab" role="tab" data-tab="components">Components</button>
+        <button class="tab" role="tab" data-tab="navigation">Navigation</button>
+        <button class="tab" role="tab" data-tab="export">Export</button>
+        <button class="tab" role="tab" data-tab="tools">Tools</button>
+      </div>
+      <div class="content" id="content">
+                <section class="section active" id="overview" data-section="overview"><h3>Product Overview</h3><p>Mimi is an infinite-canvas visual organization and presentation tool. Users can create pages, text, sticky notes, images, embedded web pages, code runners, local videos, ranking activities, and shapes, then organize them with outlines, connections, jump buttons, and presentation mode.</p><div class="grid"><div class="card"><strong>Lesson presentations</strong>Organize multiple Pages into non-linear lessons with Buttons and connections.</div><div class="card"><strong>Classroom activities</strong>Use Ranking Box, pens, highlighter, timer, and Page Compare for activities.</div><div class="card"><strong>Resource navigation</strong>Keep web pages, images, videos, attachments, and notes in one canvas.</div><div class="card"><strong>Online viewing</strong>The teacher-side Host presents the board while student-side Viewers follow or browse freely.</div></div><h4>Core Capabilities</h4><ul><li>Infinite canvas with pan, zoom, and overview navigation.</li><li>Teacher-side modes: Edit for creating and organizing content, Present for maximizing delivery space.</li><li>Student-side views: Host follows the presenter camera, Viewer allows free panning and zooming.</li><li>Components including Page, Button, Text, Sticky Note, Image, Iframe, Ranking Box, JS Code Runner, and Local Video.</li><li>Local JSON save/load and single-file HTML export.</li></ul></section>
+
+        <section class="section" id="quickstart" data-section="quickstart">
+          <h3>Create Your First Presentation Board</h3>
+          <ol>
+            <li>Enter <code>Edit</code> mode.</li>
+            <li>Click <code>Components</code> in the left toolbar and choose <code>Page</code>.</li>
+            <li>Add <code>Text</code>, <code>Sticky Note</code>, <code>Image</code>, <code>Iframe</code>, <code>JS Code Runner</code>, or <code>Local Video</code>.</li>
+            <li>Create a <code>Button</code> and connect it to a target Page or component.</li>
+            <li>Add key components to the right-side <code>Outline</code>.</li>
+            <li>Switch to <code>Present</code> and test page navigation, button jumps, and Page Compare.</li>
+            <li>Export JSON or HTML.</li>
+          </ol>
+          <details open>
+            <summary>Open the local development version</summary>
+            <pre><code>pnpm install
+pnpm dev</code></pre>
+            <p>Visit <code>http://localhost:3000</code>.</p>
+          </details>
+          <details>
+            <summary>How to use Page</summary>
+            <p>A Page works like a slide. Put related text, images, buttons, and videos on the same Page so they can move together as one presentation unit.</p>
+          </details>
+          <details>
+            <summary>How to use Button</summary>
+            <p>A Button is a one-way jump. For two-way navigation, create one Button on each side and point each Button to the other destination.</p>
+          </details>
+        </section>
+
+                <section class="section" id="interface" data-section="interface"><h3>Interface And Modes</h3><h4>Main Areas</h4><table><thead><tr><th>Area</th><th>Purpose</th></tr></thead><tbody><tr><td>Left toolbar</td><td>Cursor, Brush tools, Eraser, Shapes, Components, Timer, Binary Calculator, Style, and fit-all.</td></tr><tr><td>Top toolbar</td><td>Project title, save, load, share, Edit/Present switch, and contextual actions.</td></tr><tr><td>Infinite canvas</td><td>Create, move, resize, connect, and present content.</td></tr><tr><td>Right Outline</td><td>Manage hierarchy, order, renaming, and branch collapse.</td></tr><tr><td>Overview</td><td>Bottom-right minimap for global position and unlinked-page warnings.</td></tr></tbody></table><h4>Mode Concepts</h4><table><thead><tr><th>User</th><th>Mode</th><th>Meaning</th></tr></thead><tbody><tr><td>Teacher / Host</td><td>Edit</td><td>Create and edit content. Components, toolbars, the right Outline, and floating panels are fully available.</td></tr><tr><td>Teacher / Host</td><td>Present</td><td>Deliver content. Editing toolbars collapse, the canvas area is maximized, and only presentation navigation plus necessary floating tools remain.</td></tr><tr><td>Student / Viewer</td><td>Host</td><td>Follow the presenter's canvas position and zoom.</td></tr><tr><td>Student / Viewer</td><td>Viewer</td><td>Free viewing camera. If students pan or zoom, the app automatically switches from Host view to Viewer view.</td></tr></tbody></table><div class="callout warn">Online room Viewers can only view and save a copy. They cannot enter Edit mode, modify board content, or load a document over the Host state.</div></section>
+
+        <section class="section" id="components" data-section="components">
+          <h3>Components</h3>
+          <div class="grid">
+            <div class="card"><strong>Page</strong>Basic presentation surface with child components, attachments, background, connections, and navigation.</div>
+            <div class="card"><strong>Button</strong>Jump control that connects to a target and navigates in Present mode.</div>
+            <div class="card"><strong>Text</strong>Basic text box for titles, explanations, questions, and notes.</div>
+            <div class="card"><strong>Sticky Note</strong>Colored note block for prompts, reminders, and discussion records.</div>
+            <div class="card"><strong>Image</strong>Uploaded image with resizing, connections, layer ordering, and inline document saving.</div>
+            <div class="card"><strong>Iframe</strong>Embedded web URL for display or interaction.</div>
+            <div class="card"><strong>Ranking Box</strong>Sorting activity container for ranking text items.</div>
+            <div class="card"><strong>JS Code Runner</strong>JavaScript runner with code, preview, and console areas.</div>
+            <div class="card"><strong>Local Video</strong>Local video component using browser-native playback controls.</div>
+          </div>
+          <details>
+            <summary>Shapes</summary>
+            <p>Shapes include rectangle, circle, diamond, and triangle. They support text, font size, text color, fill, opacity, stroke color, stroke width, layer ordering, and connections.</p>
+          </details>
+          <details>
+            <summary>Iframe limitation</summary>
+            <p>Some websites block embedding through security policies. If a site cannot display, save it as an attachment or text link instead.</p>
+          </details>
+        </section>
+
+        <section class="section" id="navigation" data-section="navigation">
+          <h3>Outline, Connections, And Navigation</h3>
+          <h4>Outline</h4>
+          <p>The right-side Outline structures the freeform canvas. Select components and click <code>Add selected</code>, or drag components into the outline. Click an item to center the viewport, double-click to rename it, and drag or use direction controls to adjust order and hierarchy.</p>
+          <h4>Connections</h4>
+          <p>Connections express relationships between components and can also support presentation navigation. Use connections for conceptual relationships and Button for explicit click-to-jump actions.</p>
+          <h4>Overview</h4>
+          <p>Overview is the bottom-right minimap. It shows the current viewport, lets users click to move around, marks selected components, and warns about Pages without connection targets.</p>
+          <h4>Page Compare</h4>
+          <p>In Present mode, select one Page, hold <code>Shift</code>, and click another Page to compare them. The comparison window supports swapping, zooming, fit-to-window, fullscreen, and <code>Esc</code> close.</p>
+        </section>
+
+                <section class="section" id="export" data-section="export"><h3>Save, Export, And Online Sharing</h3><div class="grid"><div class="card"><strong>JSON</strong>Best for continued editing. Saves components, styles, connections, outline, attachments, drawings, annotations, and viewport state.</div><div class="card"><strong>HTML</strong>Best for offline delivery or submission. Produces one browser-openable snapshot file.</div><div class="card"><strong>Host</strong>Create rooms, edit the board, and broadcast board state plus camera position to Viewers.</div><div class="card"><strong>Viewer</strong>Follow Host or browse freely, and save a copy, without editing Host content.</div></div><div class="callout warn">Local <code>file://</code> HTML exports hide Share because local files cannot reliably use the online room service.</div></section>
+
+                        <section class="section" id="tools" data-section="tools">
+          <h3>Teaching Helpers And Shortcuts</h3>
+          <h4>Helpers</h4>
+          <ul>
+            <li><strong>Timer</strong>: countdowns, timed activities, and presentation pacing. Press <code>Enter</code> in minute or second inputs to finish editing.</li>
+            <li><strong>Binary Calculator</strong>: binary calculations and computer science teaching.</li>
+            <li><strong>Overview / Minimap</strong>: shows the current viewport, selected component location, page connection status, and supports clicking to move the camera.</li>
+            <li><strong>Page Compare</strong>: view two Pages side by side in Present mode. Select one Page, hold <code>Shift</code>, click another Page, and press <code>Esc</code> to close.</li>
+            <li><strong>Background Style</strong>: Default/Colorful themes, Blank/Grid/Dot, colors, and opacity.</li>
+          </ul>
+          <p><code>Mod</code> usually means <code>Ctrl</code> on Windows/Linux and <code>Cmd</code> on macOS.</p>
+          <h4>General Canvas And File Shortcuts</h4>
+          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
+            <tr><td>Mouse wheel</td><td>Zoom the canvas</td></tr><tr><td>Middle-button drag</td><td>Pan the canvas</td></tr><tr><td><code>Space</code> + drag</td><td>Pan the canvas</td></tr><tr><td><code>Home</code></td><td>Fit all content to the viewport</td></tr><tr><td><code>Mod+S</code></td><td>Open save/export menu</td></tr><tr><td><code>Mod+O</code></td><td>Load a JSON document</td></tr><tr><td><code>Esc</code></td><td>Close the save menu, comparison window, selected overlays, or current tool panels</td></tr>
+          </tbody></table>
+          <h4>Edit Mode Shortcuts</h4>
+          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
+            <tr><td>Drag empty canvas</td><td>Pan the canvas while using the Arrange tool</td></tr><tr><td><code>Mod</code> + click</td><td>Multi-select components</td></tr><tr><td><code>Shift</code> + drag empty canvas</td><td>Marquee-select components</td></tr><tr><td><code>Delete</code> / <code>Backspace</code></td><td>Delete selected components</td></tr><tr><td><code>Mod+C</code></td><td>Copy selected components</td></tr><tr><td><code>Mod+V</code></td><td>Paste components</td></tr><tr><td><code>Mod+Z</code></td><td>Undo</td></tr><tr><td><code>Mod+Shift+Z</code> / <code>Mod+Y</code></td><td>Redo</td></tr><tr><td><code>Ctrl+Alt+A</code></td><td>Add the selected node to the right Outline</td></tr><tr><td>Hold <code>Shift</code> while drawing with Shape</td><td>Proportional scaling of shapes</td></tr>
+          </tbody></table>
+          <h4>Present Mode Shortcuts</h4>
+          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
+            <tr><td><code>ArrowUp</code> / <code>ArrowDown</code> / <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>Navigate by page or saved focus direction</td></tr><tr><td><code>Esc</code></td><td>Exit Present and return to Edit</td></tr><tr><td><code>Mod+Shift+F</code></td><td>Toggle presentation-board fullscreen</td></tr><tr><td>Move the mouse to the top area</td><td>Reveal the auto-hidden presentation toolbar</td></tr><tr><td><code>Shift</code> + click another Page</td><td>Open Page Compare</td></tr>
+          </tbody></table>
+          <h4>Student Viewer Restrictions</h4>
+          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
+            <tr><td><code>Mod+S</code></td><td>Allowed: save/export the current viewed copy</td></tr><tr><td><code>Mod+O</code></td><td>Blocked: viewers cannot load a document over the Host state</td></tr><tr><td><code>Mod+Z</code> / <code>Mod+Y</code></td><td>Blocked: viewers cannot undo or redo Host state</td></tr><tr><td>Pan or zoom</td><td>If following Host, automatically switch to free Viewer camera</td></tr><tr><td>Click the <code>Host</code> / <code>Viewer</code> mode capsule</td><td>Switch between following the Host and free viewing</td></tr>
+          </tbody></table>
+          <h4>Right Outline Shortcuts</h4>
+          <table><thead><tr><th>Context</th><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
+            <tr><td>Outline item focused</td><td><code>Enter</code> / <code>Space</code></td><td>Jump to and center the linked component</td></tr><tr><td>Outline item focused and editable</td><td><code>ArrowUp</code> / <code>ArrowDown</code></td><td>Reorder within the same level</td></tr><tr><td>Outline item focused and editable</td><td><code>ArrowRight</code></td><td>Indent under the previous sibling</td></tr><tr><td>Outline item focused and editable</td><td><code>ArrowLeft</code></td><td>Promote to the parent's level</td></tr><tr><td>Outline item focused and editable</td><td><code>Delete</code> / <code>Backspace</code></td><td>Remove the item from the Outline and promote its children</td></tr><tr><td>Renaming after double-click</td><td><code>Enter</code></td><td>Finish renaming</td></tr><tr><td>Renaming after double-click</td><td><code>Esc</code></td><td>Cancel renaming</td></tr><tr><td>Title text editing</td><td>Normal arrow keys</td><td>Move the text cursor</td></tr><tr><td>Title text editing</td><td>Double-tap <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>Finish editing and adjust outline hierarchy</td></tr>
+          </tbody></table>
+          <h4>Left Component Area And Component Shortcuts</h4>
+          <table><thead><tr><th>Component / Area</th><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
+            <tr><td>Components panel</td><td>Drag component to canvas</td><td>Create a component</td></tr><tr><td>Text / Sticky / Button / Shape text</td><td><code>Mod+Enter</code></td><td>Commit inline text editing</td></tr><tr><td>Text / Sticky / Button / Shape text</td><td><code>Esc</code></td><td>Cancel or close inline text editing</td></tr><tr><td>Iframe URL input</td><td><code>Enter</code></td><td>Apply the URL change</td></tr><tr><td>Iframe interaction mode</td><td><code>Esc</code></td><td>Exit webpage interaction mode</td></tr><tr><td>Iframe more-actions button</td><td><code>Enter</code> / <code>Space</code></td><td>Open or close the Iframe action menu</td></tr><tr><td>JS Code Runner</td><td><code>Mod+Enter</code></td><td>Run code</td></tr><tr><td>Component Editor modal</td><td><code>Esc</code></td><td>Close the modal</td></tr><tr><td>Connection creation</td><td><code>Esc</code></td><td>Cancel connection creation</td></tr><tr><td>Pen preset popup</td><td><code>Esc</code></td><td>Close pen presets</td></tr><tr><td>Eraser panel</td><td><code>Esc</code></td><td>Close the eraser panel</td></tr>
+          </tbody></table>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script>
+    const tabs = Array.from(document.querySelectorAll("[data-tab]"));
+    const tabButtons = Array.from(document.querySelectorAll(".tab"));
+    const sections = Array.from(document.querySelectorAll("[data-section]"));
+    const search = document.querySelector("#search");
+
+    function activate(id) {
+      const next = sections.some((section) => section.dataset.section === id) ? id : "overview";
+      sections.forEach((section) => section.classList.toggle("active", section.dataset.section === next));
+      tabButtons.forEach((button) => button.setAttribute("aria-selected", String(button.dataset.tab === next)));
+      document.querySelectorAll("#toc a").forEach((link) => link.classList.toggle("active", link.dataset.tab === next));
+      if (location.hash.slice(1) !== next) history.replaceState(null, "", "#" + next);
+    }
+
+    tabs.forEach((item) => {
+      item.addEventListener("click", (event) => {
+        event.preventDefault();
+        activate(item.dataset.tab);
+      });
+    });
+
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      if (!q) {
+        sections.forEach((section) => section.classList.remove("hidden"));
+        return;
+      }
+      sections.forEach((section) => {
+        section.classList.toggle("hidden", !section.textContent.toLowerCase().includes(q));
+      });
+      const first = sections.find((section) => !section.classList.contains("hidden"));
+      if (first) activate(first.dataset.section);
+    });
+
+    window.addEventListener("hashchange", () => activate(location.hash.slice(1)));
+    activate(location.hash.slice(1) || "overview");
+  </script>
+</body>
+</html>

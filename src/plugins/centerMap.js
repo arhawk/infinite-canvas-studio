@@ -189,9 +189,11 @@ export class CenterMapPlugin extends BasePlugin {
     const { centerMapEl } = this.ui;
     centerMapEl.setAttribute("aria-pressed", String(this._isPanorama));
     centerMapEl.classList.toggle("is-active", this._isPanorama);
-    centerMapEl.title = this._isPanorama
+    const label = this._isPanorama
       ? "Back to previous view (Home)"
       : "Fit all content (Home)";
+    centerMapEl.dataset.tooltip = label;
+    centerMapEl.setAttribute("aria-label", label);
   }
 
   // ─── Zoom helpers ─────────────────────────────────────────────────────────

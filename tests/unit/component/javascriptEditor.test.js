@@ -180,7 +180,7 @@ function makeApp() {
 }
 
 describe("JavaScriptEditorComponent", () => {
-  it("registers in the palette with editor metadata", () => {
+  it("registers in the palette", () => {
     const registry = new ComponentRegistry();
     const component = new JavaScriptEditorComponent(makeApp());
 
@@ -191,18 +191,6 @@ describe("JavaScriptEditorComponent", () => {
       label: "JS Code Runner",
       description: "Write JavaScript and run it in an isolated preview",
     });
-
-    const editor = component.getEditorDefinition({
-      getAttr: (key) => (
-        key === "javascriptEditorTitle"
-          ? "Snippet"
-          : "console.log('test');"
-      ),
-    });
-
-    expect(editor.title).toBe("JS Code Runner");
-    expect(editor.fields).toHaveLength(2);
-    expect(editor.fields.map((field) => field.id)).toEqual(["title", "code"]);
   });
 
   it("creates nodes with stored title, code, and dimensions", async () => {
@@ -229,13 +217,10 @@ describe("JavaScriptEditorComponent", () => {
     });
   });
 
-  it("updates title and code through editor field writers", async () => {
+  it("updates title and code through serialized data", async () => {
     const component = new JavaScriptEditorComponent(makeApp());
     const node = await component.createNode({ x: 0, y: 0 });
-    const [titleField, codeField] = component.editorFields();
-
-    await titleField.write(node, "JS Sandbox");
-    await codeField.write(node, "");
+    await component.applySerializedData(node, { title: "JS Sandbox", code: "" });
 
     expect(node.getAttr("javascriptEditorTitle")).toBe("JS Sandbox");
     expect(node.getAttr("javascriptEditorCode")).toBe("");

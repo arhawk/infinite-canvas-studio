@@ -68,7 +68,7 @@ export class TimerPlugin extends BasePlugin {
       if (e.key === "Enter") ssInputEl.blur();
     });
 
-    this._setupDrag(headerEl);
+    this._setupDrag(widgetEl);
     this._syncUi();
   }
 
@@ -100,16 +100,16 @@ export class TimerPlugin extends BasePlugin {
     this.ui.toggleEl.setAttribute("aria-pressed", "false");
   }
 
-  _setupDrag(header) {
+  _setupDrag(widget) {
     let dragging = false;
     let startX, startY, startLeft, startTop;
 
-    this.listenDom(header, "mousedown", (e) => {
-      if (e.target.closest(".timer-widget__close")) return;
+    this.listenDom(widget, "pointerdown", (e) => {
+      if (e.target.closest("button, input, label, select")) return;
       e.preventDefault();
 
-      const parentEl = this.ui.widgetEl.offsetParent ?? document.body;
-      const rect = this.ui.widgetEl.getBoundingClientRect();
+      const parentEl = widget.offsetParent ?? document.body;
+      const rect = widget.getBoundingClientRect();
       const parentRect = parentEl.getBoundingClientRect();
 
       startLeft = rect.left - parentRect.left;
@@ -117,34 +117,37 @@ export class TimerPlugin extends BasePlugin {
       startX = e.clientX;
       startY = e.clientY;
 
-      this.ui.widgetEl.style.left   = startLeft + "px";
-      this.ui.widgetEl.style.top    = startTop  + "px";
-      this.ui.widgetEl.style.bottom = "auto";
-      this.ui.widgetEl.style.right  = "auto";
+      widget.style.left   = startLeft + "px";
+      widget.style.top    = startTop  + "px";
+      widget.style.bottom = "auto";
+      widget.style.right  = "auto";
 
-      header.style.cursor = "grabbing";
+      widget.style.cursor = "grabbing";
+      widget.setPointerCapture(e.pointerId);
       dragging = true;
     });
 
-    this.listenDom(document, "mousemove", (e) => {
+    this.listenDom(widget, "pointermove", (e) => {
       if (!dragging) return;
 
-      const parentEl = this.ui.widgetEl.offsetParent ?? document.body;
-      const maxLeft = parentEl.clientWidth  - this.ui.widgetEl.offsetWidth;
-      const maxTop  = parentEl.clientHeight - this.ui.widgetEl.offsetHeight;
+      const parentEl = widget.offsetParent ?? document.body;
+      const maxLeft = parentEl.clientWidth  - widget.offsetWidth;
+      const maxTop  = parentEl.clientHeight - widget.offsetHeight;
 
       const newLeft = Math.max(0, Math.min(maxLeft, startLeft + (e.clientX - startX)));
       const newTop  = Math.max(0, Math.min(maxTop,  startTop  + (e.clientY - startY)));
 
-      this.ui.widgetEl.style.left = newLeft + "px";
-      this.ui.widgetEl.style.top  = newTop  + "px";
+      widget.style.left = newLeft + "px";
+      widget.style.top  = newTop  + "px";
     });
 
-    this.listenDom(document, "mouseup", () => {
+    const endDrag = () => {
       if (!dragging) return;
       dragging = false;
-      header.style.cursor = "";
-    });
+      widget.style.cursor = "";
+    };
+    this.listenDom(widget, "pointerup", endDrag);
+    this.listenDom(widget, "pointercancel", endDrag);
   }
 
   _switchMode(newMode) {

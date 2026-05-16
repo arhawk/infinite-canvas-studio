@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   BaseComponent,
-  CheckboxEditorField,
-  NumberEditorField,
 } from "../../../src/core/baseClasses.js";
 
 class FakeNode {
@@ -196,33 +194,6 @@ describe("base classes", () => {
     expect(restored.getAttr("label")).toBe("After");
   });
 
-  it("normalizes number fields using min and max constraints", () => {
-    const field = new NumberEditorField({
-      id: "fontSize",
-      label: "Font Size",
-      input: { min: 12, max: 24 },
-      getValue: () => 16,
-    });
-
-    expect(field.normalize("4")).toBe(12);
-    expect(field.normalize("18")).toBe(18);
-    expect(field.normalize("40")).toBe(24);
-    expect(field.normalize("oops", {})).toBe(16);
-  });
-
-  it("normalizes checkbox fields to booleans", () => {
-    const field = new CheckboxEditorField({
-      id: "hiddenUntilEndpointSelected",
-      label: "Hide Until Endpoint Selected",
-    });
-
-    expect(field.normalize(true)).toBe(true);
-    expect(field.normalize("true")).toBe(true);
-    expect(field.normalize("on")).toBe(true);
-    expect(field.normalize(false)).toBe(false);
-    expect(field.normalize("0")).toBe(false);
-  });
-
   it("serializes and restores attachment state for attachment-enabled components", async () => {
     const component = new AttachmentComponent({});
     const node = await component.create({
@@ -262,6 +233,9 @@ describe("base classes", () => {
       directory: {
         handleKey: "directory-1",
         name: "Week 1",
+        path: null,
+        sourceName: null,
+        url: null,
       },
       entries: [
         {

@@ -1,7 +1,4 @@
-import {
-  BaseComponent,
-  FileEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
@@ -14,7 +11,7 @@ function loadImage(src) {
   });
 }
 
-function readFileAsDataUrl(file) {
+export function readImageFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ""));
@@ -27,28 +24,6 @@ export class ImageComponent extends BaseComponent {
   static type = "image";
   static label = "Image";
   static description = "Upload and place photo";
-
-  getEditorTitle() {
-    return "Image";
-  }
-
-  editorFields() {
-    return [
-      new FileEditorField({
-        id: "image",
-        label: "Change Image",
-        description: "Select a new image file",
-        input: { accept: "image/*" },
-        getValue: () => null,
-        setValue: async (node, file) => {
-          if (file instanceof File) {
-            const src = await readFileAsDataUrl(file);
-            await this.updateNode(node, src);
-          }
-        },
-      }),
-    ];
-  }
 
   async createNode({ x, y, src }) {
     const width = 220;
@@ -88,7 +63,7 @@ export class ImageComponent extends BaseComponent {
     });
 
     const text = new Konva.Text({
-      text: "Double-click to\nedit image",
+      text: "Use toolbar to\nupload image",
       width,
       height,
       align: "center",
@@ -112,7 +87,6 @@ export class ImageComponent extends BaseComponent {
       image,
       width,
       height,
-      cornerRadius: 18,
       name: "image-node",
     });
 

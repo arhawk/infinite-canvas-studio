@@ -1,8 +1,4 @@
-import {
-  BaseComponent,
-  ColorEditorField,
-  TextEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 
@@ -12,35 +8,6 @@ export class ContainerComponent extends BaseComponent {
   static description = "A box to group and organize components";
   static attachments = true;
   static palette = false;
-
-  getEditorTitle() {
-    return "Container";
-  }
-
-  editorFields() {
-    const getRect = (node) => node.findOne(".container-bg");
-    const getLabel = (node) => node.findOne(".container-label");
-
-    return [
-      new TextEditorField({
-        id: "label",
-        label: "Label",
-        getValue: (node) => getLabel(node)?.text() ?? "",
-        setValue: (node, value) => {
-          getLabel(node)?.text(value || "Container");
-        },
-      }),
-      new ColorEditorField({
-        id: "stroke",
-        label: "Border Color",
-        getValue: (node) => getRect(node)?.stroke() ?? "#d7612f",
-        setValue: (node, value) => {
-          getRect(node)?.stroke(value);
-          getLabel(node)?.fill(value);
-        },
-      }),
-    ];
-  }
 
   async createNode({ x, y, width = 300, height = 200, label = "New Container" }) {
     const group = new Konva.Group({

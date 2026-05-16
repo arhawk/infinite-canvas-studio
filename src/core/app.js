@@ -6,9 +6,14 @@ import { CommandRegistry } from "./commandRegistry.js";
 import { KeybindingRegistry } from "./keybindingRegistry.js";
 import { ContextMenuRegistry } from "./contextMenuRegistry.js";
 import { ComponentRegistry } from "./componentRegistry.js";
+import { FloatingToolbarManager } from "./floatingToolbar.js";
 
 function isSelectableNode(node) {
   return !!node?.hasName?.("selectable");
+}
+
+function participatesInLayerOrder(node) {
+  return isSelectableNode(node) && node?.getAttr?.("excludeFromLayerOrder") !== true;
 }
 
 export class App {
@@ -23,6 +28,7 @@ export class App {
     this.keybindings = new KeybindingRegistry(this.commands);
     this.contextMenu = new ContextMenuRegistry(this);
     this.components = new ComponentRegistry();
+    this.floatingToolbar = new FloatingToolbarManager(this);
 
     this.stageApi = new StageController(container, {
       onZoomChange: (zoom) => {
@@ -42,6 +48,8 @@ export class App {
     this.cursorOverride = null;
     this.isReplayingHistory = false;
     this.isRestoringDocument = false;
+    this.presentationLockReason = null;
+    this.activeInlineTextEditor = null;
     this.history = null;
     this.documentManager = null;
 
@@ -83,6 +91,7 @@ export class App {
     }
     this.plugins.length = 0;
     this.keybindings.destroy();
+    this.floatingToolbar.destroy();
     this.stageApi.destroy();
   }
 
@@ -99,8 +108,29 @@ export class App {
   }
 
   setMode(mode) {
+    if (this.presentationLockReason && mode === "edit") {
+      if (this.modeManager.getMode() !== "presentation") {
+        this.modeManager.setMode("presentation");
+      }
+      this.syncCursor();
+      return;
+    }
     this.modeManager.setMode(mode);
     this.syncCursor();
+  }
+
+  lockPresentationMode(reason = "locked") {
+    this.presentationLockReason = reason || "locked";
+    this.setMode("presentation");
+  }
+
+  unlockPresentationMode(reason = null) {
+    if (reason && this.presentationLockReason !== reason) return;
+    this.presentationLockReason = null;
+  }
+
+  isPresentationModeLocked() {
+    return Boolean(this.presentationLockReason);
   }
 
   getEditorTool() {
@@ -113,14 +143,29 @@ export class App {
   }
 
   isReadOnly() {
-    return this.modeManager.isReadOnly();
+    return this.isPresentationModeLocked() || this.modeManager.isReadOnly();
+  }
+
+  getBackgroundState() {
+    return this.stageApi.getBackgroundState();
+  }
+
+  setBackgroundState(state, { silent = false } = {}) {
+    const before = this.getBackgroundState();
+    const after = this.stageApi.setBackgroundState(state);
+
+    if (!silent && JSON.stringify(before) !== JSON.stringify(after)) {
+      this.events.emit("background:change", { before, after });
+    }
+
+    return after;
   }
 
   async addComponent(type, payload) {
     const node = await this.components.create(type, payload);
     if (!node) return null;
     this.mainLayer.add(node);
-    this.mainLayer.batchDraw();
+    this.mainLayer.draw();
     this.events.emit("node:added", { node });
     return node;
   }
@@ -134,7 +179,7 @@ export class App {
       return;
     }
 
-    if (["pen", "pencil", "highlighter", "eraser"].includes(activeToolId)) {
+    if (["pen", "pencil", "highlighter", "eraser", "shape"].includes(activeToolId)) {
       container.style.cursor = "crosshair";
       return;
     }
@@ -146,7 +191,10 @@ export class App {
 
     if (this.modeManager.matches({ mode: "edit", editorTool: "arrange" })) {
       container.style.cursor = "default";
+      return;
     }
+
+    container.style.cursor = "default";
   }
 
   getSelectableParent(node) {
@@ -156,7 +204,9 @@ export class App {
 
   getSelectableSiblings(node) {
     const parent = this.getSelectableParent(node);
-    return parent?.getChildren ? Array.from(parent.getChildren()).filter((child) => isSelectableNode(child)) : [];
+    return parent?.getChildren
+      ? Array.from(parent.getChildren()).filter((child) => participatesInLayerOrder(child))
+      : [];
   }
 
   getSelectableIndex(node) {
@@ -167,11 +217,29 @@ export class App {
     return this.getSelectableSiblings(node).length;
   }
 
+  getSelectableStackIndex(node) {
+    if (!node) return -1;
+
+    if (typeof node.getAbsoluteZIndex === "function") {
+      const absoluteIndex = node.getAbsoluteZIndex();
+      if (Number.isFinite(absoluteIndex)) return absoluteIndex;
+    }
+
+    const chain = [];
+    let current = node;
+    while (current) {
+      chain.unshift(current.zIndex?.() ?? 0);
+      current = current.getParent?.() ?? null;
+    }
+
+    return chain.reduce((total, value) => total * 1000 + value, 0);
+  }
+
   applySelectableOrder(parent, orderedSelectableChildren = []) {
     if (!parent?.getChildren) return false;
 
     const allChildren = Array.from(parent.getChildren());
-    const selectableChildren = allChildren.filter((child) => isSelectableNode(child));
+    const selectableChildren = allChildren.filter((child) => participatesInLayerOrder(child));
     if (!selectableChildren.length) return false;
 
     const sameMembers =
@@ -181,7 +249,7 @@ export class App {
 
     let selectableIndex = 0;
     const finalOrder = allChildren.map((child) => (
-      isSelectableNode(child) ? orderedSelectableChildren[selectableIndex++] : child
+      participatesInLayerOrder(child) ? orderedSelectableChildren[selectableIndex++] : child
     ));
 
     // Rebuild the sibling order without disturbing non-selectable children such as the transformer.

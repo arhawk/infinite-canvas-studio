@@ -1,9 +1,4 @@
-import {
-  BaseComponent,
-  CheckboxEditorField,
-  ColorEditorField,
-  NumberEditorField,
-} from "../core/baseClasses.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
 
 export const DEFAULT_STROKE = "#d7612f";
@@ -133,117 +128,6 @@ export class ConnectionComponent extends BaseComponent {
   static description = "Curved link between two components";
   static palette = false;
 
-  getEditorTitle() {
-    return "Connection";
-  }
-
-  editorFields() {
-    return [
-      new CheckboxEditorField({
-        id: "termdefKind",
-        label: "Term/Def (Dashed)",
-        description: "Makes this a dashed, symmetric 1:1 Text↔Text mapping. Deleting one endpoint deletes the other.",
-        input: (node) => {
-          const sourceId = node?.getAttr?.("sourceNodeId");
-          const targetId = node?.getAttr?.("targetNodeId");
-          const source = sourceId ? this.app.mainLayer.findOne(`#${sourceId}`) : null;
-          const target = targetId ? this.app.mainLayer.findOne(`#${targetId}`) : null;
-          const eligible =
-            source?.getAttr?.("componentType") === "text" &&
-            target?.getAttr?.("componentType") === "text";
-
-          return eligible
-            ? {}
-            : {
-                disabled: true,
-                title: "Only available for Text ↔ Text connections.",
-              };
-        },
-        getValue: (node) => getConnectionKind(node) === CONNECTION_KIND_TERMDEF,
-        setValue: (node, value) => {
-          const connections = this.app.getPlugin?.("connections");
-          connections?.setConnectionKind?.(
-            node,
-            value === true ? CONNECTION_KIND_TERMDEF : CONNECTION_KIND_DIRECTED,
-            { fromEditor: true },
-          );
-        },
-      }),
-      new ColorEditorField({
-        id: "stroke",
-        label: "Line Color",
-        getValue: (node) => getConnectionConfiguredStyle(node).stroke,
-        setValue: (node, value) => {
-          setConnectionConfiguredStyle(node, { stroke: value });
-        },
-      }),
-      new CheckboxEditorField({
-        id: "hiddenUntilEndpointSelected",
-        label: "Hide Until Endpoint Selected",
-        description: "Makes the link fully transparent until one endpoint is selected.",
-        getValue: (node) => getConnectionConfiguredStyle(node).hiddenUntilEndpointSelected,
-        setValue: (node, value) => {
-          setConnectionConfiguredStyle(node, {
-            hiddenUntilEndpointSelected: value === true,
-          });
-        },
-      }),
-      new NumberEditorField({
-        id: "strokeWidth",
-        label: "Stroke Width",
-        input: { min: 1, max: 16, step: 1 },
-        getValue: (node) => getConnectionLine(node)?.strokeWidth() ?? 3,
-        setValue: (node, value) => {
-          getConnectionLine(node)?.strokeWidth(value);
-        },
-      }),
-      new NumberEditorField({
-        id: "pointerLength",
-        label: "Arrow Length",
-        input: { min: 6, max: 36, step: 1 },
-        getValue: (node) => {
-          const kind = getConnectionKind(node);
-          if (kind === CONNECTION_KIND_TERMDEF) {
-            const stored = node.getAttr("directedPointerLength");
-            return Number.isFinite(stored) ? stored : 10;
-          }
-          return getConnectionLine(node)?.pointerLength() ?? 10;
-        },
-        setValue: (node, value) => {
-          const kind = getConnectionKind(node);
-          if (kind === CONNECTION_KIND_TERMDEF) {
-            node.setAttr("directedPointerLength", value);
-            return;
-          }
-          node.setAttr("directedPointerLength", value);
-          getConnectionLine(node)?.pointerLength(value);
-        },
-      }),
-      new NumberEditorField({
-        id: "pointerWidth",
-        label: "Arrow Width",
-        input: { min: 6, max: 36, step: 1 },
-        getValue: (node) => {
-          const kind = getConnectionKind(node);
-          if (kind === CONNECTION_KIND_TERMDEF) {
-            const stored = node.getAttr("directedPointerWidth");
-            return Number.isFinite(stored) ? stored : 10;
-          }
-          return getConnectionLine(node)?.pointerWidth() ?? 10;
-        },
-        setValue: (node, value) => {
-          const kind = getConnectionKind(node);
-          if (kind === CONNECTION_KIND_TERMDEF) {
-            node.setAttr("directedPointerWidth", value);
-            return;
-          }
-          node.setAttr("directedPointerWidth", value);
-          getConnectionLine(node)?.pointerWidth(value);
-        },
-      }),
-    ];
-  }
-
   async createNode({
     stroke = DEFAULT_STROKE,
     hiddenUntilEndpointSelected = false,
@@ -273,6 +157,7 @@ export class ConnectionComponent extends BaseComponent {
       shadowBlur: 2,
       shadowOffset: { x: 1, y: 1 },
       shadowOpacity: 0.08,
+      perfectDrawEnabled: false,
       name: "connection-line",
     });
 

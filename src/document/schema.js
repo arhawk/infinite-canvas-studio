@@ -1,3 +1,5 @@
+import { cloneBackgroundState, DEFAULT_BACKGROUND_STATE, normalizeBackgroundState } from "../background/state.js";
+
 const DOCUMENT_SCHEMA_VERSION = 1;
 
 function clonePlainData(value) {
@@ -105,6 +107,7 @@ export function createDocumentSnapshot({
   savedAt = new Date().toISOString(),
   meta = {},
   view = {},
+  background = DEFAULT_BACKGROUND_STATE,
   nodes = [],
   drawings = [],
 } = {}) {
@@ -115,6 +118,7 @@ export function createDocumentSnapshot({
     savedAt,
     meta,
     view,
+    background,
     nodes,
     drawings,
   });
@@ -156,6 +160,7 @@ export function normalizeDocumentSnapshot(snapshot = {}) {
           }
         : { title: "Untitled" },
     view: createStageView(snapshot.view),
+    background: cloneBackgroundState(normalizeBackgroundState(snapshot.background)),
     nodes: Array.isArray(snapshot.nodes)
       ? snapshot.nodes.map((nodeSnapshot) => normalizeNodeSnapshot(nodeSnapshot))
       : [],

@@ -12,10 +12,21 @@
   <body>
     <div class="app-shell">
 <main class="workspace" data-testid="workspace">
+        <div
+          id="presentation-toolbar-hover-zone"
+          class="presentation-toolbar-hover-zone"
+          aria-hidden="true"
+          data-testid="presentation-toolbar-hover-zone"
+        ></div>
         <header class="toolbar" data-testid="toolbar">
+          <!-- Brand wordmark: permanent leftmost mark -->
+          <div class="toolbar__brand" aria-hidden="true">
+            <span class="toolbar__brand-wordmark"><span class="mimi-letter--1">M</span><span class="mimi-letter--2">I</span><span class="mimi-letter--3">M</span><span class="mimi-letter--4">I</span></span>
+          </div>
+
           <!-- Left: project title -->
           <div class="toolbar__title-area">
-            <span class="toolbar__project-title" id="project-title">Untitled</span>
+            <span class="toolbar__project-title" id="project-title" data-testid="project-title">Untitled</span>
           </div>
 
           <!-- Center: Edit / Present capsule -->
@@ -40,114 +51,712 @@
 
           <!-- Right: share / exit -->
           <div class="toolbar__actions">
+            <button
+              type="button"
+              class="toolbar__icon-button toolbar__top-action-icon"
+              id="save-document-action"
+              title="Save document (choose HTML or JSON)"
+              aria-label="Save document (choose HTML or JSON)"
+              data-testid="save-document-action"
+            >
+              <i data-lucide="download" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="toolbar__icon-button toolbar__top-action-icon"
+              id="load-document-action"
+              title="Load document"
+              aria-label="Load document"
+              data-testid="load-document-action"
+            >
+              <i data-lucide="upload" aria-hidden="true"></i>
+            </button>
             <button type="button" class="toolbar__share-btn" id="share-btn" data-testid="share-btn">Share</button>
           </div>
 
 <input
             id="load-document-input"
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,text/html,.html,.htm"
             hidden
             data-testid="load-document-input"
           />
 
           <!-- Floating panels (absolutely positioned below toolbar) -->
           <div
-            id="arrange-controls"
-            class="toolbar__floating-panel toolbar__cluster"
-            data-testid="arrange-controls"
-            hidden
-          >
-            <button id="save-focus" class="ghost-button" type="button" data-testid="save-focus">
-              Save Focus
-            </button>
-            <button
-              id="focus-position-mode"
-              class="ghost-button"
-              type="button"
-              aria-pressed="false"
-              data-testid="focus-position-mode"
-            >
-              Focus: Absolute
-            </button>
-          </div>
-
-          <div
-            id="brush-controls"
-            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__brush-panel"
-            data-testid="brush-controls"
+            id="shape-panel"
+            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel toolbar__button-panel"
+            data-testid="shape-panel"
             hidden
           >
             <div
-              id="brush-type-controls"
-              class="toolbar__brush-types"
-              data-testid="brush-type-controls"
+              id="shape-panel-type-controls"
+              class="toolbar__shape-types"
+              role="group"
+              aria-label="Shape type"
+              data-testid="shape-panel-type-controls"
             >
               <button
-                class="toolbar__brush-type-button"
+                class="toolbar__shape-type-button"
                 type="button"
-                data-brush-tool-id="pen"
-                data-testid="brush-type-pen"
+                title="Rectangle"
+                aria-label="Rectangle"
+                data-shape-type="rectangle"
+                data-testid="shape-panel-type-rectangle"
               >
-                <i data-lucide="pen" aria-hidden="true"></i>
-                <span>Pen</span>
+                <i data-lucide="square" aria-hidden="true"></i>
               </button>
               <button
-                class="toolbar__brush-type-button"
+                class="toolbar__shape-type-button"
                 type="button"
-                data-brush-tool-id="pencil"
-                data-testid="brush-type-pencil"
+                title="Oval / Circle"
+                aria-label="Oval / Circle"
+                data-shape-type="oval"
+                data-testid="shape-panel-type-oval"
               >
-                <i data-lucide="pencil" aria-hidden="true"></i>
-                <span>Pencil</span>
+                <i data-lucide="circle" aria-hidden="true"></i>
               </button>
               <button
-                class="toolbar__brush-type-button"
+                class="toolbar__shape-type-button"
                 type="button"
-                data-brush-tool-id="highlighter"
-                data-testid="brush-type-highlighter"
+                title="Rhombus"
+                aria-label="Rhombus"
+                data-shape-type="rhombus"
+                data-testid="shape-panel-type-rhombus"
               >
-                <i data-lucide="highlighter" aria-hidden="true"></i>
-                <span>Highlighter</span>
+                <i data-lucide="diamond" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Triangle"
+                aria-label="Triangle"
+                data-shape-type="triangle"
+                data-testid="shape-panel-type-triangle"
+              >
+                <i data-lucide="triangle" aria-hidden="true"></i>
               </button>
             </div>
 
-            <label class="toolbar__field toolbar__field--slider">
-              <span id="stroke-width-label" class="toolbar__sr-only">Brush width</span>
-              <input
-                id="stroke-width"
-                type="range"
-                min="1"
-                max="24"
-                value="4"
-                data-testid="stroke-width"
-                aria-labelledby="stroke-width-label"
-              />
-              <output id="stroke-width-value" data-testid="stroke-width-value">4</output>
-            </label>
+            <div
+              class="toolbar__button-tools"
+              role="group"
+              aria-label="Shape appearance"
+            >
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--font-size">
+                <button
+                  id="shape-font-size-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Font size"
+                  aria-label="Font size"
+                  data-testid="shape-style-font-size"
+                >
+                  <span class="toolbar__button-font-size-icon" aria-hidden="true">
+                    <span class="toolbar__button-font-size-a">A</span>
+                    <span class="toolbar__button-font-size-mark"></span>
+                  </span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape font size settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="shape-font-size-label">Font size</span>
+                    <input
+                      id="shape-font-size"
+                      type="range"
+                      min="8"
+                      max="72"
+                      step="1"
+                      value="18"
+                      data-testid="shape-font-size"
+                      aria-labelledby="shape-font-size-label"
+                      title="Font size: 18"
+                    />
+                    <output id="shape-font-size-value" data-testid="shape-font-size-value" title="Font size: 18">18</output>
+                  </label>
+                </div>
+              </div>
 
-            <label class="toolbar__field">
-              <span class="toolbar__sr-only">Brush color</span>
-              <input id="stroke-color" type="color" value="#1f6feb" data-testid="stroke-color" aria-label="Brush color" />
-            </label>
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color" data-popover-role="color">
+                <button
+                  id="shape-text-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Text color"
+                  aria-label="Text color"
+                  data-testid="shape-style-text-color"
+                >
+                  <span class="toolbar__button-text-icon" aria-hidden="true">A</span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape text color settings">
+                  <div class="toolbar__button-color-grid" id="shape-text-swatches" aria-label="Shape text colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom text color">
+                    <span class="toolbar__sr-only">Custom text color</span>
+                    <input
+                      id="shape-text-color"
+                      type="color"
+                      value="#2d2d2d"
+                      aria-label="Custom text color"
+                      title="Text color"
+                      data-testid="shape-text-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color" data-popover-role="color">
+                <button
+                  id="shape-fill-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Fill color"
+                  aria-label="Fill color"
+                  data-testid="shape-style-fill"
+                >
+                  <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape fill settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="shape-opacity-label">Opacity</span>
+                    <input
+                      id="shape-opacity"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="0"
+                      data-testid="shape-opacity"
+                      aria-labelledby="shape-opacity-label"
+                      title="Opacity: 0%"
+                    />
+                    <output id="shape-opacity-value" data-testid="shape-opacity-value" title="Opacity: 0%">0%</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="shape-fill-swatches" aria-label="Shape fill colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom fill color">
+                    <span class="toolbar__sr-only">Custom fill color</span>
+                    <input
+                      id="shape-fill-color"
+                      type="color"
+                      value="#ffffff"
+                      aria-label="Custom fill color"
+                      title="Fill color"
+                      data-testid="shape-fill-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--border-style" data-popover-role="color">
+                <button
+                  id="shape-border-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Border color"
+                  aria-label="Border color"
+                  data-testid="shape-style-border"
+                >
+                  <span class="toolbar__button-border-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Shape border settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="shape-stroke-width-label">Thickness</span>
+                    <input
+                      id="shape-stroke-width"
+                      type="range"
+                      min="0"
+                      max="24"
+                      value="2"
+                      data-testid="shape-stroke-width"
+                      aria-labelledby="shape-stroke-width-label"
+                      title="Thickness: 2"
+                    />
+                    <output id="shape-stroke-width-value" data-testid="shape-stroke-width-value" title="Thickness: 2">2</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="shape-border-swatches" aria-label="Shape border colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom border color">
+                    <span class="toolbar__sr-only">Custom border color</span>
+                    <input
+                      id="shape-stroke-color"
+                      type="color"
+                      value="#000000"
+                      aria-label="Custom border color"
+                      title="Border color"
+                      data-testid="shape-stroke-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-connect-tool">
+                <button
+                  id="shape-connect-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Connect to"
+                  aria-label="Connect to"
+                  data-testid="shape-connect"
+                >
+                  <i data-lucide="link-2" aria-hidden="true"></i>
+                </button>
+              </div>
+
+              <div
+                class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__shape-layer-tool"
+                data-popover-offset="none"
+              >
+                <button
+                  id="shape-layer-menu-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Layer order"
+                  aria-label="Layer order"
+                  data-testid="shape-layer-menu"
+                >
+                  <i data-lucide="ellipsis" aria-hidden="true"></i>
+                </button>
+                <div class="toolbar__button-style-popover toolbar__shape-layer-popover" role="menu" aria-label="Shape layer order">
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-shape-layer-action="bring-forward"
+                    data-testid="shape-layer-bring-forward"
+                  >
+                    Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-shape-layer-action="send-backward"
+                    data-testid="shape-layer-send-backward"
+                  >
+                    Send Backward
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="button-controls"
+            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel toolbar__button-panel"
+            data-testid="button-controls"
+            hidden
+          >
+            <div
+              id="button-type-controls"
+              class="toolbar__shape-types"
+              role="group"
+              aria-label="Button shape"
+              data-testid="button-type-controls"
+            >
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Rounded"
+                aria-label="Rounded"
+                data-button-shape-type="rounded"
+                data-testid="button-type-rounded"
+              >
+                <i data-lucide="square-round-corner" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Rectangle"
+                aria-label="Rectangle"
+                data-button-shape-type="rectangle"
+                data-testid="button-type-rectangle"
+              >
+                <i data-lucide="square" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Oval / Circle"
+                aria-label="Oval / Circle"
+                data-button-shape-type="oval"
+                data-testid="button-type-oval"
+              >
+                <i data-lucide="circle" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Rhombus"
+                aria-label="Rhombus"
+                data-button-shape-type="rhombus"
+                data-testid="button-type-rhombus"
+              >
+                <i data-lucide="diamond" aria-hidden="true"></i>
+              </button>
+              <button
+                class="toolbar__shape-type-button"
+                type="button"
+                title="Triangle"
+                aria-label="Triangle"
+                data-button-shape-type="triangle"
+                data-testid="button-type-triangle"
+              >
+                <i data-lucide="triangle" aria-hidden="true"></i>
+              </button>
+            </div>
 
             <div
-              id="recent-colors"
-              class="toolbar__recent-colors"
-              data-testid="recent-colors"
-            ></div>
-
-            <button
-              id="clear-strokes"
-              class="ghost-button"
-              type="button"
-              title="Clear all strokes"
-              aria-label="Clear all strokes"
-              data-testid="clear-strokes"
-              hidden
+              class="toolbar__button-tools"
+              role="group"
+              aria-label="Button appearance"
             >
-              Clear Strokes
-            </button>
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--font-size">
+                <button
+                  id="button-font-size-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Font size"
+                  aria-label="Font size"
+                  data-testid="button-style-font-size"
+                >
+                  <span class="toolbar__button-font-size-icon" aria-hidden="true">
+                    <span class="toolbar__button-font-size-a">A</span>
+                    <span class="toolbar__button-font-size-mark"></span>
+                  </span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Button font size settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="button-font-size-label">Font size</span>
+                    <input
+                      id="button-font-size"
+                      type="range"
+                      min="8"
+                      max="72"
+                      step="1"
+                      value="16"
+                      data-testid="button-font-size"
+                      aria-labelledby="button-font-size-label"
+                      title="Font size: 16"
+                    />
+                    <output id="button-font-size-value" data-testid="button-font-size-value" title="Font size: 16">16</output>
+                  </label>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color" data-popover-role="color">
+                <button
+                  id="button-text-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Text color"
+                  aria-label="Text color"
+                  data-testid="button-style-text-color"
+                >
+                  <span class="toolbar__button-text-icon" aria-hidden="true">A</span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Button text color settings">
+                  <div class="toolbar__button-color-grid" id="button-text-swatches" aria-label="Button text colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom text color">
+                    <span class="toolbar__sr-only">Custom text color</span>
+                    <input
+                      id="button-text-color"
+                      type="color"
+                      value="#5b3b12"
+                      aria-label="Custom text color"
+                      title="Text color"
+                      data-testid="button-text-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color" data-popover-role="color">
+                <button
+                  id="button-fill-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Fill color"
+                  aria-label="Fill color"
+                  data-testid="button-style-fill"
+                >
+                  <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Button fill settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="button-opacity-label">Opacity</span>
+                    <input
+                      id="button-opacity"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="1"
+                      data-testid="button-opacity"
+                      aria-labelledby="button-opacity-label"
+                      title="Opacity: 100%"
+                    />
+                    <output id="button-opacity-value" data-testid="button-opacity-value" title="Opacity: 100%">100%</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="button-fill-swatches" aria-label="Button fill colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom fill color">
+                    <span class="toolbar__sr-only">Custom fill color</span>
+                    <input
+                      id="button-fill-color"
+                      type="color"
+                      value="#f7e7c6"
+                      aria-label="Custom fill color"
+                      title="Fill color"
+                      data-testid="button-fill-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--border-style" data-popover-role="color">
+                <button
+                  id="button-border-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Border color"
+                  aria-label="Border color"
+                  data-testid="button-style-border"
+                >
+                  <span class="toolbar__button-border-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Button border settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="button-stroke-width-label">Thickness</span>
+                    <input
+                      id="button-stroke-width"
+                      type="range"
+                      min="0"
+                      max="24"
+                      value="2"
+                      data-testid="button-stroke-width"
+                      aria-labelledby="button-stroke-width-label"
+                      title="Thickness: 2"
+                    />
+                    <output id="button-stroke-width-value" data-testid="button-stroke-width-value" title="Thickness: 2">2</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="button-border-swatches" aria-label="Button border colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom border color">
+                    <span class="toolbar__sr-only">Custom border color</span>
+                    <input
+                      id="button-stroke-color"
+                      type="color"
+                      value="#b9782f"
+                      aria-label="Custom border color"
+                      title="Border color"
+                      data-testid="button-stroke-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-connect-tool">
+                <button
+                  id="button-connect-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Connect to"
+                  aria-label="Connect to"
+                  data-testid="button-connect"
+                >
+                  <i data-lucide="link-2" aria-hidden="true"></i>
+                </button>
+              </div>
+
+              <div
+                class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-layer-tool"
+                data-popover-offset="none"
+              >
+                <button
+                  id="button-layer-menu-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Layer order"
+                  aria-label="Layer order"
+                  data-testid="button-layer-menu"
+                >
+                  <i data-lucide="ellipsis" aria-hidden="true"></i>
+                </button>
+                <div class="toolbar__button-style-popover toolbar__button-layer-popover" role="menu" aria-label="Button layer order">
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-button-layer-action="bring-forward"
+                    data-testid="button-layer-bring-forward"
+                  >
+                    Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-button-layer-action="send-backward"
+                    data-testid="button-layer-send-backward"
+                  >
+                    Send Backward
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="sticky-panel"
+            class="toolbar__floating-panel toolbar__cluster toolbar__tool-panel toolbar__shape-panel toolbar__button-panel"
+            data-testid="sticky-panel"
+            hidden
+          >
+            <div
+              class="toolbar__button-tools"
+              role="group"
+              aria-label="Sticky note appearance"
+            >
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--font-size">
+                <button
+                  id="sticky-font-size-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Font size"
+                  aria-label="Font size"
+                  data-testid="sticky-style-font-size"
+                >
+                  <span class="toolbar__button-font-size-icon" aria-hidden="true">
+                    <span class="toolbar__button-font-size-a">A</span>
+                    <span class="toolbar__button-font-size-mark"></span>
+                  </span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note font size settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="sticky-font-size-label">Font size</span>
+                    <input
+                      id="sticky-font-size"
+                      type="range"
+                      min="12"
+                      max="72"
+                      step="1"
+                      value="20"
+                      data-testid="sticky-font-size"
+                      aria-labelledby="sticky-font-size-label"
+                      title="Font size: 20"
+                    />
+                    <output id="sticky-font-size-value" data-testid="sticky-font-size-value" title="Font size: 20">20</output>
+                  </label>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--text-color" data-popover-role="color">
+                <button
+                  id="sticky-text-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Text color"
+                  aria-label="Text color"
+                  data-testid="sticky-style-text-color"
+                >
+                  <span class="toolbar__button-text-icon" aria-hidden="true">A</span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note text color settings">
+                  <div class="toolbar__button-color-grid" id="sticky-text-swatches" aria-label="Sticky note text colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom text color">
+                    <span class="toolbar__sr-only">Custom text color</span>
+                    <input
+                      id="sticky-text-color"
+                      type="color"
+                      value="#47361c"
+                      aria-label="Custom text color"
+                      title="Text color"
+                      data-testid="sticky-text-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__button-tool--fill-color" data-popover-role="color">
+                <button
+                  id="sticky-fill-style-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Fill color"
+                  aria-label="Fill color"
+                  data-testid="sticky-style-fill"
+                >
+                  <span class="toolbar__button-fill-icon" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__button-style-popover" role="group" aria-label="Sticky note fill settings">
+                  <label class="toolbar__button-style-row">
+                    <span id="sticky-opacity-label">Opacity</span>
+                    <input
+                      id="sticky-opacity"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="1"
+                      data-testid="sticky-opacity"
+                      aria-labelledby="sticky-opacity-label"
+                      title="Opacity: 100%"
+                    />
+                    <output id="sticky-opacity-value" data-testid="sticky-opacity-value" title="Opacity: 100%">100%</output>
+                  </label>
+                  <div class="toolbar__button-color-grid" id="sticky-fill-swatches" aria-label="Sticky note fill colors"></div>
+                  <div class="toolbar__button-custom-color" title="Custom fill color">
+                    <span class="toolbar__sr-only">Custom fill color</span>
+                    <input
+                      id="sticky-fill-color"
+                      type="color"
+                      value="#ffe082"
+                      aria-label="Custom fill color"
+                      title="Fill color"
+                      data-testid="sticky-fill-color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="toolbar__button-style-tool toolbar__button-connect-tool">
+                <button
+                  id="sticky-connect-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Connect to"
+                  aria-label="Connect to"
+                  data-testid="sticky-connect"
+                >
+                  <i data-lucide="link-2" aria-hidden="true"></i>
+                </button>
+              </div>
+
+              <div
+                class="toolbar__button-style-tool toolbar__button-popover-tool toolbar__sticky-layer-tool"
+                data-popover-offset="none"
+              >
+                <button
+                  id="sticky-layer-menu-trigger"
+                  class="toolbar__button-style-trigger"
+                  type="button"
+                  title="Layer order"
+                  aria-label="Layer order"
+                  data-testid="sticky-layer-menu"
+                >
+                  <i data-lucide="ellipsis" aria-hidden="true"></i>
+                </button>
+                <div class="toolbar__button-style-popover toolbar__sticky-layer-popover" role="menu" aria-label="Sticky note layer order">
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-sticky-layer-action="bring-forward"
+                    data-testid="sticky-layer-bring-forward"
+                  >
+                    Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    class="toolbar__shape-layer-action"
+                    data-sticky-layer-action="send-backward"
+                    data-testid="sticky-layer-send-backward"
+                  >
+                    Send Backward
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 

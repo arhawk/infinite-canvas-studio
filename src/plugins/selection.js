@@ -4,6 +4,7 @@ import {
   BasePlugin,
   BaseTool,
 } from "../core/baseClasses.js";
+import { getViewportCenter } from "../lib/componentPlacement.js";
 import { Konva } from "../lib/konva.js";
 
 const GUIDE_TOLERANCE = 6;
@@ -26,6 +27,7 @@ class DeleteSelectionCommand extends BaseCommand {
     edit: {
       tools: {
         arrange: {},
+        shape: {},
       },
     },
   };
@@ -42,6 +44,7 @@ class CopySelectionCommand extends BaseCommand {
     edit: {
       tools: {
         arrange: {},
+        shape: {},
       },
     },
   };
@@ -160,6 +163,14 @@ function isSelectableNode(node) {
   return !!node?.hasName?.("selectable");
 }
 
+function shouldAutoSelectAddedNode(node) {
+  if (!isSelectableNode(node)) return false;
+  if (node.getAttr?.("autoSelectOnAdd") === false) return false;
+  if (node.visible?.() === false || node.isVisible?.() === false) return false;
+  if (node.listening?.() === false || node.isListening?.() === false) return false;
+  return true;
+}
+
 function resolveSelectableNode(target) {
   if (!target) return null;
   return target.findAncestor?.(".selectable", true) ?? (target.hasName?.("selectable") ? target : null);
@@ -252,6 +263,57 @@ function normalizePoint(value = {}, fallback = { x: 0, y: 0 }) {
   return {
     x: Number.isFinite(value.x) ? value.x : fallback.x,
     y: Number.isFinite(value.y) ? value.y : fallback.y,
+  };
+}
+
+function normalizeRect(rect) {
+  if (
+    !Number.isFinite(rect?.x) ||
+    !Number.isFinite(rect?.y) ||
+    !Number.isFinite(rect?.width) ||
+    !Number.isFinite(rect?.height)
+  ) {
+    return null;
+  }
+
+  return {
+    x: rect.x,
+    y: rect.y,
+    width: Math.max(0, rect.width),
+    height: Math.max(0, rect.height),
+  };
+}
+
+function pointRect(point) {
+  const normalized = normalizePoint(point);
+  return {
+    x: normalized.x,
+    y: normalized.y,
+    width: 0,
+    height: 0,
+  };
+}
+
+function unionRects(rects = []) {
+  const validRects = rects.map(normalizeRect).filter(Boolean);
+  if (!validRects.length) return null;
+
+  const minX = Math.min(...validRects.map((rect) => rect.x));
+  const minY = Math.min(...validRects.map((rect) => rect.y));
+  const maxX = Math.max(...validRects.map((rect) => rect.x + rect.width));
+  const maxY = Math.max(...validRects.map((rect) => rect.y + rect.height));
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function rectCenter(rect) {
+  return {
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
   };
 }
 
@@ -412,11 +474,17 @@ export class SelectionPlugin extends BasePlugin {
       if (this.app.isReplayingHistory || this.app.isRestoringDocument) {
         return;
       }
+      if (!shouldAutoSelectAddedNode(node)) {
+        return;
+      }
       this.setSelected([node]);
       if (this.app.getMode() !== "edit") {
         this.app.setMode("edit");
       }
-      if (this.app.getEditorTool() !== "arrange") {
+      const shouldKeepShapeTool =
+        this.app.getEditorTool() === "shape" &&
+        node.getAttr("componentType") === "shape";
+      if (!shouldKeepShapeTool && this.app.getEditorTool() !== "arrange") {
         this.app.setEditorTool("arrange");
       }
     });
@@ -444,6 +512,7 @@ export class SelectionPlugin extends BasePlugin {
     });
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
+    stage.on("dblclick.selection dbltap.selection", (event) => this.handleDoubleClick(event));
     stage.on("mousedown.selection touchstart.selection", (event) => this.handlePointerDown(event));
     stage.on("mousemove.selection touchmove.selection", () => this.handlePointerMove());
     stage.on("mouseup.selection touchend.selection", () => this.handlePointerUp());
@@ -459,7 +528,15 @@ export class SelectionPlugin extends BasePlugin {
 
   syncMode() {
     const enabled = this.isEnabled();
+    const shapeToolActive = this.app.getEditorTool() === "shape";
     if (!enabled && this.selectedNodes.length) {
+      this.clearSelection();
+    }
+    if (
+      enabled &&
+      shapeToolActive &&
+      this.selectedNodes.some((node) => node.getAttr("componentType") !== "shape")
+    ) {
       this.clearSelection();
     }
     if (!enabled) {
@@ -560,7 +637,8 @@ export class SelectionPlugin extends BasePlugin {
       primaryType === "sticky" ||
       primaryType === "page" ||
       primaryType === "iframe" ||
-      primaryType === "javascriptEditor"
+      primaryType === "javascriptEditor" ||
+      primaryType === "shape"
     );
     const isMultiSelection = transformableNodes.length > 1;
 
@@ -791,7 +869,55 @@ export class SelectionPlugin extends BasePlugin {
       .map((snapshot) => clonePlainData(snapshot));
   }
 
-  prepareSnapshotsForPaste(snapshots = []) {
+  async getSnapshotCanvasBounds(snapshot = {}) {
+    const fallback = pointRect(snapshot);
+    const component = this.app.components.get(snapshot.type);
+    if (!component?.createNode) return fallback;
+
+    let probeNode = null;
+    try {
+      const payload = typeof component.getRestorePayload === "function"
+        ? component.getRestorePayload(snapshot)
+        : {
+            x: snapshot.x ?? 0,
+            y: snapshot.y ?? 0,
+            ...(clonePlainData(snapshot.data) ?? {}),
+          };
+
+      probeNode = await component.createNode(payload);
+      if (!probeNode?.getClientRect) return fallback;
+
+      probeNode.position(normalizePoint(snapshot));
+      probeNode.rotation(Number.isFinite(snapshot.rotation) ? snapshot.rotation : 0);
+      probeNode.scaleX(Number.isFinite(snapshot.scaleX) ? snapshot.scaleX : 1);
+      probeNode.scaleY(Number.isFinite(snapshot.scaleY) ? snapshot.scaleY : 1);
+
+      return normalizeRect(probeNode.getClientRect()) ?? fallback;
+    } catch {
+      return fallback;
+    } finally {
+      probeNode?.destroy?.();
+    }
+  }
+
+  async getPasteOffsetForSnapshots(regularSnapshots = []) {
+    const rootSnapshots = regularSnapshots.filter((snapshot) => !snapshot.parentId);
+    if (!rootSnapshots.length) return { x: 0, y: 0 };
+
+    const bounds = unionRects(await Promise.all(
+      rootSnapshots.map((snapshot) => this.getSnapshotCanvasBounds(snapshot)),
+    ));
+    if (!bounds) return { x: 0, y: 0 };
+
+    const currentCenter = rectCenter(bounds);
+    const targetCenter = getViewportCenter(this.app);
+    return {
+      x: targetCenter.x + PASTE_OFFSET - currentCenter.x,
+      y: targetCenter.y + PASTE_OFFSET - currentCenter.y,
+    };
+  }
+
+  async prepareSnapshotsForPaste(snapshots = []) {
     const sourceIds = new Set(snapshots.map((snapshot) => snapshot.id).filter(Boolean));
     const idMap = new Map();
     sourceIds.forEach((id) => {
@@ -799,7 +925,7 @@ export class SelectionPlugin extends BasePlugin {
       idMap.set(id, `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
     });
 
-    return snapshots
+    const prepared = snapshots
       .filter((snapshot) => {
         if (!isConnectionSnapshot(snapshot)) return true;
         return sourceIds.has(snapshot.data?.sourceNodeId) && sourceIds.has(snapshot.data?.targetNodeId);
@@ -818,17 +944,32 @@ export class SelectionPlugin extends BasePlugin {
             targetNodeId: idMap.get(snapshot.data?.targetNodeId),
           };
         } else {
-          next.x = (Number.isFinite(snapshot.x) ? snapshot.x : 0) + PASTE_OFFSET;
-          next.y = (Number.isFinite(snapshot.y) ? snapshot.y : 0) + PASTE_OFFSET;
+          next.x = Number.isFinite(snapshot.x) ? snapshot.x : 0;
+          next.y = Number.isFinite(snapshot.y) ? snapshot.y : 0;
         }
 
         return next;
       });
+
+    const regularSnapshots = prepared.filter((snapshot) => !isConnectionSnapshot(snapshot));
+    const offset = await this.getPasteOffsetForSnapshots(regularSnapshots);
+
+    return prepared.map((snapshot) => {
+      if (isConnectionSnapshot(snapshot) || snapshot.parentId) {
+        return snapshot;
+      }
+
+      return {
+        ...snapshot,
+        x: (Number.isFinite(snapshot.x) ? snapshot.x : 0) + offset.x,
+        y: (Number.isFinite(snapshot.y) ? snapshot.y : 0) + offset.y,
+      };
+    });
   }
 
   async pasteSnapshots(snapshots = []) {
     if (!this.isEnabled()) return [];
-    const prepared = this.prepareSnapshotsForPaste(snapshots);
+    const prepared = await this.prepareSnapshotsForPaste(snapshots);
     if (!prepared.length) return [];
 
     const regularSnapshots = prepared.filter((snapshot) => !isConnectionSnapshot(snapshot));
@@ -955,7 +1096,11 @@ export class SelectionPlugin extends BasePlugin {
 
   syncNodeInteractivity(node) {
     if (!node?.hasName?.("selectable")) return;
-    node.draggable(Boolean(node.getAttr("baseDraggable")) && this.isEnabled());
+    const shapeToolActive = this.app.getEditorTool() === "shape";
+    const canUseSelection = this.isEnabled() && (
+      !shapeToolActive || node.getAttr("componentType") === "shape"
+    );
+    node.draggable(Boolean(node.getAttr("baseDraggable")) && canUseSelection);
   }
 
   bindNodeChangeSync(node) {
@@ -963,6 +1108,13 @@ export class SelectionPlugin extends BasePlugin {
     node.off(".selectionSync");
     node.on("dragstart.selectionSync transformstart.selectionSync", () => {
       if (!node.getStage?.()) return;
+      if (
+        this.app.getEditorTool() === "shape" &&
+        node.getAttr("componentType") === "shape" &&
+        !this.selectedNodes.includes(node)
+      ) {
+        this.setSelected([node]);
+      }
       this.app.events.emit("node:change:start", { node });
     });
     node.on("dragmove.selectionSync transform.selectionSync", (event) => {
@@ -977,7 +1129,8 @@ export class SelectionPlugin extends BasePlugin {
           node.getAttr("componentType") === "sticky" ||
           node.getAttr("componentType") === "page" ||
           node.getAttr("componentType") === "iframe" ||
-          node.getAttr("componentType") === "javascriptEditor"
+          node.getAttr("componentType") === "javascriptEditor" ||
+          node.getAttr("componentType") === "shape"
         )
       ) {
         this.transformer.forceUpdate();
@@ -1241,7 +1394,8 @@ export class SelectionPlugin extends BasePlugin {
   }
 
   handleClick(event) {
-    if (this.app.tools.getActive() !== "arrange") return;
+    const activeTool = this.app.tools.getActive();
+    if (activeTool !== "arrange" && activeTool !== "shape") return;
     let targetNode = event.target;
     if (targetNode === this.stage && typeof this.stage?.getIntersection === "function") {
       const pointer = this.stage.getPointerPosition() ?? (() => {
@@ -1290,6 +1444,9 @@ export class SelectionPlugin extends BasePlugin {
       this.clearSelection();
       return;
     }
+    if (activeTool === "shape" && target.getAttr("componentType") !== "shape") {
+      return;
+    }
     const isMulti = Boolean(event.evt?.metaKey || event.evt?.ctrlKey);
     if (!isMulti) {
       this.setSelected([target]);
@@ -1302,6 +1459,31 @@ export class SelectionPlugin extends BasePlugin {
       return;
     }
     this.setSelected([...this.selectedNodes, target]);
+  }
+
+  handleDoubleClick(event) {
+    const activeTool = this.app.tools.getActive();
+    if (activeTool !== "arrange" && activeTool !== "shape") return;
+    if (event.evt?.button != null && event.evt.button !== 0) return;
+    if (event?.evt && typeof this.stage?.setPointersPositions === "function") {
+      this.stage.setPointersPositions(event.evt);
+    }
+
+    const target = this.getSelectable(event.target);
+    const selectedShape =
+      this.selectedNodes.length === 1 &&
+      this.selectedNodes[0]?.getAttr?.("componentType") === "shape"
+        ? this.selectedNodes[0]
+        : null;
+    const shapeTarget = target?.getAttr?.("componentType") === "shape"
+      ? target
+      : selectedShape && this.isPointerInsideNode(selectedShape)
+        ? selectedShape
+        : null;
+    if (!shapeTarget) return;
+
+    event.cancelBubble = true;
+    shapeTarget.openInlineEditor?.(event);
   }
 
   handleSnapMove(event) {

@@ -10,8 +10,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "export:html": "SINGLE_FILE_EXPORT=1 vite build --outDir dist-single-html",
+    "server": "node server/src/index.js",
+    "build": "vite build && node scripts/build-export-template.mjs",
     "preview": "vite preview",
     "test": "pnpm test:smoke && pnpm test:unit && pnpm test:e2e",
     "test:smoke": "pnpm build",
@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "konva": "^9.3.22",
-    "lucide": "^0.577.0"
+    "lucide": "^0.577.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",

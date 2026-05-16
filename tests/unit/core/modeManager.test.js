@@ -3,7 +3,7 @@ import { ModeManager } from "../../../src/core/modeManager.js";
 
 function createToolRegistry() {
   return {
-    has: vi.fn((toolId) => toolId === "arrange" || toolId === "brush"),
+    has: vi.fn((toolId) => ["arrange", "brush", "pen", "eraser"].includes(toolId)),
     setActive: vi.fn(),
   };
 }
@@ -68,5 +68,33 @@ describe("ModeManager", () => {
     manager.setEditorTool("brush");
 
     expect(manager.isEnabled("feature:test")).toBe(false);
+  });
+
+  it("normalizes brush tools back to arrange when entering presentation mode", () => {
+    const eventBus = { emit: vi.fn() };
+    const toolRegistry = createToolRegistry();
+    const manager = new ModeManager({ eventBus, toolRegistry });
+
+    manager.setEditorTool("pen");
+    expect(manager.getEditorTool()).toBe("pen");
+
+    manager.setMode("presentation");
+
+    expect(manager.getEditorTool()).toBe("arrange");
+    expect(toolRegistry.setActive).toHaveBeenLastCalledWith(null);
+  });
+
+  it("allows brush tools and eraser to be activated after entering presentation mode", () => {
+    const manager = new ModeManager({
+      eventBus: { emit: vi.fn() },
+      toolRegistry: createToolRegistry(),
+    });
+
+    manager.setMode("presentation");
+    manager.setEditorTool("pen");
+    expect(manager.getEditorTool()).toBe("pen");
+
+    manager.setEditorTool("eraser");
+    expect(manager.getEditorTool()).toBe("eraser");
   });
 });

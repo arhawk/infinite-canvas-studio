@@ -3,6 +3,7 @@ import {
   DOCUMENT_SCHEMA_VERSION,
   normalizeDocumentSnapshot,
 } from "../../../src/document/schema.js";
+import { DEFAULT_BACKGROUND_STATE } from "../../../src/background/state.js";
 
 describe("document schema", () => {
   it("normalizes a valid document snapshot with defaults", () => {
@@ -33,6 +34,7 @@ describe("document schema", () => {
           y: 0,
         },
       },
+      background: DEFAULT_BACKGROUND_STATE,
     });
     expect(normalized.nodes[0]).toMatchObject({
       id: "sticky-1",
@@ -66,5 +68,47 @@ describe("document schema", () => {
         { id: "sticky-1", type: "text" },
       ],
     })).toThrow(/Duplicate node id/);
+  });
+
+  it("keeps explicit background settings and falls back for old documents without one", () => {
+    const explicit = normalizeDocumentSnapshot({
+      documentId: "document-2",
+      background: {
+        type: "warm-paper",
+        color: "#ead7b1",
+      },
+    });
+    const legacy = normalizeDocumentSnapshot({
+      documentId: "document-3",
+    });
+
+    expect(explicit.background).toEqual({
+      type: "warm-paper",
+      color: "#ead7b1",
+      opacity: 1,
+    });
+    expect(legacy.background).toEqual(DEFAULT_BACKGROUND_STATE);
+  });
+
+  it("normalizes background opacity and falls back to default for invalid values", () => {
+    const valid = normalizeDocumentSnapshot({
+      documentId: "document-4",
+      background: {
+        type: "solid",
+        color: "#c8d8f0",
+        opacity: 0.35,
+      },
+    });
+    const invalid = normalizeDocumentSnapshot({
+      documentId: "document-5",
+      background: {
+        type: "solid",
+        color: "#c8d8f0",
+        opacity: "oops",
+      },
+    });
+
+    expect(valid.background.opacity).toBe(0.35);
+    expect(invalid.background.opacity).toBe(1);
   });
 });

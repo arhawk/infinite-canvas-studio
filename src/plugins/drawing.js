@@ -67,12 +67,12 @@ class ClearStrokesCommand extends BaseCommand {
   static commandId = "drawing:clear-strokes";
   static label = "Clear All Strokes";
   static modes = {
-    presentation: {},
     edit: {
       tools: {
         eraser: {},
       },
     },
+    presentation: {},
   };
 
   execute() {
@@ -83,7 +83,6 @@ class ClearStrokesCommand extends BaseCommand {
 export class DrawingPlugin extends BasePlugin {
   static pluginId = "drawing";
   static modes = {
-    presentation: {},
     edit: {
       tools: {
         pen: {},
@@ -92,6 +91,7 @@ export class DrawingPlugin extends BasePlugin {
         eraser: {},
       },
     },
+    presentation: {},
   };
 
   tools() {

@@ -19,6 +19,7 @@ The app includes:
 - Pen, pencil, highlighter, text annotation, and whole-stroke erasing
 - Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
 - Local JSON save/load plus single-file HTML export with embedded snapshots
+- Online room sharing through a stateless room relay with optional host passwords, QR links, and viewer camera modes
 - Container system with parent-child grouping and arbitrary component-to-component connections
 - Catalog outline, branch collapse, minimap, page compare, attachments, timer, and calculator helpers
 - Per-page and per-node focus attributes used by presentation jumps
@@ -58,6 +59,10 @@ Most common failure mode:
 
 - the component looks correct when first created, but it does not serialize its own content, so undo/redo or import restores a stale node
 
+Feature implementation constraint:
+
+- When implementing application features, do not change backend/server code. Keep feature work inside the frontend application unless the user explicitly requests backend changes.
+
 ## Tech Stack
 
 - Package manager: pnpm
@@ -66,20 +71,24 @@ Most common failure mode:
 - Canvas library: Konva.js
 - Icon library: Lucide Icons
 - Styling: Plain CSS
+- Room relay: Node.js HTTP and WebSocket server
 
 ## Run Commands
 
 - Install dependencies: `pnpm install`
 - Start local dev server: `pnpm dev`
+- Start room relay server: `pnpm run server`
 - Build static output: `pnpm build`
-- Export a single self-contained HTML file: `pnpm export:html`
 - Preview production build: `pnpm preview`
 - Run unit tests: `pnpm test:unit`
-- Run E2E smoke tests: `pnpm test:e2e`
+- Run smoke build check: `pnpm test:smoke`
+- Run E2E browser tests: `pnpm test:e2e`
 - Run full local verification: `pnpm test`
 - First-time Playwright browser install on a new machine: `pnpm exec playwright install chromium`
 
 The Vite dev server is configured in [vite.config.js](vite.config.js) and runs at `http://localhost:3000`.
+The room relay server is started from the repository root with `pnpm run server`. The frontend's default room backend host is `au.baitian.moe:3001`; tests may override it with `window.__ROOM_BACKEND_HOST__`.
+`pnpm build` generates `dist/__export-template`, and runtime HTML export reads it through `/__export-template`.
 
 ## Project Structure
 
@@ -101,6 +110,19 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/document/schema.js](src/document/schema.js): Versioned JSON document schema normalization, defaults, and validation helpers
 - [src/document/serializer.js](src/document/serializer.js): Runtime document export/import helpers for nodes, drawings, viewport state, and layer reset / restore
 
+### Online Layer (`src/online/`)
+
+- [src/online/roomRoute.js](src/online/roomRoute.js): Four-digit room route parsing plus fixed backend API/WebSocket URL helpers
+- [src/online/roomHost.js](src/online/roomHost.js): Host-side room creation and WebSocket client construction
+- [src/online/roomViewer.js](src/online/roomViewer.js): Viewer-side WebSocket client construction
+- [src/online/roomClient.js](src/online/roomClient.js): Lightweight JSON WebSocket client wrapper
+
+### Room Server (`server/`)
+
+- [server/src/index.js](server/src/index.js): Node.js HTTP/WebSocket room relay entry point
+- [server/src/roomStore.js](server/src/roomStore.js): In-memory room state, four-digit room ids, host tokens, viewer sockets, and optional password hashes
+- [server/src/rateLimit.js](server/src/rateLimit.js): Request-rate limiting for room creation
+
 ### Core Infrastructure (`src/core/`)
 
 - [src/core/app.js](src/core/app.js): `App` class with lifecycle, stage wiring, registries, plugin mounting, and public API
@@ -121,12 +143,14 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 ### Plugins (`src/plugins/`)
 
 - [src/plugins/toolbar.js](src/plugins/toolbar.js): Toolbar UI plugin with icon-based tool buttons, mode toggle, history/document controls, drawing controls, center-map controls, and floating utility toggles
-- [src/plugins/sidebar.js](src/plugins/sidebar.js): Component palette plugin with drag/drop and generated Konva previews
+- [src/component/LeftToolbar/index.js](src/component/LeftToolbar/index.js): Left toolbar UI and trigger controls
+- [src/component/ComponentsDropdown/index.js](src/component/ComponentsDropdown/index.js): Primary component-add dropdown UI wired from left toolbar
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, multi-select, marquee select, copy/paste, image paste, snap guides, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with pen, pencil, highlighter, eraser, draw-layer visibility, and whole-stroke clear support
 - [src/plugins/annotator.js](src/plugins/annotator.js): Text annotation plugin for underline-style marking and erasing annotations on `text` and `sticky` content
 - [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
 - [src/plugins/document.js](src/plugins/document.js): Local document plugin with JSON export/import commands, file input handling, status toasts, and restore transactions that reset the history baseline
+- [src/plugins/roomShare.js](src/plugins/roomShare.js): Online room share/join UI, QR link rendering, host state/viewport broadcasting, viewer permission gating, and viewer/host camera switching
 - [src/plugins/componentEditor.js](src/plugins/componentEditor.js): Modal component editor plugin with class-driven field definitions, double-click open, Enter shortcut, and Apply/Cancel actions
 - [src/plugins/containers.js](src/plugins/containers.js): Container system plugin with capture/release logic
 - [src/plugins/connections.js](src/plugins/connections.js): Generic connection plugin with component-to-component linking, selectable curved connectors, and control handles
@@ -134,7 +158,7 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 - [src/plugins/catalogActions.js](src/plugins/catalogActions.js): Command plugin for adding selected nodes into the catalog data node
 - [src/plugins/catalogPanel.js](src/plugins/catalogPanel.js): Right-side outline panel for rendering, renaming, reordering, and reparenting catalog items
 - [src/plugins/mindMapBranch.js](src/plugins/mindMapBranch.js): Catalog-driven branch visibility plugin that hides descendant nodes under collapsed outline branches
-- [src/plugins/attachments.js](src/plugins/attachments.js): Attachment browser for attachment-capable components, including URLs, uploads, and File System Access directory handles
+- [src/plugins/attachmentsBookmarks.js](src/plugins/attachmentsBookmarks.js): Attachment/bookmark browser for attachment-capable components, including URLs, uploads, and File System Access directory handles
 - [src/plugins/pageCompare.js](src/plugins/pageCompare.js): Presentation-only page compare overlay with side-by-side snapshots
 - [src/plugins/minimap.js](src/plugins/minimap.js): Bottom-right minimap with viewport rectangle and selection laser marker
 - [src/plugins/centerMap.js](src/plugins/centerMap.js): Fit-all panorama toggle and zoom controls
@@ -146,10 +170,13 @@ The Vite dev server is configured in [vite.config.js](vite.config.js) and runs a
 
 - [tests/unit/core/](tests/unit/core/): Vitest unit tests for core infrastructure such as `EventBus`, `CommandRegistry`, `KeybindingRegistry`, `ModeManager`, and base classes
 - [tests/unit/document/](tests/unit/document/): Vitest coverage for document schema normalization, catalog serialization, and related helpers
+- [tests/unit/online/](tests/unit/online/): Vitest coverage for room route helpers and backend URL generation
+- [tests/unit/server/](tests/unit/server/): Vitest coverage for in-memory room storage, password checks, and rate limiting
 - [tests/unit/component/](tests/unit/component/): Unit coverage for complex overlay-driven components such as `iframe` and `javascriptEditor`
 - [tests/unit/mindMapBranch/](tests/unit/mindMapBranch/): Unit coverage for catalog-driven branch visibility
 - [tests/e2e/smoke.spec.js](tests/e2e/smoke.spec.js): Playwright smoke coverage for boot, mode toggle, palette add/delete flow, undo/redo add flow, brush drawing undo/redo, and whole-stroke erase undo/redo
 - [tests/e2e/features.spec.js](tests/e2e/features.spec.js): Playwright feature coverage for connections, button navigation, focus API, component editor editing, document roundtrip load, and undo/redo of node movement
+- [tests/e2e/room.spec.js](tests/e2e/room.spec.js): Playwright room coverage for create-room feedback, QR/link layout, password-protected joining, viewer camera modes, readiness, and unauthorized WebSocket messages
 
 ## Testing
 
@@ -159,6 +186,7 @@ The repository now has a local automated testing baseline:
 - Browser smoke and feature tests use `Playwright`
 - `pnpm test` runs build + unit tests + all Playwright E2E coverage
 - `playwright.config.js` starts the Vite dev server with `VITE_E2E=1`, which enables the browser-side test helpers in `src/testApi.js`
+- Room E2E tests start `server/src/index.js` on a free local port and override the frontend room backend host for that browser context
 - `src/testApi.js` now includes helpers for viewport control, node movement, connection creation, focus saving, component editor opening, document export/load, history reset, and undo/redo activation
 
 Testability conventions:
@@ -355,7 +383,7 @@ app.destroy()
 
 The app is split into three main regions:
 
-- Left sidebar: draggable component palette
+- Left toolbar + components dropdown: primary component-add entry
 - Top toolbar: tools plus contextual helper controls for the active tool
 - Main board: Konva infinite canvas
 - Right sidebar: catalog / outline panel
@@ -393,15 +421,15 @@ app.stageApi.getScreenSize()
 
 This is used for:
 
-- Dropping sidebar components onto the canvas
+- Dropping components from the components dropdown onto the canvas
 - Freehand drawing under pan and zoom
 - Positioning new content in canvas coordinates
 - Saving and restoring presentation focus views
 - Computing whether navigation buttons should appear on a viewport edge
 
-### 3. Sidebar Component Palette
+### 3. LeftToolbar + ComponentsDropdown Component Palette
 
-Implemented in [src/plugins/sidebar.js](src/plugins/sidebar.js).
+Implemented in [src/component/LeftToolbar/index.js](src/component/LeftToolbar/index.js) and [src/component/ComponentsDropdown/index.js](src/component/ComponentsDropdown/index.js).
 
 Available component types:
 
@@ -417,9 +445,9 @@ Available component types:
 
 Behavior:
 
-- Non-image components are draggable from the sidebar onto the canvas
+- Non-image components are draggable from the components dropdown onto the canvas
 - `Page` appears first in the palette and creates a fixed-size landscape page surface
-- Image icon in the sidebar is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
+- Image icon in the components dropdown is draggable and creates a placeholder on the canvas. Double-clicking the placeholder (or any image) opens the component editor to upload or change the image file.
 - `Iframe`, `JS Code Runner`, and `Local Video` use DOM overlays at runtime, but still participate in the same component registration and serialization flow as canvas-native nodes.
 - Drop coordinates are converted from screen space to canvas space.
 - Internal-only components such as `catalog`, `connection`, and legacy `container` are hidden from the palette via component metadata and are created programmatically or kept for compatibility.
@@ -456,7 +484,7 @@ Component rules:
 - `BaseComponent` marks component nodes with `name: "selectable"` and `componentType`
 - Components control their own Konva node creation through `createNode(payload)`
 - Components now support serialization / restoration hooks used by local history replay
-- Components can opt out of appearing in the sidebar by setting `static palette = false`
+- Components can opt out of appearing in the component picker by setting `static palette = false`
 - Text-like components reuse `EditableTextBehavior`
 - New components should be added by extending `BaseComponent`
 - For new components, the key extension contract is:
@@ -577,7 +605,35 @@ Known gaps in the current implementation:
 - Unknown component types are not yet treated as a hard compatibility failure; unsupported snapshots can currently be skipped during restore.
 - `schemaVersion` is validated, but there is no schema migration pipeline yet.
 
-### 9. Toolbar
+### 9. Online Room Sharing
+
+Implemented in [src/plugins/roomShare.js](src/plugins/roomShare.js), [src/online/](src/online/), and [server/](server/).
+
+Behavior:
+
+- The toolbar share button can create a room through the fixed room backend host.
+- The host may set an optional room password before creating the room.
+- While room creation is pending, the create button is disabled and shows a pending label so repeated clicks do not create duplicate requests.
+- After the room is created, the password input and create button are hidden. The popover shows a QR code with the share link below it.
+- Share links use the current frontend origin with a four-digit route such as `/room/1234`.
+- Share links do not include the host token or password.
+- Local `file://` HTML exports hide the Share button because local files cannot reliably use the hosted room backend.
+- Room viewers open the same app route and join through the viewer flow.
+- Viewers cannot enter edit mode, cannot open edit-only entry points, and cannot load documents.
+- Viewers can still use the existing save/export menu to download JSON or HTML. Once downloaded, that local copy has normal host-like editing capability.
+- Viewer mode uses the existing mode capsule labels as `Viewer` and `Host`.
+- `Host` camera mode follows the host viewport.
+- `Viewer` camera mode lets the viewer pan and zoom freely.
+- If a viewer pans or zooms while following the host, the app automatically switches to `Viewer` camera mode.
+
+Room relay constraints:
+
+- The server has no database and no user system.
+- Rooms, host tokens, optional password hashes, host sockets, and viewer sockets live only in memory.
+- The server only handles HTTP room creation and WebSocket message forwarding / authorization.
+- Application features should not change backend/server code unless the user explicitly requests backend changes.
+
+### 10. Toolbar
 
 Implemented in [src/plugins/toolbar.js](src/plugins/toolbar.js).
 
@@ -586,18 +642,12 @@ Controls:
 - Persistent mode toggle (Edit/View) centered at the top
 - Icon-based tool buttons (rendered from tool registry using Lucide Icons)
 - Icon-only undo / redo buttons rendered with Lucide icons
-- Icon-only save / load document buttons rendered with Lucide icons
-- Center-map and zoom controls are always available in the main toolbar row
+- Center-map control is available from the left toolbar
 - Calculator and timer widgets are toggled from toolbar buttons
-- In `edit` + `arrange`, the helper control group currently exposes `Connect to...` and `Delete` for the selected node
 - In drawing tools, a floating brush panel provides tool switching, color, width, recent colors, and eraser radius / clear controls
 - In `presentation`, a drawing visibility toggle can hide or show the draw layer
 
-Note:
-
-- The `save-focus` and `focus-position-mode` DOM controls still exist in `index.html`, but the current `ToolbarPlugin` keeps them hidden.
-
-### 10. Context Menu
+### 11. Context Menu
 
 Implemented in [src/plugins/contextMenu.js](src/plugins/contextMenu.js).
 
@@ -608,7 +658,7 @@ Behavior:
 - The menu is rendered as a Konva overlay on the UI layer
 - In `edit.arrange`, menu items currently come from feature plugins such as connection actions and component editing
 
-### 11. Containers and Connections
+### 12. Containers and Connections
 
 Implemented in [src/plugins/containers.js](src/plugins/containers.js), [src/plugins/connections.js](src/plugins/connections.js), and [src/component/connection.js](src/component/connection.js).
 
@@ -616,12 +666,12 @@ Behavior:
 
 - Dragging a selectable component over a container and releasing it **captures** the component as a child of the container.
 - Dragging a child component out of the container bounds **releases** it back to the main layer.
-- Right-click any non-connection component, or use the `Connect to...` toolbar button while it is selected in `edit.arrange`, to connect it to another component.
+- Right-click any non-connection component to connect it to another component.
 - Connections are real selectable nodes, so they can be selected, deleted, edited, and adjusted via visible curve control handles when selected in `edit.arrange`.
 - The rendered connector uses an arrowhead, but presentation navigation treats the connection as navigable in both directions.
 - Container labels are editable via double-click.
 
-### 12. Saved Focus Views And Presentation Navigation
+### 13. Saved Focus Views And Presentation Navigation
 
 Implemented in [src/plugins/focusNavigation.js](src/plugins/focusNavigation.js) with support from [src/stage.js](src/stage.js).
 
@@ -685,14 +735,14 @@ UI Transitions:
 
 Responsive behavior:
 
-- Desktop: left sidebar
+- Desktop: left toolbar + components dropdown
 - Narrow screens: layout stacks
 
 ## Current Limitations
 
 - Undo / redo history is local in-memory state only and is lost on full reload
 - Save / load is currently manual JSON import/export only; there is no autosave or local draft persistence yet
-- There is no collaboration or remote-operation merge model yet
+- Online rooms relay host snapshots and viewport updates, but there is no collaborative edit permission model or remote-operation merge model
 - Loading a document restores board state but not the prior undo / redo stacks, current selection, or the current mode / tool
 - Loading also does not restore transient plugin UI state such as open editors, context menus, connection-picking state, or other in-progress interactions
 - Import is currently full-replace only; there is no partial import, merge import, or diff/patch flow
@@ -1060,3 +1110,10 @@ The project has been verified with:
 - `pnpm test:unit`
 - `pnpm test:e2e`
 - `pnpm test`
+
+## Legacy Candidates
+
+The following modules are currently treated as legacy candidates and should be evaluated in a separate cleanup PR (with regression tests) instead of this documentation-only alignment pass:
+
+- `src/plugins/sidebar.js`: legacy palette implementation; current runtime entry is `LeftToolbarPlugin` + `ComponentsDropdownPlugin` from `src/main.js`.
+- `src/plugins/ranking.js`: compatibility/legacy plugin candidate; keep until dedicated removal assessment confirms no runtime dependency.

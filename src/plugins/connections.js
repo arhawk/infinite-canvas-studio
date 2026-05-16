@@ -5,6 +5,7 @@ import {
 } from "../core/baseClasses.js";
 import {
   DEFAULT_LINE_OPACITY,
+  DEFAULT_STROKE,
   CONNECTION_KIND_DIRECTED,
   CONNECTION_KIND_TERMDEF,
   TERMDEF_LINE_OPACITY,
@@ -18,6 +19,9 @@ import { Konva } from "../lib/konva.js";
 const CONTROL_HANDLE_RADIUS = 8;
 const TRANSPARENT_PULSE_STROKE = "#ef4444";
 const TRANSPARENT_PULSE_DURATION_MS = 1400;
+const AUTO_CONNECT_PREVIEW_MIN_OPACITY = 0.08;
+const AUTO_CONNECT_PREVIEW_MAX_OPACITY = 0.3;
+const AUTO_CONNECT_PREVIEW_DURATION_MS = 1800;
 
 function resolveSelectable(node) {
   if (!node) return null;
@@ -36,8 +40,24 @@ function isButtonNode(node) {
   return node?.getAttr?.("componentType") === "button";
 }
 
+function isPageNode(node) {
+  return node?.getAttr?.("componentType") === "page";
+}
+
 function isTextNode(node) {
   return node?.getAttr?.("componentType") === "text";
+}
+
+function getPageSize(node) {
+  const background = node?.findOne?.(".page-bg") ?? node?.findOne?.(".container-bg");
+  return {
+    width: Number.isFinite(background?.width?.())
+      ? background.width()
+      : (Number.isFinite(node?.width?.()) ? node.width() : 960),
+    height: Number.isFinite(background?.height?.())
+      ? background.height()
+      : (Number.isFinite(node?.height?.()) ? node.height() : 540),
+  };
 }
 
 function readOffset(offset) {
@@ -45,6 +65,24 @@ function readOffset(offset) {
     x: Number.isFinite(offset?.x) ? offset.x : 0,
     y: Number.isFinite(offset?.y) ? offset.y : 0,
   };
+}
+
+function isPointInsideRect(point, rect) {
+  return Boolean(
+    point &&
+    rect &&
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height,
+  );
+}
+
+function getStackIndex(node) {
+  if (!node) return -1;
+  const absoluteIndex = node.getAbsoluteZIndex?.();
+  if (Number.isFinite(absoluteIndex)) return absoluteIndex;
+  return node.zIndex?.() ?? -1;
 }
 
 class ConnectNodesCommand extends BaseCommand {
@@ -58,6 +96,20 @@ class ConnectNodesCommand extends BaseCommand {
 
   execute(sourceId) {
     this.plugin.startConnecting(sourceId);
+  }
+}
+
+class CreateNextPageCommand extends BaseCommand {
+  static commandId = "page:create-next";
+  static label = "Create Next Page";
+  static modes = {
+    edit: {
+      tools: { arrange: {} },
+    },
+  };
+
+  execute(sourceId) {
+    return this.plugin.createNextPage(sourceId);
   }
 }
 
@@ -95,6 +147,24 @@ class ConnectNodesMenuItem extends BaseContextMenuItem {
   }
 }
 
+class CreateNextPageMenuItem extends BaseContextMenuItem {
+  static itemId = "page:create-next-menu";
+  static label = "Create Next Page";
+  static modes = {
+    edit: {
+      tools: { arrange: {} },
+    },
+  };
+
+  condition(node) {
+    return isPageNode(node);
+  }
+
+  execute(node) {
+    this.app.commands.execute("page:create-next", node.id());
+  }
+}
+
 class DeleteConnectionMenuItem extends BaseContextMenuItem {
   static itemId = "connection:delete-menu";
   static label = "Delete Connection";
@@ -126,15 +196,16 @@ export class ConnectionsPlugin extends BasePlugin {
   };
 
   commands() {
-    return [ConnectNodesCommand, DeleteConnectionCommand];
+    return [ConnectNodesCommand, CreateNextPageCommand, DeleteConnectionCommand];
   }
 
   menuItems() {
-    return [ConnectNodesMenuItem, DeleteConnectionMenuItem];
+    return [ConnectNodesMenuItem, CreateNextPageMenuItem, DeleteConnectionMenuItem];
   }
 
   onSetup() {
     this.layer = this.app.mainLayer;
+    this.overlayLayer = this.app.overlayLayer;
     this.uiLayer = this.app.uiLayer;
     this.connectingFromId = null;
     this.selectedConnection = null;
@@ -142,6 +213,27 @@ export class ConnectionsPlugin extends BasePlugin {
     this.termdefRemovingIds = new Set();
     this.transparentPulseConnectionIds = new Set();
     this.transparentPulseAnimation = null;
+    this.connectingMode = null;
+    this.autoConnectStartFrame = null;
+    this.autoConnectCancelFrame = null;
+    this.autoConnectPreviewAnimation = null;
+
+    this.autoConnectPreviewLine = new Konva.Arrow({
+      points: [0, 0, 0, 0, 0, 0, 0, 0],
+      stroke: DEFAULT_STROKE,
+      fill: DEFAULT_STROKE,
+      strokeWidth: 3,
+      opacity: 0,
+      pointerLength: 10,
+      pointerWidth: 10,
+      lineCap: "round",
+      lineJoin: "round",
+      bezier: true,
+      listening: false,
+      visible: false,
+      name: "connection-auto-preview",
+    });
+    this.overlayLayer.add(this.autoConnectPreviewLine);
 
     this.controlHandleGroup = new Konva.Group({
       visible: false,
@@ -171,11 +263,13 @@ export class ConnectionsPlugin extends BasePlugin {
         this.syncSelectedConnectionControls();
       }
       this.syncTransparentConnectionPulse();
+      this.syncAutomaticButtonConnect();
     });
     this.listen("zoom:change", () => this.syncSelectedConnectionControls());
     this.listen("document:load:start", () => {
       this.selectedNodes = [];
       this.setTransparentPulseConnections([]);
+      this.cancelConnecting();
     });
 
     this.listenDom(window, "keydown", (event) => {
@@ -186,8 +280,11 @@ export class ConnectionsPlugin extends BasePlugin {
 
     this.cleanups.push(() => {
       this.cancelConnecting();
+      this.cancelScheduledAutomaticButtonConnect();
       this.setTransparentPulseConnections([]);
       this.stopTransparentPulseAnimation();
+      this.stopAutoConnectPreviewAnimation();
+      this.autoConnectPreviewLine.destroy();
       this.controlHandleGroup.destroy();
     });
   }
@@ -252,6 +349,18 @@ export class ConnectionsPlugin extends BasePlugin {
 
   getConnections() {
     return this.layer.find((node) => isConnectionNode(node));
+  }
+
+  findConnectionBetween(sourceId, targetId) {
+    if (!sourceId || !targetId || sourceId === targetId) return null;
+    return this.getConnections().find((connectionNode) => {
+      const existingSourceId = connectionNode.getAttr("sourceNodeId");
+      const existingTargetId = connectionNode.getAttr("targetNodeId");
+      return (
+        (existingSourceId === sourceId && existingTargetId === targetId) ||
+        (existingSourceId === targetId && existingTargetId === sourceId)
+      );
+    }) ?? null;
   }
 
   isTermdefConnection(connectionNode) {
@@ -434,6 +543,7 @@ export class ConnectionsPlugin extends BasePlugin {
       line.shadowOpacity(isSelected ? 0.22 : 0.08);
 
       if (this.transparentPulseConnectionIds.has(connectionNode.id())) {
+        line.listening(true);
         return;
       }
 
@@ -442,10 +552,13 @@ export class ConnectionsPlugin extends BasePlugin {
       line.fill(stroke);
       if (hiddenUntilEndpointSelected) {
         line.opacity(0);
+        line.listening(false);
       } else if (kind === CONNECTION_KIND_TERMDEF) {
         line.opacity(isSelected ? 1 : TERMDEF_LINE_OPACITY);
+        line.listening(true);
       } else {
         line.opacity(isSelected ? 1 : DEFAULT_LINE_OPACITY);
+        line.listening(true);
       }
     });
 
@@ -532,6 +645,192 @@ export class ConnectionsPlugin extends BasePlugin {
     this.setTransparentPulseConnections(this.getTransparentPulseConnections());
   }
 
+  buttonHasAnyConnection(buttonId) {
+    if (!buttonId) return false;
+    return this.getConnections().some((connectionNode) => (
+      connectionNode.getAttr("sourceNodeId") === buttonId ||
+      connectionNode.getAttr("targetNodeId") === buttonId
+    ));
+  }
+
+  getAutomaticButtonConnectSource(nodes = this.selectedNodes) {
+    if (!this.app.modeManager.matches({ mode: "edit", editorTool: "arrange" })) {
+      return null;
+    }
+    if (nodes.length !== 1) return null;
+
+    const candidate = nodes[0];
+    if (!isButtonNode(candidate) || !this.isConnectable(candidate)) return null;
+    if (this.buttonHasAnyConnection(candidate.id())) return null;
+    return candidate;
+  }
+
+  cancelScheduledAutomaticButtonConnect() {
+    if (this.autoConnectStartFrame != null) {
+      window.cancelAnimationFrame(this.autoConnectStartFrame);
+      this.autoConnectStartFrame = null;
+    }
+    if (this.autoConnectCancelFrame != null) {
+      window.cancelAnimationFrame(this.autoConnectCancelFrame);
+      this.autoConnectCancelFrame = null;
+    }
+  }
+
+  scheduleAutomaticButtonConnect(sourceId) {
+    if (!sourceId || this.autoConnectStartFrame != null) return;
+
+    this.autoConnectStartFrame = window.requestAnimationFrame(() => {
+      this.autoConnectStartFrame = null;
+      const source = this.getAutomaticButtonConnectSource();
+      if (!source || source.id() !== sourceId || this.connectingFromId) return;
+      this.startConnecting(sourceId, { automatic: true });
+    });
+  }
+
+  scheduleAutomaticButtonConnectCancel(sourceId) {
+    if (!sourceId || this.autoConnectCancelFrame != null) return;
+
+    this.autoConnectCancelFrame = window.requestAnimationFrame(() => {
+      this.autoConnectCancelFrame = null;
+      if (this.connectingMode !== "auto" || this.connectingFromId !== sourceId) return;
+
+      const source = this.getAutomaticButtonConnectSource();
+      if (!source || source.id() !== sourceId) {
+        this.cancelConnecting();
+      }
+    });
+  }
+
+  syncAutomaticButtonConnect(nodes = this.selectedNodes) {
+    const source = this.getAutomaticButtonConnectSource(nodes);
+    if (source) {
+      if (this.connectingFromId === source.id()) return;
+      if (!this.connectingFromId) {
+        this.scheduleAutomaticButtonConnect(source.id());
+      }
+      return;
+    }
+
+    if (this.autoConnectStartFrame != null) {
+      window.cancelAnimationFrame(this.autoConnectStartFrame);
+      this.autoConnectStartFrame = null;
+    }
+    if (this.connectingMode === "auto" && this.connectingFromId) {
+      this.scheduleAutomaticButtonConnectCancel(this.connectingFromId);
+    }
+  }
+
+  startAutoConnectPreviewAnimation() {
+    if (this.autoConnectPreviewAnimation) return;
+
+    this.autoConnectPreviewAnimation = new Konva.Animation((frame) => {
+      if (!this.autoConnectPreviewLine.visible()) return;
+
+      const time = frame?.time ?? 0;
+      const pulse = (Math.sin((time / AUTO_CONNECT_PREVIEW_DURATION_MS) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+      const opacity =
+        AUTO_CONNECT_PREVIEW_MIN_OPACITY +
+        (AUTO_CONNECT_PREVIEW_MAX_OPACITY - AUTO_CONNECT_PREVIEW_MIN_OPACITY) * pulse;
+      this.autoConnectPreviewLine.opacity(opacity);
+    }, this.overlayLayer);
+
+    this.autoConnectPreviewAnimation.start();
+  }
+
+  stopAutoConnectPreviewAnimation() {
+    if (!this.autoConnectPreviewAnimation) return;
+    this.autoConnectPreviewAnimation.stop();
+    this.autoConnectPreviewAnimation = null;
+  }
+
+  showAutoConnectPreview() {
+    this.autoConnectPreviewLine.visible(true);
+    this.autoConnectPreviewLine.opacity(AUTO_CONNECT_PREVIEW_MAX_OPACITY);
+    this.syncAutoConnectPreview();
+    this.startAutoConnectPreviewAnimation();
+    this.overlayLayer.batchDraw();
+  }
+
+  hideAutoConnectPreview() {
+    this.stopAutoConnectPreviewAnimation();
+    this.autoConnectPreviewLine.visible(false);
+    this.autoConnectPreviewLine.opacity(0);
+    this.overlayLayer.batchDraw();
+  }
+
+  findAutoConnectPreviewTarget(pointer) {
+    if (!pointer || !this.connectingFromId) return null;
+
+    const directTarget = resolveSelectable(this.app.stage.getIntersection?.(pointer));
+    if (
+      directTarget &&
+      directTarget.id() !== this.connectingFromId &&
+      this.isConnectable(directTarget)
+    ) {
+      return directTarget;
+    }
+
+    const canvasPoint = this.app.stageApi.screenToCanvas(pointer);
+    const candidates = this.layer
+      .find(".selectable")
+      .filter((node) => (
+        node.id() !== this.connectingFromId &&
+        this.isConnectable(node) &&
+        isPointInsideRect(canvasPoint, this.getNodeBounds(node))
+      ))
+      .sort((a, b) => getStackIndex(b) - getStackIndex(a));
+
+    return candidates[0] ?? null;
+  }
+
+  syncAutoConnectPreview() {
+    if (this.connectingMode !== "auto" || !this.connectingFromId) {
+      this.hideAutoConnectPreview();
+      return;
+    }
+
+    const source = this.findNodeById(this.connectingFromId);
+    const sourceBox = this.getNodeBounds(source);
+    if (!this.isConnectable(source) || !sourceBox) {
+      this.cancelConnecting();
+      return;
+    }
+
+    const pointer = this.app.stage.getPointerPosition();
+    const fallbackPoint = {
+      x: sourceBox.x + sourceBox.width + 120,
+      y: sourceBox.y + sourceBox.height / 2,
+    };
+    const pointerCanvasPoint = pointer
+      ? this.app.stageApi.screenToCanvas(pointer)
+      : fallbackPoint;
+    const target = pointer ? this.findAutoConnectPreviewTarget(pointer) : null;
+    const targetBox = target
+      ? this.getNodeBounds(target)
+      : {
+          x: pointerCanvasPoint.x,
+          y: pointerCanvasPoint.y,
+          width: 1,
+          height: 1,
+        };
+
+    const geometry = targetBox ? this.calculateConnectionPoints(sourceBox, targetBox) : null;
+    if (!geometry) return;
+
+    this.autoConnectPreviewLine.points([
+      geometry.start.x,
+      geometry.start.y,
+      geometry.baseCp1.x,
+      geometry.baseCp1.y,
+      geometry.baseCp2.x,
+      geometry.baseCp2.y,
+      geometry.end.x,
+      geometry.end.y,
+    ]);
+    this.autoConnectPreviewLine.moveToTop();
+    this.overlayLayer.batchDraw();
+  }
+
   updateConnection(connectionNode) {
     if (!connectionNode?.getStage?.()) return false;
     const geometry = this.getConnectionGeometry(connectionNode);
@@ -586,6 +885,7 @@ export class ConnectionsPlugin extends BasePlugin {
     node.setAttr("transparentPulseActive", false);
     this.syncTransparentConnectionPulse();
     this.syncConnectionAppearance();
+    this.syncAutomaticButtonConnect();
   }
 
   handleNodeRemoved(node) {
@@ -600,6 +900,7 @@ export class ConnectionsPlugin extends BasePlugin {
       selectable.setAttr("transparentPulseActive", false);
       this.syncTransparentConnectionPulse();
       this.syncConnectionAppearance();
+      this.syncAutomaticButtonConnect();
       return;
     }
 
@@ -637,6 +938,7 @@ export class ConnectionsPlugin extends BasePlugin {
 
     this.syncTransparentConnectionPulse();
     this.updateConnections();
+    this.syncAutomaticButtonConnect();
   }
 
   handleNodeChanged(node) {
@@ -648,11 +950,15 @@ export class ConnectionsPlugin extends BasePlugin {
       this.updateConnection(selectable);
       this.syncTransparentConnectionPulse();
       this.syncConnectionAppearance();
+      this.syncAutomaticButtonConnect();
       return;
     }
 
     this.syncTransparentConnectionPulse();
     this.updateConnections();
+    if (this.connectingFromId) {
+      this.syncAutoConnectPreview();
+    }
   }
 
   handleSelectionChange(nodes) {
@@ -668,6 +974,7 @@ export class ConnectionsPlugin extends BasePlugin {
 
     this.syncTransparentConnectionPulse();
     this.syncConnectionAppearance();
+    this.syncAutomaticButtonConnect(nodes);
   }
 
   hideControlHandles() {
@@ -740,6 +1047,18 @@ export class ConnectionsPlugin extends BasePlugin {
     const target = this.findNodeById(targetId);
     if (!this.isConnectable(source) || !this.isConnectable(target)) return null;
 
+    const existingConnection = this.findConnectionBetween(sourceId, targetId);
+    if (existingConnection) {
+      this.updateConnection(existingConnection);
+      this.layer.batchDraw();
+      if (isButtonNode(source)) {
+        this.app.getPlugin("selection")?.setSelected?.([source]);
+      } else {
+        this.app.getPlugin("selection")?.setSelected?.([existingConnection]);
+      }
+      return existingConnection;
+    }
+
     if (isButtonNode(source)) {
       this.getConnections()
         .filter((connectionNode) => connectionNode.getAttr("sourceNodeId") === sourceId)
@@ -764,14 +1083,44 @@ export class ConnectionsPlugin extends BasePlugin {
     return connection;
   }
 
-  startConnecting(sourceId) {
+  async createNextPage(sourceId) {
+    const source = this.findNodeById(sourceId);
+    if (!isPageNode(source)) return null;
+
+    const sourceSize = getPageSize(source);
+
+    const nextPage = await this.app.addComponent("page", {
+      x: source.x() + sourceSize.width + 120,
+      y: source.y(),
+      width: sourceSize.width,
+      height: sourceSize.height,
+    });
+    if (!nextPage) return null;
+
+    const connection = await this.createConnection(source.id(), nextPage.id());
+    this.app.getPlugin("selection")?.setSelected?.([nextPage]);
+    this.layer.batchDraw();
+
+    return { page: nextPage, connection };
+  }
+
+  startConnecting(sourceId, { automatic = false } = {}) {
     const source = this.findNodeById(sourceId);
     if (!this.isConnectable(source)) return;
 
+    this.cancelScheduledAutomaticButtonConnect();
     this.cancelConnecting();
     this.connectingFromId = sourceId;
+    this.connectingMode = automatic ? "auto" : "manual";
     this.app.setCursorOverride("crosshair");
     this.app.events.emit("connection:pick:start", { sourceId });
+
+    if (automatic) {
+      this.showAutoConnectPreview();
+      this.app.stage.on("mousemove.connectionCreate touchmove.connectionCreate", () => {
+        this.syncAutoConnectPreview();
+      });
+    }
 
     this.app.stage.on("click.connectionCreate tap.connectionCreate", async (event) => {
       const target = resolveSelectable(event.target);
@@ -809,7 +1158,9 @@ export class ConnectionsPlugin extends BasePlugin {
     if (!this.connectingFromId) return;
     const sourceId = this.connectingFromId;
     this.connectingFromId = null;
+    this.connectingMode = null;
     this.app.stage.off(".connectionCreate");
+    this.hideAutoConnectPreview();
     this.app.clearCursorOverride();
     this.app.events.emit("connection:pick:end", { sourceId });
   }

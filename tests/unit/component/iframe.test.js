@@ -171,7 +171,7 @@ function makeApp() {
 }
 
 describe("IframeComponent", () => {
-  it("registers in the palette with iframe editor metadata", () => {
+  it("registers in the palette", () => {
     const registry = new ComponentRegistry();
     const component = new IframeComponent(makeApp());
 
@@ -182,18 +182,6 @@ describe("IframeComponent", () => {
       label: "Iframe",
       description: "Embed a webpage in a small viewport",
     });
-
-    const editor = component.getEditorDefinition({
-      getAttr: () => "https://example.com",
-    });
-
-    expect(editor.title).toBe("Iframe");
-    expect(editor.fields).toHaveLength(1);
-    expect(editor.fields[0].id).toBe("url");
-    expect(editor.fields[0].placeholder).toBe("https://example.com");
-    expect(editor.fields[0].read({
-      getAttr: () => "https://example.com",
-    })).toBe("https://example.com");
   });
 
   it("creates iframe nodes with normalized URLs and default viewport state", async () => {
@@ -219,12 +207,10 @@ describe("IframeComponent", () => {
     });
   });
 
-  it("updates iframe URLs through the editor field writer", async () => {
+  it("updates iframe URLs through serialized data", async () => {
     const component = new IframeComponent(makeApp());
     const node = await component.createNode({ x: 0, y: 0 });
-    const [urlField] = component.editorFields();
-
-    await urlField.write(node, "openai.com/research");
+    await component.applySerializedData(node, { url: "openai.com/research" });
 
     expect(node.getAttr("iframeUrl")).toBe("https://openai.com/research");
     expect(component.serializeNode(node).url).toBe("https://openai.com/research");

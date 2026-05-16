@@ -5,10 +5,12 @@ import {
 import { getConnectionConfiguredStyle } from "../component/connection.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import { chooseDirectionalNavigationCandidate } from "../lib/pageDirectionNavigation.js";
 
 const NAV_BUTTON_RADIUS = 16;
 const NAV_BUTTON_OFFSET = NAV_BUTTON_RADIUS + 6;
 const CURVE_SAMPLE_STEPS = 48;
+const IN_VIEWPORT_NAV_BUTTON_T = 0.82;
 const FOCUS_VIEWPORT_MARGIN_RATIO = 0.1;
 const MIN_FOCUS_SCALE = 0.1;
 const MAX_FOCUS_SCALE = 5;
@@ -27,6 +29,10 @@ function isRankingBoxNode(node) {
 
 function isButtonNode(node) {
   return node?.getAttr?.("componentType") === "button";
+}
+
+function isPageNode(node) {
+  return node?.getAttr?.("componentType") === "page";
 }
 
 function isFocusableNode(node) {
@@ -89,6 +95,13 @@ function nudgePointInsideViewport(insidePoint, outsidePoint) {
   };
 }
 
+function clampPointToNavigationBounds(point, rect) {
+  return {
+    x: Math.min(rect.width - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, point.x)),
+    y: Math.min(rect.height - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, point.y)),
+  };
+}
+
 class SaveSelectionFocusCommand extends BaseCommand {
   static commandId = "focus:save-selection";
   static label = "Save Focus";
@@ -122,6 +135,66 @@ class SetFocusPositionModeCommand extends BaseCommand {
   }
 }
 
+class NavigatePageUpCommand extends BaseCommand {
+  static commandId = "page:navigate-up";
+  static label = "Navigate Up";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    return this.plugin.navigatePageDirection("up");
+  }
+}
+
+class NavigatePageDownCommand extends BaseCommand {
+  static commandId = "page:navigate-down";
+  static label = "Navigate Down";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    return this.plugin.navigatePageDirection("down");
+  }
+}
+
+class NavigatePageLeftCommand extends BaseCommand {
+  static commandId = "page:navigate-left";
+  static label = "Navigate Left";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    return this.plugin.navigatePageDirection("left");
+  }
+}
+
+class NavigatePageRightCommand extends BaseCommand {
+  static commandId = "page:navigate-right";
+  static label = "Navigate Right";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    return this.plugin.navigatePageDirection("right");
+  }
+}
+
+class ExitPresentModeCommand extends BaseCommand {
+  static commandId = "presentation:exit";
+  static label = "Exit Presentation Mode";
+  static modes = {
+    presentation: {},
+  };
+
+  execute() {
+    this.app.setMode("edit");
+  }
+}
+
 export class FocusNavigationPlugin extends BasePlugin {
   static pluginId = "focus-navigation";
   static modes = {
@@ -134,7 +207,15 @@ export class FocusNavigationPlugin extends BasePlugin {
   };
 
   commands() {
-    return [SaveSelectionFocusCommand, SetFocusPositionModeCommand];
+    return [
+      SaveSelectionFocusCommand,
+      SetFocusPositionModeCommand,
+      NavigatePageUpCommand,
+      NavigatePageDownCommand,
+      NavigatePageLeftCommand,
+      NavigatePageRightCommand,
+      ExitPresentModeCommand,
+    ];
   }
 
   menuItems() {
@@ -150,6 +231,7 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.saveToastTimeout = null;
     this.navigationCorrectionTimeout = null;
     this.navigationCorrectionTimeout2 = null;
+    this.navigationCorrectionToken = 0;
 
     this.navButtonGroup = new Konva.Group({
       visible: false,
@@ -195,6 +277,11 @@ export class FocusNavigationPlugin extends BasePlugin {
     this.stage.on("click.focusNavigation tap.focusNavigation", (event) => {
       this.handleStageClick(event);
     });
+    this.app.keybindings.register("ArrowUp", "page:navigate-up");
+    this.app.keybindings.register("ArrowDown", "page:navigate-down");
+    this.app.keybindings.register("ArrowLeft", "page:navigate-left");
+    this.app.keybindings.register("ArrowRight", "page:navigate-right");
+    this.app.keybindings.register("Escape", "presentation:exit");
 
     this.emitToolbarState();
 
@@ -205,6 +292,11 @@ export class FocusNavigationPlugin extends BasePlugin {
       this.saveToastEl?.remove();
       this.stage.off(".focusNavigation");
       this.navButtonGroup.destroy();
+      this.app.keybindings.unregister("ArrowUp");
+      this.app.keybindings.unregister("ArrowDown");
+      this.app.keybindings.unregister("ArrowLeft");
+      this.app.keybindings.unregister("ArrowRight");
+      this.app.keybindings.unregister("Escape");
     });
   }
 
@@ -227,6 +319,11 @@ export class FocusNavigationPlugin extends BasePlugin {
   getNodeBounds(node) {
     const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
     return anchorNode?.getClientRect({ relativeTo: this.stage }) ?? null;
+  }
+
+  getNodeVisibilityBounds(node) {
+    const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
+    return anchorNode?.getClientRect({ relativeTo: this.stage, skipShadow: true }) ?? null;
   }
 
   getNodeFocusAnchor(node) {
@@ -454,6 +551,8 @@ export class FocusNavigationPlugin extends BasePlugin {
   navigateToSavedFocus(node, savedFocus = this.getSavedFocus(node)) {
     if (!savedFocus || !node?.getStage?.()) return false;
 
+    const correctionToken = this.navigationCorrectionToken + 1;
+    this.navigationCorrectionToken = correctionToken;
     this.app.stageApi.centerOn(savedFocus.center, {
       duration: 0.45,
       scale: savedFocus.scale,
@@ -461,7 +560,16 @@ export class FocusNavigationPlugin extends BasePlugin {
     window.clearTimeout(this.navigationCorrectionTimeout);
     window.clearTimeout(this.navigationCorrectionTimeout2);
     const correct = () => {
+      if (this.navigationCorrectionToken !== correctionToken) return;
       if (!node?.getStage?.()) return;
+      const viewport = this.app.stageApi.getViewportBounds();
+      const currentCenter = {
+        x: viewport.x + viewport.width / 2,
+        y: viewport.y + viewport.height / 2,
+      };
+      if (Math.hypot(currentCenter.x - savedFocus.center.x, currentCenter.y - savedFocus.center.y) > 16) {
+        return;
+      }
       this.app.stageApi.centerOn(savedFocus.center, {
         duration: 0,
         scale: savedFocus.scale,
@@ -512,10 +620,108 @@ export class FocusNavigationPlugin extends BasePlugin {
     );
   }
 
-  isCanvasPointVisible(point) {
-    if (!isFinitePoint(point)) return false;
+  getViewportOverlapArea(bounds, viewport) {
+    if (!bounds || !viewport) return 0;
 
-    return pointInRect(point, this.app.stageApi.getViewportBounds());
+    const overlapWidth = Math.min(bounds.x + bounds.width, viewport.x + viewport.width)
+      - Math.max(bounds.x, viewport.x);
+    const overlapHeight = Math.min(bounds.y + bounds.height, viewport.y + viewport.height)
+      - Math.max(bounds.y, viewport.y);
+
+    if (!(overlapWidth > 0) || !(overlapHeight > 0)) {
+      return 0;
+    }
+
+    return overlapWidth * overlapHeight;
+  }
+
+  getCurrentPresentationPage() {
+    if (!this.app.modeManager.matches({ mode: "presentation" })) {
+      return null;
+    }
+
+    const viewport = this.app.stageApi.getViewportBounds();
+    const viewportCenter = {
+      x: viewport.x + viewport.width / 2,
+      y: viewport.y + viewport.height / 2,
+    };
+
+    const rankedPages = this.layer.find((node) => isPageNode(node))
+      .map((node) => {
+        const bounds = this.getNodeVisibilityBounds(node);
+        const overlapArea = this.getViewportOverlapArea(bounds, viewport);
+        if (!(overlapArea > 0)) return null;
+
+        const anchor = this.getNodeFocusAnchor(node);
+        const centerDistance = isFinitePoint(anchor)
+          ? Math.hypot(anchor.x - viewportCenter.x, anchor.y - viewportCenter.y)
+          : Number.POSITIVE_INFINITY;
+
+        return {
+          node,
+          overlapArea,
+          centerDistance,
+          fullyVisible: this.isBoxFullyVisible(bounds),
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => (
+        Number(right.fullyVisible) - Number(left.fullyVisible)
+        || left.centerDistance - right.centerDistance
+        || right.overlapArea - left.overlapArea
+      ));
+
+    return rankedPages[0]?.node ?? null;
+  }
+
+  getConnectedPageTargets(pageNode) {
+    if (!isPageNode(pageNode)) return [];
+
+    const targets = new Map();
+    this.layer.find((node) => isConnectionNode(node)).forEach((connectionNode) => {
+      if (isHiddenConnectionNode(connectionNode)) return;
+
+      const source = this.findNodeById(connectionNode.getAttr("sourceNodeId"));
+      const target = this.findNodeById(connectionNode.getAttr("targetNodeId"));
+
+      if (source === pageNode && isPageNode(target)) {
+        targets.set(target.id(), target);
+      }
+
+      if (target === pageNode && isPageNode(source)) {
+        targets.set(source.id(), source);
+      }
+    });
+
+    return [...targets.values()];
+  }
+
+  getDirectionalPageNavigationTarget(direction) {
+    const currentPage = this.getCurrentPresentationPage();
+    const origin = this.getNodeFocusAnchor(currentPage);
+    if (!isPageNode(currentPage) || !isFinitePoint(origin)) {
+      return null;
+    }
+
+    const candidates = this.getConnectedPageTargets(currentPage)
+      .map((node) => ({
+        node,
+        target: this.getNodeFocusAnchor(node),
+      }))
+      .filter((candidate) => isPageNode(candidate.node) && isFinitePoint(candidate.target));
+
+    return chooseDirectionalNavigationCandidate({
+      origin,
+      direction,
+      candidates,
+    })?.node ?? null;
+  }
+
+  navigatePageDirection(direction) {
+    const targetNode = this.getDirectionalPageNavigationTarget(direction);
+    if (!targetNode) return false;
+
+    return this.navigateToSavedFocus(targetNode);
   }
 
   handleStageClick(event) {
@@ -587,17 +793,17 @@ export class FocusNavigationPlugin extends BasePlugin {
         const outsidePoint = cubicBezierPoint(curvePoints, high);
         const adjustedPoint = nudgePointInsideViewport(insidePoint, outsidePoint);
 
-        return {
-          x: Math.min(rect.width - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, adjustedPoint.x)),
-          y: Math.min(rect.height - NAV_BUTTON_RADIUS, Math.max(NAV_BUTTON_RADIUS, adjustedPoint.y)),
-        };
+        return clampPointToNavigationBounds(adjustedPoint, rect);
       }
 
       previousT = t;
       previousPoint = point;
     }
 
-    return null;
+    return clampPointToNavigationBounds(
+      cubicBezierPoint(curvePoints, IN_VIEWPORT_NAV_BUTTON_T),
+      rect,
+    );
   }
 
   buildNavigationButton(screenPoint, targetNode, savedFocus) {
@@ -688,14 +894,16 @@ export class FocusNavigationPlugin extends BasePlugin {
     reverse = false,
   }) {
     if (!isFocusableNode(fromNode) || !isFocusableNode(toNode)) return;
+    if (!isPageNode(fromNode) || !isPageNode(toNode)) return;
 
     const savedFocus = this.getSavedFocus(toNode);
     if (!savedFocus) return;
 
-    const fromBounds = this.getNodeBounds(fromNode);
+    const fromBounds = this.getNodeVisibilityBounds(fromNode);
     if (!this.isBoxFullyVisible(fromBounds)) return;
 
-    if (this.isCanvasPointVisible(savedFocus.center)) return;
+    const toBounds = this.getNodeVisibilityBounds(toNode);
+    if (this.isBoxFullyVisible(toBounds)) return;
 
     const screenPoint = this.findNavigationButtonPoint(connectionNode, { reverse });
     if (!screenPoint) return;

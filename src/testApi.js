@@ -7,17 +7,41 @@ function getContainerRect(app) {
   return app.stage.container().getBoundingClientRect();
 }
 
+function getElementRect(element) {
+  const rect = element?.getBoundingClientRect?.();
+  return rect
+    ? {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      }
+    : null;
+}
+
 function getNodeById(app, id) {
   return id ? app.mainLayer.findOne(`#${id}`) : null;
 }
 
 function getNodeBounds(app, node) {
-  const anchorNode = node?.findOne?.(".container-bg") ?? node?.findOne?.(".button-bg") ?? node;
+  const anchorNode =
+    node?.findOne?.(".container-bg") ??
+    node?.findOne?.(".button-bg") ??
+    getActiveShapeVisual(node) ??
+    node;
   return anchorNode?.getClientRect({ relativeTo: app.stage }) ?? null;
 }
 
 function getConnectionLine(node) {
   return node?.findOne?.(".connection-line") ?? null;
+}
+
+function getActiveShapeVisual(node) {
+  if (node?.getAttr?.("componentType") !== "shape") return null;
+  const shapeType = node.getAttr("shapeType");
+  return collectionToArray(node.getChildren?.()).find((child) => (
+    child?.getAttr?.("shapeVisualType") === shapeType
+  )) ?? null;
 }
 
 function clonePlainData(value) {
@@ -117,7 +141,9 @@ function getNodeSummary(node) {
     const textNode = node.findOne(".sticky-text");
     return {
       text: textNode?.text() ?? "",
-      fill: background?.fill() ?? null,
+      fill: node.getAttr("stickyFill") ?? background?.fill() ?? null,
+      fillOpacity: node.getAttr("stickyFillOpacity") ?? 1,
+      renderedFill: background?.fill() ?? null,
       textColor: textNode?.fill() ?? null,
       fontSize: textNode?.fontSize() ?? null,
       width: background?.width() ?? node.width?.() ?? null,
@@ -148,6 +174,10 @@ function getNodeSummary(node) {
       label: labelNode?.text() ?? "",
       renderedLabel: labelNode?.textArr?.[0]?.text ?? labelNode?.text?.() ?? "",
       stroke: background?.stroke() ?? null,
+      fill: node.getAttr("pageFill") ?? background?.fill() ?? null,
+      fillOpacity: node.getAttr("pageFillOpacity") ?? 1,
+      renderedFill: background?.fill() ?? null,
+      opacity: node.opacity?.() ?? null,
       width: background?.width() ?? node.width?.() ?? null,
       height: background?.height() ?? node.height?.() ?? null,
       scaleX: node.scaleX?.() ?? null,
@@ -157,19 +187,62 @@ function getNodeSummary(node) {
 
   if (componentType === "button") {
     return {
+      shapeType: node.getAttr("buttonShapeType") ?? "rounded",
       label: node.findOne(".button-label")?.text() ?? "",
-      fill: node.findOne(".button-bg")?.fill() ?? null,
-      stroke: node.findOne(".button-bg")?.stroke() ?? null,
+      fill: node.getAttr("buttonFill") ?? node.findOne(".button-bg")?.fill() ?? null,
+      fillOpacity: node.getAttr("buttonFillOpacity") ?? 1,
+      stroke: node.getAttr("buttonStroke") ?? node.findOne(".button-bg")?.stroke() ?? null,
+      strokeWidth: node.getAttr("buttonStrokeWidth") ?? 2,
+      textColor: node.getAttr("buttonTextColor") ?? node.findOne(".button-label")?.fill() ?? null,
+      fontSize: node.getAttr("buttonFontSize") ?? node.findOne(".button-label")?.fontSize?.() ?? null,
       width: node.findOne(".button-bg")?.width() ?? node.width?.() ?? null,
       height: node.findOne(".button-bg")?.height() ?? node.height?.() ?? null,
+    };
+  }
+
+  if (componentType === "shape") {
+    const visual = getActiveShapeVisual(node);
+    const label = node.findOne(".shape-text");
+    return {
+      shapeType: node.getAttr("shapeType") ?? null,
+      fill: node.getAttr("shapeFill") ?? null,
+      renderedFill: visual?.fill?.() ?? null,
+      fillOpacity: node.getAttr("shapeFillOpacity") ?? null,
+      stroke: node.getAttr("shapeStroke") ?? visual?.stroke?.() ?? null,
+      strokeWidth: node.getAttr("shapeStrokeWidth") ?? visual?.strokeWidth?.() ?? null,
+      opacity: node.opacity?.() ?? null,
+      text: label?.text?.() ?? "",
+      textColor: node.getAttr("shapeTextColor") ?? label?.fill?.() ?? null,
+      fontSize: node.getAttr("shapeFontSize") ?? label?.fontSize?.() ?? null,
+      width: node.width?.() ?? null,
+      height: node.height?.() ?? null,
+      rotation: node.rotation?.() ?? null,
+      scaleX: node.scaleX?.() ?? null,
+      scaleY: node.scaleY?.() ?? null,
     };
   }
 
   if (componentType === "rankingBox") {
     const data = node.getAttr("data") ?? {};
     const cards = node.find(".ranking-item-card");
+    const titleNode = node.findOne(".ranking-box-label");
+    const background = node.findOne(".ranking-box-bg");
+    const header = node.findOne(".ranking-box-header-bg");
     return {
       label: data.label ?? "",
+      titleBounds: serializeRect(titleNode?.getClientRect?.({ relativeTo: node.getStage?.() })),
+      headerBounds: serializeRect(header?.getClientRect?.({ relativeTo: node.getStage?.() })),
+      titleFontSize: data.titleFontSize ?? null,
+      titleColor: data.titleColor ?? null,
+      themeColor: data.themeColor ?? null,
+      renderedTitleFontSize: titleNode?.fontSize?.() ?? null,
+      renderedTitleWrap: titleNode?.wrap?.() ?? null,
+      renderedTitleEllipsis: titleNode?.ellipsis?.() ?? null,
+      renderedTitleColor: titleNode?.fill?.() ?? null,
+      renderedBackgroundFill: background?.fill?.() ?? null,
+      renderedThemeStroke: background?.stroke?.() ?? null,
+      renderedHeaderFill: header?.fill?.() ?? null,
+      renderedHeaderHeight: header?.height?.() ?? null,
       items: Array.isArray(data.items)
         ? data.items.map((item) => ({
             ...item,
@@ -215,18 +288,34 @@ function getNodeSummary(node) {
   }
 
   if (componentType === "image") {
+    const src = node.getAttr("imageSrc") ?? null;
+    const imageNode = node.findOne(".image-node");
     return {
-      hasImageNode: Boolean(node.findOne(".image-node")),
+      hasImageNode: Boolean(imageNode),
       hasPlaceholder: Boolean(node.findOne(".placeholder-rect")),
+      imageCornerRadius: imageNode?.cornerRadius?.() ?? null,
+      srcLength: typeof src === "string" ? src.length : 0,
+    };
+  }
+
+  if (componentType === "video") {
+    const src = node.getAttr("videoSrc") ?? null;
+    const overlay = node._videoOverlayEl ?? null;
+    return {
+      hasOverlay: Boolean(overlay),
+      overlayZIndex: overlay?.style?.zIndex ?? "",
+      hasVideoElement: Boolean(overlay?.querySelector?.("video")),
+      hasPlaceholder: Boolean(overlay?.querySelector?.(".video-component__placeholder")),
+      hasTopbarActions: Boolean(overlay?.querySelector?.(".video-component__actions")),
+      placeholderText: overlay?.querySelector?.(".video-component__placeholder")?.textContent ?? "",
+      srcLength: typeof src === "string" ? src.length : 0,
     };
   }
 
   if (componentType === "iframe") {
     const overlay = node._iframeOverlayEl ?? null;
-    const urlLabel = overlay?.querySelector?.(".iframe-component__url") ?? null;
-    const modeButton = overlay?.querySelector?.(".iframe-component__mode") ?? null;
-    const closeButton = overlay?.querySelector?.(".iframe-component__close") ?? null;
     const frame = overlay?.querySelector?.(".iframe-component__frame") ?? null;
+    const shield = overlay?.querySelector?.(".iframe-component__shield") ?? null;
 
     return {
       url: node.getAttr("iframeUrl") ?? "",
@@ -235,10 +324,10 @@ function getNodeSummary(node) {
       panY: Number(node.getAttr("iframePanY")) || 0,
       interactive: node.getAttr("iframeInteractive") === true,
       hasOverlay: Boolean(overlay),
-      hasTopbar: Boolean(overlay?.querySelector?.(".iframe-component__topbar")),
-      hasCloseButton: Boolean(closeButton),
-      displayedUrl: urlLabel?.textContent?.trim() ?? "",
-      modeLabel: modeButton?.textContent?.trim() ?? "",
+      overlayZIndex: overlay?.style?.zIndex ?? "",
+      hasShield: Boolean(shield),
+      shieldHidden: shield?.hidden ?? null,
+      framePointerEvents: frame?.style?.pointerEvents ?? "",
       frameSrc: frame?.getAttribute?.("src") ?? "",
     };
   }
@@ -284,12 +373,17 @@ function getNodeSummary(node) {
 function serializeNode(app, node) {
   const bounds = getNodeBounds(app, node);
   const parent = node.getParent?.();
+  const component = app.components.getByNode(node);
+  const attachments = component?.supportsAttachments?.(node)
+    ? component.getAttachmentState?.(node) ?? null
+    : null;
 
   return {
     id: node.id(),
     componentType: node.getAttr("componentType"),
     parentId: parent?.hasName?.("selectable") ? parent.id() : null,
     zIndex: app.getSelectableIndex(node),
+    stackIndex: app.getSelectableStackIndex?.(node) ?? -1,
     focusPositionMode: node.getAttr("focusPositionMode") ?? null,
     savedFocus: node.getAttr("savedFocus") ?? null,
     bounds: bounds
@@ -301,6 +395,7 @@ function serializeNode(app, node) {
         }
       : null,
     summary: getNodeSummary(node),
+    attachments,
   };
 }
 
@@ -457,6 +552,23 @@ export function setupAppTestApi(app) {
       const canvasCenter = getNodeCanvasCenter(app, node);
       return canvasCenter ? canvasToPage(app, canvasCenter) : null;
     },
+    getRankingBoxTitlePageCenter: (id) => {
+      const node = getNodeById(app, id);
+      if (node?.getAttr?.("componentType") !== "rankingBox") return null;
+
+      const titleNode = node.findOne(".ranking-box-label");
+      const box = titleNode?.getClientRect?.({
+        relativeTo: app.stage,
+        skipShadow: true,
+        skipStroke: true,
+      }) ?? null;
+      if (!box) return null;
+
+      return canvasToPage(app, {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+      });
+    },
     canvasToPagePoint: (canvasPoint) => {
       if (!Number.isFinite(canvasPoint?.x) || !Number.isFinite(canvasPoint?.y)) {
         return null;
@@ -500,6 +612,23 @@ export function setupAppTestApi(app) {
       const node = await app.addComponent(type, payload);
       return node ? serializeNode(app, node) : null;
     },
+    setJavaScriptEditorCode: async (id, code) => {
+      const node = getNodeById(app, id);
+      const component = app.components.get("javascriptEditor");
+      if (node?.getAttr?.("componentType") !== "javascriptEditor" || !component) return null;
+
+      const current = component.serializeNode(node);
+      app.events.emit("node:change:start", { node });
+      await component.applySerializedData(node, {
+        ...current,
+        code,
+      });
+      node.getLayer?.()?.batchDraw?.();
+      app.overlayLayer?.batchDraw?.();
+      app.uiLayer?.batchDraw?.();
+      app.events.emit("node:changed", { node });
+      return serializeNode(app, node);
+    },
     canvasToPage: (point) => canvasToPage(app, point),
     ensureCatalogNode: async () => {
       const existing = getCatalogNode(app);
@@ -517,6 +646,13 @@ export function setupAppTestApi(app) {
       const rankingPlugin = getPlugin(app, "ranking");
       const node = await rankingPlugin?.createRankingBoxForPage?.(pageId);
       return node ? serializeNode(app, node) : null;
+    },
+    openRankingBoxLayerMenu: (rankingBoxId) => {
+      const rankingPlugin = getPlugin(app, "ranking");
+      const node = getNodeById(app, rankingBoxId);
+      if (node?.getAttr?.("componentType") !== "rankingBox") return false;
+      rankingPlugin?.openLayerMenu?.(node);
+      return true;
     },
     addTextToRankingBox: (rankingBoxId, textId, options = {}) => {
       const rankingPlugin = getPlugin(app, "ranking");
@@ -634,6 +770,26 @@ export function setupAppTestApi(app) {
       const connection = await connectionsPlugin?.createConnection?.(sourceId, targetId);
       return connection ? serializeNode(app, connection) : null;
     },
+    createNextPage: async (sourceId) => {
+      const connectionsPlugin = getPlugin(app, "connections");
+      const result = await connectionsPlugin?.createNextPage?.(sourceId);
+      return result
+        ? {
+            page: result.page ? serializeNode(app, result.page) : null,
+            connection: result.connection ? serializeNode(app, result.connection) : null,
+          }
+        : null;
+    },
+    startConnection: (sourceId) => {
+      const connectionsPlugin = getPlugin(app, "connections");
+      if (!connectionsPlugin?.startConnecting) return false;
+      connectionsPlugin.startConnecting(sourceId);
+      return connectionsPlugin.connectingFromId === sourceId;
+    },
+    getActiveConnectionSourceId: () => {
+      const connectionsPlugin = getPlugin(app, "connections");
+      return connectionsPlugin?.connectingFromId ?? null;
+    },
     doubleClickConnectionLine: (id) => {
       const node = getNodeById(app, id);
       if (node?.getAttr?.("componentType") !== "connection") return false;
@@ -664,14 +820,7 @@ export function setupAppTestApi(app) {
     getPageCompareState: () => {
       const pageComparePlugin = getPlugin(app, "page-compare");
       return pageComparePlugin?.getDebugState?.() ?? null;
-    },
-    openComponentEditor: (id) => {
-      const componentEditorPlugin = getPlugin(app, "component-editor");
-      const node = getNodeById(app, id);
-      componentEditorPlugin?.open?.(node);
-      return Boolean(componentEditorPlugin?.currentNode);
-    },
-    saveFocus: (id) => {
+    },    saveFocus: (id) => {
       const focusPlugin = getPlugin(app, "focus-navigation");
       const node = getNodeById(app, id);
       return focusPlugin?.saveFocus?.(node) ?? false;
@@ -699,6 +848,18 @@ export function setupAppTestApi(app) {
       });
       return true;
     },
+    getCurrentPresentationPageId: () => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      return focusPlugin?.getCurrentPresentationPage?.()?.id?.() ?? null;
+    },
+    getDirectionalPageNavigationTargetId: (direction) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      return focusPlugin?.getDirectionalPageNavigationTarget?.(direction)?.id?.() ?? null;
+    },
+    navigatePageDirection: (direction) => {
+      const focusPlugin = getPlugin(app, "focus-navigation");
+      return focusPlugin?.navigatePageDirection?.(direction) ?? false;
+    },
     getNavigationButtons: () => {
       const focusPlugin = getPlugin(app, "focus-navigation");
       const navButtons = focusPlugin?.navButtonGroup?.getChildren?.() ?? [];
@@ -708,6 +869,36 @@ export function setupAppTestApi(app) {
         x: point.x,
         y: point.y,
       }));
+    },
+    getAttachmentsBookmarksState: () => {
+      const bookmarkPlugin = getPlugin(app, "attachments-bookmarks");
+      const group = bookmarkPlugin?.bookmarkGroup;
+      if (!group) {
+        return { visible: false, count: 0, scale: app.stageApi.getScale() };
+      }
+      return {
+        visible: group.visible(),
+        count: group.getChildren().length,
+        scale: app.stageApi.getScale(),
+      };
+    },
+    clickAttachmentBookmark: (index = 0) => {
+      const bookmarkPlugin = getPlugin(app, "attachments-bookmarks");
+      const item = bookmarkPlugin?.bookmarkGroup?.getChildren?.()?.[index] ?? null;
+      if (!item) return false;
+      item.fire("click", { cancelBubble: false, evt: { button: 0 } });
+      return true;
+    },
+    setNodeAttachments: (id, attachmentsState) => {
+      const node = getNodeById(app, id);
+      if (!node) return false;
+      const component = app.components.getByNode(node);
+      if (!component?.supportsAttachments?.(node)) return false;
+      app.events.emit("node:change:start", { node });
+      component.setAttachmentState(node, attachmentsState);
+      app.events.emit("node:changed", { node });
+      node.getLayer?.()?.batchDraw?.();
+      return true;
     },
     clickNavigationButton: (index = 0) => {
       const focusPlugin = getPlugin(app, "focus-navigation");

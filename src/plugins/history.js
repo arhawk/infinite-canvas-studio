@@ -118,6 +118,7 @@ class UndoCommand extends BaseCommand {
         pencil: {},
         highlighter: {},
         eraser: {},
+        shape: {},
         annotate: {},
       },
     },
@@ -139,6 +140,7 @@ class RedoCommand extends BaseCommand {
         pencil: {},
         highlighter: {},
         eraser: {},
+        shape: {},
         annotate: {},
       },
     },
@@ -192,6 +194,7 @@ export class HistoryPlugin extends BasePlugin {
     this.listen("node:changed", ({ node }) => this.handleNodeChanged(node));
     this.listen("draw:added", ({ node }) => this.handleDrawingAdded(node));
     this.listen("draw:removed", ({ node }) => this.handleDrawingRemoved(node));
+    this.listen("background:change", ({ before, after }) => this.handleBackgroundChanged(before, after));
     this.listen("interaction:change", () => this.syncUi());
 
     if (undoEl) {
@@ -280,6 +283,20 @@ export class HistoryPlugin extends BasePlugin {
         ) {
           this.pendingOperations[index] = {
             type: "update-node",
+            before: clonePlainData(current.before),
+            after: clonePlainData(operation.after),
+          };
+          return;
+        }
+      }
+    }
+
+    if (operation.type === "update-background") {
+      for (let index = this.pendingOperations.length - 1; index >= 0; index -= 1) {
+        const current = this.pendingOperations[index];
+        if (current?.type === "update-background") {
+          this.pendingOperations[index] = {
+            type: "update-background",
             before: clonePlainData(current.before),
             after: clonePlainData(operation.after),
           };
@@ -474,16 +491,38 @@ export class HistoryPlugin extends BasePlugin {
       null;
 
     this.pendingNodeSnapshots.delete(after.id);
-    this.nodeSnapshotCache.set(after.id, clonePlainData(after));
-
-    if (!before || snapshotsEqual(before, after)) {
+    if (!before) {
+      this.nodeSnapshotCache.set(after.id, clonePlainData(after));
       return;
     }
 
-    this.enqueueOperation({
-      type: "update-node",
-      before,
-      after,
+    const changes =
+      before.parentId !== after.parentId || before.zIndex !== after.zIndex
+        ? this.collectRelatedLayerChanges(before, after)
+        : snapshotsEqual(before, after)
+          ? []
+          : [{
+            before: clonePlainData(before),
+            after: clonePlainData(after),
+          }];
+    if (!changes.length && !snapshotsEqual(before, after)) {
+      changes.push({
+        before: clonePlainData(before),
+        after: clonePlainData(after),
+      });
+    }
+
+    changes.forEach(({ after: afterSnapshot }) => {
+      this.pendingNodeSnapshots.delete(afterSnapshot.id);
+      this.nodeSnapshotCache.set(afterSnapshot.id, clonePlainData(afterSnapshot));
+    });
+
+    changes.forEach(({ before: beforeSnapshot, after: afterSnapshot }) => {
+      this.enqueueOperation({
+        type: "update-node",
+        before: beforeSnapshot,
+        after: afterSnapshot,
+      });
     });
   }
 
@@ -517,12 +556,77 @@ export class HistoryPlugin extends BasePlugin {
     });
   }
 
+  handleBackgroundChanged(before, after) {
+    if (this.isTrackingSuspended()) return;
+    if (snapshotsEqual(before, after)) return;
+
+    this.enqueueOperation({
+      type: "update-background",
+      before: clonePlainData(before),
+      after: clonePlainData(after),
+    });
+  }
+
   findSelectableNodeById(id) {
     return id ? this.app.mainLayer.findOne(`#${id}`) : null;
   }
 
   findDrawingById(id) {
     return id ? this.app.drawLayer.findOne(`#${id}`) : null;
+  }
+
+  getSelectableSnapshotById(id) {
+    if (!id) return null;
+
+    const node = this.findSelectableNodeById(id);
+    if (!node?.getStage?.()) return null;
+
+    return this.snapshotNode(node, this.getSelectableParentId(node));
+  }
+
+  getSelectableIdsForParent(parentId = null) {
+    const parent = parentId
+      ? this.findSelectableNodeById(parentId)
+      : this.app.mainLayer;
+
+    if (!parent?.getChildren) return [];
+
+    return parent.getChildren()
+      .filter((child) => isSelectableNode(child))
+      .map((child) => child.id());
+  }
+
+  collectRelatedLayerChanges(before = null, after = null) {
+    const parentIds = new Set([before?.parentId ?? null, after?.parentId ?? null]);
+    const affectedIds = new Set([before?.id ?? null, after?.id ?? null]);
+
+    parentIds.forEach((parentId) => {
+      this.getSelectableIdsForParent(parentId).forEach((id) => affectedIds.add(id));
+    });
+
+    const changes = [];
+    affectedIds.forEach((id) => {
+      if (!id) return;
+
+      const beforeSnapshot =
+        this.pendingNodeSnapshots.get(id) ??
+        this.nodeSnapshotCache.get(id) ??
+        null;
+      const afterSnapshot = id === after?.id
+        ? clonePlainData(after)
+        : this.getSelectableSnapshotById(id);
+
+      if (!beforeSnapshot || !afterSnapshot || snapshotsEqual(beforeSnapshot, afterSnapshot)) {
+        return;
+      }
+
+      changes.push({
+        before: clonePlainData(beforeSnapshot),
+        after: clonePlainData(afterSnapshot),
+      });
+    });
+
+    return changes;
   }
 
   buildActionToast() {
@@ -556,6 +660,8 @@ export class HistoryPlugin extends BasePlugin {
         return "drawing a stroke";
       case "remove-drawing":
         return "deleting a stroke";
+      case "update-background":
+        return "changing canvas background";
       case "batch": {
         const descriptions = [...new Set(
           (operation.operations ?? [])
@@ -691,6 +797,9 @@ export class HistoryPlugin extends BasePlugin {
           this.removeDrawing(operation.snapshot);
           this.drawSnapshotCache.delete(operation.snapshot.id);
         }
+        break;
+      case "update-background":
+        this.app.setBackgroundState(direction === "undo" ? operation.before : operation.after);
         break;
       default:
         break;

@@ -1,11 +1,15 @@
 import { Konva } from "./lib/konva.js";
+import {
+  BACKGROUND_TYPES,
+  cloneBackgroundState,
+  DEFAULT_BACKGROUND_STATE,
+  normalizeBackgroundState,
+} from "./background/state.js";
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const ZOOM_RATIO = 1.04;
 const GRID_SPACING = 32;
-const GRID_COLOR = "rgba(84, 64, 43, 0.08)";
-const GRID_MAJOR_COLOR = "rgba(84, 64, 43, 0.14)";
 const GRID_MAJOR_EVERY = 4;
 const PAN_CLICK_THRESHOLD = 4;
 const GRID_BUFFER_CELLS = 2;
@@ -14,15 +18,56 @@ function isRankingItemInteractionTarget(target) {
   return Boolean(target?.findAncestor?.(".ranking-item-card", true));
 }
 
+function debugStageViewport(message, payload = {}) {
+  try {
+    const enabled = globalThis?.localStorage?.getItem?.("debugStageViewport") === "1" ||
+      globalThis?.location?.search?.includes?.("debugStageViewport=1");
+    if (enabled) {
+      console.info("[stage-viewport]", message, payload);
+    }
+  } catch {
+    // Some embedded/file contexts can block storage access; debug logging is optional.
+  }
+}
+
+function commitActiveInlineTextEditor(stage, reason) {
+  const app = stage?.getAttr?.("app");
+  const activeEditor = app?.activeInlineTextEditor;
+  debugStageViewport("commit active editor check", {
+    reason,
+    hasActiveEditor: Boolean(activeEditor),
+    editorId: activeEditor?.editorId,
+    domEditors: typeof document === "undefined"
+      ? null
+      : document.querySelectorAll(".canvas-text-editor").length,
+    activeTag: typeof document === "undefined" ? null : document.activeElement?.tagName,
+    activeClass: typeof document === "undefined" ? null : document.activeElement?.className,
+  });
+
+  if (typeof activeEditor?.commit === "function") {
+    activeEditor.commit(reason);
+    return true;
+  }
+
+  if (typeof document === "undefined") return false;
+  const editor = document.querySelector(".canvas-text-editor");
+  if (editor instanceof HTMLElement) {
+    editor.blur();
+    return true;
+  }
+  return false;
+}
+
 export class StageController {
   constructor(container, { onZoomChange, onViewportChange } = {}) {
+    const initialSize = this.measureContainerSize(container);
     this.container = container;
     this.onZoomChange = onZoomChange;
     this.onViewportChange = onViewportChange;
     this.stage = new Konva.Stage({
       container,
-      width: container.clientWidth,
-      height: container.clientHeight,
+      width: initialSize.width,
+      height: initialSize.height,
       draggable: false,
     });
 
@@ -46,10 +91,10 @@ export class StageController {
     this.isSpacePressed = false;
     this.gridSignature = null;
     this.pendingResizeFrame = null;
-    this.lastObservedSize = {
-      width: container.clientWidth,
-      height: container.clientHeight,
-    };
+    this.resizeRetryCount = 0;
+    this.lastObservedSize = initialSize;
+    this.lastStableSize = initialSize;
+    this.backgroundState = cloneBackgroundState(DEFAULT_BACKGROUND_STATE);
 
     this.onKeyDown = this.onKeyDown.bind(this);
     this.onKeyUp = this.onKeyUp.bind(this);
@@ -61,6 +106,7 @@ export class StageController {
 
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("resize", this.onResize);
     this.stage.on("wheel", this.onWheel);
     this.stage.on("mousedown touchstart", this.onPointerDown);
     this.stage.on("mousemove touchmove", this.onPointerMove);
@@ -68,7 +114,56 @@ export class StageController {
 
     this.resizeObserver = new ResizeObserver(this.onResize);
     this.resizeObserver.observe(container);
+    this.applyBackgroundState();
     this.syncViewport(1);
+  }
+
+  getBackgroundState() {
+    return cloneBackgroundState(this.backgroundState);
+  }
+
+  setBackgroundState(state = {}) {
+    this.backgroundState = normalizeBackgroundState(state);
+    this.applyBackgroundState();
+    this.gridSignature = null;
+    this.redrawGrid();
+    this.stage.batchDraw();
+    return this.getBackgroundState();
+  }
+
+  applyBackgroundState() {
+    const { type, color, opacity } = this.backgroundState;
+    this.container.dataset.backgroundType = type;
+    this.container.style.setProperty("--canvas-bg-color", color);
+    this.container.style.setProperty("--canvas-bg-alpha", String(opacity));
+
+    const paperBase = type === BACKGROUND_TYPES.WARM_PAPER ? color : DEFAULT_BACKGROUND_STATE.color;
+    this.container.style.setProperty("--canvas-paper-base", paperBase);
+    this.container.style.setProperty("--canvas-paper-shadow", this.mixHexColor(paperBase, "#c9a16a", 0.18));
+    this.container.style.setProperty("--canvas-paper-highlight", this.mixHexColor(paperBase, "#fffdf6", 0.52));
+  }
+
+  getGridStrokeColor(isMajor = false) {
+    const alpha = (isMajor ? 0.18 : 0.1) * this.backgroundState.opacity;
+    const hex = this.mixHexColor(this.backgroundState.color, "#4f4334", isMajor ? 0.55 : 0.4);
+    const red = Number.parseInt(hex.slice(1, 3), 16);
+    const green = Number.parseInt(hex.slice(3, 5), 16);
+    const blue = Number.parseInt(hex.slice(5, 7), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  }
+
+  mixHexColor(baseHex, targetHex, ratio = 0.5) {
+    const clampRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+    const parse = (hex) => ({
+      r: Number.parseInt(hex.slice(1, 3), 16),
+      g: Number.parseInt(hex.slice(3, 5), 16),
+      b: Number.parseInt(hex.slice(5, 7), 16),
+    });
+    const base = parse(baseHex);
+    const target = parse(targetHex);
+    const toHex = (value) => Math.round(value).toString(16).padStart(2, "0");
+
+    return `#${toHex(base.r + (target.r - base.r) * clampRatio)}${toHex(base.g + (target.g - base.g) * clampRatio)}${toHex(base.b + (target.b - base.b) * clampRatio)}`;
   }
 
   screenToCanvas(screenPos) {
@@ -77,6 +172,26 @@ export class StageController {
       x: (screenPos.x - this.stage.x()) / scale,
       y: (screenPos.y - this.stage.y()) / scale,
     };
+  }
+
+  measureContainerSize(container = this.container) {
+    const rect = container?.getBoundingClientRect?.() ?? null;
+    const rawWidth = rect?.width ?? container?.clientWidth ?? 0;
+    const rawHeight = rect?.height ?? container?.clientHeight ?? 0;
+    const width = Number.isFinite(rawWidth) ? Math.round(rawWidth) : 0;
+    const height = Number.isFinite(rawHeight) ? Math.round(rawHeight) : 0;
+
+    return {
+      width: Math.max(0, width),
+      height: Math.max(0, height),
+    };
+  }
+
+  hasUsableSize(size) {
+    return Number.isFinite(size?.width) &&
+      Number.isFinite(size?.height) &&
+      size.width > 0 &&
+      size.height > 0;
   }
 
   canvasToScreen(canvasPos) {
@@ -88,6 +203,13 @@ export class StageController {
   }
 
   redrawGrid() {
+    if (this.backgroundState.type !== BACKGROUND_TYPES.GRID) {
+      this.gridSignature = "hidden";
+      this.gridLayer.destroyChildren();
+      this.gridLayer.batchDraw();
+      return;
+    }
+
     const topLeft = this.screenToCanvas({ x: 0, y: 0 });
     const bottomRight = this.screenToCanvas({
       x: this.stage.width(),
@@ -111,7 +233,7 @@ export class StageController {
       const isMajor = Math.round(x / GRID_SPACING) % GRID_MAJOR_EVERY === 0;
       this.gridLayer.add(new Konva.Line({
         points: [x, minY, x, maxY],
-        stroke: isMajor ? GRID_MAJOR_COLOR : GRID_COLOR,
+        stroke: this.getGridStrokeColor(isMajor),
         strokeWidth: 1,
         listening: false,
         perfectDrawEnabled: false,
@@ -122,7 +244,7 @@ export class StageController {
       const isMajor = Math.round(y / GRID_SPACING) % GRID_MAJOR_EVERY === 0;
       this.gridLayer.add(new Konva.Line({
         points: [minX, y, maxX, y],
-        stroke: isMajor ? GRID_MAJOR_COLOR : GRID_COLOR,
+        stroke: this.getGridStrokeColor(isMajor),
         strokeWidth: 1,
         listening: false,
         perfectDrawEnabled: false,
@@ -135,6 +257,16 @@ export class StageController {
   syncViewport(scale = this.stage.scaleX()) {
     this.redrawGrid();
     this.stage.batchDraw();
+    debugStageViewport("syncViewport", {
+      scale,
+      position: {
+        x: this.stage.x(),
+        y: this.stage.y(),
+      },
+      domEditors: typeof document === "undefined"
+        ? null
+        : document.querySelectorAll(".canvas-text-editor").length,
+    });
     this.onZoomChange?.(Math.round(scale * 100));
     this.onViewportChange?.({
       scale,
@@ -151,6 +283,24 @@ export class StageController {
     scale = this.stage.scaleX(),
     position = { x: this.stage.x(), y: this.stage.y() },
   }) {
+    const scaleChanged = Math.abs(scale - this.stage.scaleX()) >= 0.0001;
+    const positionChanged =
+      Math.abs(position.x - this.stage.x()) >= 0.0001 ||
+      Math.abs(position.y - this.stage.y()) >= 0.0001;
+    debugStageViewport("setViewport", {
+      scale,
+      currentScale: this.stage.scaleX(),
+      position,
+      currentPosition: {
+        x: this.stage.x(),
+        y: this.stage.y(),
+      },
+      scaleChanged,
+      positionChanged,
+    });
+    if (scaleChanged || positionChanged) {
+      commitActiveInlineTextEditor(this.stage, "set-viewport");
+    }
     this.stage.scale({ x: scale, y: scale });
     this.stage.position(position);
     this.syncViewport(scale);
@@ -233,9 +383,18 @@ export class StageController {
   }
 
   onWheel(event) {
+    debugStageViewport("wheel", {
+      deltaY: event.evt.deltaY,
+      ctrlKey: event.evt.ctrlKey,
+      targetClass: event.evt.target?.className,
+      scale: this.stage.scaleX(),
+    });
+    commitActiveInlineTextEditor(this.stage, "stage-wheel");
     event.evt.preventDefault();
     const pointer = this.stage.getPointerPosition();
     if (!pointer) return;
+    const app = this.stage.getAttr("app");
+    app?.roomShare?.handleUserViewportIntent?.("zoom");
     const direction = event.evt.deltaY > 0 ? -1 : 1;
     const nextScale =
       direction > 0 ? this.stage.scaleX() * ZOOM_RATIO : this.stage.scaleX() / ZOOM_RATIO;
@@ -243,6 +402,12 @@ export class StageController {
   }
 
   onKeyDown(event) {
+    if (
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
     if (event.code === "Space") {
       this.isSpacePressed = true;
       const app = this.stage.getAttr("app");
@@ -297,6 +462,7 @@ export class StageController {
       isArrangeViewportPan;
     if (!shouldPan) return;
 
+    app?.roomShare?.handleUserViewportIntent?.("pan");
     this.isPanning = true;
     this.lastPointer = this.stage.getPointerPosition();
     this.panStartPointer = this.lastPointer;
@@ -340,16 +506,26 @@ export class StageController {
   }
 
   onResize() {
-    this.lastObservedSize = {
-      width: this.container.clientWidth,
-      height: this.container.clientHeight,
-    };
+    this.lastObservedSize = this.measureContainerSize();
 
     if (this.pendingResizeFrame != null) return;
 
     this.pendingResizeFrame = window.requestAnimationFrame(() => {
       this.pendingResizeFrame = null;
-      const { width, height } = this.lastObservedSize;
+      const nextSize = this.measureContainerSize();
+      this.lastObservedSize = nextSize;
+
+      if (!this.hasUsableSize(nextSize)) {
+        if (this.resizeRetryCount < 2) {
+          this.resizeRetryCount += 1;
+          this.onResize();
+        }
+        return;
+      }
+
+      this.resizeRetryCount = 0;
+      this.lastStableSize = nextSize;
+      const { width, height } = nextSize;
 
       if (
         width === this.stage.width() &&
@@ -367,6 +543,7 @@ export class StageController {
   destroy() {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("resize", this.onResize);
     this.resizeObserver.disconnect();
     if (this.pendingResizeFrame != null) {
       window.cancelAnimationFrame(this.pendingResizeFrame);

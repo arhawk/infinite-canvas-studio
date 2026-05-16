@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-function inlineSingleFileBuild() {
+function inlineExportTemplateBuild() {
   return {
-    name: "inline-single-file-build",
+    name: "inline-export-template-build",
     enforce: "post",
     generateBundle(_, bundle) {
       const htmlAsset = Object.values(bundle).find(
@@ -24,7 +26,7 @@ function inlineSingleFileBuild() {
             `<link rel="stylesheet"[^>]*href="(?:\\./)?${escapeRegExp(fileName)}"[^>]*>`,
             "g",
           );
-          html = html.replace(hrefPattern, `<style>${escapedCss}</style>`);
+          html = html.replace(hrefPattern, () => `<style>${escapedCss}</style>`);
           delete bundle[fileName];
         }
 
@@ -34,7 +36,7 @@ function inlineSingleFileBuild() {
             `<script type="module"[^>]*src="(?:\\./)?${escapeRegExp(fileName)}"[^>]*><\\/script>`,
             "g",
           );
-          html = html.replace(srcPattern, `<script type="module">${escapedJs}</script>`);
+          html = html.replace(srcPattern, () => `<script type="module">${escapedJs}</script>`);
           delete bundle[fileName];
         }
       }
@@ -55,24 +57,65 @@ function stripDocumentControls(html) {
   );
 }
 
-export default defineConfig(() => {
-  const isSingleFileExport = process.env.SINGLE_FILE_EXPORT === "1";
+function serveExportTemplate() {
+  const handler = (req, res, next) => {
+    const requestUrl = req.originalUrl || req.url || "";
+    if (!requestUrl.startsWith("/__export-template")) {
+      return next();
+    }
+
+    try {
+      const source = resolve(process.cwd(), "dist/__export-template");
+      const html = readFileSync(source, "utf8");
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.end(html);
+    } catch (error) {
+      console.error(
+        `[serve-export-template] failed to serve dist/__export-template for ${requestUrl}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      next();
+    }
+  };
 
   return {
-    base: isSingleFileExport ? "./" : undefined,
-    define: {
-      __SINGLE_FILE_EXPORT__: JSON.stringify(isSingleFileExport),
+    name: "serve-export-template",
+    configureServer(server) {
+      server.middlewares.use(handler);
     },
-    plugins: isSingleFileExport ? [inlineSingleFileBuild()] : [],
+    configurePreviewServer(server) {
+      server.middlewares.use(handler);
+    },
+  };
+}
+
+export default defineConfig(() => {
+  const isExportTemplateBuild = process.env.EXPORT_TEMPLATE_BUILD === "1";
+
+  return {
+    base: isExportTemplateBuild ? "./" : undefined,
+    define: {
+      __EXPORT_TEMPLATE_BUILD__: JSON.stringify(isExportTemplateBuild),
+    },
+    plugins: isExportTemplateBuild ? [inlineExportTemplateBuild()] : [serveExportTemplate()],
     server: {
       port: 3000,
       strictPort: true,
+      proxy: {
+        "/api": "http://localhost:3001",
+        "/ws": {
+          target: "ws://localhost:3001",
+          ws: true,
+        },
+      },
     },
     preview: {
       port: 3000,
       strictPort: true,
     },
-    build: isSingleFileExport
+    build: isExportTemplateBuild
       ? {
           cssCodeSplit: false,
           modulePreload: false,
