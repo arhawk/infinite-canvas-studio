@@ -94,6 +94,7 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     renderIcons(toggleEl, { width: 18, height: 18, "stroke-width": 2 });
     this._buildWidget(widgetEl);
     this.listenDom(toggleEl, "click", () => this._handleToggle());
+    this.listenDom(document, "keydown", (event) => this._handleKeydown(event));
     this._syncDisplay();
   }
 
@@ -103,6 +104,16 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     const next = this._widget.hidden;
     this._widget.hidden = !next;
     this._toggle.setAttribute("aria-pressed", String(next));
+  }
+
+  _handleKeydown(event) {
+    if (this._widget.hidden || isEditableTarget(event.target)) return;
+
+    const action = actionFromKeyboardEvent(event);
+    if (!action) return;
+
+    event.preventDefault();
+    this._handleButton(action);
   }
 
   // ── Build DOM ───────────────────────────────────────────────────────────────
@@ -388,4 +399,50 @@ function text(tag, cls, content) {
   const node = el(tag, cls);
   node.textContent = content;
   return node;
+}
+
+function actionFromKeyboardEvent(event) {
+  if (event.metaKey || event.ctrlKey || event.altKey) return null;
+
+  const key = event.key;
+  const upperKey = key.length === 1 ? key.toUpperCase() : key;
+
+  if (/^[0-9A-F]$/.test(upperKey)) {
+    return { type: "digit", value: upperKey };
+  }
+
+  switch (key) {
+    case ".":
+      return { type: "digit", value: "." };
+    case "+":
+      return { type: "op", value: "+" };
+    case "-":
+      return { type: "op", value: "−" };
+    case "*":
+    case "x":
+    case "X":
+      return { type: "op", value: "×" };
+    case "/":
+      return { type: "op", value: "÷" };
+    case "&":
+      return { type: "op", value: "AND" };
+    case "|":
+      return { type: "op", value: "OR" };
+    case "^":
+      return { type: "op", value: "XOR" };
+    case "=":
+    case "Enter":
+      return { type: "equals" };
+    case "Backspace":
+      return { type: "back" };
+    case "Escape":
+      return { type: "clear" };
+    default:
+      return null;
+  }
+}
+
+function isEditableTarget(target) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']"));
 }
