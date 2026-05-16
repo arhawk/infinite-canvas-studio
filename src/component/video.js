@@ -1,4 +1,5 @@
 import { BaseComponent } from "../core/baseClasses.js";
+import { applyOverlayOcclusionStyles, getOverlayOcclusionRects } from "./overlayOcclusion.js";
 import { Konva } from "../lib/konva.js";
 
 const DEFAULT_WIDTH = 360;
@@ -147,15 +148,17 @@ export class VideoComponent extends BaseComponent {
     if (!overlay || !node.getStage?.()) return;
 
     const isVisible = node.isVisible?.() !== false;
-    overlay.hidden = !isVisible;
-    if (!isVisible) return;
-
     const [a, b, c, d, e, f] = node.getAbsoluteTransform().getMatrix();
     overlay.style.width = `${node.width()}px`;
     overlay.style.height = `${node.height()}px`;
     overlay.style.opacity = String(node.opacity?.() ?? 1);
     overlay.style.zIndex = String(Math.max(1, this.app.getSelectableStackIndex?.(node) ?? 1));
     overlay.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
+    const occlusionRects = isVisible
+      ? getOverlayOcclusionRects(this.app, node, node.width(), node.height())
+      : [];
+    applyOverlayOcclusionStyles(overlay, node.width(), node.height(), occlusionRects);
+    overlay.hidden = !isVisible;
   }
 
   #mountOverlay(node, src) {
@@ -211,6 +214,7 @@ export class VideoComponent extends BaseComponent {
     let dragStartY = 0;
     let nodeStartX = 0;
     let nodeStartY = 0;
+    let stackSyncFrame = null;
 
     const isEditableInteraction = () => (
       !this.app.isReadOnly?.() &&
@@ -219,6 +223,14 @@ export class VideoComponent extends BaseComponent {
 
     const hideContextMenu = () => {
       contextMenuPlugin?.hideMenu?.();
+    };
+
+    const scheduleStackSync = () => {
+      if (stackSyncFrame != null) return;
+      stackSyncFrame = window.requestAnimationFrame(() => {
+        stackSyncFrame = null;
+        this.#syncOverlay(node);
+      });
     };
 
     const completePendingConnectionToSelf = () => {
@@ -303,9 +315,21 @@ export class VideoComponent extends BaseComponent {
       `xChange.video${node._id} yChange.video${node._id} scaleXChange.video${node._id} scaleYChange.video${node._id}`,
       sync,
     );
+    const offNodeAddedForStack = this.app.on("node:added", scheduleStackSync);
+    const offNodeRemovedForStack = this.app.on("node:removed", scheduleStackSync);
+    const offNodeChangingForStack = this.app.on("node:changing", scheduleStackSync);
+    const offNodeChangedForStack = this.app.on("node:changed", scheduleStackSync);
 
     node._videoOverlayEl = overlay;
     node._videoOverlayCleanup = () => {
+      if (stackSyncFrame != null) {
+        window.cancelAnimationFrame(stackSyncFrame);
+        stackSyncFrame = null;
+      }
+      offNodeAddedForStack?.();
+      offNodeRemovedForStack?.();
+      offNodeChangingForStack?.();
+      offNodeChangedForStack?.();
       overlay.removeEventListener("mousedown", handleOverlayMouseDown, true);
       overlay.removeEventListener("contextmenu", handleOverlayContextMenu, true);
       document.removeEventListener("mousemove", onDragMove);

@@ -32,6 +32,7 @@ export class CatalogComponent extends BaseComponent {
       title,
       items: safeItems,
     });
+    group.setAttr("excludeFromLayerOrder", true);
 
     const background = new Konva.Rect({
       width,
@@ -106,5 +107,6 @@ export class CatalogComponent extends BaseComponent {
     node.visible(false);
     node.opacity(0);
     node.listening(false);
+    node.setAttr("excludeFromLayerOrder", true);
   }
 }

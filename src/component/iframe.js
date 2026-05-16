@@ -1,4 +1,5 @@
 import { BaseComponent } from "../core/baseClasses.js";
+import { applyOverlayOcclusionStyles, getOverlayOcclusionRects } from "./overlayOcclusion.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { renderIcons } from "../lib/icons.js";
 import { Konva } from "../lib/konva.js";
@@ -209,15 +210,18 @@ export class IframeComponent extends BaseComponent {
     if (!overlay || !node.getStage?.()) return;
 
     const isVisible = node.isVisible?.() !== false;
-    overlay.hidden = !isVisible;
-    if (!isVisible) return;
-
     const [a, b, c, d, e, f] = node.getAbsoluteTransform().getMatrix();
     overlay.style.width = `${node.width()}px`;
     overlay.style.height = `${node.height()}px`;
     overlay.style.opacity = String(node.opacity?.() ?? 1);
     overlay.style.zIndex = String(Math.max(1, this.app.getSelectableStackIndex?.(node) ?? 1));
     overlay.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
+    const occlusionRects = isVisible
+      ? getOverlayOcclusionRects(this.app, node, node.width(), node.height())
+      : [];
+    applyOverlayOcclusionStyles(overlay, node.width(), node.height(), occlusionRects);
+    overlay.hidden = !isVisible;
+    if (!isVisible) return;
     node._iframeApplyViewport?.();
   }
 
@@ -364,6 +368,7 @@ export class IframeComponent extends BaseComponent {
     let menuOpen = false;
     let lastFrameUrl = "";
     let isEditingUrl = false;
+    let stackSyncFrame = null;
 
     const getManualInteraction = () => node.getAttr("iframeInteractionMode") === true;
     const getInteractive = () => !getIsEditable() || getManualInteraction();
@@ -664,6 +669,17 @@ export class IframeComponent extends BaseComponent {
       applyInteractiveMode();
     };
 
+    const scheduleStackSync = ({ node: changedNode } = {}) => {
+      if (changedNode === node) {
+        applyViewport();
+      }
+      if (stackSyncFrame != null) return;
+      stackSyncFrame = window.requestAnimationFrame(() => {
+        stackSyncFrame = null;
+        this.#syncOverlay(node);
+      });
+    };
+
     node._iframeApplyViewport = applyViewport;
 
     body.addEventListener("wheel", (event) => {
@@ -863,16 +879,19 @@ export class IframeComponent extends BaseComponent {
       syncHeaderState();
       this.#syncOverlay(node);
     });
-    const stopListeningToNodeChanged = this.app.on?.("node:changed", ({ node: changedNode } = {}) => {
-      if (changedNode !== node) return;
-      applyViewport();
-      this.#syncOverlay(node);
-    });
+    const stopListeningToNodeAddedForStack = this.app.on?.("node:added", scheduleStackSync);
+    const stopListeningToNodeRemovedForStack = this.app.on?.("node:removed", scheduleStackSync);
+    const stopListeningToNodeChangingForStack = this.app.on?.("node:changing", scheduleStackSync);
+    const stopListeningToNodeChangedForStack = this.app.on?.("node:changed", scheduleStackSync);
 
     node._iframeOverlayEl = overlay;
     node._iframeOverlayCleanup = () => {
       if (fallbackTimer != null) {
         window.clearTimeout(fallbackTimer);
+      }
+      if (stackSyncFrame != null) {
+        window.cancelAnimationFrame(stackSyncFrame);
+        stackSyncFrame = null;
       }
       closeLayerMenu();
       overlay.removeEventListener("mousedown", handleOverlayMouseDown, true);
@@ -886,7 +905,10 @@ export class IframeComponent extends BaseComponent {
       document.body.style.cursor = "";
       stopListeningToInteraction?.();
       stopListeningToSelection?.();
-      stopListeningToNodeChanged?.();
+      stopListeningToNodeAddedForStack?.();
+      stopListeningToNodeRemovedForStack?.();
+      stopListeningToNodeChangingForStack?.();
+      stopListeningToNodeChangedForStack?.();
       node.off(".iframeOverlay");
       stage.off(`.iframe${node._id}`);
       node._iframeApplyViewport = null;
