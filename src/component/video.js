@@ -4,6 +4,11 @@ import { Konva } from "../lib/konva.js";
 const DEFAULT_WIDTH = 360;
 const DEFAULT_HEIGHT = 240;
 const HEADER_HEIGHT = 40;
+const DEFAULT_TITLE = "Local Video";
+
+function normalizeTitle(title) {
+  return typeof title === "string" && title.trim() ? title.trim() : DEFAULT_TITLE;
+}
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -64,7 +69,7 @@ export class VideoComponent extends BaseComponent {
     ];
   }
 
-  async createNode({ x, y, src = null } = {}) {
+  async createNode({ x, y, src = null, title = DEFAULT_TITLE } = {}) {
     const group = new Konva.Group({
       x,
       y,
@@ -109,6 +114,7 @@ export class VideoComponent extends BaseComponent {
     }));
 
     group.setAttr("videoSrc", src);
+    group.setAttr("videoTitle", normalizeTitle(title));
     return group;
   }
 
@@ -196,7 +202,7 @@ export class VideoComponent extends BaseComponent {
 
     const label = document.createElement("span");
     label.className = "video-component__title";
-    label.textContent = "Local Video";
+    label.textContent = node.getAttr("videoTitle") ?? DEFAULT_TITLE;
 
     const actions = document.createElement("div");
     actions.className = "video-component__actions";
@@ -241,6 +247,7 @@ export class VideoComponent extends BaseComponent {
     stageContainer.append(overlay);
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
+    const catalogPanelPlugin = this.app.getPlugin?.("catalog-panel") ?? null;
     let dragging = false;
     let dragStartX = 0;
     let dragStartY = 0;
@@ -251,12 +258,20 @@ export class VideoComponent extends BaseComponent {
       if (event.target.closest("button")) return;
       event.preventDefault();
       event.stopPropagation();
+      stage.setPointersPositions?.(event);
       dragging = true;
       dragStartX = event.clientX;
       dragStartY = event.clientY;
       nodeStartX = node.x();
       nodeStartY = node.y();
       selectionPlugin?.setSelected?.([node]);
+      catalogPanelPlugin?.dragOrigins?.set?.(node.id(), {
+        x: node.x(),
+        y: node.y(),
+      });
+      if (catalogPanelPlugin?.isEditable) {
+        catalogPanelPlugin.panelEl?.classList?.add?.("is-drag-active");
+      }
       this.app.events.emit("node:change:start", { node });
       document.body.style.userSelect = "none";
       document.body.style.cursor = "grabbing";
@@ -265,20 +280,26 @@ export class VideoComponent extends BaseComponent {
 
     const onDragMove = (event) => {
       if (!dragging) return;
+      stage.setPointersPositions?.(event);
       const stageScale = this.app.stageApi?.getScale?.() ?? stage.scaleX() ?? 1;
       node.x(nodeStartX + (event.clientX - dragStartX) / stageScale);
       node.y(nodeStartY + (event.clientY - dragStartY) / stageScale);
       node.getLayer()?.batchDraw();
       this.#syncOverlay(node);
+      catalogPanelPlugin?.updateDropPreview?.();
       this.app.events.emit("node:changing", { node });
     };
 
-    const endDrag = () => {
+    const endDrag = (event) => {
       if (!dragging) return;
+      stage.setPointersPositions?.(event);
       dragging = false;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
       topbar.classList.remove("is-dragging");
+      catalogPanelPlugin?.panelEl?.classList?.remove?.("is-drag-active");
+      catalogPanelPlugin?.handleCanvasNodeDrop?.(node);
+      catalogPanelPlugin?.clearDropPreview?.();
       this.app.events.emit("node:changed", { node });
     };
 
@@ -327,12 +348,17 @@ export class VideoComponent extends BaseComponent {
   }
 
   serializeNode(node) {
-    return { src: node.getAttr("videoSrc") ?? null };
+    return {
+      src: node.getAttr("videoSrc") ?? null,
+      title: node.getAttr("videoTitle") ?? DEFAULT_TITLE,
+    };
   }
 
   async applySerializedData(node, data = {}) {
     const src = data.src ?? null;
+    const title = normalizeTitle(data.title);
     node.setAttr("videoSrc", src);
+    node.setAttr("videoTitle", title);
     this.#mountOverlay(node, src);
   }
 }

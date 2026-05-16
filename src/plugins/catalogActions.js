@@ -63,6 +63,9 @@ function getNodeDisplayTitle(node) {
   }
   if (componentType === "image") return "Image";
   if (componentType === "iframe") return "Iframe";
+  if (componentType === "video") {
+    return node.getAttr("videoTitle")?.trim() || "Local Video";
+  }
   if (componentType === "javascriptEditor") {
     return node.getAttr("javascriptEditorTitle")?.trim() || "JS Code Runner";
   }

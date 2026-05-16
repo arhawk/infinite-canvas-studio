@@ -266,6 +266,18 @@ function getNodeSummary(node) {
     };
   }
 
+  if (componentType === "video") {
+    const overlay = node._videoOverlayEl ?? null;
+    const titleEl = overlay?.querySelector?.(".video-component__title") ?? null;
+
+    return {
+      title: node.getAttr("videoTitle") ?? "",
+      src: node.getAttr("videoSrc") ?? null,
+      hasOverlay: Boolean(overlay),
+      displayedTitle: titleEl?.textContent?.trim?.() ?? "",
+    };
+  }
+
   return {};
 }
 

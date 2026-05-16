@@ -1437,6 +1437,77 @@ test("lets the JavaScript editor participate in catalog drag and activation flow
   ]);
 });
 
+test("lets video outline items be renamed with the existing outline interaction", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const video = await addComponent(page, "video", {
+    x: 180,
+    y: 220,
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), video.id);
+  await page.getByTestId("catalog-add-selected").click();
+
+  await expect
+    .poll(async () => (await listCatalogItems(page)).map((item) => item.renderedTitle))
+    .toContain("Local Video");
+
+  const titleEl = page.locator('[data-testid^="catalog-item-title-"]').filter({
+    hasText: "Local Video",
+  }).first();
+
+  await titleEl.dblclick();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("Lecture Demo Clip");
+  await page.keyboard.press("Enter");
+  await waitForPaint(page);
+
+  await expect
+    .poll(async () => (await listCatalogItems(page)).map((item) => item.renderedTitle))
+    .toContain("Lecture Demo Clip");
+
+  await expect
+    .poll(async () => (await getNode(page, video.id))?.summary?.title ?? "")
+    .toBe("Lecture Demo Clip");
+
+  await expect
+    .poll(async () => (await getNode(page, video.id))?.summary?.displayedTitle ?? "")
+    .toBe("Lecture Demo Clip");
+});
+
+test("lets the video component participate in catalog drag and activation flows", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const video = await addComponent(page, "video", {
+    x: 180,
+    y: 220,
+  });
+
+  const topbarBox = await page.locator(".video-component__topbar").first().boundingBox();
+  const start = {
+    x: topbarBox.x + topbarBox.width / 2,
+    y: topbarBox.y + topbarBox.height / 2,
+  };
+  const catalogPanelBox = await page.getByTestId("catalog-panel-list").boundingBox();
+  const end = {
+    x: catalogPanelBox.x + Math.min(80, catalogPanelBox.width / 2),
+    y: catalogPanelBox.y + 32,
+  };
+
+  await dragBetweenPagePoints(page, start, end, 10);
+
+  await expect(page.getByTestId("catalog-panel")).toContainText("Local Video");
+
+  const catalogRow = page.locator('[data-testid^="catalog-item-"]').filter({
+    hasText: "Local Video",
+  }).first();
+  await catalogRow.click();
+
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getSelectedNodeIds())).toEqual([
+    video.id,
+  ]);
+});
+
 test("keeps marquee selection active across video and javascript editor overlays", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.setViewport({
     scale: 0.8,
@@ -2472,6 +2543,27 @@ test("fits page compare previews from stable page bounds", async ({ page }) => {
       return state?.panes[0]?.transform.scale ?? 0;
     })
     .toBeGreaterThan(beforeResizeScale);
+});
+
+test("does not show the page compare selection bar after selecting a page in presentation mode", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", {
+    x: 180,
+    y: 140,
+    width: 480,
+    height: 270,
+    label: "Slide 1",
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+
+  const center = await getNodePageCenter(page, pageNode.id);
+  await page.mouse.click(center.x, center.y);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("page-compare-selection-bar")).toBeHidden();
 });
 
 test("asks for confirmation before loading over current content", async ({ page }) => {

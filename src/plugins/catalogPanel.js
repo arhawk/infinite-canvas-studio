@@ -134,6 +134,9 @@ function getNodeDisplayTitle(node, fallback = "Untitled") {
 
   if (componentType === "image") return "Image";
   if (componentType === "iframe") return "Iframe";
+  if (componentType === "video") {
+    return node.getAttr("videoTitle")?.trim() || "Local Video";
+  }
   if (componentType === "javascriptEditor") {
     return node.getAttr("javascriptEditorTitle")?.trim() || "JS Code Runner";
   }
@@ -180,6 +183,17 @@ function applyTitleToNode(node, title) {
     const labelNode = node.findOne(".button-label");
     if (!labelNode || labelNode.text() === nextTitle) return false;
     labelNode.text(nextTitle);
+    return true;
+  }
+
+  if (componentType === "video") {
+    const currentTitle = node.getAttr("videoTitle")?.trim() || "Local Video";
+    if (currentTitle === nextTitle) return false;
+    node.setAttr("videoTitle", nextTitle);
+    const titleEl = node._videoOverlayEl?.querySelector?.(".video-component__title");
+    if (titleEl) {
+      titleEl.textContent = nextTitle;
+    }
     return true;
   }
 
