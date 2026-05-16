@@ -7,8 +7,16 @@ import {
   getCatalogItemById,
   insertCatalogItemIntoItems,
   moveCatalogItemInItems,
+  removeCatalogItemFromItems,
   toggleCatalogItemCollapsedInItems,
 } from "../catalog/api.js";
+
+const SHAPE_TYPE_LABELS = {
+  rectangle: "Rectangle",
+  oval: "Circle",
+  rhombus: "Rhombus",
+  triangle: "Triangle",
+};
 
 function getCatalogNode(app) {
   return app.mainLayer.find(".selectable").find((node) => {
@@ -52,7 +60,7 @@ function getPreviousSibling(items = [], item) {
   return index > 0 ? siblings[index - 1] : null;
 }
 
-function removeCatalogItemPromoteChildrenInItems(items = [], itemId) {
+export function removeCatalogItemPromoteChildrenInItems(items = [], itemId) {
   const target = getCatalogItemById(items, itemId);
   if (!target) return items;
 
@@ -108,6 +116,17 @@ function getNumberingLabel(items = [], item) {
   return path.join(".");
 }
 
+function getDefaultShapeTitle(node) {
+  const shapeType = node?.getAttr?.("shapeType") ?? "rectangle";
+  return SHAPE_TYPE_LABELS[shapeType] ?? "Shape";
+}
+
+function resolveCatalogTargetNode(node) {
+  if (!node?.getStage?.()) return null;
+  if (node.getAttr?.("componentType") === "page") return node;
+  return node.findAncestor?.(".page-root", true) ?? node;
+}
+
 function getNodeDisplayTitle(node, fallback = "Untitled") {
   if (!node) return fallback;
 
@@ -136,6 +155,11 @@ function getNodeDisplayTitle(node, fallback = "Untitled") {
   if (componentType === "iframe") return "Iframe";
   if (componentType === "video") {
     return node.getAttr("videoTitle")?.trim() || "Local Video";
+  }
+  if (componentType === "shape") {
+    const text = node.findOne(".shape-text")?.text()?.trim();
+    if (text) return text;
+    return fallback && fallback !== "Untitled" ? fallback : getDefaultShapeTitle(node);
   }
   if (componentType === "javascriptEditor") {
     return node.getAttr("javascriptEditorTitle")?.trim() || "JS Code Runner";
@@ -197,7 +221,36 @@ function applyTitleToNode(node, title) {
     return true;
   }
 
+  if (componentType === "shape") {
+    const textNode = node.findOne(".shape-text");
+    const currentTitle = textNode?.text()?.trim() || getDefaultShapeTitle(node);
+    if (!textNode || currentTitle === nextTitle) return false;
+    textNode.text(nextTitle);
+    node.setAttr("shapeText", nextTitle);
+    return true;
+  }
+
   return false;
+}
+
+function getUniqueCatalogTitle(node, items = []) {
+  const baseTitle = getNodeDisplayTitle(node);
+  if (node?.getAttr?.("componentType") !== "shape") return baseTitle;
+  if (node.findOne(".shape-text")?.text()?.trim()) return baseTitle;
+
+  const matchingTitles = new Set(
+    items
+      .map((item) => item?.title?.trim?.() ?? "")
+      .filter((title) => title === baseTitle || title.startsWith(`${baseTitle} `)),
+  );
+
+  if (!matchingTitles.has(baseTitle)) return baseTitle;
+
+  let suffix = 2;
+  while (matchingTitles.has(`${baseTitle} ${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseTitle} ${suffix}`;
 }
 
 export class CatalogPanelPlugin extends BasePlugin {
@@ -212,6 +265,7 @@ export class CatalogPanelPlugin extends BasePlugin {
     this.isCollapsed = false;
     this.dragOrigins = new Map();
     this.draggedCatalogItemId = null;
+    this.pendingRemoval = null;
     this.titleArrowTap = {
       itemId: null,
       key: null,
@@ -233,7 +287,11 @@ export class CatalogPanelPlugin extends BasePlugin {
         this.selectedNodeId = null;
       }
       this.dragOrigins.delete(node?.id?.());
-      this.render();
+      queueMicrotask(() => {
+        if (!this.scrubOrphanCatalogItems()) {
+          this.render();
+        }
+      });
     });
     this.listen("node:changed", () => this.render());
     this.listen("interaction:change", () => this.render());
@@ -244,11 +302,26 @@ export class CatalogPanelPlugin extends BasePlugin {
     this.listen("document:load:start", () => this.renderLoadingState());
     this.listen("document:load:end", () => {
       this.app.mainLayer.find(".selectable").forEach((node) => this.bindCatalogDropForNode(node));
-      this.render();
+      if (!this.scrubOrphanCatalogItems()) {
+        this.render();
+      }
+    });
+    this.listenDom(document, "pointerdown", (event) => {
+      this.handleGlobalPointerDown(event);
+    }, { capture: true });
+    this.listenDom(document, "keydown", (event) => {
+      this.handleGlobalKeydown(event);
     });
 
     this.app.mainLayer.find(".selectable").forEach((node) => this.bindCatalogDropForNode(node));
-    this.render();
+    if (!this.scrubOrphanCatalogItems()) {
+      this.render();
+    }
+
+    this.cleanups.push(() => {
+      this.hideRemovePopover();
+      this.removePopoverEl?.remove?.();
+    });
   }
 
   buildShell() {
@@ -313,6 +386,51 @@ export class CatalogPanelPlugin extends BasePlugin {
     this.listenDom(this.listEl, "dragleave", () => this.clearDropPreview());
     this.listenDom(this.listEl, "drop", (event) => this.handleCatalogItemDrop(event));
 
+    this.removePopoverEl = document.createElement("section");
+    this.removePopoverEl.className = "pen-dropdown catalog-remove-popover";
+    this.removePopoverEl.hidden = true;
+    this.removePopoverEl.dataset.testid = "catalog-remove-popover";
+    this.removePopoverEl.setAttribute("role", "dialog");
+    this.removePopoverEl.setAttribute("aria-modal", "false");
+    this.removePopoverEl.innerHTML = `
+        <div class="catalog-remove-popover__body">
+          <h3 class="catalog-remove-popover__title">Remove from outline?</h3>
+          <div class="catalog-remove-popover__actions">
+            <button
+              type="button"
+            class="catalog-remove-popover__secondary"
+            data-testid="catalog-remove-outline"
+          >
+            Outline only
+          </button>
+            <button
+              type="button"
+              class="catalog-remove-popover__danger"
+              data-testid="catalog-remove-canvas"
+            >
+              Delete all
+            </button>
+            <button
+              type="button"
+              class="catalog-remove-popover__ghost"
+              data-testid="catalog-remove-cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.append(this.removePopoverEl);
+    this.listenDom(this.removePopoverEl.querySelector("[data-testid='catalog-remove-outline']"), "click", () => {
+      this.confirmRemoveOutlineOnly();
+    });
+    this.listenDom(this.removePopoverEl.querySelector("[data-testid='catalog-remove-canvas']"), "click", () => {
+      this.confirmRemoveOutlineAndCanvas();
+    });
+    this.listenDom(this.removePopoverEl.querySelector("[data-testid='catalog-remove-cancel']"), "click", () => {
+      this.hideRemovePopover();
+    });
+
     shell.append(header, this.addSelectedEl, this.statusEl, this.listEl);
     return shell;
   }
@@ -334,6 +452,7 @@ export class CatalogPanelPlugin extends BasePlugin {
 
   renderLoadingState() {
     if (!this.listEl) return;
+    this.hideRemovePopover();
     this.listEl.innerHTML = "";
     this.statusEl.textContent = "Loading outline...";
   }
@@ -345,6 +464,10 @@ export class CatalogPanelPlugin extends BasePlugin {
     const catalogData = getCatalogData(catalogNode);
     const tree = buildCatalogTree(catalogData.items);
     const isEditable = this.isEditable;
+
+    if (this.pendingRemoval && !getCatalogItemById(catalogData.items, this.pendingRemoval.itemId)) {
+      this.hideRemovePopover();
+    }
 
     this.panelEl.classList.toggle("is-editable", isEditable);
     this.panelEl.classList.toggle("is-readonly", !isEditable);
@@ -554,6 +677,7 @@ export class CatalogPanelPlugin extends BasePlugin {
 
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
+      event.stopPropagation();
       this.focusCatalogItem(item);
       return;
     }
@@ -564,13 +688,15 @@ export class CatalogPanelPlugin extends BasePlugin {
     if (handled) {
       this.selectedItemId = item.id;
       event.preventDefault();
+      event.stopPropagation();
       return;
     }
 
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
+      event.stopPropagation();
       this.selectedItemId = null;
-      this.commitItemsMutation((items) => removeCatalogItemPromoteChildrenInItems(items, item.id));
+      this.requestRemoveCatalogItem(item, event.currentTarget);
     }
   }
 
@@ -668,15 +794,143 @@ export class CatalogPanelPlugin extends BasePlugin {
     return true;
   }
 
+  scrubOrphanCatalogItems() {
+    const catalogNode = getCatalogNode(this.app);
+    if (!catalogNode) return false;
+
+    const catalogData = getCatalogData(catalogNode);
+    const liveNodeIds = new Set(
+      this.app.mainLayer.find(".selectable")
+        .filter((node) => node?.getAttr?.("componentType") !== "catalog")
+        .map((node) => node.id()),
+    );
+    const orphanIds = catalogData.items
+      .filter((item) => !liveNodeIds.has(item.nodeId))
+      .map((item) => item.id);
+
+    if (!orphanIds.length) return false;
+
+    let nextItems = catalogData.items;
+    orphanIds.forEach((itemId) => {
+      nextItems = removeCatalogItemFromItems(nextItems, itemId);
+    });
+
+    this.commitItemsMutation(() => nextItems);
+    return true;
+  }
+
+  destroyCanvasNodeTree(rootNode) {
+    if (!rootNode?.getStage?.()) return false;
+
+    const descendants = rootNode.find?.(".selectable")?.toArray?.() ?? [];
+    descendants
+      .filter((node) => node?.getStage?.())
+      .reverse()
+      .forEach((node) => {
+        this.app.events.emit("node:removed", { node });
+      });
+
+    this.app.events.emit("node:removed", { node: rootNode });
+    rootNode.destroy();
+    this.app.mainLayer.batchDraw();
+    return true;
+  }
+
+  requestRemoveCatalogItem(item, anchorEl = null) {
+    const node = this.app.mainLayer.findOne(`#${item.nodeId}`);
+    const isMissing = !node?.getStage?.();
+    if (isMissing) {
+      return this.commitItemsMutation((items) => removeCatalogItemPromoteChildrenInItems(items, item.id));
+    }
+
+    this.showRemovePopover(item, anchorEl);
+    return true;
+  }
+
+  confirmRemoveOutlineOnly() {
+    const pending = this.pendingRemoval;
+    if (!pending) return false;
+    this.hideRemovePopover();
+    return this.commitItemsMutation((items) => removeCatalogItemPromoteChildrenInItems(items, pending.itemId));
+  }
+
+  confirmRemoveOutlineAndCanvas() {
+    const pending = this.pendingRemoval;
+    if (!pending) return false;
+    const node = this.app.mainLayer.findOne(`#${pending.nodeId}`);
+    this.hideRemovePopover();
+    const removed = this.commitItemsMutation((items) => removeCatalogItemFromItems(items, pending.itemId));
+    if (!removed || !node?.getStage?.()) return removed;
+    this.destroyCanvasNodeTree(node);
+    return true;
+  }
+
+  showRemovePopover(item, anchorEl = null) {
+    if (!this.removePopoverEl) return;
+    this.pendingRemoval = {
+      itemId: item.id,
+      nodeId: item.nodeId,
+      anchorEl,
+    };
+    this.removePopoverEl.hidden = false;
+    this.positionRemovePopover(anchorEl);
+  }
+
+  hideRemovePopover() {
+    this.pendingRemoval = null;
+    if (!this.removePopoverEl) return;
+    this.removePopoverEl.hidden = true;
+  }
+
+  positionRemovePopover(anchorEl = null) {
+    if (!this.removePopoverEl || this.removePopoverEl.hidden) return;
+    const rect = anchorEl?.getBoundingClientRect?.() ?? this.panelEl?.getBoundingClientRect?.();
+    if (!rect) return;
+
+    const gutter = 12;
+    const popoverRect = this.removePopoverEl.getBoundingClientRect();
+    const width = popoverRect.width || 288;
+    const height = popoverRect.height || 180;
+    const left = Math.min(
+      window.innerWidth - width - gutter,
+      Math.max(gutter, rect.right - width),
+    );
+    const top = Math.min(
+      window.innerHeight - height - gutter,
+      Math.max(gutter, rect.top + Math.min(rect.height + 8, 20)),
+    );
+
+    this.removePopoverEl.style.left = `${Math.round(left)}px`;
+    this.removePopoverEl.style.top = `${Math.round(top)}px`;
+  }
+
+  handleGlobalPointerDown(event) {
+    if (!this.pendingRemoval || this.removePopoverEl?.hidden) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    if (this.removePopoverEl.contains(target)) return;
+    if (this.pendingRemoval.anchorEl?.contains?.(target)) return;
+    this.hideRemovePopover();
+  }
+
+  handleGlobalKeydown(event) {
+    if (!this.pendingRemoval || this.removePopoverEl?.hidden) return;
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    this.hideRemovePopover();
+  }
+
   bindCatalogDropForNode(node) {
     if (!node?.hasName?.("selectable")) return;
     if (node.getAttr("componentType") === "catalog") return;
 
     node.off(".catalogPanelDrop");
     node.on("dragstart.catalogPanelDrop", () => {
+      const targetNode = resolveCatalogTargetNode(node);
       this.dragOrigins.set(node.id(), {
         x: node.x(),
         y: node.y(),
+        targetNodeId: targetNode?.id?.() ?? node.id(),
       });
       if (this.isEditable) {
         this.panelEl?.classList.add("is-drag-active");
@@ -827,8 +1081,14 @@ export class CatalogPanelPlugin extends BasePlugin {
     const catalogNode = getCatalogNode(this.app);
     if (!catalogNode) return false;
 
+    const origin = this.dragOrigins.get(node.id());
+    const targetNode = origin?.targetNodeId
+      ? this.app.mainLayer.findOne(`#${origin.targetNodeId}`) ?? resolveCatalogTargetNode(node)
+      : resolveCatalogTargetNode(node);
+    if (!targetNode) return false;
+
     const catalogData = getCatalogData(catalogNode);
-    const existingItem = findCatalogItemByNodeId(catalogData.items, node.id());
+    const existingItem = findCatalogItemByNodeId(catalogData.items, targetNode.id());
     const move = this.getDropMoveFromPoint(point.x, point.y, catalogData.items);
     let nextItems = catalogData.items;
 
@@ -843,21 +1103,20 @@ export class CatalogPanelPlugin extends BasePlugin {
       }
     } else {
       nextItems = insertCatalogItemIntoItems(catalogData.items, {
-        nodeId: node.id(),
-        title: getNodeDisplayTitle(node),
+        nodeId: targetNode.id(),
+        title: getUniqueCatalogTitle(targetNode, catalogData.items),
         titleSource: "node",
         parentId: move?.parentId ?? null,
       });
 
       if (move?.index != null) {
-        const insertedItem = findCatalogItemByNodeId(nextItems, node.id());
+        const insertedItem = findCatalogItemByNodeId(nextItems, targetNode.id());
         if (insertedItem) {
           nextItems = moveCatalogItemInItems(nextItems, insertedItem.id, move);
         }
       }
     }
 
-    const origin = this.dragOrigins.get(node.id());
     if (origin) {
       node.position(origin);
       node.getLayer()?.batchDraw?.();

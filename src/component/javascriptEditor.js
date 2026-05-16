@@ -1767,9 +1767,14 @@ export class JavaScriptEditorComponent extends BaseComponent {
       nodeStartX = node.x();
       nodeStartY = node.y();
       syncSelection();
+      const targetNode = node.findAncestor?.(".page-root", true);
       catalogPanelPlugin?.dragOrigins?.set?.(node.id(), {
         x: node.x(),
         y: node.y(),
+        targetNodeId:
+          targetNode?.getAttr?.("componentType") === "page"
+            ? targetNode.id?.()
+            : node.id(),
       });
       if (catalogPanelPlugin?.isEditable) {
         catalogPanelPlugin.panelEl?.classList?.add?.("is-drag-active");
