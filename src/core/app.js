@@ -12,6 +12,10 @@ function isSelectableNode(node) {
   return !!node?.hasName?.("selectable");
 }
 
+function participatesInLayerOrder(node) {
+  return isSelectableNode(node) && node?.getAttr?.("excludeFromLayerOrder") !== true;
+}
+
 export class App {
   constructor({ container }) {
     this.events = new EventBus();
@@ -200,7 +204,9 @@ export class App {
 
   getSelectableSiblings(node) {
     const parent = this.getSelectableParent(node);
-    return parent?.getChildren ? Array.from(parent.getChildren()).filter((child) => isSelectableNode(child)) : [];
+    return parent?.getChildren
+      ? Array.from(parent.getChildren()).filter((child) => participatesInLayerOrder(child))
+      : [];
   }
 
   getSelectableIndex(node) {
@@ -233,7 +239,7 @@ export class App {
     if (!parent?.getChildren) return false;
 
     const allChildren = Array.from(parent.getChildren());
-    const selectableChildren = allChildren.filter((child) => isSelectableNode(child));
+    const selectableChildren = allChildren.filter((child) => participatesInLayerOrder(child));
     if (!selectableChildren.length) return false;
 
     const sameMembers =
@@ -243,7 +249,7 @@ export class App {
 
     let selectableIndex = 0;
     const finalOrder = allChildren.map((child) => (
-      isSelectableNode(child) ? orderedSelectableChildren[selectableIndex++] : child
+      participatesInLayerOrder(child) ? orderedSelectableChildren[selectableIndex++] : child
     ));
 
     // Rebuild the sibling order without disturbing non-selectable children such as the transformer.

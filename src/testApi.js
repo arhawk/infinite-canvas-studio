@@ -303,6 +303,7 @@ function getNodeSummary(node) {
     const overlay = node._videoOverlayEl ?? null;
     return {
       hasOverlay: Boolean(overlay),
+      overlayZIndex: overlay?.style?.zIndex ?? "",
       hasVideoElement: Boolean(overlay?.querySelector?.("video")),
       hasPlaceholder: Boolean(overlay?.querySelector?.(".video-component__placeholder")),
       hasTopbarActions: Boolean(overlay?.querySelector?.(".video-component__actions")),
@@ -370,6 +371,7 @@ function serializeNode(app, node) {
     componentType: node.getAttr("componentType"),
     parentId: parent?.hasName?.("selectable") ? parent.id() : null,
     zIndex: app.getSelectableIndex(node),
+    stackIndex: app.getSelectableStackIndex?.(node) ?? -1,
     focusPositionMode: node.getAttr("focusPositionMode") ?? null,
     savedFocus: node.getAttr("savedFocus") ?? null,
     bounds: bounds

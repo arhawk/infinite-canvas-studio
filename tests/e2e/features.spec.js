@@ -53,6 +53,25 @@ async function canvasPointToPage(page, point) {
   };
 }
 
+async function getOverlapPagePoint(page, firstId, secondId) {
+  return page.evaluate(({ sourceId, targetId }) => {
+    const source = window.__APP_TEST_API__.getNode(sourceId);
+    const target = window.__APP_TEST_API__.getNode(targetId);
+    const a = source?.bounds ?? null;
+    const b = target?.bounds ?? null;
+    if (!a || !b) return null;
+    const x1 = Math.max(a.x, b.x);
+    const y1 = Math.max(a.y, b.y);
+    const x2 = Math.min(a.x + a.width, b.x + b.width);
+    const y2 = Math.min(a.y + a.height, b.y + b.height);
+    if (!(x2 > x1 && y2 > y1)) return null;
+    return window.__APP_TEST_API__.canvasToPagePoint({
+      x: x1 + (x2 - x1) / 2,
+      y: y1 + (y2 - y1) / 2,
+    });
+  }, { sourceId: firstId, targetId: secondId });
+}
+
 async function getConnectionCurvePagePoint(page, connectionId, t = 0.5) {
   return page.evaluate(({ id, sampleT }) => {
     const node = window.__APP_TEST_API__.getNode(id);
@@ -626,6 +645,40 @@ test("reorders component layers and preserves them through undo and document rou
   ]);
 });
 
+test("ignores the hidden catalog node when sending a visible component backward", async ({ page }) => {
+  const sticky = await addComponent(page, "sticky", { x: 180, y: 180 });
+  const text = await addComponent(page, "text", { x: 360, y: 180 });
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+  const button = await addComponent(page, "button", { x: 540, y: 180, label: "Layer target" });
+
+  await expect.poll(async () => getNodeOrder(page, [sticky.id, text.id, button.id])).toEqual([
+    sticky.id,
+    text.id,
+    button.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeBackward(id), button.id);
+  await expect.poll(async () => getNodeOrder(page, [sticky.id, text.id, button.id])).toEqual([
+    sticky.id,
+    button.id,
+    text.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeBackward(id), button.id);
+  await expect.poll(async () => getNodeOrder(page, [sticky.id, text.id, button.id])).toEqual([
+    button.id,
+    sticky.id,
+    text.id,
+  ]);
+
+  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeBackward(id), button.id);
+  await expect.poll(async () => getNodeOrder(page, [sticky.id, text.id, button.id])).toEqual([
+    button.id,
+    sticky.id,
+    text.id,
+  ]);
+});
+
 test("undoes and redoes an outline add action", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
 
@@ -855,6 +908,50 @@ test("edits video sources from the floating toolbar and opens layer actions", as
   await page.getByTestId("video-layer-bring-forward").click();
   await expect.poll(async () => getNodeOrder(page, [video.id, sticky.id]))
     .toEqual([sticky.id, video.id]);
+  await expect.poll(async () => {
+    const videoNode = await getNode(page, video.id);
+    return {
+      overlayZIndex: Number(videoNode?.summary?.overlayZIndex ?? 0),
+      stackIndex: Number(videoNode?.stackIndex ?? -1),
+    };
+  }).toEqual(expect.objectContaining({
+    overlayZIndex: expect.any(Number),
+    stackIndex: expect.any(Number),
+  }));
+  await expect.poll(async () => {
+    const videoNode = await getNode(page, video.id);
+    return Number(videoNode?.summary?.overlayZIndex ?? 0);
+  }).toBe(await page.evaluate((nodeId) => {
+    const node = window.__APP_TEST_API__.getNode(nodeId);
+    return Number(node?.stackIndex ?? -1);
+  }, video.id));
+});
+
+test("occludes video overlay when a higher layer canvas node overlaps it", async ({ page }) => {
+  const video = await addComponent(page, "video", { x: 180, y: 180 });
+  const sticky = await addComponent(page, "sticky", { x: 260, y: 230 });
+
+  const overlapPoint = await getOverlapPagePoint(page, video.id, sticky.id);
+  expect(overlapPoint).toBeTruthy();
+
+  await expect.poll(async () => page.evaluate(({ x, y }) => {
+    const element = document.elementFromPoint(x, y);
+    return {
+      insideVideoOverlay: Boolean(element?.closest?.(".video-component__overlay")),
+      insideCanvas: Boolean(element?.closest?.(".canvas-container")),
+    };
+  }, overlapPoint)).toEqual({
+    insideVideoOverlay: false,
+    insideCanvas: true,
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.bringNodeForward(nodeId), video.id);
+  await expect.poll(async () => getNodeOrder(page, [video.id, sticky.id]))
+    .toEqual([sticky.id, video.id]);
+  await expect.poll(async () => page.evaluate(({ x, y }) => {
+    const element = document.elementFromPoint(x, y);
+    return Boolean(element?.closest?.(".video-component__overlay"));
+  }, overlapPoint)).toBe(true);
 });
 
 test("does not create an image component when image paste targets an input", async ({ page }) => {
@@ -3542,6 +3639,32 @@ test("keeps iframe chrome corners consistent and reorders layers from the iframe
     iframe.id,
     sticky.id,
   ]);
+});
+
+test("updates iframe overlay stack when a sibling changes layer order", async ({ page }) => {
+  const iframe = await addComponent(page, "iframe", {
+    x: 260,
+    y: 180,
+    url: buildIframePageUrl({ title: "Passive stack sync" }),
+  });
+  const sticky = await addComponent(page, "sticky", {
+    x: 320,
+    y: 240,
+  });
+
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    iframe.id,
+    sticky.id,
+  ]);
+  const initialOverlayZIndex = Number((await getNode(page, iframe.id))?.summary?.overlayZIndex ?? 0);
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.sendNodeBackward(nodeId), sticky.id);
+  await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
+    sticky.id,
+    iframe.id,
+  ]);
+  await expect.poll(async () => Number((await getNode(page, iframe.id))?.summary?.overlayZIndex ?? 0))
+    .toBeGreaterThan(initialOverlayZIndex);
 });
 
 test("zooms the canvas around the pointer, clamps minimum scale, and preserves viewport through document reload", async ({ page }) => {
