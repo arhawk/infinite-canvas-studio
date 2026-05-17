@@ -72,13 +72,18 @@ function collectAttachmentEntries(snapshot) {
 
 function createAttachmentFilename(entry, usedNames) {
   const baseName = basename(entry?.fileName || entry?.path || entry?.label, "attachment");
-  const safeBase = sanitizePathSegment(baseName, "attachment");
-  const safeId = sanitizePathSegment(entry?.id, "entry");
-  let candidate = `${safeId}-${safeBase}`;
+  const dotIndex = baseName.lastIndexOf(".");
+  const stemRaw = dotIndex > 0 ? baseName.slice(0, dotIndex) : baseName;
+  const extRaw = dotIndex > 0 ? baseName.slice(dotIndex) : "";
+  const stem = sanitizePathSegment(stemRaw, "attachment");
+  const ext = extRaw
+    .replace(/[^a-zA-Z0-9.]+/g, "")
+    .replace(/^\.+/, ".");
+  let candidate = `${stem}${ext}`;
   let suffix = 1;
   while (usedNames.has(candidate)) {
     suffix += 1;
-    candidate = `${safeId}-${suffix}-${safeBase}`;
+    candidate = `${stem}-${suffix}${ext}`;
   }
   usedNames.add(candidate);
   return candidate;
@@ -113,6 +118,7 @@ export async function exportDocumentAsProject({
   const attachmentsDir = await projectDir.getDirectoryHandle("attachments", { create: true });
   const warnings = [];
   const usedNames = new Set();
+  const renamedAttachments = [];
 
   for (const { entry } of collectAttachmentEntries(exportedSnapshot)) {
     const runtimeHandle = getRuntimeAttachmentHandleById(entry.id);
@@ -126,6 +132,7 @@ export async function exportDocumentAsProject({
         continue;
       }
 
+      const originalName = basename(entry?.fileName || entry?.path || entry?.label, "attachment");
       const fileName = createAttachmentFilename(entry, usedNames);
       const relativePath = `attachments/${fileName}`;
       const target = await attachmentsDir.getFileHandle(fileName, { create: true });
@@ -136,6 +143,13 @@ export async function exportDocumentAsProject({
       entry.url = `./${relativePath}`;
       entry.path = relativePath;
       entry.fileName = fileName;
+      if (fileName !== originalName) {
+        renamedAttachments.push({
+          id: entry.id,
+          from: originalName,
+          to: fileName,
+        });
+      }
     } catch (error) {
       warnings.push(
         `Skipped attachment \"${entry.label || entry.id}\": ${error instanceof Error ? error.message : "failed to export"}`,
@@ -161,6 +175,7 @@ export async function exportDocumentAsProject({
   return {
     folderName: projectDir.name,
     warnings,
+    renamedAttachments,
     snapshot: exportedSnapshot,
   };
 }

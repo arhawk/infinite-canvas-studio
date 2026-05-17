@@ -65,6 +65,15 @@ function getFileExtension(value) {
   return label.split(".").pop() ?? "";
 }
 
+function isSafeRelativeAttachmentPath(pathValue) {
+  const raw = String(pathValue ?? "").trim().replaceAll("\\", "/");
+  if (!raw) return false;
+  if (raw.startsWith("/") || /^[a-zA-Z]:\//.test(raw)) return false;
+  const segments = raw.split("/").map((segment) => segment.trim()).filter(Boolean);
+  if (!segments.length) return false;
+  return segments.every((segment) => segment !== "." && segment !== "..");
+}
+
 function isTextLikeAttachment(entry, file = null) {
   const entryMimeType = String(entry?.mimeType ?? "").toLowerCase();
   const fileMimeType = String(file?.type ?? "").toLowerCase();
@@ -144,7 +153,7 @@ async function getEntryFileHandle(handle, relativePath) {
 
 export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
   const directTarget = resolveAttachmentOpenTarget(entry);
-  if (directTarget && (isHttpUrl(directTarget) || directTarget.startsWith(".") || directTarget.startsWith("file:"))) {
+  if (entry?.kind === "url" && directTarget && isHttpUrl(directTarget)) {
     window.open(directTarget, "_blank", "noopener,noreferrer");
     return true;
   }
@@ -160,7 +169,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
       showOpenFailure(
         entry,
         state,
-        "缺少可用链接或本地对象，请重新添加附件或重新选择目录/文件。",
+        "缺少可用本地对象。请重新 Load PROJ（或重新选择目录/文件）后再试。",
         showStatus,
       );
       return false;
@@ -182,11 +191,31 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
 
     const granted = await ensureReadPermission(handle);
     if (!granted) {
-      showOpenFailure(entry, state, "读取权限被拒绝。", showStatus);
+      showOpenFailure(
+        entry,
+        state,
+        "读取权限被拒绝。请重新 Load PROJ（或重新选择目录）后再试。",
+        showStatus,
+      );
       return false;
     }
 
-    const fileHandle = await getEntryFileHandle(handle, entry.path ?? entry.fileName);
+    const targetPath = entry.path ?? entry.fileName;
+    if (!isSafeRelativeAttachmentPath(targetPath)) {
+      showOpenFailure(entry, state, "附件路径非法或越界，已拒绝访问。", showStatus);
+      return false;
+    }
+
+    const fileHandle = await getEntryFileHandle(handle, targetPath);
+    if (!fileHandle) {
+      showOpenFailure(
+        entry,
+        state,
+        "无法定位附件文件。请重新 Load PROJ（或重新选择目录）后再试。",
+        showStatus,
+      );
+      return false;
+    }
     const file = await fileHandle.getFile();
     if (isTextLikeAttachment(entry, file)) {
       try {

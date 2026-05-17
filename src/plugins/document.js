@@ -12,6 +12,10 @@ import {
   validateEmbeddedSnapshotInHtml,
 } from "../document/runtimeHtmlExport.js";
 import { exportDocumentAsProject, isProjectExportSupported } from "../document/projectExport.js";
+import {
+  importProjectFromDirectoryHandle,
+  isProjectImportSupported,
+} from "../document/projectImport.js";
 import { getDocumentExportFormat, resolveRuntimeHtmlTemplate } from "./documentExportMode.js";
 
 const EXPORT_FORMATS = new Set(["html", "json", "project"]);
@@ -66,7 +70,7 @@ class ExportDocumentCommand extends BaseCommand {
   async execute(options = {}) {
     const format = typeof options?.format === "string" ? options.format : undefined;
     if (!format) {
-      this.plugin.openExportMenu();
+      this.plugin.toggleExportMenu();
       return null;
     }
     try {
@@ -87,7 +91,8 @@ class ImportDocumentCommand extends BaseCommand {
   static label = "Import Document";
 
   execute() {
-    return this.plugin.openFilePicker();
+    this.plugin.toggleLoadMenu();
+    return true;
   }
 }
 
@@ -121,6 +126,7 @@ export class DocumentPlugin extends BasePlugin {
     this.isExportTemplateBuild = Boolean(__EXPORT_TEMPLATE_BUILD__);
     this.buildStatusToast();
     this.buildExportMenu();
+    this.buildLoadMenu();
 
     if (documentControlsEl) {
       renderIcons(documentControlsEl, {
@@ -151,7 +157,7 @@ export class DocumentPlugin extends BasePlugin {
         "stroke-width": 2,
       });
       this.listenDom(importEl, "click", () => {
-        this.openFilePicker();
+        this.toggleLoadMenu();
       });
       importEl.dataset.tooltip = "Load document (Mod+O)";
       importEl.setAttribute("aria-label", "Load document (Mod+O)");
@@ -167,11 +173,12 @@ export class DocumentPlugin extends BasePlugin {
     this.app.keybindings.register("Mod+O", "document:import");
     this.cleanups.push(() => this.app.keybindings.unregister("Mod+S"));
     this.cleanups.push(() => this.app.keybindings.unregister("Mod+O"));
-    this.cleanups.push(() => {
+      this.cleanups.push(() => {
       window.clearTimeout(this.statusTimeout);
       this.statusEl?.remove();
       this.loadingOverlayEl?.remove();
       this.exportMenuEl?.remove();
+      this.loadMenuEl?.remove();
       if (this.app.documentManager === this) {
         this.app.documentManager = null;
       }
@@ -320,10 +327,11 @@ export class DocumentPlugin extends BasePlugin {
     projectBtn.textContent = "Save as PROJ";
     if (!isProjectExportSupported()) {
       projectBtn.disabled = true;
-      projectBtn.title = "Save as PROJ requires File System Access API (Chromium-based browser).";
     }
+    const projectReason = "Save as PROJ requires File System Access API (Chromium-based browser).";
+    const projectAction = this.wrapMenuItemForDisabledHint(projectBtn, projectReason);
 
-    menu.append(htmlBtn, jsonBtn, projectBtn);
+    menu.append(htmlBtn, jsonBtn, projectAction);
     document.body.append(menu);
     this.exportMenuEl = menu;
 
@@ -339,10 +347,7 @@ export class DocumentPlugin extends BasePlugin {
 
     this.listenDom(projectBtn, "click", () => {
       if (projectBtn.disabled) {
-        this.showStatus(
-          "Save as PROJ requires File System Access API (Chromium-based browser).",
-          "error",
-        );
+        this.showStatus(projectReason, "error");
         return;
       }
       this.closeExportMenu();
@@ -354,16 +359,78 @@ export class DocumentPlugin extends BasePlugin {
       if (exportEl.contains(event.target)) return;
       if (menu.contains(event.target)) return;
       this.closeExportMenu();
+      this.closeLoadMenu();
     }, true);
 
     this.listenDom(document, "keydown", (event) => {
       if (event.key === "Escape") {
         this.closeExportMenu();
+        this.closeLoadMenu();
       }
     });
 
     this.listenDom(window, "blur", () => {
       this.closeExportMenu();
+      this.closeLoadMenu();
+    });
+  }
+
+  wrapMenuItemForDisabledHint(button, reason) {
+    if (!button || typeof reason !== "string" || !reason.trim()) return button;
+    if (!button.disabled) return button;
+    const wrapper = document.createElement("span");
+    wrapper.className = "document-export-menu__item-wrap";
+    wrapper.title = reason;
+    wrapper.dataset.disabledReason = reason;
+    wrapper.append(button);
+    return wrapper;
+  }
+
+  buildLoadMenu() {
+    const importEl = this.ui?.importEl;
+    if (!importEl) return;
+
+    const menu = document.createElement("div");
+    menu.className = "document-export-menu";
+    menu.hidden = true;
+    menu.dataset.testid = "load-document-format-menu";
+    menu.setAttribute("role", "menu");
+
+    const fileBtn = document.createElement("button");
+    fileBtn.type = "button";
+    fileBtn.className = "document-export-menu__item";
+    fileBtn.dataset.testid = "load-document-as-file";
+    fileBtn.setAttribute("role", "menuitem");
+    fileBtn.textContent = "Load HTML/JSON";
+
+    const projectBtn = document.createElement("button");
+    projectBtn.type = "button";
+    projectBtn.className = "document-export-menu__item";
+    projectBtn.dataset.testid = "load-document-as-project";
+    projectBtn.setAttribute("role", "menuitem");
+    projectBtn.textContent = "Load PROJ";
+    if (!isProjectImportSupported()) {
+      projectBtn.disabled = true;
+    }
+    const projectReason = "Load PROJ requires File System Access API (Chromium-based browser).";
+    const projectAction = this.wrapMenuItemForDisabledHint(projectBtn, projectReason);
+
+    menu.append(fileBtn, projectAction);
+    document.body.append(menu);
+    this.loadMenuEl = menu;
+
+    this.listenDom(fileBtn, "click", () => {
+      this.closeLoadMenu();
+      this.openFilePicker();
+    });
+
+    this.listenDom(projectBtn, "click", () => {
+      if (projectBtn.disabled) {
+        this.showStatus(projectReason, "error");
+        return;
+      }
+      this.closeLoadMenu();
+      void this.importProjectFromDirectory();
     });
   }
 
@@ -408,6 +475,48 @@ export class DocumentPlugin extends BasePlugin {
       return;
     }
     this.closeExportMenu();
+  }
+
+  positionLoadMenu() {
+    const importEl = this.ui?.importEl;
+    const menu = this.loadMenuEl;
+    if (!importEl || !menu) return;
+    const rect = importEl.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const gutter = 8;
+    const rightPreferred = rect.right + 6;
+    const leftFallback = rect.left - menuRect.width - 6;
+    const maxLeft = window.innerWidth - menuRect.width - gutter;
+    let left = rightPreferred;
+
+    if (left + menuRect.width > window.innerWidth - gutter) {
+      left = leftFallback;
+    }
+    left = Math.max(gutter, Math.min(left, maxLeft));
+    const maxTop = window.innerHeight - menuRect.height - gutter;
+    const top = Math.max(gutter, Math.min(Math.max(gutter, rect.top), maxTop));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  openLoadMenu() {
+    if (!this.loadMenuEl) return;
+    this.loadMenuEl.hidden = false;
+    this.positionLoadMenu();
+  }
+
+  closeLoadMenu() {
+    if (!this.loadMenuEl) return;
+    this.loadMenuEl.hidden = true;
+  }
+
+  toggleLoadMenu() {
+    if (!this.loadMenuEl) return;
+    if (this.loadMenuEl.hidden) {
+      this.openLoadMenu();
+      return;
+    }
+    this.closeLoadMenu();
   }
 
   createDocumentState(overrides = {}) {
@@ -543,6 +652,9 @@ export class DocumentPlugin extends BasePlugin {
         if (result.warnings.length) {
           this.showStatus(`Project saved with ${result.warnings.length} attachment warning(s).`, "error");
           console.warn("Project export warnings:", result.warnings);
+        } else if (result.renamedAttachments?.length) {
+          this.showStatus(`Project saved. Auto-renamed ${result.renamedAttachments.length} attachment(s).`);
+          console.warn("Project export renamed attachments:", result.renamedAttachments);
         } else {
           this.showStatus("Project saved");
         }
@@ -610,6 +722,34 @@ export class DocumentPlugin extends BasePlugin {
 
     const document = await this.loadDocument(parsed, options);
     return { document, format };
+  }
+
+  async importProjectFromDirectory() {
+    if (!isProjectImportSupported()) {
+      this.showStatus("Load PROJ requires File System Access API (Chromium-based browser).", "error");
+      return false;
+    }
+    if (this.hasCurrentContent() && !window.confirm(LOAD_CONFIRM_MESSAGE)) {
+      return false;
+    }
+
+    try {
+      const projectRootHandle = await window.showDirectoryPicker({ mode: "read" });
+      const { snapshot, warnings } = await importProjectFromDirectoryHandle(projectRootHandle);
+      await this.loadDocument(snapshot, { source: "project" });
+      if (warnings.length) {
+        this.showStatus(`PROJ loaded with ${warnings.length} blocked attachment path(s).`, "error");
+        console.warn("Project import warnings:", warnings);
+      } else {
+        this.showStatus("PROJ loaded");
+      }
+      return true;
+    } catch (error) {
+      if (error?.name === "AbortError") return false;
+      console.error(error);
+      this.showStatus(error instanceof Error ? error.message : "Failed to load PROJ.", "error");
+      return false;
+    }
   }
 
   async loadDocument(snapshot, { source = "api", loadingLayer = null } = {}) {

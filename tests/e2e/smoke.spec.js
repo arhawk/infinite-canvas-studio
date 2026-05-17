@@ -304,10 +304,15 @@ test("keeps save/load keyboard shortcuts working", async ({ page }) => {
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await expect(page.getByTestId("save-document-format-menu")).toBeVisible();
 
-  const fileChooserPromise = page.waitForEvent("filechooser");
   await page.keyboard.press(process.platform === "darwin" ? "Meta+O" : "Control+O");
-  const fileChooser = await fileChooserPromise;
-  expect(fileChooser.isMultiple()).toBe(false);
+  await expect(page.getByTestId("load-document-format-menu")).toBeVisible();
+});
+
+test("shows load menu with html/json and proj actions", async ({ page }) => {
+  await page.getByTestId("load-document-action").click();
+  await expect(page.getByTestId("load-document-format-menu")).toBeVisible();
+  await expect(page.getByTestId("load-document-as-file")).toBeVisible();
+  await expect(page.getByTestId("load-document-as-project")).toBeVisible();
 });
 
 test("closes save format menu when clicking outside", async ({ page }) => {
@@ -328,7 +333,27 @@ test("shows save as PROJ option and reflects File System Access support", async 
     await expect(projectAction).toBeEnabled();
   } else {
     await expect(projectAction).toBeDisabled();
-    await expect(projectAction).toHaveAttribute("title", /Save as PROJ requires File System Access API/);
+    await expect(projectAction.locator("..")).toHaveAttribute(
+      "title",
+      /Save as PROJ requires File System Access API/,
+    );
+  }
+});
+
+test("shows load as PROJ option and reflects File System Access support", async ({ page }) => {
+  await page.getByTestId("load-document-action").click();
+  const projectAction = page.getByTestId("load-document-as-project");
+  await expect(projectAction).toBeVisible();
+
+  const supported = await page.evaluate(() => typeof window.showDirectoryPicker === "function");
+  if (supported) {
+    await expect(projectAction).toBeEnabled();
+  } else {
+    await expect(projectAction).toBeDisabled();
+    await expect(projectAction.locator("..")).toHaveAttribute(
+      "title",
+      /Load PROJ requires File System Access API/,
+    );
   }
 });
 
