@@ -278,6 +278,15 @@ export class ShapesPlugin extends BasePlugin {
     return true;
   }
 
+  maybeSwitchToArrangeAfterShapeClickTarget(targetOrHit) {
+    const hitShape = typeof targetOrHit === "boolean" ? targetOrHit : Boolean(this.getShapeTarget(targetOrHit));
+    if (!hitShape) return;
+    if (!this.isEnabled()) return;
+    if (this.app.getMode() !== "edit") return;
+    if (this.app.getEditorTool() !== "shape") return;
+    this.app.setEditorTool("arrange");
+  }
+
   applyStyleToSelectedShapes(style) {
     if (this.app.getMode() !== "edit" || this.app.getEditorTool() !== "shape") return;
     const selectedShapes = this.app
@@ -569,7 +578,9 @@ export class ShapesPlugin extends BasePlugin {
       return;
     }
     if (this.moveState) {
+      const clickedShape = this.moveState.started ? null : this.moveState.node;
       this.cancelMove(true);
+      this.maybeSwitchToArrangeAfterShapeClickTarget(clickedShape);
       return;
     }
     if (!this.isDrawing) return;
@@ -579,7 +590,8 @@ export class ShapesPlugin extends BasePlugin {
     const payload = this.buildPayload(point, event);
     this.cancelPreview();
     if (!payload) {
-      this.handleShapeClickTarget(startTarget, event);
+      const hitShape = this.handleShapeClickTarget(startTarget, event);
+      this.maybeSwitchToArrangeAfterShapeClickTarget(hitShape);
       return;
     }
 

@@ -564,8 +564,7 @@ test("draws a styled shape from the toolbar and supports undo and redo", async (
   await expect(page.getByTestId("canvas-shape-text-editor")).toBeHidden();
 
   await page.getByTestId("tool-button-shape").click();
-  await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByTestId("shape-panel")).toBeVisible();
+  await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "true");
 
   for (let i = 0; i < 8; i += 1) {
     if ((await listNodes(page)).length === 0) break;
@@ -636,6 +635,7 @@ test("commits shape text before drawing another shape", async ({ page }) => {
   await expect(inlineEditor).toBeVisible();
   await inlineEditor.fill("sef");
 
+  await page.getByTestId("tool-button-shape").click();
   await drawShape(page, { xRatio: 0.62, yRatio: 0.42, dx: 150, dy: 90 });
 
   await expect(inlineEditor).toBeHidden();
@@ -724,6 +724,34 @@ test("moves an existing shape when dragging from it in shape mode", async ({ pag
   const finalCenter = await getNodePageCenter(page, firstSnapshot.id);
   expect(finalCenter.x).toBeGreaterThan(originalCenter.x + 120);
   expect(finalCenter.y).toBeGreaterThan(originalCenter.y + 60);
+});
+
+test("switches to arrange after clicking an existing shape, but not while dragging", async ({ page }) => {
+  await page.getByTestId("tool-button-shape").click();
+  await drawShape(page, { xRatio: 0.36, yRatio: 0.4, dx: 150, dy: 90 });
+  await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "true");
+
+  const firstShape = await page.waitForFunction(() => (
+    window.__APP_TEST_API__
+      .listNodes()
+      .find((node) => node.componentType === "shape") ?? null
+  ));
+  const firstSnapshot = await firstShape.jsonValue();
+  const center = await getNodePageCenter(page, firstSnapshot.id);
+
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.down();
+  await page.mouse.move(center.x + 140, center.y + 70, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("tool-button-arrange")).toHaveAttribute("aria-pressed", "false");
+
+  const movedCenter = await getNodePageCenter(page, firstSnapshot.id);
+  await page.mouse.click(movedCenter.x, movedCenter.y);
+
+  await expect(page.getByTestId("tool-button-arrange")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("tool-button-shape")).toHaveAttribute("aria-pressed", "false");
 });
 
 test("erases an entire brush stroke and supports undo and redo", async ({ page }) => {
