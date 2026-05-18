@@ -5,6 +5,11 @@ import { Konva } from "../lib/konva.js";
 const DEFAULT_WIDTH = 360;
 const DEFAULT_HEIGHT = 240;
 const HEADER_HEIGHT = 40;
+const DEFAULT_TITLE = "Local Video";
+
+function normalizeTitle(title) {
+  return typeof title === "string" && title.trim() ? title.trim() : DEFAULT_TITLE;
+}
 
 export function readVideoFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -44,7 +49,7 @@ export class VideoComponent extends BaseComponent {
   static label = "Local Video";
   static description = "Play a local video file";
 
-  async createNode({ x, y, src = null } = {}) {
+  async createNode({ x, y, src = null, title = DEFAULT_TITLE } = {}) {
     const group = new Konva.Group({
       x,
       y,
@@ -89,6 +94,7 @@ export class VideoComponent extends BaseComponent {
     }));
 
     group.setAttr("videoSrc", src);
+    group.setAttr("videoTitle", normalizeTitle(title));
     return group;
   }
 
@@ -179,7 +185,7 @@ export class VideoComponent extends BaseComponent {
 
     const label = document.createElement("span");
     label.className = "video-component__title";
-    label.textContent = "Local Video";
+    label.textContent = node.getAttr("videoTitle") ?? DEFAULT_TITLE;
 
     topbar.append(label);
 
@@ -209,6 +215,7 @@ export class VideoComponent extends BaseComponent {
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
     const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
     const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
+    const catalogPanelPlugin = this.app.getPlugin?.("catalog-panel") ?? null;
     let dragging = false;
     let dragStartX = 0;
     let dragStartY = 0;
@@ -272,12 +279,25 @@ export class VideoComponent extends BaseComponent {
     const beginDrag = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      stage.setPointersPositions?.(event);
       dragging = true;
       dragStartX = event.clientX;
       dragStartY = event.clientY;
       nodeStartX = node.x();
       nodeStartY = node.y();
       selectionPlugin?.setSelected?.([node]);
+      const targetNode = node.findAncestor?.(".page-root", true);
+      catalogPanelPlugin?.dragOrigins?.set?.(node.id(), {
+        x: node.x(),
+        y: node.y(),
+        targetNodeId:
+          targetNode?.getAttr?.("componentType") === "page"
+            ? targetNode.id?.()
+            : node.id(),
+      });
+      if (catalogPanelPlugin?.isEditable) {
+        catalogPanelPlugin.panelEl?.classList?.add?.("is-drag-active");
+      }
       this.app.events.emit("node:change:start", { node });
       document.body.style.userSelect = "none";
       document.body.style.cursor = "grabbing";
@@ -286,20 +306,26 @@ export class VideoComponent extends BaseComponent {
 
     const onDragMove = (event) => {
       if (!dragging) return;
+      stage.setPointersPositions?.(event);
       const stageScale = this.app.stageApi?.getScale?.() ?? stage.scaleX() ?? 1;
       node.x(nodeStartX + (event.clientX - dragStartX) / stageScale);
       node.y(nodeStartY + (event.clientY - dragStartY) / stageScale);
       node.getLayer()?.batchDraw();
       this.#syncOverlay(node);
+      catalogPanelPlugin?.updateDropPreview?.();
       this.app.events.emit("node:changing", { node });
     };
 
-    const endDrag = () => {
+    const endDrag = (event) => {
       if (!dragging) return;
+      stage.setPointersPositions?.(event);
       dragging = false;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
       topbar.classList.remove("is-dragging");
+      catalogPanelPlugin?.panelEl?.classList?.remove?.("is-drag-active");
+      catalogPanelPlugin?.handleCanvasNodeDrop?.(node);
+      catalogPanelPlugin?.clearDropPreview?.();
       this.app.events.emit("node:changed", { node });
     };
 
@@ -352,12 +378,17 @@ export class VideoComponent extends BaseComponent {
   }
 
   serializeNode(node) {
-    return { src: node.getAttr("videoSrc") ?? null };
+    return {
+      src: node.getAttr("videoSrc") ?? null,
+      title: node.getAttr("videoTitle") ?? DEFAULT_TITLE,
+    };
   }
 
   async applySerializedData(node, data = {}) {
     const src = data.src ?? null;
+    const title = normalizeTitle(data.title);
     node.setAttr("videoSrc", src);
+    node.setAttr("videoTitle", title);
     this.#mountOverlay(node, src);
   }
 }

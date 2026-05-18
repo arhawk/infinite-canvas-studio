@@ -283,10 +283,12 @@ export class PageComparePlugin extends BasePlugin {
   syncSelectionBar() {
     if (!this.selectionBar) return;
 
+    // Keep compare state and selection logic intact, but do not surface the
+    // persistent bottom selection bar in presentation mode.
+    this.selectionBar.hidden = true;
+    if (!this.isEnabled() || this.isOpen) return;
+
     const count = this.selectedPages.length;
-    const visible = this.isEnabled() && !this.isOpen && count > 0;
-    this.selectionBar.hidden = !visible;
-    if (!visible) return;
 
     this.selectionBarCountEl.textContent = `${count} page${count === 1 ? "" : "s"} selected`;
     this.selectionBarHintEl.textContent =

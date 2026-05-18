@@ -6,6 +6,13 @@ import {
   insertCatalogItemIntoItems,
 } from "../catalog/api.js";
 
+const SHAPE_TYPE_LABELS = {
+  rectangle: "Rectangle",
+  oval: "Circle",
+  rhombus: "Rhombus",
+  triangle: "Triangle",
+};
+
 function getSelectionPlugin(app) {
   return app.plugins.find(
     (plugin) => plugin?.constructor?.pluginId === "selection",
@@ -42,7 +49,18 @@ function notifyCatalogAction(message) {
   window.alert(message);
 }
 
-function getNodeDisplayTitle(node) {
+function getDefaultShapeTitle(node) {
+  const shapeType = node?.getAttr?.("shapeType") ?? "rectangle";
+  return SHAPE_TYPE_LABELS[shapeType] ?? "Shape";
+}
+
+export function resolveCatalogTargetNode(node) {
+  if (!node?.getStage?.()) return null;
+  if (node.getAttr?.("componentType") === "page") return node;
+  return node.findAncestor?.(".page-root", true) ?? node;
+}
+
+export function getNodeDisplayTitle(node) {
   if (!node) return "Untitled";
 
   const componentType = node.getAttr("componentType");
@@ -63,12 +81,38 @@ function getNodeDisplayTitle(node) {
   }
   if (componentType === "image") return "Image";
   if (componentType === "iframe") return "Iframe";
+  if (componentType === "video") {
+    return node.getAttr("videoTitle")?.trim() || "Local Video";
+  }
+  if (componentType === "shape") {
+    return node.findOne(".shape-text")?.text()?.trim() || getDefaultShapeTitle(node);
+  }
   if (componentType === "javascriptEditor") {
     return node.getAttr("javascriptEditorTitle")?.trim() || "JS Code Runner";
   }
   if (componentType === "catalog") return "Catalog";
 
   return componentType || "Untitled";
+}
+
+export function getUniqueCatalogTitle(node, items = []) {
+  const baseTitle = getNodeDisplayTitle(node);
+  if (node?.getAttr?.("componentType") !== "shape") return baseTitle;
+  if (node.findOne(".shape-text")?.text()?.trim()) return baseTitle;
+
+  const matchingTitles = new Set(
+    items
+      .map((item) => item?.title?.trim?.() ?? "")
+      .filter((title) => title === baseTitle || title.startsWith(`${baseTitle} `)),
+  );
+
+  if (!matchingTitles.has(baseTitle)) return baseTitle;
+
+  let suffix = 2;
+  while (matchingTitles.has(`${baseTitle} ${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseTitle} ${suffix}`;
 }
 
 class AddSelectedNodeToCatalogCommand extends BaseCommand {
@@ -131,9 +175,12 @@ export class CatalogActionsPlugin extends BasePlugin {
     }
 
     const catalogData = getCatalogData(catalogNode);
+    const targetNode = resolveCatalogTargetNode(selectedNode);
+    if (!targetNode) return;
+
     const existingItem = findCatalogItemByNodeId(
       catalogData.items,
-      selectedNode.id(),
+      targetNode.id(),
     );
 
     if (existingItem) {
@@ -142,8 +189,8 @@ export class CatalogActionsPlugin extends BasePlugin {
     }
 
     const nextItems = insertCatalogItemIntoItems(catalogData.items, {
-      nodeId: selectedNode.id(),
-      title: getNodeDisplayTitle(selectedNode),
+      nodeId: targetNode.id(),
+      title: getUniqueCatalogTitle(targetNode, catalogData.items),
       titleSource: "node",
       parentId: null,
     });
@@ -161,6 +208,6 @@ export class CatalogActionsPlugin extends BasePlugin {
     catalogNode.getLayer()?.batchDraw?.();
     this.app.mainLayer.batchDraw();
 
-    notifyCatalogAction(`Added "${getNodeDisplayTitle(selectedNode)}" to catalog.`);
+    notifyCatalogAction(`Added "${getNodeDisplayTitle(targetNode)}" to catalog.`);
   }
 }
