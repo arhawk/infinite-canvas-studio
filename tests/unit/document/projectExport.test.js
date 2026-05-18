@@ -154,18 +154,21 @@ describe("project export", () => {
 
     expect(result.warnings).toEqual([]);
     const entries = result.snapshot.nodes[0].data.attachments.entries;
-    expect(entries[0].url).toBe("./attachments/entry-1-notes.txt");
-    expect(entries[0].path).toBe("attachments/entry-1-notes.txt");
-    expect(entries[1].url).toBe("./attachments/entry-2-notes.txt");
-    expect(entries[1].path).toBe("attachments/entry-2-notes.txt");
+    expect(entries[0].url).toBe("./attachments/notes.txt");
+    expect(entries[0].path).toBe("attachments/notes.txt");
+    expect(entries[1].url).toBe("./attachments/notes-2.txt");
+    expect(entries[1].path).toBe("attachments/notes-2.txt");
 
     const projectDir = rootDir.__dirs.get(result.folderName);
     expect(projectDir).toBeTruthy();
     expect(projectDir.__files.get("index.html").value).toContain('id="app-snapshot"');
-    expect(projectDir.__files.get("project.json").value).toContain('"attachments/entry-1-notes.txt"');
+    expect(projectDir.__files.get("project.json").value).toContain('"attachments/notes.txt"');
     const attachmentsDir = projectDir.__dirs.get("attachments");
-    expect(attachmentsDir.__files.get("entry-1-notes.txt").value).toBe(firstFile);
-    expect(attachmentsDir.__files.get("entry-2-notes.txt").value).toBe(secondFile);
+    expect(attachmentsDir.__files.get("notes.txt").value).toBe(firstFile);
+    expect(attachmentsDir.__files.get("notes-2.txt").value).toBe(secondFile);
+    expect(result.renamedAttachments).toEqual([
+      { id: "entry-2", from: "notes.txt", to: "notes-2.txt" },
+    ]);
   });
 
   it("returns unsupported when File System Access API is unavailable", () => {

@@ -90,7 +90,9 @@ describe("openAttachmentEntry", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  it("opens local attachment by relative url", async () => {
+  it("fails local-file entries without available handle instead of opening relative url", async () => {
+    loadHandleRecord.mockResolvedValue(null);
+    const showStatus = vi.fn();
     const ok = await openAttachmentEntry(
       {
         id: "att-relative-url",
@@ -101,32 +103,15 @@ describe("openAttachmentEntry", () => {
         url: "./untitled-r1.html",
       },
       { directory: { name: "Downloads" }, entries: [] },
-      vi.fn(),
+      showStatus,
     );
 
-    expect(ok).toBe(true);
-    expect(openSpy).toHaveBeenCalledWith("./untitled-r1.html", "_blank", "noopener,noreferrer");
-    expect(alertSpy).not.toHaveBeenCalled();
-  });
-
-  it("falls back to derived relative path for legacy entries", async () => {
-    loadHandleRecord.mockResolvedValue(null);
-    const ok = await openAttachmentEntry(
-      {
-        id: "att-legacy-path",
-        kind: "local-file",
-        sourceKind: "directory",
-        label: "outline.md",
-        fileName: "outline.md",
-        path: "projects/outline.md",
-      },
-      { directory: { name: "DemoFolder" }, entries: [] },
-      vi.fn(),
+    expect(ok).toBe(false);
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(showStatus).toHaveBeenCalledWith(
+      "缺少可用本地对象。请重新 Load PROJ（或重新选择目录/文件）后再试。",
+      "error",
     );
-
-    expect(ok).toBe(true);
-    expect(openSpy).toHaveBeenCalledWith("./projects/outline.md", "_blank", "noopener,noreferrer");
-    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it("alerts with details when no url/path/filename and no local object", async () => {
@@ -147,7 +132,7 @@ describe("openAttachmentEntry", () => {
 
     expect(ok).toBe(false);
     expect(showStatus).toHaveBeenCalledWith(
-      "缺少可用链接或本地对象，请重新添加附件或重新选择目录/文件。",
+      "缺少可用本地对象。请重新 Load PROJ（或重新选择目录/文件）后再试。",
       "error",
     );
     expect(alertSpy).toHaveBeenCalledTimes(1);
@@ -170,6 +155,61 @@ describe("openAttachmentEntry", () => {
 
     expect(ok).toBe(false);
     expect(alertSpy).toHaveBeenCalledTimes(1);
-    expect(String(alertSpy.mock.calls[0][0])).toContain("缺少可用链接或本地对象");
+    expect(String(alertSpy.mock.calls[0][0])).toContain("缺少可用本地对象");
+  });
+
+  it("rejects unsafe relative path traversal for local-file handle", async () => {
+    const showStatus = vi.fn();
+    loadHandleRecord.mockResolvedValue({
+      handle: {
+        kind: "directory",
+        queryPermission: vi.fn(async () => "granted"),
+        requestPermission: vi.fn(async () => "granted"),
+      },
+    });
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-unsafe",
+        kind: "local-file",
+        sourceKind: "directory",
+        label: "unsafe",
+        path: "../secret.txt",
+        handleKey: "unsafe-key",
+      },
+      { directory: { name: "DemoFolder" }, entries: [] },
+      showStatus,
+    );
+    expect(ok).toBe(false);
+    expect(showStatus).toHaveBeenCalledWith("附件路径非法或越界，已拒绝访问。", "error");
+  });
+
+  it("fails with permission hint when read permission is denied", async () => {
+    const showStatus = vi.fn();
+    loadHandleRecord.mockResolvedValue({
+      handle: {
+        kind: "directory",
+        queryPermission: vi.fn(async () => "prompt"),
+        requestPermission: vi.fn(async () => "denied"),
+      },
+    });
+
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-denied",
+        kind: "local-file",
+        label: "readme.txt",
+        path: "attachments/readme.txt",
+        handleKey: "denied-key",
+      },
+      { directory: { name: "DemoFolder" }, entries: [] },
+      showStatus,
+    );
+
+    expect(ok).toBe(false);
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(showStatus).toHaveBeenCalledWith(
+      "读取权限被拒绝。请重新 Load PROJ（或重新选择目录）后再试。",
+      "error",
+    );
   });
 });

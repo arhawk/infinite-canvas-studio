@@ -3490,10 +3490,18 @@ body.is-room-viewer #load-document-action {
   cursor: pointer;
 }
 
+.document-export-menu__item-wrap {
+  display: block;
+}
+
 .document-export-menu__item:hover,
 .document-export-menu__item:focus-visible {
   background: rgba(215, 97, 47, 0.12);
   outline: none;
+}
+
+.document-export-menu__item-wrap:has(> .document-export-menu__item:disabled):hover > .document-export-menu__item {
+  background: rgba(215, 97, 47, 0.08);
 }
 
 .document-export-menu__item:disabled {

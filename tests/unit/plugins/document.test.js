@@ -46,4 +46,16 @@ describe("DocumentPlugin html export", () => {
     expect(emitSpy).not.toHaveBeenCalled();
     window.__APP_EXPORT_TEMPLATE__ = originalTemplate;
   });
+
+  it("wraps disabled proj menu item with hoverable reason", () => {
+    const button = document.createElement("button");
+    button.disabled = true;
+    const wrapped = DocumentPlugin.prototype.wrapMenuItemForDisabledHint.call(
+      {},
+      button,
+      "reason",
+    );
+    expect(wrapped).not.toBe(button);
+    expect(wrapped.getAttribute("title")).toBe("reason");
+  });
 });
