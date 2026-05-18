@@ -166,6 +166,10 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
     const handle = runtimeHandle ?? record?.handle ?? null;
 
     if (!handle) {
+      if (!state?.directory && directTarget) {
+        window.open(directTarget, "_blank", "noopener,noreferrer");
+        return true;
+      }
       showOpenFailure(
         entry,
         state,

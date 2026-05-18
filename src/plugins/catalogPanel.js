@@ -556,7 +556,6 @@ export class CatalogPanelPlugin extends BasePlugin {
       const selection = window.getSelection();
       const range = document.createRange();
       range.selectNodeContents(title);
-      range.collapse(false);
       selection?.removeAllRanges();
       selection?.addRange(range);
     };
@@ -570,6 +569,16 @@ export class CatalogPanelPlugin extends BasePlugin {
     this.listenDom(title, "keydown", (event) => {
       if (!isEditable || title.contentEditable !== "true") return;
       event.stopPropagation();
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        return;
+      }
 
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         const now = performance.now();

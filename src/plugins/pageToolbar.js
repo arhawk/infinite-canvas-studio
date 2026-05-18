@@ -350,7 +350,10 @@ export class PageToolbarPlugin extends BasePlugin {
       if (node === this.selectedPageNode) this.panel?.queuePosition?.();
     });
     this.listen("node:changed", ({ node } = {}) => {
-      if (node === this.selectedPageNode) this.syncToolbar();
+      if (node === this.selectedPageNode) {
+        this.closeAttachmentMenu();
+        this.syncToolbar();
+      }
     });
 
     this.listenDom(this.panelEl.querySelector("#page-font-size"), "input", () => {
@@ -664,6 +667,15 @@ export class PageToolbarPlugin extends BasePlugin {
     }
     if (addFile) addFile.hidden = !isEditable || !supportsUploads;
     if (addUrl) addUrl.hidden = !isEditable;
+  }
+
+  closeAttachmentMenu() {
+    const tool = this.panelEl.querySelector(".toolbar__page-attachment-tool");
+    const activeElement = document.activeElement;
+    if (activeElement instanceof Element && tool?.contains(activeElement)) {
+      activeElement.blur();
+    }
+    tool?.removeAttribute("data-popover-open");
   }
 
   syncAttachmentList() {

@@ -326,6 +326,52 @@ function rectsIntersect(a, b) {
   );
 }
 
+function getNodeMarqueeRect(node, stage) {
+  const componentType = node?.getAttr?.("componentType");
+  if (["iframe", "video", "javascriptEditor"].includes(componentType)) {
+    const width = Number(node.width?.() ?? 0);
+    const height = Number(node.height?.() ?? 0);
+    if (width > 0 && height > 0) {
+      const transform = node.getAbsoluteTransform(stage);
+      const corners = [
+        transform.point({ x: 0, y: 0 }),
+        transform.point({ x: width, y: 0 }),
+        transform.point({ x: width, y: height }),
+        transform.point({ x: 0, y: height }),
+      ];
+      const minX = Math.min(...corners.map((point) => point.x));
+      const minY = Math.min(...corners.map((point) => point.y));
+      const maxX = Math.max(...corners.map((point) => point.x));
+      const maxY = Math.max(...corners.map((point) => point.y));
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      };
+    }
+  }
+
+  return node.getClientRect({
+    relativeTo: stage,
+    skipShadow: true,
+  });
+}
+
+function isNodeVisibleForMarquee(node) {
+  const componentType = node?.getAttr?.("componentType");
+  if (componentType === "video") {
+    return node._videoOverlayEl?.hidden === false || node.isVisible?.() === true;
+  }
+  if (componentType === "javascriptEditor") {
+    return node._javascriptEditorOverlayEl?.hidden === false || node.isVisible?.() === true;
+  }
+  if (componentType === "iframe") {
+    return node._iframeOverlayEl?.hidden === false || node.isVisible?.() === true;
+  }
+  return node?.isVisible?.() === true;
+}
+
 function hasSelectedAncestor(node, selectedSet) {
   let parent = node?.getParent?.();
   while (parent) {
@@ -510,6 +556,9 @@ export class SelectionPlugin extends BasePlugin {
     this.listenDom(window, "paste", (event) => {
       void this.handleNativePaste(event);
     });
+    this.listenDom(document, "mousedown", (event) => {
+      this.handleDocumentPointerDown(event);
+    }, { capture: true });
 
     stage.on("click.selection tap.selection", (event) => this.handleClick(event));
     stage.on("dblclick.selection dbltap.selection", (event) => this.handleDoubleClick(event));
@@ -722,7 +771,10 @@ export class SelectionPlugin extends BasePlugin {
     const node = this.resolveLayerTarget(target);
     if (!node || !canReorder.call(this, node)) return false;
 
-    this.app.events.emit("node:change:start", { node });
+    this.app.history?.flushPendingCommit?.();
+    this.app.getSelectableSiblings(node).forEach((sibling) => {
+      this.app.events.emit("node:change:start", { node: sibling });
+    });
     const changed = applyReorder.call(this.app, node);
     if (!changed) {
       return false;
@@ -1162,6 +1214,7 @@ export class SelectionPlugin extends BasePlugin {
 
   cancelMarquee() {
     this.unbindDocumentMarqueeListeners();
+    this.stage.container()?.classList?.remove("is-marquee-selecting");
     this.marquee.active = false;
     this.marquee.selecting = false;
     this.marquee.start = null;
@@ -1223,6 +1276,32 @@ export class SelectionPlugin extends BasePlugin {
     this.handlePointerUp();
   }
 
+  startMarquee(canvasPoint) {
+    if (!canvasPoint) return;
+    this.marquee = {
+      active: true,
+      selecting: false,
+      start: canvasPoint,
+      rect: canvasPoint,
+      additive: false,
+    };
+    this.stage.container()?.classList?.add("is-marquee-selecting");
+    this.bindDocumentMarqueeListeners();
+  }
+
+  handleDocumentPointerDown(event) {
+    if (!this.isEnabled() || this.app.tools.getActive() !== "arrange") return;
+    if (event.button != null && event.button !== 0) return;
+    if (event.shiftKey !== true) return;
+    if (!event.target?.closest?.(".left-toolbar")) return;
+
+    const canvasPoint = this.getCanvasPointFromEvent(event);
+    if (!canvasPoint) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.startMarquee(canvasPoint);
+  }
+
   handlePointerDown(event) {
     if (!this.isEnabled() || this.app.tools.getActive() !== "arrange") return;
     if (event.evt?.button != null && event.evt.button !== 0) return;
@@ -1233,14 +1312,7 @@ export class SelectionPlugin extends BasePlugin {
 
     const canvasPoint = this.getCanvasPointFromEvent(event);
     if (!canvasPoint) return;
-    this.marquee = {
-      active: true,
-      selecting: false,
-      start: canvasPoint,
-      rect: canvasPoint,
-      additive: false,
-    };
-    this.bindDocumentMarqueeListeners();
+    this.startMarquee(canvasPoint);
   }
 
   handlePointerMove(canvasPoint = null) {
@@ -1283,17 +1355,44 @@ export class SelectionPlugin extends BasePlugin {
 
     const intersecting = this.layer.find(".selectable")
       .filter((node) => (
-        node.isVisible() &&
+        isNodeVisibleForMarquee(node) &&
         node.getAttr("componentType") !== "connection" &&
-        rectsIntersect(bounds, node.getClientRect({
-          relativeTo: this.stage,
-          skipShadow: true,
-        }))
+        rectsIntersect(bounds, getNodeMarqueeRect(node, this.stage))
       ));
-    const selectedSet = new Set(intersecting);
-    const selected = intersecting.filter((node) => !hasSelectedAncestor(node, selectedSet));
+    const overlayIntersecting = this.getDomOverlayMarqueeNodes(bounds);
+    const selectedSet = new Set([...intersecting, ...overlayIntersecting]);
+    const selected = [...selectedSet].filter((node) => !hasSelectedAncestor(node, selectedSet));
 
     this.setSelected(addToSelection ? [...this.selectedNodes, ...selected] : selected);
+  }
+
+  getDomOverlayMarqueeNodes(canvasBounds) {
+    const containerRect = this.stage.container().getBoundingClientRect();
+    const topLeft = this.app.stageApi.canvasToScreen({
+      x: canvasBounds.x,
+      y: canvasBounds.y,
+    });
+    const bottomRight = this.app.stageApi.canvasToScreen({
+      x: canvasBounds.x + canvasBounds.width,
+      y: canvasBounds.y + canvasBounds.height,
+    });
+    const pageBounds = {
+      x: containerRect.left + Math.min(topLeft.x, bottomRight.x),
+      y: containerRect.top + Math.min(topLeft.y, bottomRight.y),
+      width: Math.abs(bottomRight.x - topLeft.x),
+      height: Math.abs(bottomRight.y - topLeft.y),
+    };
+
+    return [
+      [".video-component__overlay[data-video-node-id]", "videoNodeId"],
+      [".javascript-editor-component__overlay[data-javascript-editor-node-id]", "javascriptEditorNodeId"],
+      [".iframe-component__overlay[data-iframe-node-id]", "iframeNodeId"],
+    ].flatMap(([selector, key]) => (
+      [...this.stage.container().querySelectorAll(selector)]
+        .filter((element) => !element.hidden && rectsIntersect(pageBounds, element.getBoundingClientRect()))
+        .map((element) => this.layer.findOne(`#${element.dataset[key]}`))
+        .filter(Boolean)
+    ));
   }
 
   getGuideStops(skipNode) {

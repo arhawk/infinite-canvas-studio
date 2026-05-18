@@ -1764,6 +1764,15 @@ body.is-room-viewer #load-document-action {
   transform: translateX(-0.16rem);
 }
 
+.toolbar__page-attachment-tool {
+  position: relative;
+  z-index: 1000002;
+}
+
+.toolbar__page-attachment-popover {
+  z-index: 1000003;
+}
+
 .toolbar__page-layer-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__page-layer-popover,
 .toolbar__page-attachment-tool:is(:focus-within, [data-popover-open="true"]) .toolbar__page-attachment-popover {
   opacity: 1;
@@ -2879,6 +2888,12 @@ body.is-room-viewer #load-document-action {
 
 .javascript-editor-component__overlay[hidden] {
   display: none !important;
+}
+
+.canvas-container.is-marquee-selecting .javascript-editor-component__overlay,
+.canvas-container.is-marquee-selecting .video-component__overlay,
+.canvas-container.is-marquee-selecting .iframe-component__overlay {
+  pointer-events: none;
 }
 
 .javascript-editor-component__header {

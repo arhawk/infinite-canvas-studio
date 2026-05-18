@@ -749,6 +749,7 @@ export class HistoryPlugin extends BasePlugin {
       for (const item of operations) {
         await this.applyOperation(item, direction);
       }
+      this.restoreBatchLayerOrder(operation.operations, direction);
       return;
     }
 
@@ -902,6 +903,37 @@ export class HistoryPlugin extends BasePlugin {
     component.applySerializedState(node, snapshot);
     this.app.events.emit("node:changed", { node });
     return node;
+  }
+
+  restoreBatchLayerOrder(operations = [], direction = "redo") {
+    const snapshots = operations
+      .filter((operation) => operation?.type === "update-node")
+      .map((operation) => direction === "undo" ? operation.before : operation.after)
+      .filter((snapshot) => snapshot && Number.isFinite(snapshot.zIndex));
+
+    if (snapshots.length < 2) return;
+
+    const byParent = new Map();
+    snapshots.forEach((snapshot) => {
+      const parentId = snapshot.parentId ?? null;
+      if (!byParent.has(parentId)) byParent.set(parentId, []);
+      byParent.get(parentId).push(snapshot);
+    });
+
+    byParent.forEach((parentSnapshots, parentId) => {
+      const parent = parentId ? this.findSelectableNodeById(parentId) : this.app.mainLayer;
+      if (!parent?.getChildren) return;
+
+      const nodes = parentSnapshots
+        .slice()
+        .sort((left, right) => left.zIndex - right.zIndex)
+        .map((snapshot) => this.findSelectableNodeById(snapshot.id))
+        .filter((node) => node?.getParent?.() === parent);
+
+      if (nodes.length === parentSnapshots.length) {
+        this.app.applySelectableOrder(parent, nodes);
+      }
+    });
   }
 
   restoreDrawing(snapshot = {}) {
