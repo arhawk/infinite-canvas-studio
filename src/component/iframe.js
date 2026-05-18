@@ -312,10 +312,26 @@ export class IframeComponent extends BaseComponent {
       <button
         type="button"
         class="toolbar__shape-layer-action"
+        data-iframe-layer-action="bring-to-front"
+        data-testid="iframe-layer-bring-to-front"
+      >
+        Bring to Front
+      </button>
+      <button
+        type="button"
+        class="toolbar__shape-layer-action"
         data-iframe-layer-action="send-backward"
         data-testid="iframe-layer-send-backward"
       >
         Send Backward
+      </button>
+      <button
+        type="button"
+        class="toolbar__shape-layer-action"
+        data-iframe-layer-action="send-to-back"
+        data-testid="iframe-layer-send-to-back"
+      >
+        Send to Back
       </button>
     `;
 
@@ -404,10 +420,17 @@ export class IframeComponent extends BaseComponent {
     };
 
     const syncLayerActionState = () => {
-      const bringForwardButton = layerMenu.querySelector("[data-iframe-layer-action='bring-forward']");
-      const sendBackwardButton = layerMenu.querySelector("[data-iframe-layer-action='send-backward']");
-      bringForwardButton.disabled = !selectionPlugin?.canBringForward?.(node);
-      sendBackwardButton.disabled = !selectionPlugin?.canSendBackward?.(node);
+      const actionConfigs = [
+        ["bring-forward", "canBringForward"],
+        ["bring-to-front", "canBringToFront"],
+        ["send-backward", "canSendBackward"],
+        ["send-to-back", "canSendToBack"],
+      ];
+      for (const [actionId, canRunMethod] of actionConfigs) {
+        const button = layerMenu.querySelector(`[data-iframe-layer-action='${actionId}']`);
+        if (!button) continue;
+        button.disabled = !selectionPlugin?.[canRunMethod]?.(node);
+      }
     };
 
     const setInteractionMode = (nextInteractive) => {
@@ -797,34 +820,29 @@ export class IframeComponent extends BaseComponent {
       }
       openLayerMenu();
     });
-    const bringForwardButton = layerMenu.querySelector("[data-iframe-layer-action='bring-forward']");
-    const sendBackwardButton = layerMenu.querySelector("[data-iframe-layer-action='send-backward']");
-    bringForwardButton.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-    });
-    sendBackwardButton.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-    });
-    bringForwardButton.addEventListener("click", (event) => {
-      event.preventDefault();
-      if (!selectionPlugin?.canBringForward?.(node)) return;
-      selectionPlugin?.bringForward?.(node);
-      node.getLayer?.()?.batchDraw?.();
-      this.app.overlayLayer?.batchDraw?.();
-      this.app.uiLayer?.batchDraw?.();
-      syncHeaderState();
-      closeLayerMenu();
-    });
-    sendBackwardButton.addEventListener("click", (event) => {
-      event.preventDefault();
-      if (!selectionPlugin?.canSendBackward?.(node)) return;
-      selectionPlugin?.sendBackward?.(node);
-      node.getLayer?.()?.batchDraw?.();
-      this.app.overlayLayer?.batchDraw?.();
-      this.app.uiLayer?.batchDraw?.();
-      syncHeaderState();
-      closeLayerMenu();
-    });
+    const layerActionConfigs = [
+      ["bring-forward", "canBringForward", "bringForward"],
+      ["bring-to-front", "canBringToFront", "bringToFront"],
+      ["send-backward", "canSendBackward", "sendBackward"],
+      ["send-to-back", "canSendToBack", "sendToBack"],
+    ];
+    for (const [actionId, canRunMethod, runMethod] of layerActionConfigs) {
+      const button = layerMenu.querySelector(`[data-iframe-layer-action='${actionId}']`);
+      if (!button) continue;
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+      });
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (!selectionPlugin?.[canRunMethod]?.(node)) return;
+        selectionPlugin?.[runMethod]?.(node);
+        node.getLayer?.()?.batchDraw?.();
+        this.app.overlayLayer?.batchDraw?.();
+        this.app.uiLayer?.batchDraw?.();
+        syncHeaderState();
+        closeLayerMenu();
+      });
+    }
     const handleDocumentPointerDown = (event) => {
       if (!overlay.contains(event.target)) {
         closeLayerMenu();

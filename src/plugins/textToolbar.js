@@ -13,10 +13,22 @@ const TEXT_LAYER_ACTIONS = [
     canRun: "canBringForward",
   },
   {
+    id: "bring-to-front",
+    label: "Bring to Front",
+    run: "bringToFront",
+    canRun: "canBringToFront",
+  },
+  {
     id: "send-backward",
     label: "Send Backward",
     run: "sendBackward",
     canRun: "canSendBackward",
+  },
+  {
+    id: "send-to-back",
+    label: "Send to Back",
+    run: "sendToBack",
+    canRun: "canSendToBack",
   },
 ];
 
@@ -209,7 +221,9 @@ export class TextToolbarPlugin extends BasePlugin {
           </button>
           <div class="toolbar__button-style-popover toolbar__shape-layer-popover toolbar__text-layer-popover" role="menu" aria-label="Text layer order">
             <button type="button" class="toolbar__shape-layer-action" data-text-layer-action="bring-forward" data-testid="text-layer-bring-forward">Bring Forward</button>
+            <button type="button" class="toolbar__shape-layer-action" data-text-layer-action="bring-to-front" data-testid="text-layer-bring-to-front">Bring to Front</button>
             <button type="button" class="toolbar__shape-layer-action" data-text-layer-action="send-backward" data-testid="text-layer-send-backward">Send Backward</button>
+            <button type="button" class="toolbar__shape-layer-action" data-text-layer-action="send-to-back" data-testid="text-layer-send-to-back">Send to Back</button>
           </div>
         </div>
       </div>

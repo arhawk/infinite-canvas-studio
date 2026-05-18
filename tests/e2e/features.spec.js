@@ -574,11 +574,13 @@ test("reorders component layers and preserves them through undo and document rou
   await page.getByTestId("sticky-layer-menu").click();
   const layerButtonBox = await page.getByTestId("sticky-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__sticky-layer-popover").boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.getByTestId("sticky-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("sticky-layer-bring-to-front")).toBeEnabled();
   await expect(page.getByTestId("sticky-layer-send-backward")).toBeDisabled();
+  await expect(page.getByTestId("sticky-layer-send-to-back")).toBeDisabled();
 
   await page.getByTestId("sticky-layer-bring-forward").click();
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
@@ -587,7 +589,12 @@ test("reorders component layers and preserves them through undo and document rou
     third.id,
   ]);
 
-  await page.evaluate((id) => window.__APP_TEST_API__.bringNodeToFront(id), first.id);
+  await page.getByTestId("sticky-layer-menu").click();
+  if ((await page.locator(".toolbar__sticky-layer-popover").evaluate((el) => getComputedStyle(el).pointerEvents)) !== "auto") {
+    await page.getByTestId("sticky-layer-menu").click();
+  }
+  await expect(page.getByTestId("sticky-layer-bring-to-front")).toBeEnabled();
+  await page.getByTestId("sticky-layer-bring-to-front").click();
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
     second.id,
     third.id,
@@ -606,7 +613,12 @@ test("reorders component layers and preserves them through undo and document rou
     third.id,
   ]);
 
-  await page.evaluate((id) => window.__APP_TEST_API__.sendNodeToBack(id), first.id);
+  await page.getByTestId("sticky-layer-menu").click();
+  if ((await page.locator(".toolbar__sticky-layer-popover").evaluate((el) => getComputedStyle(el).pointerEvents)) !== "auto") {
+    await page.getByTestId("sticky-layer-menu").click();
+  }
+  await expect(page.getByTestId("sticky-layer-send-to-back")).toBeEnabled();
+  await page.getByTestId("sticky-layer-send-to-back").click();
   await expect.poll(async () => getNodeOrder(page, [first.id, second.id, third.id])).toEqual([
     first.id,
     second.id,
@@ -802,11 +814,13 @@ test("opens image layer actions from the floating toolbar and right click", asyn
   await page.getByTestId("image-layer-menu").click();
   const layerButtonBox = await page.getByTestId("image-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__image-layer-popover").boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.locator(".toolbar__image-layer-popover")).toHaveCSS("pointer-events", "auto");
   await expect(page.getByTestId("image-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("image-layer-bring-to-front")).toBeEnabled();
+  await expect(page.getByTestId("image-layer-send-to-back")).toBeDisabled();
   await page.getByTestId("image-layer-menu").click();
   await expect(page.locator(".toolbar__image-layer-popover")).toHaveCSS("pointer-events", "none");
 
@@ -893,10 +907,12 @@ test("edits video sources from the floating toolbar and opens layer actions", as
   await page.getByTestId("video-layer-menu").click();
   const layerButtonBox = await page.getByTestId("video-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__video-layer-popover").boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.getByTestId("video-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("video-layer-bring-to-front")).toBeEnabled();
+  await expect(page.getByTestId("video-layer-send-to-back")).toBeDisabled();
   await page.getByTestId("video-layer-menu").click();
   await expect(page.locator(".toolbar__video-layer-popover")).toHaveCSS("pointer-events", "none");
 
@@ -1014,11 +1030,13 @@ test("shows JavaScript editor actions in the floating toolbar", async ({ page })
   await page.getByTestId("javascript-editor-layer-menu").click();
   const layerButtonBox = await page.getByTestId("javascript-editor-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__javascript-editor-layer-popover").boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.getByTestId("javascript-editor-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("javascript-editor-layer-bring-to-front")).toBeEnabled();
   await expect(page.getByTestId("javascript-editor-layer-send-backward")).toBeDisabled();
+  await expect(page.getByTestId("javascript-editor-layer-send-to-back")).toBeDisabled();
   await page.getByTestId("javascript-editor-layer-menu").click();
   await expect(page.locator(".toolbar__javascript-editor-layer-popover")).toHaveCSS(
     "pointer-events",
@@ -1908,11 +1926,13 @@ test("selected button exposes live shape controls", async ({ page }) => {
   await page.getByTestId("button-layer-menu").click();
   const layerButtonBox = await page.getByTestId("button-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__button-layer-popover").boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.getByTestId("button-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("button-layer-bring-to-front")).toBeEnabled();
   await expect(page.getByTestId("button-layer-send-backward")).toBeDisabled();
+  await expect(page.getByTestId("button-layer-send-to-back")).toBeDisabled();
   await page.getByTestId("button-layer-menu").click();
   await expect(page.locator(".toolbar__button-layer-popover")).toHaveCSS("pointer-events", "none");
 
@@ -3461,7 +3481,9 @@ test("edits iframe URL from the embedded header bar and preserves it through und
 
   await page.getByTestId("iframe-layer-menu").click();
   await expect(page.getByTestId("iframe-layer-bring-forward")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-bring-to-front")).toBeVisible();
   await expect(page.getByTestId("iframe-layer-send-backward")).toBeVisible();
+  await expect(page.getByTestId("iframe-layer-send-to-back")).toBeVisible();
   await expect(page.getByTestId("iframe-layer-edit")).toHaveCount(0);
   const menuTriggerBox = await page.getByTestId("iframe-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__iframe-layer-popover").boundingBox();
@@ -3611,7 +3633,9 @@ test("keeps iframe chrome corners consistent and reorders layers from the iframe
 
   await page.getByTestId("iframe-layer-menu").click();
   await expect(page.getByTestId("iframe-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("iframe-layer-bring-to-front")).toBeEnabled();
   await expect(page.getByTestId("iframe-layer-send-backward")).toBeDisabled();
+  await expect(page.getByTestId("iframe-layer-send-to-back")).toBeDisabled();
   await page.getByTestId("iframe-layer-bring-forward").click();
   await expect.poll(async () => getNodeOrder(page, [iframe.id, sticky.id])).toEqual([
     sticky.id,
@@ -3903,6 +3927,10 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
 
   await page.getByTestId("page-layer-menu").click();
   await expect(page.getByTestId("page-layer-bring-forward")).toBeVisible();
+  await expect(page.getByTestId("page-layer-bring-to-front")).toBeVisible();
+  await expect(page.getByTestId("page-layer-send-backward")).toBeVisible();
+  await expect(page.getByTestId("page-layer-send-to-back")).toBeVisible();
+  await page.getByTestId("page-layer-menu").click();
 
   await page.getByTestId("page-create-next").click();
   await expect
@@ -4087,6 +4115,25 @@ test("edits page from floating toolbar and shows attachment menu", async ({ page
   }).not.toEqual(expect.arrayContaining(["outline.md", "Project Docs"]));
 });
 
+test("shows page layer order actions in the floating toolbar", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", {
+    x: 160,
+    y: 160,
+    label: "Layer menu page",
+  });
+
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), pageNode.id);
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("page-panel")).toBeVisible();
+  await expect(page.getByTestId("page-layer-menu")).toBeVisible();
+  await page.getByTestId("page-layer-menu").click();
+  await expect(page.getByTestId("page-layer-bring-forward")).toBeVisible();
+  await expect(page.getByTestId("page-layer-bring-to-front")).toBeVisible();
+  await expect(page.getByTestId("page-layer-send-backward")).toBeVisible();
+  await expect(page.getByTestId("page-layer-send-to-back")).toBeVisible();
+});
+
 test("edits text blocks from the floating toolbar and inline text editor", async ({ page }) => {
   const text = await addComponent(page, "text", {
     x: 220,
@@ -4105,6 +4152,12 @@ test("edits text blocks from the floating toolbar and inline text editor", async
   await expect(page.getByTestId("text-color")).toHaveValue("#1d1b16");
   await expect(page.getByTestId("text-connect")).toBeVisible();
   await expect(page.getByTestId("text-layer-menu")).toBeVisible();
+  await page.getByTestId("text-layer-menu").click();
+  await expect(page.getByTestId("text-layer-bring-forward")).toBeVisible();
+  await expect(page.getByTestId("text-layer-bring-to-front")).toBeVisible();
+  await expect(page.getByTestId("text-layer-send-backward")).toBeVisible();
+  await expect(page.getByTestId("text-layer-send-to-back")).toBeVisible();
+  await page.getByTestId("text-layer-menu").click();
   await page.getByTestId("text-style-color").click();
   await expect(page.locator("#text-color-swatches .toolbar__button-color-swatch")).toHaveCount(8);
   await expect(page.locator("#text-color-swatches .toolbar__button-custom-trigger")).toHaveCount(1);
@@ -4681,7 +4734,7 @@ test("reorders a selected shape from the floating toolbar layer menu", async ({ 
   const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
   const shapeLayerMenu = page.getByRole("menu", { name: "Shape layer order" });
   const layerMenuBox = await shapeLayerMenu.boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await page.getByTestId("shape-layer-menu").click();
@@ -4692,6 +4745,7 @@ test("reorders a selected shape from the floating toolbar layer menu", async ({ 
 
   await page.getByTestId("shape-layer-menu").click();
   await expect(page.getByTestId("shape-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("shape-layer-bring-to-front")).toBeEnabled();
   await page.getByTestId("shape-layer-bring-forward").click();
 
   await expect.poll(async () => getNodeOrder(page, [backShape.id, frontShape.id]))
@@ -4699,7 +4753,9 @@ test("reorders a selected shape from the floating toolbar layer menu", async ({ 
 
   await page.getByTestId("shape-layer-menu").click();
   await expect(page.getByTestId("shape-layer-bring-forward")).toBeDisabled();
+  await expect(page.getByTestId("shape-layer-bring-to-front")).toBeDisabled();
   await expect(page.getByTestId("shape-layer-send-backward")).toBeEnabled();
+  await expect(page.getByTestId("shape-layer-send-to-back")).toBeEnabled();
 });
 
 test("keeps shape inline text editing and exposes toolbar connection and layer actions", async ({ page }) => {
@@ -4740,12 +4796,14 @@ test("keeps shape inline text editing and exposes toolbar connection and layer a
   const layerButtonBox = await page.getByTestId("shape-layer-menu").boundingBox();
   const shapeLayerMenu = page.getByRole("menu", { name: "Shape layer order" });
   const layerMenuBox = await shapeLayerMenu.boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(shapeLayerMenu).toHaveCSS("pointer-events", "auto");
   await expect(page.getByTestId("shape-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("shape-layer-bring-to-front")).toBeEnabled();
   await expect(page.getByTestId("shape-layer-send-backward")).toBeDisabled();
+  await expect(page.getByTestId("shape-layer-send-to-back")).toBeDisabled();
 });
 
 test("resizes pages and deletes them with the keyboard", async ({ page }) => {
@@ -5120,11 +5178,13 @@ test("opens ranking box layer actions from the floating toolbar and right click"
   await page.getByTestId("ranking-box-layer-menu").click();
   const layerButtonBox = await page.getByTestId("ranking-box-layer-menu").boundingBox();
   const layerMenuBox = await page.locator(".toolbar__ranking-box-layer-popover").boundingBox();
-  expect(layerMenuBox?.height ?? 999).toBeLessThan(80);
+  expect(layerMenuBox?.height ?? 999).toBeLessThan(160);
   expect(layerMenuBox.x).toBeGreaterThanOrEqual(layerButtonBox.x + layerButtonBox.width - 1);
   expect(Math.abs(layerMenuBox.y - layerButtonBox.y)).toBeLessThan(4);
   await expect(page.getByTestId("ranking-box-layer-bring-forward")).toBeEnabled();
+  await expect(page.getByTestId("ranking-box-layer-bring-to-front")).toBeEnabled();
   await expect(page.getByTestId("ranking-box-layer-send-backward")).toBeDisabled();
+  await expect(page.getByTestId("ranking-box-layer-send-to-back")).toBeDisabled();
   await page.getByTestId("ranking-box-layer-menu").click();
   await expect(page.locator(".toolbar__ranking-box-layer-popover")).toHaveCSS(
     "pointer-events",

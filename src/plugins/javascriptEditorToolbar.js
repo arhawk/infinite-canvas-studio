@@ -9,10 +9,22 @@ const JAVASCRIPT_EDITOR_LAYER_ACTIONS = [
     canRun: "canBringForward",
   },
   {
+    id: "bring-to-front",
+    label: "Bring to Front",
+    run: "bringToFront",
+    canRun: "canBringToFront",
+  },
+  {
     id: "send-backward",
     label: "Send Backward",
     run: "sendBackward",
     canRun: "canSendBackward",
+  },
+  {
+    id: "send-to-back",
+    label: "Send to Back",
+    run: "sendToBack",
+    canRun: "canSendToBack",
   },
 ];
 
@@ -143,10 +155,26 @@ export class JavaScriptEditorToolbarPlugin extends BasePlugin {
             <button
               type="button"
               class="toolbar__shape-layer-action"
+              data-javascript-editor-layer-action="bring-to-front"
+              data-testid="javascript-editor-layer-bring-to-front"
+            >
+              Bring to Front
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
               data-javascript-editor-layer-action="send-backward"
               data-testid="javascript-editor-layer-send-backward"
             >
               Send Backward
+            </button>
+            <button
+              type="button"
+              class="toolbar__shape-layer-action"
+              data-javascript-editor-layer-action="send-to-back"
+              data-testid="javascript-editor-layer-send-to-back"
+            >
+              Send to Back
             </button>
           </div>
         </div>
