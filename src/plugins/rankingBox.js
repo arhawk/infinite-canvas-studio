@@ -17,7 +17,6 @@ import {
 } from "../lib/colorToolbar.js";
 import { renderIcons } from "../lib/icons.js";
 
-const MOVE_OUT_THRESHOLD = 32;
 const RANKING_BOX_STYLE_SWATCHES = DEFAULT_COLOR_SWATCHES.filter((color) => color !== "transparent");
 const DEFAULT_RANKING_BOX_PANEL_STATE = {
   titleFontSize: DEFAULT_RANKING_BOX_TITLE_FONT_SIZE,
@@ -116,24 +115,6 @@ function pointInRect(point, rect) {
     point.y >= rect.y &&
     point.y <= rect.y + rect.height
   );
-}
-
-function rectsIntersect(left, right) {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
-  );
-}
-
-function expandRect(rect, margin) {
-  return {
-    x: rect.x - margin,
-    y: rect.y - margin,
-    width: rect.width + margin * 2,
-    height: rect.height + margin * 2,
-  };
 }
 
 function getPageSize(pageNode) {
@@ -935,9 +916,7 @@ export class RankingBoxPlugin extends BasePlugin {
 
       card.on("dragmove.rankingItem", (event) => {
         event.cancelBubble = true;
-        if (!this.app.isReadOnly() && this.isRankingCardOutsideRankingBox(rankingNode, card, {
-          margin: MOVE_OUT_THRESHOLD,
-        })) {
+        if (!this.app.isReadOnly() && this.isRankingCardOutsideRankingBox(rankingNode, card)) {
           rankingNode.getLayer()?.batchDraw();
           return;
         }
@@ -950,9 +929,7 @@ export class RankingBoxPlugin extends BasePlugin {
       card.on("dragend.rankingItem", (event) => {
         event.cancelBubble = true;
         card.setAttr("isRankingItemDragging", false);
-        if (!this.app.isReadOnly() && this.isRankingCardOutsideRankingBox(rankingNode, card, {
-          margin: MOVE_OUT_THRESHOLD,
-        })) {
+        if (!this.app.isReadOnly() && this.isRankingCardOutsideRankingBox(rankingNode, card)) {
           void this.moveRankingItemOutToText(rankingNode, card);
           return;
         }
@@ -1167,13 +1144,16 @@ export class RankingBoxPlugin extends BasePlugin {
     return card?.getClientRect?.({ relativeTo: this.app.stage }) ?? null;
   }
 
-  isRankingCardOutsideRankingBox(rankingNode, card, { margin = 0 } = {}) {
+  isRankingCardOutsideRankingBox(rankingNode, card) {
     const cardRect = this.getRankingCardStageRect(card);
     if (!cardRect) return false;
 
     const boxRect = this.getRankingBoxStageRect(rankingNode);
-    const expanded = margin > 0 ? expandRect(boxRect, margin) : boxRect;
-    return !rectsIntersect(cardRect, expanded);
+    const centerPoint = {
+      x: cardRect.x + cardRect.width / 2,
+      y: cardRect.y + cardRect.height / 2,
+    };
+    return !pointInRect(centerPoint, boxRect);
   }
 
   async moveRankingItemOutToText(rankingNode, card) {

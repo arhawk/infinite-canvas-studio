@@ -308,11 +308,6 @@ function renderCard({
     sourceNodeId: item.sourceNodeId,
   });
 
-  card.dragBoundFunc((pos) => ({
-    x: card.getAbsolutePosition().x,
-    y: pos.y,
-  }));
-
   const background = new Konva.Rect({
     width: cardWidth,
     height: CARD_HEIGHT,

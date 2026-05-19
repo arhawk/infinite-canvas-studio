@@ -5821,6 +5821,57 @@ test("moves text into and out of a page ranking box", async ({ page }) => {
     .toEqual(["Second ranked idea"]);
 });
 
+test("drags a ranking box item back out horizontally into a text node", async ({ page }) => {
+  const pageNode = await addComponent(page, "page", { x: 120, y: 120 });
+  const textNode = await addComponent(page, "text", {
+    x: 180,
+    y: 210,
+    text: "Drag me sideways",
+    width: 180,
+    height: 80,
+  });
+
+  const rankingBox = await page.evaluate(
+    (pageId) => window.__APP_TEST_API__.createRankingBox(pageId),
+    pageNode.id,
+  );
+  expect(rankingBox.componentType).toBe("rankingBox");
+
+  await page.evaluate(
+    ({ rankingBoxId, textId }) => window.__APP_TEST_API__.addTextToRankingBox(rankingBoxId, textId),
+    { rankingBoxId: rankingBox.id, textId: textNode.id },
+  );
+  await expect.poll(async () => getNode(page, textNode.id)).toBeNull();
+
+  await page.evaluate(() => window.__APP_TEST_API__.setEditorTool("arrange"));
+  await waitForPaint(page);
+
+  const rankingState = await getNode(page, rankingBox.id);
+  const itemBounds = rankingState.summary.items[0]?.renderedBounds;
+  expect(itemBounds).toBeTruthy();
+
+  const start = await canvasPointToPage(page, {
+    x: itemBounds.x + itemBounds.width / 2,
+    y: itemBounds.y + itemBounds.height / 2,
+  });
+  const end = await canvasPointToPage(page, {
+    x: rankingState.bounds.x - 120,
+    y: itemBounds.y + itemBounds.height / 2,
+  });
+
+  await dragBetweenPagePoints(page, start, end, 12);
+
+  await expect
+    .poll(async () => (await getNode(page, textNode.id))?.summary?.text ?? null)
+    .toBe("Drag me sideways");
+  await expect
+    .poll(async () => (await getNode(page, textNode.id))?.parentId ?? null)
+    .toBe(pageNode.id);
+  await expect
+    .poll(async () => (await getNode(page, rankingBox.id))?.summary?.items?.length ?? -1)
+    .toBe(0);
+});
+
 test("moves text into a ranking box across pages", async ({ page }) => {
   const firstPage = await addComponent(page, "page", { x: 120, y: 120 });
   const secondPage = await addComponent(page, "page", { x: 1300, y: 120 });
