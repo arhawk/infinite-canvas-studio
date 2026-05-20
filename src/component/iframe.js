@@ -13,7 +13,7 @@ const BASE_VIEWPORT_WIDTH = 1440;
 const BASE_VIEWPORT_HEIGHT = 960;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 2.4;
-const FALLBACK_MESSAGE =
+const LOAD_FAILURE_MESSAGE =
   "This website cannot be displayed here due to security policy or embedding restrictions.";
 
 function normalizeDimension(value, fallback, minimum) {
@@ -371,10 +371,10 @@ export class IframeComponent extends BaseComponent {
       "stroke-width": 2,
     });
 
-    let fallbackTimer = null;
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
     const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
+    const containersPlugin = this.app.getPlugin?.("containers") ?? null;
     const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
     let dragging = false;
     let dragStartX = 0;
@@ -514,21 +514,9 @@ export class IframeComponent extends BaseComponent {
           status.hidden = false;
           status.dataset.tone = "info";
           status.textContent = "Loading webpage...";
-          if (fallbackTimer != null) {
-            window.clearTimeout(fallbackTimer);
-          }
-          fallbackTimer = window.setTimeout(() => {
-            status.dataset.tone = "warning";
-            status.textContent = FALLBACK_MESSAGE;
-            status.hidden = false;
-          }, 4000);
         }
       } else {
         lastFrameUrl = "";
-        if (fallbackTimer != null) {
-          window.clearTimeout(fallbackTimer);
-          fallbackTimer = null;
-        }
         frame.setAttribute("src", "about:blank");
         status.hidden = true;
         status.dataset.tone = "info";
@@ -622,6 +610,7 @@ export class IframeComponent extends BaseComponent {
       dragging = false;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
+      containersPlugin?.finalizeCaptureForNode?.(node);
       this.app.events.emit("node:changed", { node });
     };
 
@@ -643,7 +632,7 @@ export class IframeComponent extends BaseComponent {
     const showFailure = () => {
       status.hidden = false;
       status.dataset.tone = "warning";
-      status.textContent = FALLBACK_MESSAGE;
+      status.textContent = LOAD_FAILURE_MESSAGE;
     };
 
     const applyViewport = () => {
@@ -866,17 +855,11 @@ export class IframeComponent extends BaseComponent {
     document.addEventListener("mouseup", endDrag);
 
     frame.addEventListener("load", () => {
-      window.clearTimeout(fallbackTimer);
-      fallbackTimer = null;
       hideStatus();
       applyViewport();
     });
 
     frame.addEventListener("error", () => {
-      if (fallbackTimer != null) {
-        window.clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
       showFailure();
     });
 
@@ -904,9 +887,6 @@ export class IframeComponent extends BaseComponent {
 
     node._iframeOverlayEl = overlay;
     node._iframeOverlayCleanup = () => {
-      if (fallbackTimer != null) {
-        window.clearTimeout(fallbackTimer);
-      }
       if (stackSyncFrame != null) {
         window.cancelAnimationFrame(stackSyncFrame);
         stackSyncFrame = null;

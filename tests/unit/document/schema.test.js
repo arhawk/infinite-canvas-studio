@@ -8,6 +8,7 @@ import { DEFAULT_BACKGROUND_STATE } from "../../../src/background/state.js";
 describe("document schema", () => {
   it("normalizes a valid document snapshot with defaults", () => {
     const normalized = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "document-1",
       nodes: [
         {
@@ -60,8 +61,15 @@ describe("document schema", () => {
     })).toThrow(/Unsupported document schema version/);
   });
 
+  it("rejects missing schema versions as unsupported legacy format", () => {
+    expect(() => normalizeDocumentSnapshot({
+      documentId: "document-legacy-1",
+    })).toThrow(/Unsupported legacy document format/);
+  });
+
   it("rejects duplicate node ids", () => {
     expect(() => normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "document-1",
       nodes: [
         { id: "sticky-1", type: "sticky" },
@@ -70,15 +78,17 @@ describe("document schema", () => {
     })).toThrow(/Duplicate node id/);
   });
 
-  it("keeps explicit background settings and falls back for old documents without one", () => {
+  it("keeps explicit background settings and uses default background when omitted", () => {
     const explicit = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "document-2",
       background: {
         type: "warm-paper",
         color: "#ead7b1",
       },
     });
-    const legacy = normalizeDocumentSnapshot({
+    const currentNoBackground = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "document-3",
     });
 
@@ -87,11 +97,12 @@ describe("document schema", () => {
       color: "#ead7b1",
       opacity: 1,
     });
-    expect(legacy.background).toEqual(DEFAULT_BACKGROUND_STATE);
+    expect(currentNoBackground.background).toEqual(DEFAULT_BACKGROUND_STATE);
   });
 
   it("normalizes background opacity and falls back to default for invalid values", () => {
     const valid = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "document-4",
       background: {
         type: "solid",
@@ -100,6 +111,7 @@ describe("document schema", () => {
       },
     });
     const invalid = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "document-5",
       background: {
         type: "solid",

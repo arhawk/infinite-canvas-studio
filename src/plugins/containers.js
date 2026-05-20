@@ -7,7 +7,7 @@ function resolveSelectable(node) {
 }
 
 function isContainerNode(node) {
-  return node?.hasName?.("container-root") || node?.getAttr?.("componentType") === "container";
+  return node?.hasName?.("page-root") || node?.getAttr?.("componentType") === "page";
 }
 
 function isConnectionNode(node) {
@@ -54,7 +54,12 @@ export class ContainersPlugin extends BasePlugin {
 
   handleDragEnd(event) {
     if (isInsideRankingItem(event.target)) return;
-    this.handleCapture(event.target);
+    this.finalizeCaptureForNode(event.target);
+  }
+
+  finalizeCaptureForNode(node) {
+    if (isInsideRankingItem(node)) return;
+    this.handleCapture(node);
   }
 
   handleCapture(node) {

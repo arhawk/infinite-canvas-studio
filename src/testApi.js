@@ -167,7 +167,7 @@ function getNodeSummary(node) {
     };
   }
 
-  if (componentType === "container" || componentType === "page") {
+  if (componentType === "page") {
     const background = node.findOne(".container-bg");
     const labelNode = node.findOne(".container-label");
     return {
@@ -897,6 +897,15 @@ export function setupAppTestApi(app) {
       app.events.emit("node:change:start", { node });
       component.setAttachmentState(node, attachmentsState);
       app.events.emit("node:changed", { node });
+      node.getLayer?.()?.batchDraw?.();
+      return true;
+    },
+    finalizeContainerCapture: (id) => {
+      const node = getNodeById(app, id);
+      if (!node) return false;
+      const containersPlugin = getPlugin(app, "containers");
+      if (!containersPlugin?.finalizeCaptureForNode) return false;
+      containersPlugin.finalizeCaptureForNode(node);
       node.getLayer?.()?.batchDraw?.();
       return true;
     },

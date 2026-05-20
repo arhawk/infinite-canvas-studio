@@ -11,6 +11,7 @@ import {
   DEFAULT_COLOR_SWATCHES,
 } from "../lib/colorToolbar.js";
 import { clamp01, syncOpacityUi } from "../lib/styleControls.js";
+import { getClientPoint, resolveSelectableFromStageEvent } from "./toolbarShared.js";
 
 const PAGE_LAYER_ACTIONS = [
   {
@@ -38,45 +39,6 @@ const PAGE_LAYER_ACTIONS = [
     canRun: "canSendToBack",
   },
 ];
-
-function resolveSelectable(target) {
-  if (!target) return null;
-  if (target.hasName?.("selectable")) return target;
-  return target.findAncestor?.(".selectable", true) ?? null;
-}
-
-function resolveSelectableFromStageEvent(app, event) {
-  const direct = resolveSelectable(event?.target);
-  if (direct?.listening?.() !== false) return direct;
-
-  const stage = app.stage;
-  if (!stage || typeof stage.getIntersection !== "function") return direct;
-  if (event?.evt && typeof stage.setPointersPositions === "function") {
-    stage.setPointersPositions(event.evt);
-  }
-
-  const pointer = stage.getPointerPosition?.() ?? null;
-  const intersection = pointer ? stage.getIntersection(pointer) : null;
-  const selectable = resolveSelectable(intersection);
-  return selectable?.listening?.() !== false ? selectable : direct;
-}
-
-function getClientPoint(app, event) {
-  const nativeEvent = event?.evt ?? event;
-  const clientX = nativeEvent?.clientX;
-  const clientY = nativeEvent?.clientY;
-  if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
-    return { x: clientX, y: clientY };
-  }
-
-  const pointer = app.stage?.getPointerPosition?.() ?? null;
-  const rect = app.stage?.container?.()?.getBoundingClientRect?.() ?? null;
-  if (pointer && rect) {
-    return { x: rect.left + pointer.x, y: rect.top + pointer.y };
-  }
-
-  return null;
-}
 
 function formatFileSize(size) {
   if (!Number.isFinite(size) || size <= 0) return "";

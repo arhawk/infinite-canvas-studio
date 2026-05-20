@@ -214,6 +214,7 @@ export class VideoComponent extends BaseComponent {
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
     const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
+    const containersPlugin = this.app.getPlugin?.("containers") ?? null;
     const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
     const catalogPanelPlugin = this.app.getPlugin?.("catalog-panel") ?? null;
     let dragging = false;
@@ -326,6 +327,7 @@ export class VideoComponent extends BaseComponent {
       catalogPanelPlugin?.panelEl?.classList?.remove?.("is-drag-active");
       catalogPanelPlugin?.handleCanvasNodeDrop?.(node);
       catalogPanelPlugin?.clearDropPreview?.();
+      containersPlugin?.finalizeCaptureForNode?.(node);
       this.app.events.emit("node:changed", { node });
     };
 

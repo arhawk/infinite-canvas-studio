@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { normalizeDocumentSnapshot } from "../../../src/document/schema.js";
+import { DOCUMENT_SCHEMA_VERSION, normalizeDocumentSnapshot } from "../../../src/document/schema.js";
 
 describe("catalog document structure", () => {
   it("keeps catalog items inside catalog node data", () => {
     const snapshot = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "doc-1",
       nodes: [
         {
@@ -50,6 +51,7 @@ describe("catalog document structure", () => {
 
   it("allows an empty catalog items list", () => {
     const snapshot = normalizeDocumentSnapshot({
+      schemaVersion: DOCUMENT_SCHEMA_VERSION,
       documentId: "doc-2",
       nodes: [
         {

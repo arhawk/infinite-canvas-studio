@@ -13,6 +13,7 @@ import {
   normalizeHexColor,
 } from "../lib/colorToolbar.js";
 import { renderIcons } from "../lib/icons.js";
+import { resolveSelectableFromStageEvent } from "./toolbarShared.js";
 
 const MIN_STROKE_WIDTH = 1;
 const MAX_STROKE_WIDTH = 16;
@@ -23,28 +24,6 @@ function clampNumber(value, fallback, min, max) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Math.min(Math.max(numeric, min), max);
-}
-
-function resolveSelectable(target) {
-  if (!target) return null;
-  if (target.hasName?.("selectable")) return target;
-  return target.findAncestor?.(".selectable", true) ?? null;
-}
-
-function resolveSelectableFromStageEvent(app, event) {
-  const direct = resolveSelectable(event?.target);
-  if (direct?.listening?.() !== false) return direct;
-
-  const stage = app.stage;
-  if (!stage || typeof stage.getIntersection !== "function") return direct;
-  if (event?.evt && typeof stage.setPointersPositions === "function") {
-    stage.setPointersPositions(event.evt);
-  }
-
-  const pointer = stage.getPointerPosition?.() ?? null;
-  const intersection = pointer ? stage.getIntersection(pointer) : null;
-  const selectable = resolveSelectable(intersection);
-  return selectable?.listening?.() !== false ? selectable : direct;
 }
 
 export class ConnectionToolbarPlugin extends BasePlugin {

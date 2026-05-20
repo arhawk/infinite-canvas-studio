@@ -20,6 +20,7 @@ describe("buildRuntimeExportHtml", () => {
 </html>`;
 
     const html = buildRuntimeExportHtml(template, {
+      schemaVersion: 1,
       documentId: "doc-1",
       revision: 2,
       meta: { title: "Deck Demo" },
@@ -55,6 +56,7 @@ describe("buildRuntimeExportHtml", () => {
 </html>`;
 
     const html = buildRuntimeExportHtml(template, {
+      schemaVersion: 1,
       documentId: "doc-1",
       revision: 2,
       meta: { title: "Deck Demo" },
@@ -92,6 +94,7 @@ describe("buildRuntimeExportHtml", () => {
 </html>`;
 
     const html = buildRuntimeExportHtml(template, {
+      schemaVersion: 1,
       documentId: "doc-1",
       revision: 2,
       meta: { title: "Deck Demo" },
@@ -112,6 +115,7 @@ describe("buildRuntimeExportHtml", () => {
 
   it("validates embedded snapshot identity and content counts", () => {
     const snapshot = {
+      schemaVersion: 1,
       documentId: "doc-1",
       revision: 2,
       meta: { title: "Deck Demo" },
@@ -141,6 +145,7 @@ describe("buildRuntimeExportHtml", () => {
 
   it("fails validation when snapshot node count does not match", () => {
     const snapshot = {
+      schemaVersion: 1,
       documentId: "doc-1",
       revision: 2,
       meta: { title: "Deck Demo" },
@@ -173,6 +178,7 @@ describe("buildRuntimeExportHtml", () => {
 
   it("reads embedded snapshot from exported html text", () => {
     const snapshot = {
+      schemaVersion: 1,
       documentId: "doc-2",
       revision: 3,
       meta: { title: "Roundtrip" },
@@ -196,6 +202,7 @@ describe("buildRuntimeExportHtml", () => {
     ).toThrow("missing <body>");
     expect(() =>
       buildRuntimeExportHtml("<!doctype html><html><head></head><body><div id='app'></div></html>", {
+        schemaVersion: 1,
         documentId: "doc-1",
         revision: 1,
         meta: { title: "T" },

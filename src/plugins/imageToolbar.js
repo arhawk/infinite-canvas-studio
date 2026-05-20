@@ -1,6 +1,8 @@
 import { BasePlugin } from "../core/baseClasses.js";
 import { readImageFileAsDataUrl } from "../component/image.js";
 import { renderIcons } from "../lib/icons.js";
+import { withTrackedNodeMutation } from "./nodeMutation.js";
+import { getClientPoint, getPluginById, resolveSelectableFromStageEvent } from "./toolbarShared.js";
 
 const IMAGE_LAYER_ACTIONS = [
   {
@@ -28,45 +30,6 @@ const IMAGE_LAYER_ACTIONS = [
     canRun: "canSendToBack",
   },
 ];
-
-function resolveSelectable(target) {
-  if (!target) return null;
-  if (target.hasName?.("selectable")) return target;
-  return target.findAncestor?.(".selectable", true) ?? null;
-}
-
-function resolveSelectableFromStageEvent(app, event) {
-  const direct = resolveSelectable(event?.target);
-  if (direct?.listening?.() !== false) return direct;
-
-  const stage = app.stage;
-  if (!stage || typeof stage.getIntersection !== "function") return direct;
-  if (event?.evt && typeof stage.setPointersPositions === "function") {
-    stage.setPointersPositions(event.evt);
-  }
-
-  const pointer = stage.getPointerPosition?.() ?? null;
-  const intersection = pointer ? stage.getIntersection(pointer) : null;
-  const selectable = resolveSelectable(intersection);
-  return selectable?.listening?.() !== false ? selectable : direct;
-}
-
-function getClientPoint(app, event) {
-  const nativeEvent = event?.evt ?? event;
-  const clientX = nativeEvent?.clientX;
-  const clientY = nativeEvent?.clientY;
-  if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
-    return { x: clientX, y: clientY };
-  }
-
-  const pointer = app.stage?.getPointerPosition?.() ?? null;
-  const rect = app.stage?.container?.()?.getBoundingClientRect?.() ?? null;
-  if (pointer && rect) {
-    return { x: rect.left + pointer.x, y: rect.top + pointer.y };
-  }
-
-  return null;
-}
 
 export class ImageToolbarPlugin extends BasePlugin {
   static pluginId = "image-toolbar";
@@ -321,27 +284,23 @@ export class ImageToolbarPlugin extends BasePlugin {
 
     const src = await readImageFileAsDataUrl(file);
     const current = component.serializeNode(node);
-    this.app.events.emit("node:change:start", { node });
-    await component.applySerializedData(node, {
-      ...current,
-      src,
+    await withTrackedNodeMutation(this.app, node, async () => {
+      await component.applySerializedData(node, {
+        ...current,
+        src,
+      });
+      node.getLayer?.()?.batchDraw?.();
+      this.app.overlayLayer?.batchDraw?.();
+      this.app.uiLayer?.batchDraw?.();
     });
-    node.getLayer?.()?.batchDraw?.();
-    this.app.overlayLayer?.batchDraw?.();
-    this.app.uiLayer?.batchDraw?.();
-    this.app.events.emit("node:changed", { node });
   }
 
   getSelectionPlugin() {
-    return this.app.getPlugin?.("selection")
-      ?? this.app.plugins.find((plugin) => plugin.id === "selection")
-      ?? null;
+    return getPluginById(this.app, "selection");
   }
 
   getConnectionsPlugin() {
-    return this.app.getPlugin?.("connections")
-      ?? this.app.plugins.find((plugin) => plugin.id === "connections")
-      ?? null;
+    return getPluginById(this.app, "connections");
   }
 
   startConnection() {

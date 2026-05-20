@@ -3789,6 +3789,148 @@ test("captures the JavaScript editor into a page and keeps it aligned when the p
   expect(afterMove.bounds.y - beforeMove.bounds.y).toBeCloseTo(140, 1);
 });
 
+async function expectOverlayNodePageParentingLifecycle(page, {
+  type,
+  createOffset,
+  getHeaderStartPoint,
+  performDrag = dragBetweenPagePoints,
+}) {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+
+  const pageNode = await addComponent(page, "page", {
+    x: 240,
+    y: 180,
+    width: 520,
+    height: 320,
+  });
+
+  const created = await addComponent(page, type, {
+    x: 240 + createOffset.x,
+    y: 180 + createOffset.y,
+  });
+
+  await expect.poll(async () => (await getNode(page, created.id))?.parentId ?? null).toBe(pageNode.id);
+
+  const pageSnapshot = await getNode(page, pageNode.id);
+  const outsideCanvasPoint = {
+    x: (pageSnapshot.bounds?.x ?? 240) + (pageSnapshot.bounds?.width ?? 520) + 520,
+    y: (pageSnapshot.bounds?.y ?? 180) + (pageSnapshot.bounds?.height ?? 320) * 0.5,
+  };
+  const dragStartOut = await getHeaderStartPoint();
+  const centerBeforeOut = await getNodePageCenter(page, created.id);
+  const outsideCenterPoint = await canvasPointToPage(page, outsideCanvasPoint);
+  const dragEndOut = {
+    x: outsideCenterPoint.x + (dragStartOut.x - centerBeforeOut.x),
+    y: outsideCenterPoint.y + (dragStartOut.y - centerBeforeOut.y),
+  };
+  await performDrag(page, dragStartOut, dragEndOut, 12);
+  const centerAfterOut = await getNodePageCenter(page, created.id);
+  if (
+    Math.abs(centerAfterOut.x - outsideCenterPoint.x) > 80
+    || Math.abs(centerAfterOut.y - outsideCenterPoint.y) > 80
+  ) {
+    await dragBetweenPagePoints(page, dragStartOut, dragEndOut, 12);
+  }
+  await expect.poll(async () => (await getNode(page, created.id))?.parentId ?? null).toBe(null);
+
+  const dragStartIn = await getHeaderStartPoint();
+  const centerBeforeIn = await getNodePageCenter(page, created.id);
+  const insideCanvasPoint = {
+    x: (pageSnapshot.bounds?.x ?? 240) + (pageSnapshot.bounds?.width ?? 520) * 0.5,
+    y: (pageSnapshot.bounds?.y ?? 180) + (pageSnapshot.bounds?.height ?? 320) * 0.3,
+  };
+  const insideCenterPoint = await canvasPointToPage(page, insideCanvasPoint);
+  const dragEndIn = {
+    x: insideCenterPoint.x + (dragStartIn.x - centerBeforeIn.x),
+    y: insideCenterPoint.y + (dragStartIn.y - centerBeforeIn.y),
+  };
+  await performDrag(page, dragStartIn, dragEndIn, 12);
+  const centerAfterIn = await getNodePageCenter(page, created.id);
+  if (
+    Math.abs(centerAfterIn.x - insideCenterPoint.x) > 80
+    || Math.abs(centerAfterIn.y - insideCenterPoint.y) > 80
+  ) {
+    await dragBetweenPagePoints(page, dragStartIn, dragEndIn, 12);
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const currentParent = (await getNode(page, created.id))?.parentId ?? null;
+    if (currentParent === pageNode.id) break;
+    const retryStart = await getHeaderStartPoint();
+    const retryCenter = await getNodePageCenter(page, created.id);
+    const retryEnd = {
+      x: insideCenterPoint.x + (retryStart.x - retryCenter.x),
+      y: insideCenterPoint.y + (retryStart.y - retryCenter.y),
+    };
+    await performDrag(page, retryStart, retryEnd, 12);
+  }
+  await expect.poll(async () => (await getNode(page, created.id))?.parentId ?? null).toBe(pageNode.id);
+}
+
+test("captures video into and out of pages on overlay drag end", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+
+  const pageNode = await addComponent(page, "page", { x: 240, y: 180, width: 520, height: 320 });
+  const video = await addComponent(page, "video", { x: 310, y: 260 });
+  await expect.poll(async () => (await getNode(page, video.id))?.parentId ?? null).toBe(pageNode.id);
+
+  await page.evaluate(({ id, position }) => {
+    window.__APP_TEST_API__.moveNode(id, position);
+    window.__APP_TEST_API__.finalizeContainerCapture(id);
+  }, { id: video.id, position: { x: 1240, y: 340 } });
+  await expect.poll(async () => (await getNode(page, video.id))?.parentId ?? null).toBe(null);
+
+  await page.evaluate(({ id, position }) => {
+    window.__APP_TEST_API__.moveNode(id, position);
+    window.__APP_TEST_API__.finalizeContainerCapture(id);
+  }, { id: video.id, position: { x: 420, y: 300 } });
+  await expect.poll(async () => (await getNode(page, video.id))?.parentId ?? null).toBe(pageNode.id);
+});
+
+test("captures iframe into and out of pages on overlay drag end", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 1,
+    position: { x: 0, y: 0 },
+  }));
+
+  const pageNode = await addComponent(page, "page", {
+    x: 240,
+    y: 180,
+    width: 520,
+    height: 320,
+  });
+  const iframe = await addComponent(page, "iframe", {
+    x: 370,
+    y: 290,
+  });
+
+  await expect.poll(async () => (await getNode(page, iframe.id))?.parentId ?? null).toBe(pageNode.id);
+  await page.evaluate(({ id, position }) => {
+    window.__APP_TEST_API__.moveNode(id, position);
+    window.__APP_TEST_API__.finalizeContainerCapture(id);
+  }, { id: iframe.id, position: { x: 1260, y: 340 } });
+  await expect.poll(async () => (await getNode(page, iframe.id))?.parentId ?? null).toBe(null);
+
+  const detached = await addComponent(page, "iframe", {
+    x: 860,
+    y: 320,
+  });
+  await expect.poll(async () => (await getNode(page, detached.id))?.parentId ?? null).toBe(null);
+  await page.evaluate(({ id, position }) => {
+    window.__APP_TEST_API__.moveNode(id, position);
+    window.__APP_TEST_API__.finalizeContainerCapture(id);
+  }, {
+    id: detached.id,
+    position: { x: 430, y: 300 },
+  });
+  await expect.poll(async () => (await getNode(page, detached.id))?.parentId ?? null).toBe(pageNode.id);
+});
+
 test("shows iframe actions in the embedded header bar without reopening the modal editor", async ({ page }) => {
   const iframeUrl = buildIframePageUrl({ title: "Toolbar iframe" });
   const iframe = await addComponent(page, "iframe", {

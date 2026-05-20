@@ -31,10 +31,10 @@ describe("PageComponent", () => {
     expect(node.findOne(".container-bg")?.fill()).toContain("0.5");
   });
 
-  it("migrates legacy node opacity into page fillOpacity on restore", async () => {
+  it("ignores node-level opacity and only uses page fillOpacity from current schema data", async () => {
     const component = new PageComponent(createAppStub());
     const restored = await component.restore({
-      id: "page-legacy-1",
+      id: "page-current-1",
       type: "page",
       x: 0,
       y: 0,
@@ -42,13 +42,14 @@ describe("PageComponent", () => {
       data: {
         width: 960,
         height: 540,
-        label: "Legacy",
+        label: "Current",
         fill: "#fffdf8",
+        fillOpacity: 0.85,
       },
     });
 
     expect(restored.opacity()).toBe(1);
-    expect(restored.getAttr("pageFillOpacity")).toBe(0.4);
-    expect(restored.findOne(".container-bg")?.fill()).toContain("0.4");
+    expect(restored.getAttr("pageFillOpacity")).toBe(0.85);
+    expect(restored.findOne(".container-bg")?.fill()).toContain("0.85");
   });
 });

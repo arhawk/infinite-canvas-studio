@@ -1,6 +1,6 @@
 import { Konva } from "../lib/konva.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
-import { ContainerComponent } from "./container.js";
+import { BaseComponent } from "../core/baseClasses.js";
 import { EditableTextBehavior } from "./editableText.js";
 
 const PAGE_WIDTH = 960;
@@ -71,7 +71,7 @@ function getDefaultPageScale(app, width, height) {
   return Math.max(0.1, scale);
 }
 
-export class PageComponent extends ContainerComponent {
+export class PageComponent extends BaseComponent {
   static type = "page";
   static label = "Page";
   static description = "Fixed-size page that can contain other components";
@@ -187,7 +187,16 @@ export class PageComponent extends ContainerComponent {
   }
 
   serializeNode(node) {
-    const base = super.serializeNode(node);
+    const rect = node.findOne(".container-bg");
+    const labelNode = node.findOne(".container-label");
+    const base = {
+      width: rect?.width() ?? node.width() ?? PAGE_WIDTH,
+      height: rect?.height() ?? node.height() ?? PAGE_HEIGHT,
+      label: labelNode?.text() ?? DEFAULT_PAGE_LABEL,
+      stroke: rect?.stroke() ?? "#c9b393",
+      fill: rect?.fill() ?? "#fffdf8",
+      labelColor: labelNode?.fill() ?? "#ab4f28",
+    };
     const headerLine = node.findOne(".page-header-line");
     const background = node.findOne(".container-bg");
 
@@ -204,7 +213,27 @@ export class PageComponent extends ContainerComponent {
   }
 
   async applySerializedData(node, data = {}) {
-    await super.applySerializedData(node, data);
+    const rect = node.findOne(".container-bg");
+    const labelNode = node.findOne(".container-label");
+
+    if (rect) {
+      if (Number.isFinite(data.width)) rect.width(data.width);
+      if (Number.isFinite(data.height)) rect.height(data.height);
+      if (typeof data.stroke === "string" && data.stroke) rect.stroke(data.stroke);
+    }
+
+    node.width(Number.isFinite(data.width) ? data.width : node.width());
+    node.height(Number.isFinite(data.height) ? data.height : node.height());
+
+    if (labelNode) {
+      labelNode.text(data.label || DEFAULT_PAGE_LABEL);
+      if (typeof data.labelColor === "string" && data.labelColor) {
+        labelNode.fill(data.labelColor);
+      } else if (typeof data.stroke === "string" && data.stroke) {
+        labelNode.fill(data.stroke);
+      }
+    }
+
     const background = node.findOne(".container-bg");
     const fill = typeof data.fill === "string" && data.fill
       ? data.fill
@@ -224,13 +253,11 @@ export class PageComponent extends ContainerComponent {
 
   applySerializedState(node, snapshot = {}) {
     super.applySerializedState(node, snapshot);
-    const hasFillOpacity = Number.isFinite(snapshot?.data?.fillOpacity);
-    const legacyOpacity = Number.isFinite(snapshot?.opacity) ? clamp01(snapshot.opacity) : 1;
-    const migratedOpacity = hasFillOpacity ? clamp01(snapshot.data.fillOpacity) : legacyOpacity;
+    const fillOpacity = clamp01(snapshot?.data?.fillOpacity, DEFAULT_PAGE_FILL_OPACITY);
     const fill = node.getAttr("pageFill") ?? node.findOne(".container-bg")?.fill?.() ?? "#fffdf8";
     node.setAttr("pageFill", fill);
-    node.setAttr("pageFillOpacity", migratedOpacity);
-    node.findOne(".container-bg")?.fill(fillWithOpacity(fill, migratedOpacity));
+    node.setAttr("pageFillOpacity", fillOpacity);
+    node.findOne(".container-bg")?.fill(fillWithOpacity(fill, fillOpacity));
     node.opacity(1);
   }
 }

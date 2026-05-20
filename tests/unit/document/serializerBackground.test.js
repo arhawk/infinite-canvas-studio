@@ -103,6 +103,7 @@ describe("document serializer background support", () => {
     const app = createApp();
 
     await importDocumentSnapshot(app, {
+      schemaVersion: 1,
       documentId: "doc-bg-2",
       background: {
         type: "warm-paper",
@@ -128,6 +129,7 @@ describe("document serializer background support", () => {
     const app = createApp();
 
     await importDocumentSnapshot(app, {
+      schemaVersion: 1,
       documentId: "doc-bg-5",
       background: {
         type: "solid",
@@ -149,13 +151,14 @@ describe("document serializer background support", () => {
     });
   });
 
-  it("uses the default background when loading legacy documents without a background field", async () => {
+  it("uses the default background when loading current documents without a background field", async () => {
     const app = createApp({
       type: "solid",
       color: "#111111",
     });
 
     await importDocumentSnapshot(app, {
+      schemaVersion: 1,
       documentId: "doc-bg-3",
       view: {
         scale: 1,

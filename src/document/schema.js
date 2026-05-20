@@ -1,6 +1,20 @@
 import { cloneBackgroundState, DEFAULT_BACKGROUND_STATE, normalizeBackgroundState } from "../background/state.js";
 
 const DOCUMENT_SCHEMA_VERSION = 1;
+const SUPPORTED_COMPONENT_TYPES = new Set([
+  "page",
+  "button",
+  "text",
+  "sticky",
+  "image",
+  "iframe",
+  "connection",
+  "catalog",
+  "rankingBox",
+  "javascriptEditor",
+  "video",
+  "shape",
+]);
 
 function clonePlainData(value) {
   if (value == null) return value;
@@ -32,6 +46,9 @@ function normalizeNodeSnapshot(snapshot = {}) {
 
   if (typeof snapshot.type !== "string" || !snapshot.type) {
     throw new Error(`Node ${snapshot.id} is missing a valid type.`);
+  }
+  if (!SUPPORTED_COMPONENT_TYPES.has(snapshot.type)) {
+    throw new Error(`Unsupported component type in document: ${snapshot.type}`);
   }
 
   return {
@@ -129,10 +146,10 @@ export function normalizeDocumentSnapshot(snapshot = {}) {
     throw new Error("Document must be an object.");
   }
 
-  if (
-    snapshot.schemaVersion != null &&
-    snapshot.schemaVersion !== DOCUMENT_SCHEMA_VERSION
-  ) {
+  if (snapshot.schemaVersion == null) {
+    throw new Error("Unsupported legacy document format: missing schemaVersion.");
+  }
+  if (snapshot.schemaVersion !== DOCUMENT_SCHEMA_VERSION) {
     throw new Error(
       `Unsupported document schema version: ${snapshot.schemaVersion}. Expected ${DOCUMENT_SCHEMA_VERSION}.`,
     );

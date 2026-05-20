@@ -140,10 +140,10 @@ function getNodeDisplayTitle(node, fallback = "Untitled") {
     return node.findOne(".sticky-text")?.text()?.trim() || "Sticky Note";
   }
 
-  if (componentType === "page" || componentType === "container") {
+  if (componentType === "page") {
     return (
       node.findOne(".container-label")?.text()?.trim()
-      || (componentType === "page" ? "Page" : "Container")
+      || "Page"
     );
   }
 
@@ -196,7 +196,7 @@ function applyTitleToNode(node, title) {
     return true;
   }
 
-  if (componentType === "page" || componentType === "container") {
+  if (componentType === "page") {
     const labelNode = node.findOne(".container-label");
     if (!labelNode || labelNode.text() === nextTitle) return false;
     labelNode.text(nextTitle);

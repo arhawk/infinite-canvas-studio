@@ -48,7 +48,6 @@ import { StickyComponent } from "./component/sticky.js";
 import { ButtonComponent } from "./component/button.js";
 import { ImageComponent } from "./component/image.js";
 import { IframeComponent } from "./component/iframe.js";
-import { ContainerComponent } from "./component/container.js";
 import { PageComponent } from "./component/page.js";
 import { ConnectionComponent } from "./component/connection.js";
 import { CatalogComponent } from "./component/catalog.js";
@@ -69,6 +68,44 @@ function getRequiredElement(selector) {
 
 function getOptionalElement(selector) {
   return document.querySelector(selector);
+}
+
+function resolveToolbarElements() {
+  return {
+    presentationToolbarHoverZone: getRequiredElement("#presentation-toolbar-hover-zone"),
+    drawingVisibilityToggle: getRequiredElement("#drawing-visibility-toggle"),
+    shapePanel: getRequiredElement("#shape-panel"),
+    shapePanelTypeControls: getRequiredElement("#shape-panel-type-controls"),
+    shapeFontSize: getRequiredElement("#shape-font-size"),
+    shapeFontSizeValue: getRequiredElement("#shape-font-size-value"),
+    shapeTextColor: getRequiredElement("#shape-text-color"),
+    shapeFillColor: getRequiredElement("#shape-fill-color"),
+    shapeOpacity: getRequiredElement("#shape-opacity"),
+    shapeOpacityValue: getRequiredElement("#shape-opacity-value"),
+    shapeStrokeColor: getRequiredElement("#shape-stroke-color"),
+    shapeStrokeWidth: getRequiredElement("#shape-stroke-width"),
+    shapeStrokeWidthValue: getRequiredElement("#shape-stroke-width-value"),
+    buttonControls: getRequiredElement("#button-controls"),
+    buttonTypeControls: getRequiredElement("#button-type-controls"),
+    buttonFontSize: getRequiredElement("#button-font-size"),
+    buttonFontSizeValue: getRequiredElement("#button-font-size-value"),
+    buttonTextColor: getRequiredElement("#button-text-color"),
+    buttonFillColor: getRequiredElement("#button-fill-color"),
+    buttonStrokeColor: getRequiredElement("#button-stroke-color"),
+    buttonStrokeWidth: getRequiredElement("#button-stroke-width"),
+    buttonStrokeWidthValue: getRequiredElement("#button-stroke-width-value"),
+    buttonOpacity: getRequiredElement("#button-opacity"),
+    buttonOpacityValue: getRequiredElement("#button-opacity-value"),
+    stickyPanel: getRequiredElement("#sticky-panel"),
+    stickyFontSize: getRequiredElement("#sticky-font-size"),
+    stickyFontSizeValue: getRequiredElement("#sticky-font-size-value"),
+    stickyTextColor: getRequiredElement("#sticky-text-color"),
+    stickyFillColor: getRequiredElement("#sticky-fill-color"),
+    stickyOpacity: getRequiredElement("#sticky-opacity"),
+    stickyOpacityValue: getRequiredElement("#sticky-opacity-value"),
+    modeCapsuleEdit: getRequiredElement("#mode-capsule-edit"),
+    modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
+  };
 }
 
 const ui = {
@@ -123,6 +160,60 @@ const ui = {
   modeCapsulePresent: getRequiredElement("#mode-capsule-present"),
 };
 
+function mountToolbarPlugins(app, ui, leftToolbar) {
+  const toolbarUi = resolveToolbarElements();
+  const penDropdown = app.use(PenDropdownPlugin);
+  penDropdown.wireTrigger(leftToolbar.penBtn);
+  const shapeDropdown = app.use(ShapeDropdownPlugin);
+  shapeDropdown.wireTrigger(leftToolbar.shapeBtn);
+  const toolbarPlugin = app.use(ToolbarPlugin, {
+    presentationToolbarHoverZoneEl: toolbarUi.presentationToolbarHoverZone,
+    modeCapsuleEditEl: toolbarUi.modeCapsuleEdit,
+    modeCapsulePresentEl: toolbarUi.modeCapsulePresent,
+    drawingVisibilityToggleEl: toolbarUi.drawingVisibilityToggle,
+    shapePanelEl: toolbarUi.shapePanel,
+    shapePanelTypeControlsEl: toolbarUi.shapePanelTypeControls,
+    shapeFontSizeEl: toolbarUi.shapeFontSize,
+    shapeFontSizeValueEl: toolbarUi.shapeFontSizeValue,
+    shapeTextColorEl: toolbarUi.shapeTextColor,
+    shapeFillColorEl: toolbarUi.shapeFillColor,
+    shapeOpacityEl: toolbarUi.shapeOpacity,
+    shapeOpacityValueEl: toolbarUi.shapeOpacityValue,
+    shapeStrokeColorEl: toolbarUi.shapeStrokeColor,
+    shapeStrokeWidthEl: toolbarUi.shapeStrokeWidth,
+    shapeStrokeWidthValueEl: toolbarUi.shapeStrokeWidthValue,
+    penDropdownPlugin: penDropdown,
+    penTriggerEl: leftToolbar.penBtn,
+    eraserTriggerEl: leftToolbar.eraserBtn,
+    buttonControlsEl: toolbarUi.buttonControls,
+    buttonTypeControlsEl: toolbarUi.buttonTypeControls,
+    buttonFontSizeEl: toolbarUi.buttonFontSize,
+    buttonFontSizeValueEl: toolbarUi.buttonFontSizeValue,
+    buttonTextColorEl: toolbarUi.buttonTextColor,
+    buttonFillColorEl: toolbarUi.buttonFillColor,
+    buttonStrokeColorEl: toolbarUi.buttonStrokeColor,
+    buttonStrokeWidthEl: toolbarUi.buttonStrokeWidth,
+    buttonStrokeWidthValueEl: toolbarUi.buttonStrokeWidthValue,
+    buttonOpacityEl: toolbarUi.buttonOpacity,
+    buttonOpacityValueEl: toolbarUi.buttonOpacityValue,
+    stickyPanelEl: toolbarUi.stickyPanel,
+    stickyFontSizeEl: toolbarUi.stickyFontSize,
+    stickyFontSizeValueEl: toolbarUi.stickyFontSizeValue,
+    stickyTextColorEl: toolbarUi.stickyTextColor,
+    stickyFillColorEl: toolbarUi.stickyFillColor,
+    stickyOpacityEl: toolbarUi.stickyOpacity,
+    stickyOpacityValueEl: toolbarUi.stickyOpacityValue,
+  });
+
+  app.use(ImageToolbarPlugin);
+  app.use(VideoToolbarPlugin);
+  app.use(PageToolbarPlugin);
+  app.use(TextToolbarPlugin);
+  app.use(JavaScriptEditorToolbarPlugin);
+
+  return { toolbarPlugin };
+}
+
 async function preloadRuntimeExportTemplate() {
   if (typeof window === "undefined") return;
   window.__APP_EXPORT_TEMPLATE_READY__ = false;
@@ -165,7 +256,6 @@ const app = new App({
 // Register built-in components
 [
   PageComponent,
-  ContainerComponent,
   ButtonComponent,
   TextComponent,
   StickyComponent,
@@ -191,53 +281,7 @@ app.use(ShapesPlugin);
 app.use(AnnotatorPlugin);
 app.use(InlineEditBridgePlugin);
 app.use(PageComparePlugin);
-const penDropdown = app.use(PenDropdownPlugin);
-penDropdown.wireTrigger(leftToolbar.penBtn);
-const shapeDropdown = app.use(ShapeDropdownPlugin);
-shapeDropdown.wireTrigger(leftToolbar.shapeBtn);
-const toolbarPlugin = app.use(ToolbarPlugin, {
-  presentationToolbarHoverZoneEl: ui.presentationToolbarHoverZone,
-  modeCapsuleEditEl: ui.modeCapsuleEdit,
-  modeCapsulePresentEl: ui.modeCapsulePresent,
-  drawingVisibilityToggleEl: ui.drawingVisibilityToggle,
-  shapePanelEl: ui.shapePanel,
-  shapePanelTypeControlsEl: ui.shapePanelTypeControls,
-  shapeFontSizeEl: ui.shapeFontSize,
-  shapeFontSizeValueEl: ui.shapeFontSizeValue,
-  shapeTextColorEl: ui.shapeTextColor,
-  shapeFillColorEl: ui.shapeFillColor,
-  shapeOpacityEl: ui.shapeOpacity,
-  shapeOpacityValueEl: ui.shapeOpacityValue,
-  shapeStrokeColorEl: ui.shapeStrokeColor,
-  shapeStrokeWidthEl: ui.shapeStrokeWidth,
-  shapeStrokeWidthValueEl: ui.shapeStrokeWidthValue,
-  penDropdownPlugin: penDropdown,
-  penTriggerEl: leftToolbar.penBtn,
-  eraserTriggerEl: leftToolbar.eraserBtn,
-  buttonControlsEl: ui.buttonControls,
-  buttonTypeControlsEl: ui.buttonTypeControls,
-  buttonFontSizeEl: ui.buttonFontSize,
-  buttonFontSizeValueEl: ui.buttonFontSizeValue,
-  buttonTextColorEl: ui.buttonTextColor,
-  buttonFillColorEl: ui.buttonFillColor,
-  buttonStrokeColorEl: ui.buttonStrokeColor,
-  buttonStrokeWidthEl: ui.buttonStrokeWidth,
-  buttonStrokeWidthValueEl: ui.buttonStrokeWidthValue,
-  buttonOpacityEl: ui.buttonOpacity,
-  buttonOpacityValueEl: ui.buttonOpacityValue,
-  stickyPanelEl: ui.stickyPanel,
-  stickyFontSizeEl: ui.stickyFontSize,
-  stickyFontSizeValueEl: ui.stickyFontSizeValue,
-  stickyTextColorEl: ui.stickyTextColor,
-  stickyFillColorEl: ui.stickyFillColor,
-  stickyOpacityEl: ui.stickyOpacity,
-  stickyOpacityValueEl: ui.stickyOpacityValue,
-});
-app.use(ImageToolbarPlugin);
-app.use(VideoToolbarPlugin);
-app.use(PageToolbarPlugin);
-app.use(TextToolbarPlugin);
-app.use(JavaScriptEditorToolbarPlugin);
+const { toolbarPlugin } = mountToolbarPlugins(app, ui, leftToolbar);
 
 // Components dropdown — replaces the old sidebar palette
 app.use(BackgroundPlugin, {

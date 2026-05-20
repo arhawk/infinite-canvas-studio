@@ -73,8 +73,8 @@ export function getNodeDisplayTitle(node) {
     return node.findOne(".sticky-text")?.text()?.trim() || "Sticky Note";
   }
 
-  if (componentType === "page" || componentType === "container") {
-    return node.findOne(".container-label")?.text()?.trim() || (componentType === "page" ? "Page" : "Container");
+  if (componentType === "page") {
+    return node.findOne(".container-label")?.text()?.trim() || "Page";
   }
   if (componentType === "button") {
     return node.findOne(".button-label")?.text()?.trim() || "Button";

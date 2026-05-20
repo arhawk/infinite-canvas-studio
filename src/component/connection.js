@@ -76,10 +76,7 @@ function normalizeHiddenUntilEndpointSelected(value) {
 
 export function getConnectionConfiguredStyle(node) {
   const line = getConnectionLine(node);
-  const legacyLineOpacity = node?.getAttr?.("connectionLineOpacity");
-  const hiddenUntilEndpointSelected =
-    node?.getAttr?.("connectionHiddenUntilEndpointSelected") === true ||
-    (Number.isFinite(legacyLineOpacity) && legacyLineOpacity <= 0.001);
+  const hiddenUntilEndpointSelected = node?.getAttr?.("connectionHiddenUntilEndpointSelected") === true;
   return {
     stroke:
       node?.getAttr?.("connectionStroke")
@@ -177,9 +174,7 @@ export class ConnectionComponent extends BaseComponent {
     });
     setConnectionConfiguredStyle(node, {
       stroke: payload.stroke ?? DEFAULT_STROKE,
-      hiddenUntilEndpointSelected:
-        payload.hiddenUntilEndpointSelected === true ||
-        payload.lineOpacity === 0,
+      hiddenUntilEndpointSelected: payload.hiddenUntilEndpointSelected === true,
     });
     applyConnectionKindStyle(node, {
       kind: payload.connectionKind,
@@ -213,9 +208,7 @@ export class ConnectionComponent extends BaseComponent {
 
     setConnectionConfiguredStyle(node, {
       stroke: typeof data.stroke === "string" && data.stroke ? data.stroke : DEFAULT_STROKE,
-      hiddenUntilEndpointSelected:
-        data.hiddenUntilEndpointSelected === true ||
-        data.lineOpacity === 0,
+      hiddenUntilEndpointSelected: data.hiddenUntilEndpointSelected === true,
     });
     if (Number.isFinite(data.strokeWidth)) line.strokeWidth(data.strokeWidth);
     if (Number.isFinite(data.pointerLength)) line.pointerLength(data.pointerLength);
