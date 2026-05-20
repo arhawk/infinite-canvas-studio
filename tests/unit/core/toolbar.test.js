@@ -31,6 +31,7 @@ import { ToolbarPlugin } from "../../../src/plugins/toolbar.js";
 function createToolbarDom() {
   document.body.innerHTML = `
     <div class="app-shell">
+      <div class="board-shell">
       <main class="workspace">
         <div
           id="presentation-toolbar-hover-zone"
@@ -109,6 +110,7 @@ function createToolbarDom() {
         <button id="focus-position-mode" type="button"></button>
         <button id="eraser-trigger" type="button"></button>
       </main>
+      </div>
     </div>
   `;
 }
@@ -225,7 +227,7 @@ describe("ToolbarPlugin", () => {
     document.body.innerHTML = "";
   });
 
-  it("starts hidden by default in presentation mode", () => {
+  it("starts visible by default in presentation mode", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -239,7 +241,7 @@ describe("ToolbarPlugin", () => {
     expect(document.body.classList.contains("is-presentation-mode")).toBe(true);
     expect(document.body.classList.contains("is-edit-mode")).toBe(false);
     expect(hoverZoneEl.hidden).toBe(false);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
     expect(fabEl.hidden).toBe(false);
     expect(fabShellEl.dataset.edge).toBe("left");
@@ -258,7 +260,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
   });
 
-  it("hides the toolbar again after leaving both the hover zone and the toolbar", () => {
+  it("keeps the toolbar visible after leaving both the hover zone and the toolbar", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -269,11 +271,8 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseleave"));
-    vi.advanceTimersByTime(99);
+    vi.advanceTimersByTime(100);
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
-
-    vi.advanceTimersByTime(1);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
   });
 
   it("keeps the toolbar visible while the pointer is over the toolbar itself", () => {
@@ -292,7 +291,7 @@ describe("ToolbarPlugin", () => {
 
     toolbarEl.dispatchEvent(new MouseEvent("mouseleave"));
     vi.advanceTimersByTime(100);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
   });
 
   it("keeps edit mode behavior unchanged and never enables presentation auto-hide there", () => {
@@ -333,7 +332,7 @@ describe("ToolbarPlugin", () => {
     expect(document.body.classList.contains("is-presentation-mode")).toBe(true);
     expect(document.body.classList.contains("is-edit-mode")).toBe(false);
     expect(hoverZoneEl.hidden).toBe(false);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseenter"));
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
@@ -350,7 +349,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("toolbar--no-transition")).toBe(false);
   });
 
-  it("keeps the drawing visibility eye button inside the toolbar visibility flow in presentation mode", () => {
+  it("keeps the drawing visibility eye button visible with pinned presentation toolbar", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -360,7 +359,7 @@ describe("ToolbarPlugin", () => {
     plugin.setup();
 
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseenter"));
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
@@ -368,7 +367,7 @@ describe("ToolbarPlugin", () => {
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseleave"));
     vi.advanceTimersByTime(100);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
   });
 
@@ -429,7 +428,7 @@ describe("ToolbarPlugin", () => {
 
     expect(fabShellEl.dataset.edge).toBe("bottom");
     expect(fabShellEl.style.left).toBe("120px");
-    expect(fabShellEl.style.top).toBe("692px");
+    expect(fabShellEl.style.top).toBe("712px");
   });
 
   it("keeps the presentation brush panel inside the viewport when docked near the bottom edge", () => {
@@ -501,5 +500,56 @@ describe("ToolbarPlugin", () => {
 
     expect(panelEl.style.left).toBe("-68px");
     expect(panelEl.style.right).toBe("auto");
+  });
+
+  it("moves the presentation brush fab into board fullscreen and restores it on exit", () => {
+    const app = createApp("presentation");
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
+    const appShellEl = document.querySelector(".app-shell");
+    const boardShellEl = document.querySelector(".board-shell");
+
+    expect(fabShellEl.parentElement).toBe(appShellEl);
+
+    plugin.presentationBrushFabDock = { edge: "right", offset: 200 };
+    plugin.syncPresentationBrushFabPosition();
+    expect(fabShellEl.dataset.edge).toBe("right");
+
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      writable: true,
+      value: boardShellEl,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(fabShellEl.parentElement).toBe(boardShellEl);
+    expect(fabShellEl.dataset.edge).toBe("left");
+    expect(fabShellEl.style.left).toBe("20px");
+    expect(fabShellEl.style.top).toBe("720px");
+
+    document.fullscreenElement = null;
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(fabShellEl.parentElement).toBe(appShellEl);
+  });
+
+  it("ignores fullscreenchange from non-board fullscreen targets", () => {
+    const app = createApp("presentation");
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
+    const appShellEl = document.querySelector(".app-shell");
+    const otherEl = document.createElement("div");
+    document.body.append(otherEl);
+
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      writable: true,
+      value: otherEl,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    expect(fabShellEl.parentElement).toBe(appShellEl);
   });
 });

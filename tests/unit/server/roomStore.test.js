@@ -9,6 +9,13 @@ describe("RoomStore", () => {
     expect(room.roomId).toMatch(/^\d{4}$/);
     expect(room.hostToken).toEqual(expect.any(String));
     expect(room.requiresPassword).toBe(false);
+    expect(room.kind).toBe("room");
+  });
+
+  it("creates collaborate rooms with collab kind", () => {
+    const store = new RoomStore();
+    const room = store.createRoom({ kind: "collab" });
+    expect(room.kind).toBe("collab");
   });
 
   it("retries room id generation on collision", () => {

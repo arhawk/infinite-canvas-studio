@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canCollaboratorRelayMessageType,
   canHostRelayMessageType,
   canViewerRelayMessageType,
   isAppRelayMessageType,
@@ -30,5 +31,12 @@ describe("room protocol relay compatibility", () => {
     expect(canViewerRelayMessageType("room:state")).toBe(false);
     expect(canViewerRelayMessageType("room:viewport")).toBe(false);
     expect(canViewerRelayMessageType("room:request-state")).toBe(false);
+  });
+
+  it("allows collaborators to relay room state and app events", () => {
+    expect(canCollaboratorRelayMessageType("room:state")).toBe(true);
+    expect(canCollaboratorRelayMessageType("room:viewport")).toBe(true);
+    expect(canCollaboratorRelayMessageType("app:reaction")).toBe(true);
+    expect(canCollaboratorRelayMessageType("room:error")).toBe(false);
   });
 });

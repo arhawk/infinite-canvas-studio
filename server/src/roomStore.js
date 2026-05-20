@@ -45,7 +45,7 @@ export class RoomStore {
     this.roomIdGenerator = roomIdGenerator;
   }
 
-  createRoom({ password = "" } = {}) {
+  createRoom({ password = "", kind = "room" } = {}) {
     if (this.rooms.size >= ROOM_ID_SPACE) {
       const error = new Error("No room ids are available.");
       error.code = "room-capacity";
@@ -59,6 +59,7 @@ export class RoomStore {
 
     const passwordHash = hashPassword(password);
     const room = {
+      kind: kind === "collab" ? "collab" : "room",
       roomId,
       hostToken: randomUUID(),
       passwordHash,

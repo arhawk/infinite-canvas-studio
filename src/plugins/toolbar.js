@@ -87,7 +87,6 @@ const SHAPE_LAYER_ACTIONS = [
 const SHAPE_PANEL_VIEWPORT_MARGIN = 12;
 const SHAPE_PANEL_ANCHOR_GAP = 64;
 const SHAPE_LAYER_CONTEXT_PENDING_MS = 800;
-const PRESENTATION_TOOLBAR_HIDE_DELAY_MS = 100;
 
 const DEFAULT_BUTTON_PANEL_STATE = {
   shapeType: "rounded",
@@ -109,6 +108,8 @@ const BUTTON_PANEL_ANCHOR_GAP = 64;
 const BUTTON_POPOVER_NODE_CLEARANCE = 10;
 const BUTTON_STYLE_SWATCHES = DEFAULT_COLOR_SWATCHES;
 const PRESENTATION_BRUSH_FAB_MARGIN = 20;
+const PRESENTATION_BRUSH_FAB_BOTTOM_MARGIN = 0;
+const PRESENTATION_BRUSH_FAB_FULLSCREEN_BOTTOM_NUDGE = 8;
 const PRESENTATION_BRUSH_FAB_SIZE = 56;
 const PRESENTATION_BRUSH_DRAG_THRESHOLD = 4;
 const PRESENTATION_BRUSH_PANEL_GAP = 12;
@@ -429,6 +430,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.isHoveringPresentationToolbarZone = false;
     this.isHoveringPresentationToolbar = false;
     this.presentationBrushFabDock = null;
+    this.presentationBrushFabInBoardFullscreen = false;
     this.presentationBrushFabDrag = null;
     this.presentationBrushMenuOpen = false;
     this.suppressPresentationBrushFabClick = false;
@@ -584,6 +586,9 @@ export class ToolbarPlugin extends BasePlugin {
       this.queueShapePanelPositionSync();
       this.queueStickyPanelPositionSync();
       this.queuePresentationBrushFabPositionSync();
+    });
+    this.listenDom(document, "fullscreenchange", () => {
+      this.syncPresentationBrushFabMount();
     });
     this.listenDom(buttonFontSizeEl, "input", () => this.emitButtonStyleChange());
     this.listenDom(buttonTextColorEl, "input", () => {
@@ -1179,6 +1184,8 @@ export class ToolbarPlugin extends BasePlugin {
     this.presentationBrushFabEl = root;
     this.presentationBrushPanelEl = panel;
     this.presentationBrushFabButtonEl = fabButton;
+    this.presentationBrushFabHomeParentEl = shell;
+    this.presentationBrushFabHomeNextSibling = root.nextSibling;
 
     this.listenDom(fabButton, "pointerdown", (event) => {
       this.handlePresentationBrushFabPointerDown(event);
@@ -1220,6 +1227,44 @@ export class ToolbarPlugin extends BasePlugin {
       height: 18,
       "stroke-width": 2,
     });
+
+    this.syncPresentationBrushFabMount();
+  }
+
+  syncPresentationBrushFabMount() {
+    const fabEl = this.presentationBrushFabEl;
+    if (!fabEl) return;
+
+    const boardTarget = this.getBoardFullscreenTarget();
+    const shouldMountInFullscreen = Boolean(
+      boardTarget &&
+      document.fullscreenElement === boardTarget,
+    );
+
+    if (shouldMountInFullscreen) {
+      if (!this.presentationBrushFabInBoardFullscreen) {
+        this.presentationBrushFabInBoardFullscreen = true;
+        // Entering board fullscreen: snap cat FAB to bottom-left default dock.
+        this.presentationBrushFabDock = this.getDefaultPresentationBrushFabDock();
+        this.presentationBrushFabDrag = null;
+        this.syncPresentationBrushFabPosition();
+      }
+      if (fabEl.parentElement !== boardTarget) {
+        boardTarget.append(fabEl);
+      }
+      return;
+    }
+    this.presentationBrushFabInBoardFullscreen = false;
+
+    const homeParent = this.presentationBrushFabHomeParentEl ?? document.querySelector(".app-shell");
+    if (!homeParent || fabEl.parentElement === homeParent) return;
+
+    const homeNextSibling = this.presentationBrushFabHomeNextSibling;
+    if (homeNextSibling?.parentElement === homeParent) {
+      homeParent.insertBefore(fabEl, homeNextSibling);
+      return;
+    }
+    homeParent.append(fabEl);
   }
 
   getPresentationBrushFabViewportBounds() {
@@ -1231,8 +1276,8 @@ export class ToolbarPlugin extends BasePlugin {
       ),
       minY: PRESENTATION_BRUSH_FAB_MARGIN,
       maxY: Math.max(
-        PRESENTATION_BRUSH_FAB_MARGIN,
-        window.innerHeight - PRESENTATION_BRUSH_FAB_SIZE - PRESENTATION_BRUSH_FAB_MARGIN,
+        PRESENTATION_BRUSH_FAB_BOTTOM_MARGIN,
+        window.innerHeight - PRESENTATION_BRUSH_FAB_SIZE - PRESENTATION_BRUSH_FAB_BOTTOM_MARGIN,
       ),
     };
   }
@@ -1346,9 +1391,15 @@ export class ToolbarPlugin extends BasePlugin {
     const position = this.presentationBrushFabDrag?.dragged
       ? this.clampPresentationBrushFabPosition(this.presentationBrushFabDrag.currentPosition)
       : dockPosition;
+    const renderPosition = this.presentationBrushFabInBoardFullscreen
+      ? {
+        x: position.x,
+        y: position.y + PRESENTATION_BRUSH_FAB_FULLSCREEN_BOTTOM_NUDGE,
+      }
+      : position;
     this.presentationBrushFabEl.dataset.edge = this.presentationBrushFabDock.edge;
-    this.presentationBrushFabEl.style.left = `${position.x}px`;
-    this.presentationBrushFabEl.style.top = `${position.y}px`;
+    this.presentationBrushFabEl.style.left = `${renderPosition.x}px`;
+    this.presentationBrushFabEl.style.top = `${renderPosition.y}px`;
     this.positionPresentationBrushPanel();
     this.penDropdown?.reposition?.();
     if (this.eraserPanelOpen) {
@@ -1538,6 +1589,7 @@ export class ToolbarPlugin extends BasePlugin {
 
   syncPresentationBrushFab() {
     if (!this.presentationBrushFabEl || !this.presentationBrushFabButtonEl) return;
+    this.syncPresentationBrushFabMount();
 
     const isPresentation = this.app.getMode() === "presentation";
     const activeToolId = this.app.getEditorTool();
@@ -1804,13 +1856,8 @@ export class ToolbarPlugin extends BasePlugin {
 
   schedulePresentationToolbarHide() {
     if (!this.toolbarEl || this.app.getMode() !== "presentation") return;
-
-    this.clearPresentationToolbarHideTimer();
-    this.presentationToolbarHideTimer = window.setTimeout(() => {
-      this.presentationToolbarHideTimer = null;
-      if (this.isHoveringPresentationToolbarZone || this.isHoveringPresentationToolbar) return;
-      this.toolbarEl.classList.remove("is-visible");
-    }, PRESENTATION_TOOLBAR_HIDE_DELAY_MS);
+    // Keep toolbar pinned in presentation mode for host-facing teaching flow.
+    this.setPresentationToolbarVisible(true);
   }
 
   syncPresentationToolbarAutoHide() {
@@ -1837,10 +1884,7 @@ export class ToolbarPlugin extends BasePlugin {
     this.clearPresentationToolbarAnimationFrame();
     this.toolbarEl.classList.remove("toolbar--no-transition");
     this.clearPresentationToolbarHideTimer();
-    this.toolbarEl.classList.toggle(
-      "is-visible",
-      this.isHoveringPresentationToolbarZone || this.isHoveringPresentationToolbar,
-    );
+    this.toolbarEl.classList.add("is-visible");
   }
 
   isDrawingTool(toolId) {

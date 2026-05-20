@@ -1,15 +1,20 @@
 import QRCode from "qrcode";
 import { BasePlugin } from "../core/baseClasses.js";
-import { createRoom, createHostClient } from "../online/roomHost.js";
-import { getRoomIdFromPath, getShareUrl } from "../online/roomRoute.js";
-import { createViewerClient } from "../online/roomViewer.js";
+import { createCollab, createCollabHostClient, createHostClient, createRoom } from "../online/roomHost.js";
+import { getCollabIdFromPath, getRoomIdFromPath, getShareUrl } from "../online/roomRoute.js";
+import { createCollaboratorClient, createViewerClient } from "../online/roomViewer.js";
 
 const VIEW_MODE_HOST = "host";
 const VIEW_MODE_VIEWER = "viewer";
 const VIEWPORT_THROTTLE_MS = 80;
 const STATE_DEBOUNCE_MS = 500;
+const REMOTE_STATE_GUARD_TIMEOUT_MS = 1500;
 const ROOM_READY_TIMEOUT_MS = 4000;
 const ROOM_VIEWER_LOCK_REASON = "room-viewer";
+const SESSION_ROOM = "room";
+const SESSION_COLLAB = "collab";
+const APP_TIMER_STATE_EVENT = "app:timer-state";
+const APP_CALCULATOR_STATE_EVENT = "app:calculator-state";
 
 function clonePlainData(value) {
   if (value == null) return value;
@@ -38,6 +43,14 @@ function isFileProtocolLocation(locationRef = window.location) {
 export class RoomSharePlugin extends BasePlugin {
   static pluginId = "room-share";
 
+  emitAppEvent(eventName, payload = {}) {
+    if (this.app.emit) {
+      this.app.emit(eventName, payload);
+      return;
+    }
+    this.app.events?.emit?.(eventName, payload);
+  }
+
   onSetup() {
     const {
       shareEl = null,
@@ -56,17 +69,26 @@ export class RoomSharePlugin extends BasePlugin {
     this.host = {
       client: null,
       roomId: null,
+      sessionType: SESSION_ROOM,
       shareUrl: null,
       connected: false,
+      applyingRemoteState: false,
+      remoteStateGuardTimer: null,
       lastViewportPayload: null,
       pendingViewportTimer: null,
       pendingStateTimer: null,
       viewerCount: 0,
       creating: false,
+      pendingAppStateTimerByType: new Map(),
+      pendingAppStateByType: new Map(),
+      remoteAppGuardTimerByType: new Map(),
+      applyingRemoteAppStateByType: new Map(),
     };
     this.viewer = {
       client: null,
       roomId: null,
+      sessionType: SESSION_ROOM,
+      role: "viewer",
       joined: false,
       viewMode: VIEW_MODE_HOST,
       latestHostViewport: null,
@@ -95,11 +117,24 @@ export class RoomSharePlugin extends BasePlugin {
     this.installViewerModeToggle();
     this.installViewerKeyGuards();
     this.installHostEventRelays();
+    this.listen("interaction:change", () => this.syncSharePopoverLabels());
     this.syncViewerUi();
 
     this.cleanups.push(() => {
       this.clearViewerReadyTimer();
       this.clearViewerAutoJoinTimer();
+      window.clearTimeout(this.host.remoteStateGuardTimer);
+      this.host.remoteStateGuardTimer = null;
+      for (const timer of this.host.pendingAppStateTimerByType.values()) {
+        window.clearTimeout(timer);
+      }
+      this.host.pendingAppStateTimerByType.clear();
+      this.host.pendingAppStateByType.clear();
+      for (const timer of this.host.remoteAppGuardTimerByType.values()) {
+        window.clearTimeout(timer);
+      }
+      this.host.remoteAppGuardTimerByType.clear();
+      this.host.applyingRemoteAppStateByType.clear();
       this.app.unlockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
       this.host.client?.close();
       this.viewer.client?.close();
@@ -112,8 +147,12 @@ export class RoomSharePlugin extends BasePlugin {
     });
   }
 
-  getRouteRoomId() {
-    return getRoomIdFromPath();
+  getRouteSession() {
+    const roomId = getRoomIdFromPath();
+    if (roomId) return { sessionType: SESSION_ROOM, roomId };
+    const collabId = getCollabIdFromPath();
+    if (collabId) return { sessionType: SESSION_COLLAB, roomId: collabId };
+    return null;
   }
 
   adoptViewerWaitingLayer(layer) {
@@ -130,7 +169,7 @@ export class RoomSharePlugin extends BasePlugin {
     popover.innerHTML = `
       <form class="room-share-popover__form" data-room-share-form>
         <label class="room-share-popover__field">
-          <span>Room password</span>
+          <span data-room-share-password-label>Room password</span>
           <input
             type="password"
             autocomplete="new-password"
@@ -140,7 +179,7 @@ export class RoomSharePlugin extends BasePlugin {
           />
         </label>
         <button type="submit" class="room-share-popover__primary" data-testid="room-share-create">
-          Create room
+          Create
         </button>
         <p
           class="room-share-popover__status"
@@ -166,7 +205,7 @@ export class RoomSharePlugin extends BasePlugin {
 
     this.listenDom(this.shareFormEl, "submit", (event) => {
       event.preventDefault();
-      void this.createAndShareRoom();
+      void this.createAndShareSession();
     });
     this.listenDom(window, "pointerdown", (event) => {
       if (popover.hidden) return;
@@ -200,7 +239,7 @@ export class RoomSharePlugin extends BasePlugin {
     this.passwordStatusEl = prompt.querySelector("[data-room-password-status]");
     this.listenDom(this.passwordFormEl, "submit", (event) => {
       event.preventDefault();
-      this.submitViewerJoin(this.passwordInputEl?.value ?? "");
+      this.submitSessionJoin(this.passwordInputEl?.value ?? "");
     });
   }
 
@@ -218,6 +257,7 @@ export class RoomSharePlugin extends BasePlugin {
     if (this.shareDisabled) return;
     this.sharePopoverEl.hidden = false;
     this.positionSharePopover();
+    this.syncSharePopoverLabels();
     this.sharePasswordEl?.focus();
   }
 
@@ -246,15 +286,31 @@ export class RoomSharePlugin extends BasePlugin {
     this.sharePopoverEl.style.top = `${Math.max(gutter, top)}px`;
   }
 
-  async createAndShareRoom() {
+  getShareSessionType() {
+    return this.app.getMode() === "edit" ? SESSION_COLLAB : SESSION_ROOM;
+  }
+
+  syncSharePopoverLabels() {
+    const isCollab = this.getShareSessionType() === SESSION_COLLAB;
+    const verb = isCollab ? "collaboration" : "room";
+    const createLabel = isCollab ? "Create collaborate link" : "Create room";
+    this.shareCreateButtonEl.textContent = this.host.creating ? "Creating..." : createLabel;
+    this.setShareStatus(this.host.creating ? `Creating ${verb}...` : "");
+  }
+
+  async createAndShareSession() {
     if (this.host.creating) return;
     this.setShareCreating(true);
-    this.setShareStatus("Creating room...");
+    const sessionType = this.getShareSessionType();
+    this.host.sessionType = sessionType;
+    this.setShareStatus(sessionType === SESSION_COLLAB ? "Creating collaboration..." : "Creating room...");
     const password = this.sharePasswordEl?.value ?? "";
     try {
-      const room = await createRoom({ password });
+      const room = sessionType === SESSION_COLLAB
+        ? await createCollab({ password })
+        : await createRoom({ password });
       this.host.roomId = room.roomId;
-      this.host.shareUrl = getShareUrl(room.roomId);
+      this.host.shareUrl = getShareUrl(room.roomId, window.location.origin, sessionType);
       await this.connectHost(room);
       await this.renderShareResult(room);
     } catch (error) {
@@ -267,7 +323,7 @@ export class RoomSharePlugin extends BasePlugin {
 
   async renderShareResult(room) {
     if (!this.shareResultEl || !this.shareLinkEl || !this.shareQrEl) return;
-    const shareUrl = this.host.shareUrl ?? getShareUrl(room.roomId);
+    const shareUrl = this.host.shareUrl ?? getShareUrl(room.roomId, window.location.origin, this.host.sessionType);
     if (this.shareFormEl) this.shareFormEl.hidden = true;
     this.shareResultEl.hidden = false;
     this.shareLinkEl.href = shareUrl;
@@ -290,22 +346,24 @@ export class RoomSharePlugin extends BasePlugin {
     this.host.creating = Boolean(isCreating);
     if (!this.shareCreateButtonEl) return;
     this.shareCreateButtonEl.disabled = this.host.creating;
-    this.shareCreateButtonEl.textContent = this.host.creating ? "Creating..." : "Create room";
+    const createLabel = this.getShareSessionType() === SESSION_COLLAB ? "Create collaborate link" : "Create room";
+    this.shareCreateButtonEl.textContent = this.host.creating ? "Creating..." : createLabel;
     this.shareCreateButtonEl.setAttribute("aria-busy", String(this.host.creating));
   }
 
   connectHost(room) {
     this.host.client?.close();
-    const client = createHostClient(room.roomId);
+    const client = this.host.sessionType === SESSION_COLLAB
+      ? createCollabHostClient(room.roomId)
+      : createHostClient(room.roomId);
     this.host.client = client;
     this.host.connected = false;
-
     client.on("open", () => {
       client.send("host:join", { hostToken: room.hostToken });
     });
     client.on("host:joined", () => {
       this.host.connected = true;
-      this.app.emit("room:share:change");
+      this.emitAppEvent("room:share:change");
       void this.sendHostState();
       this.flushHostViewport();
     });
@@ -316,12 +374,32 @@ export class RoomSharePlugin extends BasePlugin {
       this.host.viewerCount = Number.isFinite(count) ? count : 0;
       this.updateRoomBadge();
     });
+    client.on("room:state", ({ document }) => {
+      if (!document || !this.app.documentManager?.loadDocument) return;
+      this.host.applyingRemoteState = true;
+      window.clearTimeout(this.host.remoteStateGuardTimer);
+      this.host.remoteStateGuardTimer = window.setTimeout(() => {
+        this.host.remoteStateGuardTimer = null;
+        this.host.applyingRemoteState = false;
+      }, REMOTE_STATE_GUARD_TIMEOUT_MS);
+      void this.app.documentManager.loadDocument(document, { source: "room" }).finally(() => {
+        window.clearTimeout(this.host.remoteStateGuardTimer);
+        this.host.remoteStateGuardTimer = null;
+        this.host.applyingRemoteState = false;
+      });
+    });
+    client.on(APP_TIMER_STATE_EVENT, ({ state }) => {
+      this.applyRemoteAppState(APP_TIMER_STATE_EVENT, state);
+    });
+    client.on(APP_CALCULATOR_STATE_EVENT, ({ state }) => {
+      this.applyRemoteAppState(APP_CALCULATOR_STATE_EVENT, state);
+    });
     client.on("room:error", ({ message }) => {
       this.setShareStatus(message || "Room error.", true);
     });
     client.on("close", () => {
       this.host.connected = false;
-      this.app.emit("room:share:change");
+      this.emitAppEvent("room:share:change");
       this.updateRoomBadge();
     });
     client.connect();
@@ -329,7 +407,8 @@ export class RoomSharePlugin extends BasePlugin {
 
   installHostEventRelays() {
     this.listen("viewport:change", (payload) => {
-      if (!this.host.connected || this.viewer.client) return;
+      if (this.viewer.client && this.viewer.sessionType === SESSION_ROOM) return;
+      if (!this.canBroadcastSessionState()) return;
       this.host.lastViewportPayload = {
         scale: payload.scale,
         position: clonePlainData(payload.position),
@@ -347,6 +426,49 @@ export class RoomSharePlugin extends BasePlugin {
       "background:change",
       "document:load:end",
     ].forEach((eventName) => this.listen(eventName, scheduleState));
+
+    this.listen("timer:state-change", (payload) => {
+      this.scheduleAppStateRelay(APP_TIMER_STATE_EVENT, payload);
+    });
+    this.listen("calculator:state-change", (payload) => {
+      this.scheduleAppStateRelay(APP_CALCULATOR_STATE_EVENT, payload);
+    });
+  }
+
+  scheduleAppStateRelay(type, payload) {
+    if (!this.viewer.client && !this.host.connected) return;
+    if (this.host.applyingRemoteAppStateByType.get(type)) return;
+    const sessionType = this.host.connected ? this.host.sessionType : this.viewer.sessionType;
+    if (sessionType !== SESSION_COLLAB) return;
+    this.host.pendingAppStateByType.set(type, clonePlainData(payload));
+    window.clearTimeout(this.host.pendingAppStateTimerByType.get(type));
+    const timer = window.setTimeout(() => {
+      this.host.pendingAppStateTimerByType.delete(type);
+      const nextPayload = this.host.pendingAppStateByType.get(type);
+      this.host.pendingAppStateByType.delete(type);
+      const client = this.getBroadcastClient();
+      if (!client || !nextPayload) return;
+      client.send(type, { state: nextPayload });
+    }, 80);
+    this.host.pendingAppStateTimerByType.set(type, timer);
+  }
+
+  applyRemoteAppState(type, state) {
+    this.host.applyingRemoteAppStateByType.set(type, true);
+    window.clearTimeout(this.host.remoteAppGuardTimerByType.get(type));
+    const timer = window.setTimeout(() => {
+      this.host.remoteAppGuardTimerByType.delete(type);
+      this.host.applyingRemoteAppStateByType.set(type, false);
+    }, 500);
+    this.host.remoteAppGuardTimerByType.set(type, timer);
+
+    if (type === APP_TIMER_STATE_EVENT) {
+      this.app.getPlugin?.("timer")?.applySyncState?.(state, { remote: true });
+      return;
+    }
+    if (type === APP_CALCULATOR_STATE_EVENT) {
+      this.app.getPlugin?.("binaryCalculator")?.applySyncState?.(state, { remote: true });
+    }
   }
 
   scheduleHostViewport() {
@@ -358,12 +480,14 @@ export class RoomSharePlugin extends BasePlugin {
   }
 
   flushHostViewport() {
-    if (!this.host.connected || !this.host.lastViewportPayload) return;
-    this.host.client?.send("room:viewport", this.host.lastViewportPayload);
+    if (!this.host.lastViewportPayload) return;
+    const client = this.getBroadcastClient();
+    if (!client) return;
+    client.send("room:viewport", this.host.lastViewportPayload);
   }
 
   scheduleHostState() {
-    if (!this.host.connected || this.app.isRestoringDocument) return;
+    if (!this.canBroadcastSessionState() || this.app.isRestoringDocument || this.host.applyingRemoteState) return;
     window.clearTimeout(this.host.pendingStateTimer);
     this.host.pendingStateTimer = window.setTimeout(() => {
       this.host.pendingStateTimer = null;
@@ -372,17 +496,33 @@ export class RoomSharePlugin extends BasePlugin {
   }
 
   async sendHostState() {
-    if (!this.host.connected || !this.app.documentManager?.exportDocument) return;
+    const client = this.getBroadcastClient();
+    if (!client || !this.app.documentManager?.exportDocument) return;
     const document = await this.app.documentManager.exportDocument({
       download: false,
       format: "json",
     });
-    this.host.client?.send("room:state", { document });
+    client.send("room:state", { document });
   }
 
-  async startViewer(roomId) {
+  canBroadcastSessionState() {
+    if (this.host.connected) return true;
+    return Boolean(this.viewer.client && this.viewer.joined && this.viewer.sessionType === SESSION_COLLAB);
+  }
+
+  getBroadcastClient() {
+    if (this.host.connected) return this.host.client;
+    if (this.viewer.client && this.viewer.joined && this.viewer.sessionType === SESSION_COLLAB) {
+      return this.viewer.client;
+    }
+    return null;
+  }
+
+  async startSession(sessionType, roomId) {
     this.viewer.roomId = roomId;
-    this.viewer.viewMode = VIEW_MODE_HOST;
+    this.viewer.sessionType = sessionType;
+    this.viewer.role = sessionType === SESSION_COLLAB ? "collaborator" : "viewer";
+    this.viewer.viewMode = sessionType === SESSION_COLLAB ? VIEW_MODE_VIEWER : VIEW_MODE_HOST;
     this.viewer.joined = false;
     this.viewer.latestHostViewport = null;
     this.viewer.closedByServer = false;
@@ -390,12 +530,19 @@ export class RoomSharePlugin extends BasePlugin {
     this.viewer.connectionFailed = false;
     this.clearViewerReadyTimer();
     this.clearViewerAutoJoinTimer();
-    document.body.classList.add("is-room-viewer");
-    this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
+    if (sessionType === SESSION_ROOM) {
+      document.body.classList.add("is-room-viewer");
+      this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
+    } else {
+      document.body.classList.remove("is-room-viewer");
+      this.app.unlockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
+    }
     this.syncViewerUi();
     this.updateRoomBadge("Waiting for room...");
 
-    const client = createViewerClient(roomId);
+    const client = sessionType === SESSION_COLLAB
+      ? createCollaboratorClient(roomId)
+      : createViewerClient(roomId);
     this.viewer.client = client;
     client.on("open", () => {
       this.updateRoomBadge("Waiting for host...");
@@ -408,41 +555,51 @@ export class RoomSharePlugin extends BasePlugin {
         this.showPasswordPrompt();
       } else {
         this.clearViewerAutoJoinTimer();
-        this.submitViewerJoin("");
+        this.submitSessionJoin("");
       }
     });
     client.on("room:joined", () => {
       this.viewer.joined = true;
       this.clearViewerAutoJoinTimer();
-      this.app.emit("room:share:change");
+      this.emitAppEvent("room:share:change");
       this.hidePasswordPrompt();
-      this.updateRoomBadge("Waiting for host...");
-      this.showViewerWaitingLayer();
-      this.startViewerReadyTimer();
+      this.updateRoomBadge(sessionType === SESSION_COLLAB ? "Connected" : "Waiting for host...");
+      if (sessionType === SESSION_ROOM) {
+        this.showViewerWaitingLayer();
+        this.startViewerReadyTimer();
+      }
     });
     client.on("room:state", ({ document }) => {
       if (!document) return;
       this.viewer.receivedState = true;
       this.clearViewerReadyTimer();
       void this.app.documentManager?.loadDocument?.(document, { source: "room" }).then(() => {
-        this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
+        if (sessionType === SESSION_ROOM) {
+          this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
+        }
         this.syncViewerUi();
         this.hideViewerWaitingLayer();
       }).catch(() => {
         this.hideViewerWaitingLayer();
       });
     });
+    client.on(APP_TIMER_STATE_EVENT, ({ state }) => {
+      this.applyRemoteAppState(APP_TIMER_STATE_EVENT, state);
+    });
+    client.on(APP_CALCULATOR_STATE_EVENT, ({ state }) => {
+      this.applyRemoteAppState(APP_CALCULATOR_STATE_EVENT, state);
+    });
     client.on("room:viewport", (payload) => {
-      this.handleRemoteViewport(payload);
+      if (sessionType === SESSION_ROOM) this.handleRemoteViewport(payload);
     });
     client.on("room:closed", ({ reason }) => {
       this.viewer.closedByServer = true;
       this.clearViewerReadyTimer();
-      this.hideViewerWaitingLayer();
+      if (sessionType === SESSION_ROOM) this.hideViewerWaitingLayer();
       this.updateRoomBadge(reason === "host-disconnected" ? "Host disconnected" : "Room closed");
     });
     client.on("room:error", ({ message }) => {
-      this.hideViewerWaitingLayer();
+      if (sessionType === SESSION_ROOM) this.hideViewerWaitingLayer();
       if (this.viewer.client) {
         this.showPasswordPrompt();
       }
@@ -463,8 +620,8 @@ export class RoomSharePlugin extends BasePlugin {
         return;
       }
       if (this.viewer.closedByServer) return;
-      this.app.emit("room:share:change");
-      this.hideViewerWaitingLayer();
+      this.emitAppEvent("room:share:change");
+      if (sessionType === SESSION_ROOM) this.hideViewerWaitingLayer();
       this.updateRoomBadge("Room disconnected");
     });
     client.connect();
@@ -508,7 +665,7 @@ export class RoomSharePlugin extends BasePlugin {
       if (!this.passwordPromptEl?.hidden) return;
       this.updateRoomBadge("Waiting for host...");
       this.startViewerReadyTimer();
-      this.submitViewerJoin("");
+      this.submitSessionJoin("");
     }, 100);
   }
 
@@ -518,10 +675,14 @@ export class RoomSharePlugin extends BasePlugin {
     this.viewer.autoJoinTimer = null;
   }
 
-  submitViewerJoin(password) {
+  submitSessionJoin(password) {
     this.hidePasswordPrompt();
-    this.showViewerWaitingLayer();
-    this.viewer.client?.send("viewer:join", { password });
+    if (this.viewer.sessionType === SESSION_ROOM) {
+      this.showViewerWaitingLayer();
+      this.viewer.client?.send("viewer:join", { password });
+      return;
+    }
+    this.viewer.client?.send("collaborator:join", { password });
   }
 
   showViewerWaitingLayer() {
@@ -590,14 +751,14 @@ export class RoomSharePlugin extends BasePlugin {
     if (!modeCapsuleEditEl || !modeCapsulePresentEl) return;
 
     this.listenDom(modeCapsuleEditEl, "click", (event) => {
-      if (!this.viewer.client) return;
+      if (!this.viewer.client || this.viewer.sessionType !== SESSION_ROOM) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       this.setViewerViewMode(VIEW_MODE_VIEWER);
     }, true);
 
     this.listenDom(modeCapsulePresentEl, "click", (event) => {
-      if (!this.viewer.client) return;
+      if (!this.viewer.client || this.viewer.sessionType !== SESSION_ROOM) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       this.setViewerViewMode(VIEW_MODE_HOST);
@@ -610,7 +771,7 @@ export class RoomSharePlugin extends BasePlugin {
 
   installViewerKeyGuards() {
     this.listenDom(document, "keydown", (event) => {
-      if (!this.viewer.client) return;
+      if (!this.viewer.client || this.viewer.sessionType !== SESSION_ROOM) return;
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
       const key = event.key.toLowerCase();
@@ -630,13 +791,16 @@ export class RoomSharePlugin extends BasePlugin {
   }
 
   syncViewerUi() {
-    const isViewer = Boolean(this.viewer.client);
+    const isViewer = Boolean(this.viewer.client) && this.viewer.sessionType === SESSION_ROOM;
     document.body.classList.toggle("is-room-viewer", isViewer);
     const { modeCapsuleEditEl, modeCapsulePresentEl, loadEl, shareEl } = this.ui;
 
     if (modeCapsuleEditEl) {
       modeCapsuleEditEl.textContent = isViewer ? "Viewer" : "Edit";
-      modeCapsuleEditEl.setAttribute("aria-pressed", String(isViewer && this.viewer.viewMode === VIEW_MODE_VIEWER));
+      const editPressed = isViewer
+        ? this.viewer.viewMode === VIEW_MODE_VIEWER
+        : this.app.getMode() === "edit";
+      modeCapsuleEditEl.setAttribute("aria-pressed", String(editPressed));
       modeCapsuleEditEl.dataset.roomViewMode = isViewer ? VIEW_MODE_VIEWER : "";
     }
     if (modeCapsulePresentEl) {
@@ -662,11 +826,16 @@ export class RoomSharePlugin extends BasePlugin {
     }
 
     if (this.viewer.client) {
-      const modeLabel = this.viewer.viewMode === VIEW_MODE_HOST ? "Host view" : "Viewer view";
-      this.roomBadgeEl.textContent = `Room ${this.viewer.roomId} · ${modeLabel}`;
+      if (this.viewer.sessionType === SESSION_COLLAB) {
+        this.roomBadgeEl.textContent = `Collab ${this.viewer.roomId} · Connected`;
+      } else {
+        const modeLabel = this.viewer.viewMode === VIEW_MODE_HOST ? "Host view" : "Viewer view";
+        this.roomBadgeEl.textContent = `Room ${this.viewer.roomId} · ${modeLabel}`;
+      }
       return;
     }
 
-    this.roomBadgeEl.textContent = `Room ${this.host.roomId} · ${this.host.viewerCount} viewers`;
+    const prefix = this.host.sessionType === SESSION_COLLAB ? "Collab" : "Room";
+    this.roomBadgeEl.textContent = `${prefix} ${this.host.roomId} · ${this.host.viewerCount} viewers`;
   }
 }
