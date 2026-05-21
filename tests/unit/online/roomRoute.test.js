@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCollabIdFromPath,
   getCreateRoomApiUrl,
+  getRouteSession,
   getRoomIdFromPath,
   getRoomWebSocketUrl,
   getShareUrl,
@@ -23,9 +24,28 @@ describe("room route helpers", () => {
     const url = getShareUrl("1234", "https://example.test");
     const collabUrl = getShareUrl("1234", "https://example.test", "collab");
 
-    expect(url).toBe("https://example.test/room/1234");
-    expect(collabUrl).toBe("https://example.test/collab/1234");
+    expect(url).toBe("https://example.test/room/1234?session=room");
+    expect(collabUrl).toBe("https://example.test/room/1234?session=collab");
     expect(url).not.toContain("hostToken");
+  });
+
+  it("resolves session type from query first, then legacy path, then default room", () => {
+    expect(getRouteSession("/room/1234", "?session=collab")).toEqual({
+      roomId: "1234",
+      sessionType: "collab",
+    });
+    expect(getRouteSession("/room/1234", "")).toEqual({
+      roomId: "1234",
+      sessionType: "room",
+    });
+    expect(getRouteSession("/collab/1234", "")).toEqual({
+      roomId: "1234",
+      sessionType: "collab",
+    });
+    expect(getRouteSession("/room/1234", "?session=invalid")).toEqual({
+      roomId: "1234",
+      sessionType: "room",
+    });
   });
 
   it("builds backend URLs against the fixed room backend host", () => {

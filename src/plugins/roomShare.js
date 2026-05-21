@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { BasePlugin } from "../core/baseClasses.js";
 import { createCollab, createCollabHostClient, createHostClient, createRoom } from "../online/roomHost.js";
-import { getCollabIdFromPath, getRoomIdFromPath, getShareUrl } from "../online/roomRoute.js";
+import { getRouteSession, getShareUrl } from "../online/roomRoute.js";
 import { createCollaboratorClient, createViewerClient } from "../online/roomViewer.js";
 
 const VIEW_MODE_HOST = "host";
@@ -148,11 +148,7 @@ export class RoomSharePlugin extends BasePlugin {
   }
 
   getRouteSession() {
-    const roomId = getRoomIdFromPath();
-    if (roomId) return { sessionType: SESSION_ROOM, roomId };
-    const collabId = getCollabIdFromPath();
-    if (collabId) return { sessionType: SESSION_COLLAB, roomId: collabId };
-    return null;
+    return getRouteSession(window.location.pathname, window.location.search);
   }
 
   adoptViewerWaitingLayer(layer) {

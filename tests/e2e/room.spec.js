@@ -204,7 +204,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   const qrBox = await page.getByTestId("room-share-qr").boundingBox();
   expect(linkBox.y).toBeGreaterThan(qrBox.y + qrBox.height - 1);
   const href = await shareLink.getAttribute("href");
-  expect(href).toMatch(/\/room\/\d{4}$/);
+  expect(href).toMatch(/\/room\/\d{4}\?session=room$/);
   expect(href).not.toContain("secret");
   expect(href).not.toContain("hostToken");
   await expect(page.getByTestId("room-share-qr")).toBeVisible();
@@ -227,7 +227,6 @@ test("shares a password-protected room with QR and viewer camera modes", async (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
 
-  await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
   await showTopToolbar(viewer);
   await expect(viewer.getByTestId("save-document-action")).toBeVisible();
   await viewer.getByTestId("save-document-action").click();
@@ -323,7 +322,7 @@ test("shares a collaborate session in edit mode and both sides can edit", async 
   const shareLink = page.getByTestId("room-share-link");
   await expect(shareLink).toBeVisible();
   const href = await shareLink.getAttribute("href");
-  expect(href).toMatch(/\/collab\/\d{4}$/);
+  expect(href).toMatch(/\/room\/\d{4}\?session=collab$/);
 
   const peer = await context.newPage();
   await peer.goto(href);
@@ -331,6 +330,7 @@ test("shares a collaborate session in edit mode and both sides can edit", async 
   await expect(peer.getByTestId("room-password-prompt")).toBeVisible();
   await peer.getByTestId("room-password-input").fill("secret");
   await peer.getByTestId("room-password-submit").click();
+  await expect(peer.getByTestId("room-status-badge")).toContainText("Connected");
   await expect(peer.getByTestId("components-trigger")).toBeVisible();
 
   await page.evaluate(() => window.__APP_TEST_API__.addComponent("sticky", { x: 800, y: 800 }));

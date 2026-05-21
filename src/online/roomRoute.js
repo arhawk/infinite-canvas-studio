@@ -33,9 +33,31 @@ export function getCollabIdFromPath(pathname = window.location.pathname) {
   return match?.[1] ?? null;
 }
 
+function normalizeSessionType(value) {
+  if (value === "collab") return "collab";
+  if (value === "room") return "room";
+  return null;
+}
+
+export function getRouteSession(pathname = window.location.pathname, search = window.location.search) {
+  const querySessionType = normalizeSessionType(new URLSearchParams(String(search ?? "")).get("session"));
+  const roomId = getRoomIdFromPath(pathname);
+  const collabId = getCollabIdFromPath(pathname);
+  const pathRoomId = roomId ?? collabId;
+
+  if (!pathRoomId) return null;
+  if (querySessionType) {
+    return { roomId: pathRoomId, sessionType: querySessionType };
+  }
+  if (collabId) {
+    return { roomId: collabId, sessionType: "collab" };
+  }
+  return { roomId: roomId, sessionType: "room" };
+}
+
 export function getShareUrl(roomId, origin = window.location.origin, sessionType = "room") {
-  const prefix = sessionType === "collab" ? "collab" : "room";
-  return `${origin}/${prefix}/${roomId}`;
+  const normalizedSessionType = sessionType === "collab" ? "collab" : "room";
+  return `${origin}/room/${roomId}?session=${normalizedSessionType}`;
 }
 
 export function getRoomWebSocketUrl(roomId, role, locationRef = window.location, sessionType = "room") {
