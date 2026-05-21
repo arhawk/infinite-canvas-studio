@@ -283,21 +283,16 @@ export class PageComparePlugin extends BasePlugin {
   syncSelectionBar() {
     if (!this.selectionBar) return;
 
-    // Keep compare state and selection logic intact, but do not surface the
-    // persistent bottom selection bar in presentation mode.
-    this.selectionBar.hidden = true;
-    if (!this.isEnabled() || this.isOpen) return;
+    const shouldShow = this.isEnabled() && !this.isOpen && this.selectedPages.length === 2;
+    this.selectionBar.hidden = !shouldShow;
+    this.selectionBarCountEl.hidden = true;
+    this.selectionBarHintEl.hidden = true;
 
-    const count = this.selectedPages.length;
+    if (!shouldShow) return;
 
-    this.selectionBarCountEl.textContent = `${count} page${count === 1 ? "" : "s"} selected`;
-    this.selectionBarHintEl.textContent =
-      count === 1
-        ? "Shift-click another page to compare."
-        : count === 2
-          ? "Ready to compare."
-          : "Select exactly 2 pages.";
-    this.selectionBarCompareEl.disabled = !this.canCompareSelection();
+    this.selectionBarCountEl.textContent = "";
+    this.selectionBarHintEl.textContent = "";
+    this.selectionBarCompareEl.disabled = false;
   }
 
   syncSelectionOutlines() {

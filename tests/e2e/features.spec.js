@@ -5511,6 +5511,46 @@ test("does not show the page compare selection bar after selecting a page in pre
   await expect(page.locator('[data-testid="page-compare-selection-bar"]:visible')).toHaveCount(0);
 });
 
+test("shows the page compare entry only after selecting exactly two pages in presentation mode", async ({ page }) => {
+  const firstPage = await addComponent(page, "page", {
+    x: 180,
+    y: 140,
+    width: 480,
+    height: 270,
+    label: "Slide 1",
+  });
+  const secondPage = await addComponent(page, "page", {
+    x: 760,
+    y: 140,
+    width: 480,
+    height: 270,
+    label: "Slide 2",
+  });
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "presentation",
+  );
+
+  const firstCenter = await getNodePageCenter(page, firstPage.id);
+  const secondCenter = await getNodePageCenter(page, secondPage.id);
+
+  await page.mouse.click(firstCenter.x, firstCenter.y);
+  await waitForPaint(page);
+  await expect(page.getByTestId("page-compare-selection-bar")).toBeHidden();
+
+  await page.keyboard.down("Shift");
+  await page.mouse.click(secondCenter.x, secondCenter.y);
+  await page.keyboard.up("Shift");
+  await waitForPaint(page);
+
+  await expect(page.getByTestId("page-compare-selection-bar")).toBeVisible();
+  await expect(page.getByTestId("page-compare-selection-action")).toBeVisible();
+
+  await page.getByTestId("page-compare-selection-action").click();
+  await expect(page.getByTestId("page-compare-overlay")).toBeVisible();
+});
+
 test("keeps normal page selection working in edit mode while compare hint stays absent", async ({ page }) => {
   const pageNode = await addComponent(page, "page", {
     x: 220,
