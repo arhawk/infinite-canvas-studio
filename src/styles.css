@@ -5451,6 +5451,15 @@ body.is-presentation-mode #catalog-panel {
   transform: scale(0.92);
 }
 
+#canvas-container.is-placing-emoji {
+  cursor: crosshair;
+}
+
+.presentation-brush-fab__tool.is-active[data-testid="presentation-tool-reactions"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 /* Sticker animation */
 
 @keyframes emoji-float {
