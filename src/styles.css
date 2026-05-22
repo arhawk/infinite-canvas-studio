@@ -5788,3 +5788,38 @@ body.theme-colorful .page-compare-selection-bar .page-compare-button:not(:disabl
 body.theme-colorful .page-compare-pane__viewport {
   background: #ffffff;
 }
+
+body.theme-colorful .document-export-menu {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(109, 40, 217, 0.10);
+  box-shadow: 0 1rem 2.4rem rgba(76, 29, 149, 0.14);
+}
+
+body.theme-colorful .document-export-menu__item:hover,
+body.theme-colorful .document-export-menu__item:focus-visible {
+  background: rgba(109, 40, 217, 0.08);
+}
+
+body.theme-colorful .document-export-menu__item-wrap:has(> .document-export-menu__item:disabled):hover > .document-export-menu__item {
+  background: rgba(109, 40, 217, 0.04);
+}
+
+body.theme-colorful .room-share-popover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(109, 40, 217, 0.12);
+  box-shadow: 0 18px 44px rgba(76, 29, 149, 0.14);
+}
+
+body.theme-colorful .room-password-prompt__panel {
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(76, 29, 149, 0.18);
+}
+
+body.theme-colorful .room-share-popover input,
+body.theme-colorful .room-password-prompt input {
+  border-color: rgba(109, 40, 217, 0.18);
+}
+
+body.theme-colorful .room-share-popover__result a {
+  background: rgba(109, 40, 217, 0.06);
+}
