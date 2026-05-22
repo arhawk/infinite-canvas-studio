@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createCollab } from "../../../src/online/roomHost.js";
+import { createRoom } from "../../../src/online/roomHost.js";
 
 describe("roomHost create session", () => {
   afterEach(() => {
@@ -21,7 +21,7 @@ describe("roomHost create session", () => {
       json: async () => ({ error: "Bad Gateway" }),
     })));
 
-    await expect(createCollab({ password: "" })).rejects.toThrow(
+    await expect(createRoom({ password: "" })).rejects.toThrow(
       "Local room server is unreachable at 127.0.0.1:3001. Start it with `pnpm run server`.",
     );
   });

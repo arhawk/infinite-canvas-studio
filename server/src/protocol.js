@@ -1,13 +1,11 @@
 export const ROOM_ID_PATTERN = /^\d{4}$/;
 export const APP_MESSAGE_PREFIX = "app:";
 export const VIEWER_CONTROL_MESSAGE_TYPES = new Set(["viewer:join"]);
-export const COLLABORATOR_CONTROL_MESSAGE_TYPES = new Set(["collaborator:join"]);
 
 // Future frontend features can add app-prefixed business events without a
 // backend deploy, while room-prefixed messages stay reserved for room protocol.
 export const HOST_ONLY_ROOM_MESSAGE_TYPES = new Set(["room:state", "room:viewport"]);
 export const VIEWER_CONTROL_ROOM_MESSAGE_TYPES = new Set(["room:ping", "room:request-state"]);
-export const COLLABORATOR_ROOM_MESSAGE_TYPES = new Set(["room:ping"]);
 export const SERVER_MESSAGE_TYPES = {
   HOST_JOINED: "host:joined",
   ROOM_AUTH_REQUIRED: "room:auth-required",
@@ -41,10 +39,6 @@ export function canHostRelayMessageType(type) {
 
 export function canViewerRelayMessageType(type) {
   return isAppRelayMessageType(type);
-}
-
-export function canCollaboratorRelayMessageType(type) {
-  return HOST_ONLY_ROOM_MESSAGE_TYPES.has(type) || isAppRelayMessageType(type);
 }
 
 export function safeJsonParse(text) {

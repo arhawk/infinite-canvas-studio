@@ -28,13 +28,7 @@ export function getRoomIdFromPath(pathname = window.location.pathname) {
   return match?.[1] ?? null;
 }
 
-export function getCollabIdFromPath(pathname = window.location.pathname) {
-  const match = String(pathname ?? "").match(/^\/collab\/(\d{4})\/?$/);
-  return match?.[1] ?? null;
-}
-
 function normalizeSessionType(value) {
-  if (value === "collab") return "collab";
   if (value === "room") return "room";
   return null;
 }
@@ -42,32 +36,21 @@ function normalizeSessionType(value) {
 export function getRouteSession(pathname = window.location.pathname, search = window.location.search) {
   const querySessionType = normalizeSessionType(new URLSearchParams(String(search ?? "")).get("session"));
   const roomId = getRoomIdFromPath(pathname);
-  const collabId = getCollabIdFromPath(pathname);
-  const pathRoomId = roomId ?? collabId;
-
-  if (!pathRoomId) return null;
-  if (querySessionType) {
-    return { roomId: pathRoomId, sessionType: querySessionType };
-  }
-  if (collabId) {
-    return { roomId: collabId, sessionType: "collab" };
-  }
-  return { roomId: roomId, sessionType: "room" };
+  if (!roomId) return null;
+  if (querySessionType) return { roomId, sessionType: querySessionType };
+  return { roomId, sessionType: "room" };
 }
 
-export function getShareUrl(roomId, origin = window.location.origin, sessionType = "room") {
-  const normalizedSessionType = sessionType === "collab" ? "collab" : "room";
-  return `${origin}/room/${roomId}?session=${normalizedSessionType}`;
+export function getShareUrl(roomId, origin = window.location.origin) {
+  return `${origin}/room/${roomId}?session=room`;
 }
 
-export function getRoomWebSocketUrl(roomId, role, locationRef = window.location, sessionType = "room") {
+export function getRoomWebSocketUrl(roomId, role, locationRef = window.location) {
   const protocol = locationRef.protocol === "https:" ? "wss:" : "ws:";
-  const pathPrefix = sessionType === "collab" ? "collab" : "rooms";
-  return `${protocol}//${getRoomBackendHost(locationRef)}/ws/${pathPrefix}/${roomId}?role=${encodeURIComponent(role)}`;
+  return `${protocol}//${getRoomBackendHost(locationRef)}/ws/rooms/${roomId}?role=${encodeURIComponent(role)}`;
 }
 
-export function getCreateRoomApiUrl(locationRef = window.location, sessionType = "room") {
+export function getCreateRoomApiUrl(locationRef = window.location) {
   const protocol = locationRef.protocol === "https:" ? "https:" : "http:";
-  const path = sessionType === "collab" ? "collab" : "rooms";
-  return `${protocol}//${getRoomBackendHost(locationRef)}/api/${path}`;
+  return `${protocol}//${getRoomBackendHost(locationRef)}/api/rooms`;
 }

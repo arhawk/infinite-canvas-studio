@@ -3,16 +3,11 @@ import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
-import {
-  COLLABORATOR_CONTROL_MESSAGE_TYPES,
-  COLLABORATOR_ROOM_MESSAGE_TYPES,
-  MAX_HTTP_BODY_BYTES,
+import {  MAX_HTTP_BODY_BYTES,
   MAX_WS_MESSAGE_BYTES,
   SERVER_MESSAGE_TYPES,
   VIEWER_CONTROL_MESSAGE_TYPES,
-  VIEWER_CONTROL_ROOM_MESSAGE_TYPES,
-  canCollaboratorRelayMessageType,
-  canHostRelayMessageType,
+  VIEWER_CONTROL_ROOM_MESSAGE_TYPES,  canHostRelayMessageType,
   canViewerRelayMessageType,
   isRoomId,
   readMessage,
@@ -85,14 +80,10 @@ function readRequestBody(req, maxBytes = MAX_HTTP_BODY_BYTES) {
 }
 
 async function handleCreateRoom(req, res) {
-  return handleCreateSession(req, res, { kind: "room" });
+  return handleCreateSession(req, res);
 }
 
-async function handleCreateCollab(req, res) {
-  return handleCreateSession(req, res, { kind: "collab" });
-}
-
-async function handleCreateSession(req, res, { kind }) {
+async function handleCreateSession(req, res) {
   try {
     if (!consumeRateLimit(createRoomRateBuckets, getClientIp(req), CREATE_ROOM_RATE_LIMIT)) {
       sendHttpJson(res, 429, { error: "Too many room creation attempts." });
@@ -107,11 +98,10 @@ async function handleCreateSession(req, res, { kind }) {
     }
 
     const password = typeof parsed.value?.password === "string" ? parsed.value.password : "";
-    const room = store.createRoom({ password, kind });
-    const urlPrefix = kind === "collab" ? "/collab" : "/room";
+    const room = store.createRoom({ password });
     sendHttpJson(res, 201, {
       roomId: room.roomId,
-      url: `${urlPrefix}/${room.roomId}`,
+      url: `/room/${room.roomId}`,
       hostToken: room.hostToken,
       requiresPassword: room.requiresPassword,
     });
@@ -143,7 +133,7 @@ function serveStatic(req, res, url) {
   }
 
   const requestedPath = decodeURIComponent(url.pathname);
-  const candidate = requestedPath === "/" || requestedPath.startsWith("/room/") || requestedPath.startsWith("/collab/")
+  const candidate = requestedPath === "/" || requestedPath.startsWith("/room/")
     ? join(distRoot, "index.html")
     : join(distRoot, requestedPath);
   const resolved = resolve(candidate);
@@ -188,10 +178,6 @@ const server = createServer((req, res) => {
     void handleCreateRoom(req, res);
     return;
   }
-  if (req.method === "POST" && url.pathname === "/api/collab") {
-    void handleCreateCollab(req, res);
-    return;
-  }
 
   if (req.method !== "GET" && req.method !== "HEAD") {
     sendHttpJson(res, 405, { error: "Method not allowed." });
@@ -203,15 +189,14 @@ const server = createServer((req, res) => {
 
 function parseRoomSocketUrl(request) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
-  const match = url.pathname.match(/^\/ws\/(rooms|collab)\/(\d{4})$/);
-  const kind = match?.[1] === "collab" ? "collab" : "room";
-  const roomId = match?.[2] ?? null;
+  const match = url.pathname.match(/^\/ws\/rooms\/(\d{4})$/);
+  const roomId = match?.[1] ?? null;
   const role = url.searchParams.get("role");
-  const allowedRoles = kind === "collab" ? ["host", "collaborator"] : ["host", "viewer"];
+  const allowedRoles = ["host", "viewer"];
   if (!roomId || !isRoomId(roomId) || !allowedRoles.includes(role)) {
     return null;
   }
-  return { roomId, role, kind };
+  return { roomId, role };
 }
 
 function closeRoom(room, reason = "host-disconnected") {
@@ -329,65 +314,6 @@ function handleViewerMessage(room, socket, message) {
   }
 }
 
-function handleCollaboratorJoin(room, socket, payload = {}) {
-  const password = typeof payload.password === "string" ? payload.password : "";
-  if (room.requiresPassword && !verifyPassword(password, room.passwordHash)) {
-    const passwordBucketKey = `${room.roomId}:${socket.clientIp ?? "unknown"}`;
-    if (!consumeRateLimit(passwordRateBuckets, passwordBucketKey, PASSWORD_RATE_LIMIT)) {
-      sendError(socket, "Too many password attempts.", "room-rate-limited");
-      socket.close();
-      return;
-    }
-    sendError(socket, "Invalid room password.", "invalid-room-password");
-    socket.close();
-    return;
-  }
-
-  if (room.viewers.size >= MAX_VIEWERS_PER_ROOM) {
-    sendError(socket, "Room is full.", "room-full");
-    socket.close();
-    return;
-  }
-
-  socket.roomJoined = true;
-  store.addViewer(room, socket);
-  sendJson(socket, SERVER_MESSAGE_TYPES.ROOM_JOINED, { roomId: room.roomId });
-  if (room.hostSocket) {
-    sendJson(room.hostSocket, SERVER_MESSAGE_TYPES.VIEWER_JOINED, { viewerId: socket.connectionId });
-    broadcastViewerCount(room);
-  }
-}
-
-function relayCollaboratorMessage(room, socket, message) {
-  if (COLLABORATOR_CONTROL_MESSAGE_TYPES.has(message.type)) {
-    handleCollaboratorJoin(room, socket, message.payload);
-    return;
-  }
-
-  if (!socket.roomJoined) {
-    sendError(socket, "Collaborator must join before broadcasting.", "collaborator-not-joined");
-    return;
-  }
-
-  if (COLLABORATOR_ROOM_MESSAGE_TYPES.has(message.type)) {
-    return;
-  }
-
-  if (!canCollaboratorRelayMessageType(message.type)) {
-    sendError(socket, "Unsupported collaborator message type.", "bad-collaborator-message");
-    return;
-  }
-
-  if (room.hostSocket) {
-    sendJson(room.hostSocket, message.type, message.payload);
-  }
-  for (const viewer of room.viewers) {
-    if (viewer === socket) continue;
-    sendJson(viewer, message.type, message.payload);
-  }
-  store.touchRoom(room);
-}
-
 function handleSocketMessage(room, socket, raw) {
   const { value: message, error } = readMessage(raw);
   if (error) {
@@ -405,11 +331,6 @@ function handleSocketMessage(room, socket, raw) {
     return;
   }
 
-  if (socket.role === "collaborator") {
-    relayCollaboratorMessage(room, socket, message);
-    return;
-  }
-
   handleViewerMessage(room, socket, message);
 }
 
@@ -422,7 +343,7 @@ wss.on("connection", (socket, request, { room, role }) => {
   socket.roomJoined = false;
   socket.clientIp = getClientIp(request);
 
-  if (role === "viewer" || role === "collaborator") {
+  if (role === "viewer") {
     sendJson(socket, SERVER_MESSAGE_TYPES.ROOM_AUTH_REQUIRED, {
       requiresPassword: room.requiresPassword,
     });
@@ -435,7 +356,7 @@ wss.on("connection", (socket, request, { room, role }) => {
       return;
     }
 
-    if (role === "viewer" || role === "collaborator") {
+    if (role === "viewer") {
       const wasViewer = room.viewers.has(socket);
       store.removeViewer(room, socket);
       if (wasViewer && room.hostSocket) {
@@ -460,12 +381,6 @@ server.on("upgrade", (request, socket, head) => {
     socket.destroy();
     return;
   }
-  if ((room.kind ?? "room") !== info.kind) {
-    socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
-    socket.destroy();
-    return;
-  }
-
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit("connection", ws, request, { room, role: info.role });
   });

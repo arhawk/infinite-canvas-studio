@@ -314,62 +314,6 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(viewer.getByTestId("room-status-badge")).toContainText("Host disconnected");
 });
 
-test("shares a collaborate session in edit mode and both sides can edit", async ({ page, context }) => {
-  await page.goto("/");
-  await waitForTestApi(page);
-  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe("edit");
-
-  await page.getByTestId("share-btn").click();
-  await page.getByTestId("room-share-password").fill("secret");
-  await page.getByTestId("room-share-create").click();
-  const shareLink = page.getByTestId("room-share-link");
-  await expect(shareLink).toBeVisible();
-  const href = await shareLink.getAttribute("href");
-  expect(href).toMatch(/\/room\/\d{4}\?session=collab$/);
-
-  const peer = await context.newPage();
-  await peer.goto(href);
-  await waitForTestApi(peer);
-  await expect(peer.getByTestId("room-password-prompt")).toBeVisible();
-  await peer.getByTestId("room-password-input").fill("secret");
-  await peer.getByTestId("room-password-submit").click();
-  await expect(peer.getByTestId("room-status-badge")).toContainText("Connected");
-  await expect(peer.getByTestId("components-trigger")).toBeVisible();
-
-  await page.evaluate(() => window.__APP_TEST_API__.addComponent("sticky", { x: 800, y: 800 }));
-  await expect.poll(async () => (
-    peer.evaluate(() => window.__APP_TEST_API__.listNodes().some((n) => n.x > 700 && n.y > 700))
-  )).toBe(true);
-
-  await peer.evaluate(() => window.__APP_TEST_API__.addComponent("text", { x: 900, y: 900 }));
-  await expect.poll(async () => (
-    page.evaluate(() => window.__APP_TEST_API__.listNodes().some((n) => n.x > 850 && n.y > 850))
-  )).toBe(true);
-
-  await expect(page.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
-  await expect(peer.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
-  await peer.getByTestId("mode-capsule-present").click();
-  await expect(peer.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
-  await peer.getByTestId("mode-capsule-edit").click();
-  await expect(peer.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
-
-  await page.getByTestId("presentation-tool-timer").click();
-  await expect(page.locator(".timer-widget")).toBeVisible();
-  await expect.poll(async () => (
-    peer.getByTestId("presentation-tool-timer").getAttribute("aria-pressed")
-  )).toBe("true");
-  await expect(peer.locator(".timer-widget")).toBeVisible();
-
-  await peer.getByRole("button", { name: "Start" }).click();
-  await expect.poll(async () => page.locator(".timer-widget__btn--primary").textContent()).toBe("Pause");
-
-  await peer.getByTestId("presentation-tool-calculator").click();
-  await expect(peer.locator(".calc-widget")).toBeVisible();
-  await peer.locator(".calc-btn", { hasText: "7" }).first().click();
-  await expect.poll(async () => page.locator(".calc-widget__display-val").textContent()).toBe("7");
-});
-
 test("shows room not ready when a viewer joins before the host socket", async ({ page, request }) => {
   const response = await request.post(getCreateRoomApiUrl(), {
     data: { password: "" },

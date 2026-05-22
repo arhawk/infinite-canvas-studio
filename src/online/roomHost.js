@@ -2,15 +2,7 @@ import { RoomClient } from "./roomClient.js";
 import { getCreateRoomApiUrl, getRoomWebSocketUrl } from "./roomRoute.js";
 
 export async function createRoom({ password = "" } = {}) {
-  return createSession({ password, sessionType: "room" });
-}
-
-export async function createCollab({ password = "" } = {}) {
-  return createSession({ password, sessionType: "collab" });
-}
-
-async function createSession({ password = "", sessionType = "room" } = {}) {
-  const url = getCreateRoomApiUrl(window.location, sessionType);
+  const url = getCreateRoomApiUrl(window.location);
   const isLocalFrontendHost = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(window.location.hostname);
   const localBackendHint = "Local room server is unreachable at 127.0.0.1:3001. Start it with `pnpm run server`.";
   let response;
@@ -44,14 +36,6 @@ export function createHostClient(roomId) {
   return new RoomClient({
     roomId,
     role: "host",
-    getUrl: (id, role) => getRoomWebSocketUrl(id, role, window.location, "room"),
-  });
-}
-
-export function createCollabHostClient(roomId) {
-  return new RoomClient({
-    roomId,
-    role: "host",
-    getUrl: (id, role) => getRoomWebSocketUrl(id, role, window.location, "collab"),
+    getUrl: (id, role) => getRoomWebSocketUrl(id, role, window.location),
   });
 }

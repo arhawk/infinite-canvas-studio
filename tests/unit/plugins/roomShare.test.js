@@ -4,24 +4,7 @@ let lastHostClient = null;
 
 vi.mock("../../../src/online/roomHost.js", () => ({
   createRoom: vi.fn(),
-  createCollab: vi.fn(),
   createHostClient: vi.fn(() => {
-    const handlers = new Map();
-    const client = {
-      on(type, handler) {
-        handlers.set(type, handler);
-      },
-      emit(type, payload = {}) {
-        handlers.get(type)?.(payload);
-      },
-      connect: vi.fn(),
-      close: vi.fn(),
-      send: vi.fn(),
-    };
-    lastHostClient = client;
-    return client;
-  }),
-  createCollabHostClient: vi.fn(() => {
     const handlers = new Map();
     const client = {
       on(type, handler) {
@@ -41,20 +24,6 @@ vi.mock("../../../src/online/roomHost.js", () => ({
 
 vi.mock("../../../src/online/roomViewer.js", () => ({
   createViewerClient: vi.fn(() => {
-    const handlers = new Map();
-    return {
-      on(type, handler) {
-        handlers.set(type, handler);
-      },
-      emit(type, payload = {}) {
-        handlers.get(type)?.(payload);
-      },
-      connect: vi.fn(),
-      close: vi.fn(),
-      send: vi.fn(),
-    };
-  }),
-  createCollaboratorClient: vi.fn(() => {
     const handlers = new Map();
     return {
       on(type, handler) {
@@ -110,7 +79,7 @@ function createApp() {
   };
 }
 
-describe("RoomSharePlugin host collab sync", () => {
+describe("RoomSharePlugin room-only sync", () => {
   beforeEach(() => {
     document.body.innerHTML = `<button data-testid="share-btn"></button>`;
     lastHostClient = null;
@@ -126,7 +95,6 @@ describe("RoomSharePlugin host collab sync", () => {
       shareEl: document.querySelector('[data-testid="share-btn"]'),
     });
     plugin.setup();
-    plugin.host.sessionType = "collab";
     plugin.connectHost({ roomId: "1234", hostToken: "token" });
 
     const documentSnapshot = { schemaVersion: 1, nodes: [] };
@@ -150,7 +118,6 @@ describe("RoomSharePlugin host collab sync", () => {
     plugin.setup();
     plugin.host.connected = true;
     const sendSpy = vi.spyOn(plugin, "sendHostState").mockResolvedValue();
-    plugin.host.sessionType = "collab";
     plugin.connectHost({ roomId: "1234", hostToken: "token" });
 
     lastHostClient.emit("room:state", { document: { schemaVersion: 1, nodes: [] } });
@@ -158,28 +125,6 @@ describe("RoomSharePlugin host collab sync", () => {
     vi.runAllTimers();
 
     expect(sendSpy).not.toHaveBeenCalled();
-    plugin.destroy();
-  });
-
-  it("keeps edit capsule pressed in collab mode based on app mode", () => {
-    document.body.innerHTML = `
-      <button data-testid="share-btn"></button>
-      <button data-testid="mode-edit"></button>
-      <button data-testid="mode-present"></button>
-    `;
-    const app = createApp();
-    const plugin = new RoomSharePlugin(app, {
-      shareEl: document.querySelector('[data-testid="share-btn"]'),
-      modeCapsuleEditEl: document.querySelector('[data-testid="mode-edit"]'),
-      modeCapsulePresentEl: document.querySelector('[data-testid="mode-present"]'),
-    });
-    plugin.setup();
-    plugin.viewer.client = { send: vi.fn(), close: vi.fn() };
-    plugin.viewer.sessionType = "collab";
-    plugin.syncViewerUi();
-
-    expect(document.querySelector('[data-testid="mode-edit"]').getAttribute("aria-pressed")).toBe("true");
-    expect(document.querySelector('[data-testid="mode-present"]').getAttribute("aria-pressed")).toBe("false");
     plugin.destroy();
   });
 
@@ -194,58 +139,13 @@ describe("RoomSharePlugin host collab sync", () => {
       shareEl: document.querySelector('[data-testid="share-btn"]'),
     });
     plugin.setup();
-    plugin.viewer.sessionType = "collab";
-    plugin.startSession("collab", "1234");
+    plugin.startSession("room", "1234");
     const client = plugin.viewer.client;
     client.emit("app:timer-state", { state: { running: true } });
     client.emit("app:calculator-state", { state: { visible: true } });
 
     expect(timerPlugin.applySyncState).toHaveBeenCalledWith({ running: true }, { remote: true });
     expect(calculatorPlugin.applySyncState).toHaveBeenCalledWith({ visible: true }, { remote: true });
-    plugin.destroy();
-  });
-
-  it("applies remote timer/calculator app events on host client", () => {
-    const app = createApp();
-    const timerPlugin = { applySyncState: vi.fn() };
-    const calculatorPlugin = { applySyncState: vi.fn() };
-    app.__setPlugin("timer", timerPlugin);
-    app.__setPlugin("binaryCalculator", calculatorPlugin);
-
-    const plugin = new RoomSharePlugin(app, {
-      shareEl: document.querySelector('[data-testid="share-btn"]'),
-    });
-    plugin.setup();
-    plugin.host.sessionType = "collab";
-    plugin.connectHost({ roomId: "1234", hostToken: "token" });
-
-    lastHostClient.emit("app:timer-state", { state: { running: true } });
-    lastHostClient.emit("app:calculator-state", { state: { visible: true } });
-
-    expect(timerPlugin.applySyncState).toHaveBeenCalledWith({ running: true }, { remote: true });
-    expect(calculatorPlugin.applySyncState).toHaveBeenCalledWith({ visible: true }, { remote: true });
-    plugin.destroy();
-  });
-
-  it("does not double-handle collab app events in startSession", () => {
-    const app = createApp();
-    const timerPlugin = { applySyncState: vi.fn() };
-    const calculatorPlugin = { applySyncState: vi.fn() };
-    app.__setPlugin("timer", timerPlugin);
-    app.__setPlugin("binaryCalculator", calculatorPlugin);
-
-    const plugin = new RoomSharePlugin(app, {
-      shareEl: document.querySelector('[data-testid="share-btn"]'),
-    });
-    plugin.setup();
-    plugin.startSession("collab", "1234");
-    const client = plugin.viewer.client;
-
-    client.emit("app:timer-state", { state: { running: true } });
-    client.emit("app:calculator-state", { state: { visible: true } });
-
-    expect(timerPlugin.applySyncState).toHaveBeenCalledTimes(1);
-    expect(calculatorPlugin.applySyncState).toHaveBeenCalledTimes(1);
     plugin.destroy();
   });
 
@@ -255,15 +155,12 @@ describe("RoomSharePlugin host collab sync", () => {
       shareEl: document.querySelector('[data-testid="share-btn"]'),
     });
     plugin.setup();
-    plugin.viewer.client = { send: vi.fn(), close: vi.fn() };
-    plugin.viewer.joined = true;
-    plugin.viewer.sessionType = "collab";
     plugin.applyRemoteAppState("app:timer-state", { running: true });
 
     app.emit("timer:state-change", { running: false });
     await new Promise((resolve) => setTimeout(resolve, 120));
 
-    expect(plugin.viewer.client.send).not.toHaveBeenCalledWith("app:timer-state", expect.anything());
+    expect(plugin.host.client).toBeNull();
     plugin.destroy();
   });
 });
