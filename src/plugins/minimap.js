@@ -45,6 +45,7 @@ export class MinimapPlugin extends BasePlugin {
     this.listen("node:added", () => this.scheduleUpdate());
     this.listen("node:removed", () => this.scheduleUpdate());
     this.listen("node:changed", () => this.scheduleUpdate());
+    this.listen("background:change", () => this.scheduleUpdate());
     this.listen("selection:change", ({ nodes }) => this.onSelectionChange(nodes));
 
     this.update();

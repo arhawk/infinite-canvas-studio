@@ -125,7 +125,7 @@ describe("BackgroundPlugin", () => {
 
     document.querySelector('[data-background-type="blank"]').click();
     expect(app.getBackgroundState().type).toBe("blank");
-    expect(colorEl.disabled).toBe(true);
+    expect(colorEl.disabled).toBe(false);
     expect(document.querySelector('[data-background-type="blank"]').getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector('[data-background-type="grid"]').getAttribute("aria-pressed")).toBe("false");
 
@@ -141,7 +141,7 @@ describe("BackgroundPlugin", () => {
     expect(document.querySelector('[data-background-type="dot"]').getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("updates background opacity and disables opacity slider for blank background", () => {
+  it("updates background opacity slider", () => {
     const app = createApp();
     const plugin = createPlugin(app);
     const toggleEl = document.querySelector("#background-settings-toggle");
@@ -167,7 +167,7 @@ describe("BackgroundPlugin", () => {
     expect(opacityValueEl.title).toBe("42%");
 
     document.querySelector('[data-background-type="blank"]').click();
-    expect(opacityEl.disabled).toBe(true);
+    expect(opacityEl.disabled).toBe(false);
   });
 
   it("keeps exactly one selected background type active at a time", () => {

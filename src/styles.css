@@ -3755,7 +3755,7 @@ body.is-room-viewer #load-document-action {
 }
 
 .canvas-container[data-background-type="blank"] {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--canvas-bg-color) calc(var(--canvas-bg-alpha) * 100%), transparent);
 }
 
 .canvas-container[data-background-type="solid"] {

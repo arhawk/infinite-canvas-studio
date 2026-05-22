@@ -253,20 +253,15 @@ export class BackgroundPlugin extends BasePlugin {
       button.setAttribute("aria-pressed", String(button.dataset.backgroundType === nextState.type));
     }
 
-    const isBlank = nextState.type === BACKGROUND_TYPES.BLANK;
-
     for (const button of this.swatchesEl?.querySelectorAll("[data-color]") ?? []) {
-      button.disabled = isBlank;
       button.setAttribute(
         "aria-pressed",
-        String(!isBlank && button.dataset.color === nextState.color),
+        String(button.dataset.color === nextState.color),
       );
     }
 
-    if (this.customTriggerBtn) this.customTriggerBtn.disabled = isBlank;
     if (this.customColorInput) {
       this.customColorInput.value = nextState.color;
-      this.customColorInput.disabled = isBlank;
     }
 
     if (this.opacityEl && this.opacityValueEl) {
@@ -275,7 +270,6 @@ export class BackgroundPlugin extends BasePlugin {
       if (document.activeElement !== this.opacityEl) {
         this.opacityEl.value = opacity.toFixed(2);
       }
-      this.opacityEl.disabled = isBlank;
       this.opacityEl.title = opacityPercent;
       this.opacityValueEl.value = opacityPercent;
       this.opacityValueEl.textContent = opacityPercent;
