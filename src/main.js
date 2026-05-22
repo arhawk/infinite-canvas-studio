@@ -31,6 +31,7 @@ import { RoomSharePlugin } from "./plugins/roomShare.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { EmojiReactionsPlugin } from "./plugins/emojiReactions.js";
+import { PresentModeHintPlugin } from "./plugins/presentModeHint.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
@@ -337,6 +338,7 @@ app.use(TimerPlugin, {
 app.use(EmojiReactionsPlugin, {
   toggleEl: toolbarPlugin.presentationReactionsBtnEl,
 });
+app.use(PresentModeHintPlugin);
 app.use(CenterMapPlugin, {
   centerMapEl: leftToolbar.centerMapBtn,
 });
