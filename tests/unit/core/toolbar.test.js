@@ -227,7 +227,7 @@ describe("ToolbarPlugin", () => {
     document.body.innerHTML = "";
   });
 
-  it("starts visible by default in presentation mode", () => {
+  it("starts hidden by default in presentation mode", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -241,7 +241,7 @@ describe("ToolbarPlugin", () => {
     expect(document.body.classList.contains("is-presentation-mode")).toBe(true);
     expect(document.body.classList.contains("is-edit-mode")).toBe(false);
     expect(hoverZoneEl.hidden).toBe(false);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
     expect(fabEl.hidden).toBe(false);
     expect(fabShellEl.dataset.edge).toBe("left");
@@ -260,7 +260,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
   });
 
-  it("keeps the toolbar visible after leaving both the hover zone and the toolbar", () => {
+  it("hides the toolbar shortly after leaving both the hover zone and the toolbar", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -272,7 +272,7 @@ describe("ToolbarPlugin", () => {
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseleave"));
     vi.advanceTimersByTime(100);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
   });
 
   it("keeps the toolbar visible while the pointer is over the toolbar itself", () => {
@@ -291,7 +291,7 @@ describe("ToolbarPlugin", () => {
 
     toolbarEl.dispatchEvent(new MouseEvent("mouseleave"));
     vi.advanceTimersByTime(100);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
   });
 
   it("keeps edit mode behavior unchanged and never enables presentation auto-hide there", () => {
@@ -317,7 +317,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("is-visible")).toBe(false);
   });
 
-  it("switches between edit and presentation states without keeping stale hidden behavior", () => {
+  it("switches between edit and presentation states and keeps presentation default hidden", () => {
     const app = createApp("edit");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -332,7 +332,7 @@ describe("ToolbarPlugin", () => {
     expect(document.body.classList.contains("is-presentation-mode")).toBe(true);
     expect(document.body.classList.contains("is-edit-mode")).toBe(false);
     expect(hoverZoneEl.hidden).toBe(false);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseenter"));
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
@@ -349,7 +349,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("toolbar--no-transition")).toBe(false);
   });
 
-  it("keeps the drawing visibility eye button visible with pinned presentation toolbar", () => {
+  it("keeps the drawing visibility eye button visible while presentation toolbar auto-hides", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -359,7 +359,7 @@ describe("ToolbarPlugin", () => {
     plugin.setup();
 
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseenter"));
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
@@ -367,7 +367,7 @@ describe("ToolbarPlugin", () => {
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseleave"));
     vi.advanceTimersByTime(100);
-    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(false);
     expect(drawingVisibilityToggleEl.hidden).toBe(false);
   });
 

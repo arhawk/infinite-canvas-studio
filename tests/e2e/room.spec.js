@@ -170,6 +170,7 @@ test("shows pending feedback while creating a room", async ({ page }) => {
   await waitForTestApi(page);
   await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
 
+  await showTopToolbar(page);
   await page.getByTestId("share-btn").click();
   await page.getByTestId("room-share-create").click();
 
@@ -192,6 +193,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await waitForTestApi(page);
   await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
 
+  await showTopToolbar(page);
   await page.getByTestId("share-btn").click();
   await page.getByTestId("room-share-password").fill("secret");
   await page.getByTestId("room-share-create").click();
@@ -227,6 +229,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
 
+  await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
   await showTopToolbar(viewer);
   await expect(viewer.getByTestId("save-document-action")).toBeVisible();
   await viewer.getByTestId("save-document-action").click();

@@ -107,6 +107,7 @@ const BUTTON_PANEL_VIEWPORT_MARGIN = 12;
 const BUTTON_PANEL_ANCHOR_GAP = 64;
 const BUTTON_POPOVER_NODE_CLEARANCE = 10;
 const BUTTON_STYLE_SWATCHES = DEFAULT_COLOR_SWATCHES;
+const PRESENTATION_TOOLBAR_HIDE_DELAY_MS = 100;
 const PRESENTATION_BRUSH_FAB_MARGIN = 20;
 const PRESENTATION_BRUSH_FAB_BOTTOM_MARGIN = 0;
 const PRESENTATION_BRUSH_FAB_FULLSCREEN_BOTTOM_NUDGE = 8;
@@ -1856,8 +1857,13 @@ export class ToolbarPlugin extends BasePlugin {
 
   schedulePresentationToolbarHide() {
     if (!this.toolbarEl || this.app.getMode() !== "presentation") return;
-    // Keep toolbar pinned in presentation mode for host-facing teaching flow.
-    this.setPresentationToolbarVisible(true);
+
+    this.clearPresentationToolbarHideTimer();
+    this.presentationToolbarHideTimer = window.setTimeout(() => {
+      this.presentationToolbarHideTimer = null;
+      if (this.isHoveringPresentationToolbarZone || this.isHoveringPresentationToolbar) return;
+      this.toolbarEl.classList.remove("is-visible");
+    }, PRESENTATION_TOOLBAR_HIDE_DELAY_MS);
   }
 
   syncPresentationToolbarAutoHide() {
@@ -1884,7 +1890,10 @@ export class ToolbarPlugin extends BasePlugin {
     this.clearPresentationToolbarAnimationFrame();
     this.toolbarEl.classList.remove("toolbar--no-transition");
     this.clearPresentationToolbarHideTimer();
-    this.toolbarEl.classList.add("is-visible");
+    this.toolbarEl.classList.toggle(
+      "is-visible",
+      this.isHoveringPresentationToolbarZone || this.isHoveringPresentationToolbar,
+    );
   }
 
   isDrawingTool(toolId) {
