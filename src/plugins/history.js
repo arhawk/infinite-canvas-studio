@@ -119,7 +119,6 @@ class UndoCommand extends BaseCommand {
         highlighter: {},
         eraser: {},
         shape: {},
-        annotate: {},
       },
     },
   };
@@ -141,7 +140,6 @@ class RedoCommand extends BaseCommand {
         highlighter: {},
         eraser: {},
         shape: {},
-        annotate: {},
       },
     },
   };

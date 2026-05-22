@@ -3,10 +3,6 @@ import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 import { getCanvasTheme } from "../theme/canvasTheme.js";
-import {
-  serializeNodeTextAnnotations,
-  setNodeTextAnnotations,
-} from "../lib/textAnnotations.js";
 
 const DEFAULT_WIDTH = 180;
 const DEFAULT_HEIGHT = 130;
@@ -93,7 +89,6 @@ export function getStickyData(node) {
     fillOpacity: clamp01(node?.getAttr?.("stickyFillOpacity"), DEFAULT_STICKY_FILL_OPACITY),
     textColor: textNode?.fill() ?? DEFAULT_STICKY_TEXT_COLOR,
     fontSize: textNode?.fontSize() ?? DEFAULT_STICKY_FONT_SIZE,
-    annotations: serializeNodeTextAnnotations(node),
   };
 }
 
@@ -206,6 +201,5 @@ export class StickyComponent extends BaseComponent {
 
   async applySerializedData(node, data = {}) {
     syncStickyVisuals(node, data);
-    setNodeTextAnnotations(node, data.annotations);
   }
 }

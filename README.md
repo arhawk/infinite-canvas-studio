@@ -9,7 +9,7 @@ For internal architecture, extension conventions, and implementation details, se
 - Infinite canvas pan and zoom with stage-aware coordinate conversion
 - Palette components for `Page`, `Button`, `Text`, `Sticky Note`, `Image`, `Iframe`, `Ranking Box`, `JS Code Runner`, and `Local Video`
 - Multi-select, Shift marquee selection, copy/paste, and clipboard image paste
-- Pen, Pencil, Highlighter, whole-stroke Eraser, and text annotation tools
+- Pen, Pencil, Highlighter, and whole-stroke Eraser tools
 - Container capture/release and curved component-to-component connections
 - Catalog outline panel with branch collapse and visibility syncing
 - Attachments on attachment-aware components such as `Page` and legacy `Container`
@@ -71,10 +71,10 @@ pnpm exec playwright install chromium
 ## Feature Overview
 
 - Primary app modes: `edit` and `presentation`
-- Editor tools: `arrange`, `pen`, `pencil`, `highlighter`, `annotate`, and `eraser`
+- Editor tools: `arrange`, `pen`, `pencil`, `highlighter`, and `eraser`
 - Hidden/internal component types include `catalog` and `connection`
-- Local undo/redo supports add, delete, move, transform, editor changes, annotation changes, attachment changes, connection edits, focus attribute updates, completed brush strokes, and erased strokes
-- Local save/load exports and imports full JSON board snapshots including nodes, drawings, catalog data, annotations, saved focus attributes, attachment metadata, and viewport state
+- Local undo/redo supports add, delete, move, transform, editor changes, attachment changes, connection edits, focus attribute updates, completed brush strokes, and erased strokes
+- Local save/load exports and imports full JSON board snapshots including nodes, drawings, catalog data, saved focus attributes, attachment metadata, and viewport state
 - Single-file export embeds a normalized document snapshot into the exported HTML so it can reopen itself offline
 - Share creates a four-digit `/room/1234` link. The share popover disables the create button while the request is pending, then shows a QR code with the link underneath and hides the password input/create button.
 - Room viewers cannot enter edit mode or load documents. They can download JSON/HTML from the existing save menu, switch between free viewer camera and host-follow camera, and automatically leave host-follow mode if they pan or zoom.
@@ -84,7 +84,7 @@ pnpm exec playwright install chromium
 
 Current automated coverage includes:
 
-- Core unit tests for registries, keybindings, mode management, component serialization, runtime HTML export, catalog helpers, text annotations, and branch visibility
+- Core unit tests for registries, keybindings, mode management, component serialization, runtime HTML export, catalog helpers, and branch visibility
 - Component unit tests for `iframe` and `javascriptEditor`
 - Playwright smoke tests for mode switching, add/delete flow, undo/redo add flow, brush undo/redo, and whole-stroke erase undo/redo
 - Playwright feature tests for connections, focus navigation, component editor changes, document roundtrip load, button-driven navigation, and undo/redo of node movement
@@ -97,7 +97,6 @@ The E2E harness uses `window.__APP_TEST_API__` for canvas-heavy flows instead of
 - node movement
 - connection creation
 - focus saving
-- text annotation helpers
 - document export / load
 - history reset / undo / redo
 - component editor opening
@@ -124,7 +123,7 @@ Current limitation:
 - `src/document/`: document schema, import/export helpers, and runtime HTML export support
 - `src/online/`: room route helpers plus host/viewer WebSocket clients
 - `src/component/`: component definitions for page, button, text, sticky, image, iframe, video, ranking box, JavaScript editor, catalog, connection, and legacy container
-- `src/plugins/`: selection, drawing, annotation, toolbar, catalog, connections, focus, attachments/bookmarks, history, document, minimap, page compare, timer, calculator, and related UI behavior
+- `src/plugins/`: selection, drawing, toolbar, catalog, connections, focus, attachments/bookmarks, history, document, minimap, page compare, timer, calculator, and related UI behavior
 - `src/component/LeftToolbar/` + `src/component/ComponentsDropdown/`: primary add-component entry UI (left toolbar trigger + components dropdown)
 - `server/`: stateless Node.js room relay for HTTP room creation and WebSocket message forwarding
 - `src/testApi.js`: browser-only helpers used by Playwright

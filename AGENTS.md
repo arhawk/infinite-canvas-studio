@@ -16,7 +16,7 @@ The app includes:
 - Canvas-native nodes plus DOM-overlay components such as `iframe`, `video`, and `javascriptEditor`
 - Editable text, sticky notes, buttons, ranking boxes, and hidden catalog data nodes
 - Single-select, multi-select, marquee selection, copy/paste, and clipboard image paste
-- Pen, pencil, highlighter, text annotation, and whole-stroke erasing
+- Pen, pencil, highlighter, and whole-stroke erasing
 - Local undo/redo history with icon-only toolbar controls and keyboard shortcuts
 - Local JSON save/load plus single-file HTML export with embedded snapshots
 - Online room sharing through a stateless room relay with optional host passwords, QR links, and viewer camera modes
@@ -147,7 +147,6 @@ The room relay server is started from the repository root with `pnpm run server`
 - [src/component/ComponentsDropdown/index.js](src/component/ComponentsDropdown/index.js): Primary component-add dropdown UI wired from left toolbar
 - [src/plugins/selection.js](src/plugins/selection.js): Selection plugin with arrange tool, multi-select, marquee select, copy/paste, image paste, snap guides, and mode-based interactivity management
 - [src/plugins/drawing.js](src/plugins/drawing.js): Drawing plugin with pen, pencil, highlighter, eraser, draw-layer visibility, and whole-stroke clear support
-- [src/plugins/annotator.js](src/plugins/annotator.js): Text annotation plugin for underline-style marking and erasing annotations on `text` and `sticky` content
 - [src/plugins/history.js](src/plugins/history.js): Local history plugin with batched undo/redo entries, node snapshot restoration, drawing replay, toolbar button wiring, and keyboard shortcuts
 - [src/plugins/document.js](src/plugins/document.js): Local document plugin with JSON export/import commands, file input handling, status toasts, and restore transactions that reset the history baseline
 - [src/plugins/roomShare.js](src/plugins/roomShare.js): Online room share/join UI, QR link rendering, host state/viewport broadcasting, viewer permission gating, and viewer/host camera switching
@@ -287,7 +286,6 @@ While in `edit`, the active editor tool is one of:
 - `pen`
 - `pencil`
 - `highlighter`
-- `annotate`
 - `eraser`
 
 Modes are managed by `ModeManager`. Each plugin, command, tool, or menu item can declare static `modes` and automatically opt into lifecycle callbacks:
@@ -518,14 +516,13 @@ Transformer rules:
 
 ### 6. Drawing And Annotation
 
-Implemented in [src/plugins/drawing.js](src/plugins/drawing.js) and [src/plugins/annotator.js](src/plugins/annotator.js).
+Implemented in [src/plugins/drawing.js](src/plugins/drawing.js).
 
 Supported tools:
 
 - `pen`
 - `pencil`
 - `highlighter`
-- `annotate`
 - `eraser`
 
 Behavior:
@@ -533,8 +530,6 @@ Behavior:
 - Pen, pencil, and highlighter create Konva lines with tool-specific width and opacity presets
 - Pencil applies a small jitter for a rougher hand-drawn look
 - Eraser deletes a whole Konva line as soon as the pointer hits that stroke
-- Annotate marks text ranges on `text` and `sticky` components using underline-style overlays backed by serialized annotation data
-- Eraser also removes text annotations while the annotate/eraser feature branch is active
 - Drawing happens only on empty stage area
 - Drawing coordinates respect current pan and zoom
 - Presentation mode can hide or show the entire draw layer without deleting it
@@ -551,7 +546,7 @@ Behavior:
 - Undo / redo now also shows a small toast describing the action that was undone or redone.
 - The plugin batches related mutations that happen in the same event loop into a single history entry.
 - History replay restores component nodes by calling per-component serialization / restoration hooks on `BaseComponent`.
-- History currently tracks component add, delete, move, transform, editor changes, attachment updates, annotation updates, focus attribute updates, connection control-point updates, container reparenting, completed brush strokes, and erased strokes.
+- History currently tracks component add, delete, move, transform, editor changes, attachment updates, focus attribute updates, connection control-point updates, container reparenting, completed brush strokes, and erased strokes.
 - Starter seed nodes are created first and then treated as the initial baseline by calling `history.resetHistory()`.
 
 Implementation notes:
@@ -571,7 +566,7 @@ Behavior:
 - Documents can be exported as JSON from the toolbar or with `Mod+S`.
 - Documents can be imported from JSON from the toolbar or with `Mod+O`.
 - Import asks for confirmation before replacing the current board when the board already contains content.
-- The saved document includes component snapshots, parent-child container structure, catalog data, annotations, connections, saved focus attributes, completed brush strokes, attachment metadata, and current stage position / scale.
+- The saved document includes component snapshots, parent-child container structure, catalog data, connections, saved focus attributes, completed brush strokes, attachment metadata, and current stage position / scale.
 - Import runs through a dedicated restore transaction so plugins can suspend side effects such as history capture, auto-selection, container recapture, and stale editor UI.
 - After a document is loaded, `history.resetHistory()` is called so the loaded state becomes the new undo / redo baseline.
 - Image and video components serialize inline data URL sources, so exported documents remain self-contained.
@@ -1034,7 +1029,7 @@ Mode declarations are static metadata on plugins, commands, and menu items.
 Available states:
 
 - `presentation`
-- `edit` with tool branches such as `arrange`, `pen`, `pencil`, `highlighter`, `annotate`, and `eraser`
+- `edit` with tool branches such as `arrange`, `pen`, `pencil`, `highlighter`, and `eraser`
 
 Example:
 

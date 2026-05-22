@@ -33,7 +33,6 @@ import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
 import { EmojiReactionsPlugin } from "./plugins/emojiReactions.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
 import { CenterMapPlugin } from "./plugins/centerMap.js";
-import { AnnotatorPlugin } from "./plugins/annotator.js";
 import { MindMapBranchPlugin } from "./plugins/mindMapBranch.js";
 import { InstantTooltipPlugin } from "./plugins/instantTooltip.js";
 import {
@@ -278,7 +277,6 @@ app.use(SelectionPlugin);
 app.use(CatalogActionsPlugin);
 app.use(DrawingPlugin);
 app.use(ShapesPlugin);
-app.use(AnnotatorPlugin);
 app.use(InlineEditBridgePlugin);
 app.use(PageComparePlugin);
 const { toolbarPlugin } = mountToolbarPlugins(app, ui, leftToolbar);
