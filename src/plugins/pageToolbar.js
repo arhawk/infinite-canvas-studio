@@ -11,6 +11,7 @@ import {
   DEFAULT_COLOR_SWATCHES,
 } from "../lib/colorToolbar.js";
 import { clamp01, syncOpacityUi } from "../lib/styleControls.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 import { getClientPoint, resolveSelectableFromStageEvent } from "./toolbarShared.js";
 
 const PAGE_LAYER_ACTIONS = [
@@ -463,21 +464,23 @@ export class PageToolbarPlugin extends BasePlugin {
   }
 
   resolvePagePanelState(node) {
+    const theme = getCanvasTheme().page;
     const labelNode = node?.findOne?.(".page-label");
     const background = node?.findOne?.(".container-bg");
     return {
       fontSize: labelNode?.fontSize?.() ?? 16,
-      textColor: labelNode?.fill?.() ?? "#ab4f28",
-      fill: node?.getAttr?.("pageFill") ?? background?.fill?.() ?? "#fffdf8",
+      textColor: labelNode?.fill?.() ?? theme.labelColor,
+      fill: node?.getAttr?.("pageFill") ?? background?.fill?.() ?? theme.fill,
       opacity: clamp01(node?.getAttr?.("pageFillOpacity") ?? 1),
     };
   }
 
   deriveLineAndBorderColor(color) {
     if (typeof color !== "string" || !color) {
+      const theme = getCanvasTheme().page;
       return {
-        border: "#c9b393",
-        headerLine: "rgba(171, 79, 40, 0.12)",
+        border: theme.stroke,
+        headerLine: theme.headerLineStroke,
       };
     }
     const normalized = color.trim();

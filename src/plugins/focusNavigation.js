@@ -6,6 +6,7 @@ import { getConnectionConfiguredStyle } from "../component/connection.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 import { chooseDirectionalNavigationCandidate } from "../lib/pageDirectionNavigation.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 const NAV_BUTTON_RADIUS = 16;
 const NAV_BUTTON_OFFSET = NAV_BUTTON_RADIUS + 6;
@@ -818,12 +819,21 @@ export class FocusNavigationPlugin extends BasePlugin {
       name: "presentation-nav-button",
     });
 
+    const handleTheme = getCanvasTheme().connectionHandle;
+    const defaultFill = "rgba(255, 250, 240, 0.98)";
+    const defaultFillHover = "rgba(255, 244, 230, 1)";
+    const navFill = handleTheme?.fill ?? defaultFill;
+    const navFillHover = handleTheme?.fill ?? defaultFillHover;
+    const navStroke = handleTheme?.stroke ?? "#d7612f";
+    const navShadow = handleTheme?.shadowColor ?? "rgba(54, 41, 25, 0.22)";
+    const navTextColor = handleTheme?.stroke ?? "#ab4f28";
+
     const outer = new Konva.Circle({
       radius: NAV_BUTTON_RADIUS,
-      fill: "rgba(255, 250, 240, 0.98)",
-      stroke: "#d7612f",
+      fill: navFill,
+      stroke: navStroke,
       strokeWidth: 2,
-      shadowColor: "rgba(54, 41, 25, 0.22)",
+      shadowColor: navShadow,
       shadowBlur: 18,
       shadowOpacity: 0.35,
     });
@@ -839,7 +849,7 @@ export class FocusNavigationPlugin extends BasePlugin {
       fontSize: 18,
       fontFamily: DISPLAY_FONT_FAMILY,
       fontStyle: "700",
-      fill: "#ab4f28",
+      fill: navTextColor,
       listening: false,
     });
 
@@ -849,7 +859,7 @@ export class FocusNavigationPlugin extends BasePlugin {
       } else {
         this.app.clearCursorOverride();
       }
-      outer.fill(hovered ? "rgba(255, 244, 230, 1)" : "rgba(255, 250, 240, 0.98)");
+      outer.fill(hovered ? navFillHover : navFill);
       outer.scale({
         x: hovered ? 1.08 : 1,
         y: hovered ? 1.08 : 1,

@@ -3,6 +3,7 @@ import { applyOverlayOcclusionStyles, getOverlayOcclusionRects } from "./overlay
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { renderIcons } from "../lib/icons.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 const DEFAULT_WIDTH = 420;
 const DEFAULT_HEIGHT = 280;
@@ -75,6 +76,7 @@ export class IframeComponent extends BaseComponent {
     height = DEFAULT_HEIGHT,
     url = "",
   } = {}) {
+    const theme = getCanvasTheme().iframe;
     const resolvedWidth = normalizeDimension(width, DEFAULT_WIDTH, MIN_WIDTH);
     const resolvedHeight = normalizeDimension(height, DEFAULT_HEIGHT, MIN_HEIGHT);
     const group = new Konva.Group({
@@ -90,11 +92,11 @@ export class IframeComponent extends BaseComponent {
       new Konva.Rect({
         width: resolvedWidth,
         height: resolvedHeight,
-        fill: "#fffdf8",
-        stroke: "#dcc7b1",
+        fill: theme.fill,
+        stroke: theme.stroke,
         strokeWidth: 2,
         cornerRadius: 18,
-        shadowColor: "rgba(54, 41, 25, 0.1)",
+        shadowColor: theme.shadowColor,
         shadowBlur: 18,
         shadowOffsetY: 8,
         shadowOpacity: 0.18,
@@ -105,7 +107,7 @@ export class IframeComponent extends BaseComponent {
     group.add(
       new Konva.Line({
         points: [0, HEADER_HEIGHT, resolvedWidth, HEADER_HEIGHT],
-        stroke: "rgba(171, 79, 40, 0.12)",
+        stroke: theme.headerLineStroke,
         strokeWidth: 1,
         listening: false,
         name: "iframe-header",
@@ -121,7 +123,7 @@ export class IframeComponent extends BaseComponent {
         text: "Use header bar to\nadd webpage URL",
         fontSize: 15,
         fontFamily: DISPLAY_FONT_FAMILY,
-        fill: "#8d7760",
+        fill: theme.placeholderColor,
         align: "center",
         verticalAlign: "middle",
         name: "iframe-placeholder",

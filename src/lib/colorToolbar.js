@@ -606,6 +606,7 @@ export class ColorToolbarController {
     state.hsv = hsv;
     state.field.style.setProperty("--button-custom-color", color);
     state.field.style.setProperty("--button-custom-hue", `${Math.round(hsv.h)}`);
+    state.picker.style.setProperty("--button-custom-hue", `${Math.round(hsv.h)}`);
     state.preview.style.backgroundColor = color;
     state.hue.value = String(Math.round(hsv.h));
     state.modeSelect.value = state.mode;

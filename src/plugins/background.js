@@ -5,10 +5,11 @@ import {
   normalizeBackgroundState,
 } from "../background/state.js";
 import { DEFAULT_COLOR_SWATCHES } from "../lib/colorToolbar.js";
+import { CANVAS_THEME_IDS, applyCanvasThemeToDefaultNodes } from "../theme/canvasTheme.js";
 
 const STYLE_OPTIONS = [
-  { id: "default", label: "Default", canvasColor: "#f7f3ea" },
-  { id: "colorful", label: "Colorful", canvasColor: "#ffffff" },
+  { id: CANVAS_THEME_IDS.default, label: "Default", canvasColor: "#f7f3ea" },
+  { id: CANVAS_THEME_IDS.colorful, label: "Colorful", canvasColor: "#ffffff" },
 ];
 
 const BACKGROUND_TYPE_OPTIONS = [
@@ -223,8 +224,9 @@ export class BackgroundPlugin extends BasePlugin {
   applyTheme(styleId) {
     const option = getStyleOption(styleId);
     this.currentTheme = option.id;
-    document.body.classList.toggle("theme-colorful", option.id === "colorful");
+    document.body.classList.toggle("theme-colorful", option.id === CANVAS_THEME_IDS.colorful);
     this.applyBackgroundChange({ color: option.canvasColor });
+    applyCanvasThemeToDefaultNodes(this.app, option.id);
     this.syncStylePills();
   }
 

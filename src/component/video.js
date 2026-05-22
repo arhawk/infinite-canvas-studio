@@ -1,6 +1,7 @@
 import { BaseComponent } from "../core/baseClasses.js";
 import { applyOverlayOcclusionStyles, getOverlayOcclusionRects } from "./overlayOcclusion.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 const DEFAULT_WIDTH = 360;
 const DEFAULT_HEIGHT = 240;
@@ -50,6 +51,7 @@ export class VideoComponent extends BaseComponent {
   static description = "Play a local video file";
 
   async createNode({ x, y, src = null, title = DEFAULT_TITLE } = {}) {
+    const theme = getCanvasTheme().video;
     const group = new Konva.Group({
       x,
       y,
@@ -62,8 +64,8 @@ export class VideoComponent extends BaseComponent {
     group.add(new Konva.Rect({
       width: DEFAULT_WIDTH,
       height: DEFAULT_HEIGHT + HEADER_HEIGHT,
-      fill: "#fdf8f3",
-      stroke: "#dcc7b1",
+      fill: theme.fill,
+      stroke: theme.stroke,
       strokeWidth: 1.5,
       cornerRadius: 14,
       name: "video-bg",
@@ -74,7 +76,7 @@ export class VideoComponent extends BaseComponent {
       y: HEADER_HEIGHT,
       width: DEFAULT_WIDTH,
       height: DEFAULT_HEIGHT,
-      fill: "#1a1a2e",
+      fill: theme.bodyFill,
       cornerRadius: [0, 0, 14, 14],
       name: "video-area",
     }));
@@ -87,7 +89,7 @@ export class VideoComponent extends BaseComponent {
       text: "Use toolbar to upload video",
       fontSize: 14,
       fontFamily: "sans-serif",
-      fill: "#a68b6d",
+      fill: theme.placeholderColor,
       align: "center",
       verticalAlign: "middle",
       name: "video-placeholder",

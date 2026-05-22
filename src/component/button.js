@@ -1,6 +1,7 @@
 import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import { CANVAS_THEME_IDS, getCanvasTheme } from "../theme/canvasTheme.js";
 import { SHAPE_TYPES } from "./shape.js";
 
 const DEFAULT_WIDTH = 132;
@@ -40,6 +41,20 @@ function normalizeColor(value, fallback) {
   return typeof value === "string" && value ? value : fallback;
 }
 
+function normalizeColorKey(value) {
+  return String(value ?? "").replace(/\s+/g, "").toLowerCase();
+}
+
+function getButtonShadowColor(fill) {
+  const fillKey = normalizeColorKey(fill);
+  const defaultTheme = getCanvasTheme(CANVAS_THEME_IDS.default).button;
+  const colorfulTheme = getCanvasTheme(CANVAS_THEME_IDS.colorful).button;
+
+  if (fillKey === normalizeColorKey(defaultTheme.fill)) return defaultTheme.shadowColor;
+  if (fillKey === normalizeColorKey(colorfulTheme.fill)) return colorfulTheme.shadowColor;
+  return getCanvasTheme().button.shadowColor;
+}
+
 function clampNumber(value, fallback, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) {
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
@@ -67,6 +82,7 @@ function fillWithOpacity(color, opacity) {
 }
 
 function getButtonData(node, overrides = {}) {
+  const theme = getCanvasTheme().button;
   const background = node.findOne?.(".button-bg");
   const labelNode = node.findOne?.(".button-label");
   const currentLabel = labelNode?.text?.();
@@ -91,11 +107,11 @@ function getButtonData(node, overrides = {}) {
       : currentLabel?.trim?.() || DEFAULT_LABEL,
     fill: normalizeColor(
       overrides.fill,
-      node.getAttr?.("buttonFill") ?? background?.fill?.() ?? DEFAULT_FILL,
+      node.getAttr?.("buttonFill") ?? background?.fill?.() ?? theme.fill,
     ),
     stroke: normalizeColor(
       overrides.stroke,
-      node.getAttr?.("buttonStroke") ?? background?.stroke?.() ?? DEFAULT_STROKE,
+      node.getAttr?.("buttonStroke") ?? background?.stroke?.() ?? theme.stroke,
     ),
     strokeWidth: clampNumber(
       Number(overrides.strokeWidth),
@@ -113,7 +129,7 @@ function getButtonData(node, overrides = {}) {
     ),
     textColor: normalizeColor(
       overrides.textColor,
-      node.getAttr?.("buttonTextColor") ?? labelNode?.fill?.() ?? DEFAULT_TEXT_COLOR,
+      node.getAttr?.("buttonTextColor") ?? labelNode?.fill?.() ?? theme.textColor,
     ),
     fontSize: clampNumber(
       Number(overrides.fontSize),
@@ -149,6 +165,7 @@ function syncButtonVisuals(node, data = {}) {
   const labelNode = node.findOne(".button-label");
   const commonVisualAttrs = {
     ...BUTTON_SHADOW,
+    shadowColor: getButtonShadowColor(fill),
     fill: fillWithOpacity(fill, fillOpacity),
     stroke,
     strokeWidth,
@@ -469,20 +486,22 @@ export class ButtonComponent extends BaseComponent {
   static label = "Button";
   static description = "Presentation button that jumps to a connected focus";
 
-  async createNode({
-    x,
-    y,
-    width = DEFAULT_WIDTH,
-    height = DEFAULT_HEIGHT,
-    label = DEFAULT_LABEL,
-    fill = DEFAULT_FILL,
-    fillOpacity = DEFAULT_FILL_OPACITY,
-    stroke = DEFAULT_STROKE,
-    strokeWidth = BUTTON_STROKE_WIDTH,
-    textColor = DEFAULT_TEXT_COLOR,
-    fontSize = DEFAULT_FONT_SIZE,
-    shapeType = DEFAULT_SHAPE_TYPE,
-  } = {}) {
+  async createNode(payload = {}) {
+    const theme = getCanvasTheme().button;
+    const {
+      x,
+      y,
+      width = DEFAULT_WIDTH,
+      height = DEFAULT_HEIGHT,
+      label = DEFAULT_LABEL,
+      fill = theme.fill,
+      fillOpacity = DEFAULT_FILL_OPACITY,
+      stroke = theme.stroke,
+      strokeWidth = BUTTON_STROKE_WIDTH,
+      textColor = theme.textColor,
+      fontSize = DEFAULT_FONT_SIZE,
+      shapeType = DEFAULT_SHAPE_TYPE,
+    } = payload;
     const group = new Konva.Group({
       x,
       y,

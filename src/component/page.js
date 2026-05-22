@@ -1,6 +1,7 @@
 import { Konva } from "../lib/konva.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { BaseComponent } from "../core/baseClasses.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 import { EditableTextBehavior } from "./editableText.js";
 
 const PAGE_WIDTH = 960;
@@ -82,13 +83,20 @@ export class PageComponent extends BaseComponent {
     return "Page";
   }
 
-  async createNode({
-    x,
-    y,
-    width = PAGE_WIDTH,
-    height = PAGE_HEIGHT,
-    label = DEFAULT_PAGE_LABEL,
-  }) {
+  async createNode(payload = {}) {
+    const theme = getCanvasTheme().page;
+    const {
+      x,
+      y,
+      width = PAGE_WIDTH,
+      height = PAGE_HEIGHT,
+      label = DEFAULT_PAGE_LABEL,
+      fill = theme.fill,
+      stroke = theme.stroke,
+      labelColor = theme.labelColor,
+      headerLineStroke = theme.headerLineStroke,
+      shadowColor = theme.shadowColor,
+    } = payload;
     const group = new Konva.Group({
       x,
       y,
@@ -101,11 +109,11 @@ export class PageComponent extends BaseComponent {
     const rect = new Konva.Rect({
       width,
       height,
-      fill: "#fffdf8",
-      stroke: "#c9b393",
+      fill,
+      stroke,
       strokeWidth: 2,
       cornerRadius: 18,
-      shadowColor: "rgba(54, 41, 25, 0.16)",
+      shadowColor,
       shadowBlur: 28,
       shadowOffsetY: 12,
       shadowOpacity: 0.4,
@@ -115,7 +123,7 @@ export class PageComponent extends BaseComponent {
 
     const headerLine = new Konva.Line({
       points: [0, PAGE_HEADER_HEIGHT, width, PAGE_HEADER_HEIGHT],
-      stroke: "rgba(171, 79, 40, 0.12)",
+      stroke: headerLineStroke,
       strokeWidth: 1,
       listening: false,
       name: "page-header-line",
@@ -130,7 +138,7 @@ export class PageComponent extends BaseComponent {
       fontSize: 16,
       fontFamily: DISPLAY_FONT_FAMILY,
       fontStyle: "700",
-      fill: "#ab4f28",
+      fill: labelColor,
       padding: 16,
       wrap: "none",
       ellipsis: true,
@@ -166,9 +174,10 @@ export class PageComponent extends BaseComponent {
   }
 
   onCreated(node, payload = {}) {
+    const theme = getCanvasTheme().page;
     const width = Number.isFinite(payload.width) ? payload.width : PAGE_WIDTH;
     const height = Number.isFinite(payload.height) ? payload.height : PAGE_HEIGHT;
-    const fill = typeof payload.fill === "string" && payload.fill ? payload.fill : "#fffdf8";
+    const fill = typeof payload.fill === "string" && payload.fill ? payload.fill : theme.fill;
     const fillOpacity = clamp01(payload.fillOpacity, DEFAULT_PAGE_FILL_OPACITY);
 
     node.setAttrs({
@@ -187,15 +196,16 @@ export class PageComponent extends BaseComponent {
   }
 
   serializeNode(node) {
+    const theme = getCanvasTheme().page;
     const rect = node.findOne(".container-bg");
     const labelNode = node.findOne(".container-label");
     const base = {
       width: rect?.width() ?? node.width() ?? PAGE_WIDTH,
       height: rect?.height() ?? node.height() ?? PAGE_HEIGHT,
       label: labelNode?.text() ?? DEFAULT_PAGE_LABEL,
-      stroke: rect?.stroke() ?? "#c9b393",
-      fill: rect?.fill() ?? "#fffdf8",
-      labelColor: labelNode?.fill() ?? "#ab4f28",
+      stroke: rect?.stroke() ?? theme.stroke,
+      fill: rect?.fill() ?? theme.fill,
+      labelColor: labelNode?.fill() ?? theme.labelColor,
     };
     const headerLine = node.findOne(".page-header-line");
     const background = node.findOne(".container-bg");
@@ -208,11 +218,12 @@ export class PageComponent extends BaseComponent {
         Number.isFinite(node.opacity?.()) ? node.opacity() : DEFAULT_PAGE_FILL_OPACITY,
       ),
       renderedFill: background?.fill() ?? base.fill,
-      headerLineStroke: headerLine?.stroke() ?? "rgba(171, 79, 40, 0.12)",
+      headerLineStroke: headerLine?.stroke() ?? theme.headerLineStroke,
     };
   }
 
   async applySerializedData(node, data = {}) {
+    const theme = getCanvasTheme().page;
     const rect = node.findOne(".container-bg");
     const labelNode = node.findOne(".container-label");
 
@@ -237,7 +248,7 @@ export class PageComponent extends BaseComponent {
     const background = node.findOne(".container-bg");
     const fill = typeof data.fill === "string" && data.fill
       ? data.fill
-      : node.getAttr("pageFill") ?? "#fffdf8";
+      : node.getAttr("pageFill") ?? theme.fill;
     const fillOpacity = clamp01(data.fillOpacity, DEFAULT_PAGE_FILL_OPACITY);
     node.setAttr("pageFill", fill);
     node.setAttr("pageFillOpacity", fillOpacity);
@@ -254,7 +265,7 @@ export class PageComponent extends BaseComponent {
   applySerializedState(node, snapshot = {}) {
     super.applySerializedState(node, snapshot);
     const fillOpacity = clamp01(snapshot?.data?.fillOpacity, DEFAULT_PAGE_FILL_OPACITY);
-    const fill = node.getAttr("pageFill") ?? node.findOne(".container-bg")?.fill?.() ?? "#fffdf8";
+    const fill = node.getAttr("pageFill") ?? node.findOne(".container-bg")?.fill?.() ?? getCanvasTheme().page.fill;
     node.setAttr("pageFill", fill);
     node.setAttr("pageFillOpacity", fillOpacity);
     node.findOne(".container-bg")?.fill(fillWithOpacity(fill, fillOpacity));

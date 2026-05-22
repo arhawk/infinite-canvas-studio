@@ -1,6 +1,7 @@
 import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -47,6 +48,7 @@ export class ImageComponent extends BaseComponent {
   }
 
   #addPlaceholderToGroup(group) {
+    const theme = getCanvasTheme().image;
     const width = group.width();
     const height = group.height();
     group.setAttr("imageSrc", null);
@@ -54,8 +56,8 @@ export class ImageComponent extends BaseComponent {
     const rect = new Konva.Rect({
       width,
       height,
-      fill: "#fdf8f3",
-      stroke: "#dcc7b1",
+      fill: theme.fill,
+      stroke: theme.stroke,
       strokeWidth: 2,
       dash: [8, 4],
       cornerRadius: 18,
@@ -70,7 +72,7 @@ export class ImageComponent extends BaseComponent {
       verticalAlign: "middle",
       fontSize: 14,
       fontFamily: DISPLAY_FONT_FAMILY,
-      fill: "#a68b6d",
+      fill: theme.textColor,
       name: "placeholder-text",
     });
 

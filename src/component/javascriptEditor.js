@@ -1,6 +1,7 @@
 import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY, UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 const DEFAULT_WIDTH = 544;
 const DEFAULT_HEIGHT = 420;
@@ -333,6 +334,7 @@ function buildPreviewBridgeScript(nodeId, runRevision = 0) {
 }
 
 function buildEmptyPreviewDocument(nodeId, runRevision = 0) {
+  const theme = getCanvasTheme().javascriptEditor;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -354,8 +356,8 @@ function buildEmptyPreviewDocument(nodeId, runRevision = 0) {
         box-sizing: border-box;
         padding: 12px;
         overflow: hidden;
-        background: #fcfaf6;
-        color: #7b6551;
+        background: ${theme.previewBackground};
+        color: ${theme.previewTextColor};
         text-align: center;
       }
       p {
@@ -377,6 +379,7 @@ function buildEmptyPreviewDocument(nodeId, runRevision = 0) {
 }
 
 function buildRuntimeDocument({ code, nodeId, runRevision = 0 }) {
+  const theme = getCanvasTheme().javascriptEditor;
   const serializedCode = JSON.stringify(escapeScriptCloseTag(String(code ?? "")));
 
   return `<!doctype html>
@@ -394,8 +397,8 @@ function buildRuntimeDocument({ code, nodeId, runRevision = 0 }) {
         min-height: 100vh;
         padding: 14px 16px;
         box-sizing: border-box;
-        background: #fffdf9;
-        color: #2f2419;
+        background: ${theme.runtimeBackground};
+        color: ${theme.runtimeTextColor};
       }
       #app {
         min-height: 0;
@@ -721,6 +724,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
     code = DEFAULT_CODE,
     outputRatio = DEFAULT_OUTPUT_RATIO,
   } = {}) {
+    const theme = getCanvasTheme().javascriptEditor;
     const resolvedWidth = normalizeDimension(width, DEFAULT_WIDTH, MIN_WIDTH);
     const resolvedHeight = normalizeDimension(height, DEFAULT_HEIGHT, MIN_HEIGHT);
     const group = new Konva.Group({
@@ -736,11 +740,11 @@ export class JavaScriptEditorComponent extends BaseComponent {
       new Konva.Rect({
         width: resolvedWidth,
         height: resolvedHeight,
-        fill: "#fffdf8",
-        stroke: "rgba(61, 47, 32, 0.12)",
+        fill: theme.fill,
+        stroke: theme.stroke,
         strokeWidth: 1,
         cornerRadius: 20,
-        shadowColor: "rgba(54, 41, 25, 0.1)",
+        shadowColor: theme.shadowColor,
         shadowBlur: 18,
         shadowOffsetY: 8,
         shadowOpacity: 0.18,
@@ -751,7 +755,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
     group.add(
       new Konva.Line({
         points: [0, STATIC_HEADER_HEIGHT, resolvedWidth, STATIC_HEADER_HEIGHT],
-        stroke: "rgba(61, 47, 32, 0.1)",
+        stroke: theme.dividerStroke,
         strokeWidth: 1,
         listening: false,
         name: "javascript-editor-divider",
@@ -769,7 +773,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
         fontFamily: DISPLAY_FONT_FAMILY,
         fontStyle: "700",
         letterSpacing: 0.2,
-        fill: "#d7612f",
+        fill: theme.titleColor,
         name: "javascript-editor-title",
       }),
     );
@@ -780,8 +784,8 @@ export class JavaScriptEditorComponent extends BaseComponent {
         y: STATIC_BODY_TOP,
         width: resolvedWidth - STATIC_BODY_INSET_X * 2,
         height: 180,
-        fill: "#fffdf8",
-        stroke: "rgba(61, 47, 32, 0.1)",
+        fill: theme.editorFill,
+        stroke: theme.editorStroke,
         strokeWidth: 1,
         cornerRadius: 14,
         listening: false,
@@ -812,19 +816,14 @@ export class JavaScriptEditorComponent extends BaseComponent {
           STATIC_BODY_INSET_X + 44,
           STATIC_BODY_TOP + 92,
         ],
-        stroke: "rgba(215, 97, 47, 0.16)",
+        stroke: theme.cursorStroke,
         strokeWidth: 2,
         listening: false,
         name: "javascript-editor-static-code-cursor",
       }),
     );
 
-    [
-      "rgba(44, 117, 67, 0.42)",
-      "rgba(61, 47, 32, 0.16)",
-      "rgba(181, 76, 66, 0.28)",
-      "rgba(61, 47, 32, 0.14)",
-    ].forEach((stroke, index) => {
+    theme.codeLineStrokes.forEach((stroke, index) => {
       group.add(
         new Konva.Line({
           points: [0, 0, 180, 0],
@@ -843,7 +842,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
         y: 250,
         width: 56,
         height: 4,
-        fill: "rgba(61, 47, 32, 0.12)",
+        fill: theme.splitterFill,
         cornerRadius: 999,
         listening: false,
         name: "javascript-editor-static-splitter",
@@ -856,8 +855,8 @@ export class JavaScriptEditorComponent extends BaseComponent {
         y: 270,
         width: resolvedWidth - STATIC_BODY_INSET_X * 2,
         height: 120,
-        fill: "rgba(255, 255, 255, 0.72)",
-        stroke: "rgba(61, 47, 32, 0.1)",
+        fill: theme.outputFill,
+        stroke: theme.editorStroke,
         strokeWidth: 1,
         cornerRadius: 14,
         listening: false,
@@ -871,7 +870,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
         y: 282,
         width: 58,
         height: 20,
-        fill: "rgba(61, 47, 32, 0.06)",
+        fill: theme.tabFill,
         cornerRadius: 999,
         listening: false,
         name: "javascript-editor-static-tab",
@@ -886,7 +885,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
         text: "Preview output",
         fontSize: 12,
         fontFamily: UI_FONT_FAMILY,
-        fill: "#8d7760",
+        fill: theme.hintColor,
         align: "center",
         listening: false,
         name: "javascript-editor-static-output-hint",

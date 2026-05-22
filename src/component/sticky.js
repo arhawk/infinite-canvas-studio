@@ -2,6 +2,7 @@ import { BaseComponent } from "../core/baseClasses.js";
 import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 import {
   serializeNodeTextAnnotations,
   setNodeTextAnnotations,
@@ -47,12 +48,13 @@ function fillWithOpacity(color, opacity) {
 }
 
 function syncStickyVisuals(node, data = {}) {
+  const theme = getCanvasTheme().sticky;
   const width = normalizeDimension(data.width, DEFAULT_WIDTH, MIN_WIDTH);
   const height = normalizeDimension(data.height, DEFAULT_HEIGHT, MIN_HEIGHT);
   const text = typeof data.text === "string" && data.text ? data.text : "Sticky note";
-  const fill = typeof data.fill === "string" && data.fill ? data.fill : DEFAULT_STICKY_FILL;
+  const fill = typeof data.fill === "string" && data.fill ? data.fill : theme.fill;
   const fillOpacity = clamp01(data.fillOpacity, DEFAULT_STICKY_FILL_OPACITY);
-  const textColor = typeof data.textColor === "string" && data.textColor ? data.textColor : DEFAULT_STICKY_TEXT_COLOR;
+  const textColor = typeof data.textColor === "string" && data.textColor ? data.textColor : theme.textColor;
   const fontSize = normalizeDimension(data.fontSize, DEFAULT_STICKY_FONT_SIZE, 12);
   const rect = node.findOne(".sticky-bg");
   const textNode = node.findOne(".sticky-text");
@@ -104,6 +106,7 @@ export function applyStickyStyle(node, patch = {}) {
 
 function installStickyResize(group) {
   group.on("transform.stickyResize", () => {
+    const theme = getCanvasTheme().sticky;
     const rect = group.findOne(".sticky-bg");
     const textNode = group.findOne(".sticky-text");
     const scaleX = Math.abs(group.scaleX());
@@ -116,9 +119,9 @@ function installStickyResize(group) {
       width: currentWidth * scaleX,
       height: currentHeight * scaleY,
       text: textNode?.text() ?? "Sticky note",
-      fill: group.getAttr("stickyFill") ?? "#ffe082",
+      fill: group.getAttr("stickyFill") ?? theme.fill,
       fillOpacity: clamp01(group.getAttr("stickyFillOpacity"), DEFAULT_STICKY_FILL_OPACITY),
-      textColor: textNode?.fill() ?? "#47361c",
+      textColor: textNode?.fill() ?? theme.textColor,
       fontSize: textNode?.fontSize() ?? DEFAULT_FONT_SIZE,
     });
   });
@@ -129,17 +132,19 @@ export class StickyComponent extends BaseComponent {
   static label = "Sticky Note";
   static description = "Colorful note block";
 
-  async createNode({
-    x,
-    y,
-    width = DEFAULT_WIDTH,
-    height = DEFAULT_HEIGHT,
-    text = "Sticky note",
-    fill = DEFAULT_STICKY_FILL,
-    fillOpacity = DEFAULT_STICKY_FILL_OPACITY,
-    textColor = DEFAULT_STICKY_TEXT_COLOR,
-    fontSize = DEFAULT_STICKY_FONT_SIZE,
-  }) {
+  async createNode(payload = {}) {
+    const theme = getCanvasTheme().sticky;
+    const {
+      x,
+      y,
+      width = DEFAULT_WIDTH,
+      height = DEFAULT_HEIGHT,
+      text = "Sticky note",
+      fill = theme.fill,
+      fillOpacity = DEFAULT_STICKY_FILL_OPACITY,
+      textColor = theme.textColor,
+      fontSize = DEFAULT_STICKY_FONT_SIZE,
+    } = payload;
     const group = new Konva.Group({
       x,
       y,
@@ -153,7 +158,7 @@ export class StickyComponent extends BaseComponent {
       height,
       fill,
       cornerRadius: 18,
-      shadowColor: "rgba(54, 41, 25, 0.2)",
+      shadowColor: theme.shadowColor,
       shadowBlur: 18,
       shadowOffsetY: 10,
       shadowOpacity: 0.4,

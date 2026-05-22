@@ -1,5 +1,6 @@
 import { BaseCommand, BasePlugin, BaseTool } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 function distanceToSegment(point, start, end) {
   const dx = end.x - start.x;
@@ -162,8 +163,8 @@ export class DrawingPlugin extends BasePlugin {
     this.eraserPreview = new Konva.Circle({
       visible: false,
       listening: false,
-      stroke: "rgba(215, 97, 47, 0.95)",
-      fill: "rgba(215, 97, 47, 0.12)",
+      stroke: getCanvasTheme().eraser?.stroke ?? "rgba(215, 97, 47, 0.95)",
+      fill: getCanvasTheme().eraser?.fill ?? "rgba(215, 97, 47, 0.12)",
       dash: [6, 4],
     });
     this.app.overlayLayer.add(this.eraserPreview);
@@ -308,6 +309,9 @@ export class DrawingPlugin extends BasePlugin {
     }
 
     const scale = this.app.stageApi.getScale();
+    const eraserTheme = getCanvasTheme().eraser;
+    this.eraserPreview.stroke(eraserTheme?.stroke ?? "rgba(215, 97, 47, 0.95)");
+    this.eraserPreview.fill(eraserTheme?.fill ?? "rgba(215, 97, 47, 0.12)");
     this.eraserPreview.position(point);
     this.eraserPreview.radius(this.getActiveEraserRadius());
     this.eraserPreview.strokeWidth(1 / scale);

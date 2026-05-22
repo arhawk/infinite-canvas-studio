@@ -1,7 +1,12 @@
 import { BaseComponent } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 export const DEFAULT_STROKE = "#d7612f";
+
+export function getDefaultConnectionStroke() {
+  return getCanvasTheme().connection?.stroke ?? DEFAULT_STROKE;
+}
 export const DEFAULT_LINE_OPACITY = 0.9;
 export const CONNECTION_KIND_DIRECTED = "directed";
 export const CONNECTION_KIND_TERMDEF = "termdef";
@@ -126,7 +131,7 @@ export class ConnectionComponent extends BaseComponent {
   static palette = false;
 
   async createNode({
-    stroke = DEFAULT_STROKE,
+    stroke = getDefaultConnectionStroke(),
     hiddenUntilEndpointSelected = false,
     strokeWidth = 3,
     pointerLength = 10,
@@ -173,7 +178,7 @@ export class ConnectionComponent extends BaseComponent {
       connectionKind: normalizeConnectionKind(payload.connectionKind),
     });
     setConnectionConfiguredStyle(node, {
-      stroke: payload.stroke ?? DEFAULT_STROKE,
+      stroke: payload.stroke ?? getDefaultConnectionStroke(),
       hiddenUntilEndpointSelected: payload.hiddenUntilEndpointSelected === true,
     });
     applyConnectionKindStyle(node, {

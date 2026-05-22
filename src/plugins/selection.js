@@ -6,6 +6,7 @@ import {
 } from "../core/baseClasses.js";
 import { getViewportCenter } from "../lib/componentPlacement.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 const GUIDE_TOLERANCE = 6;
 const MARQUEE_THRESHOLD = 4;
@@ -1464,6 +1465,7 @@ export class SelectionPlugin extends BasePlugin {
 
     if (verticalGuide) {
       nextPosition.x = verticalGuide.lineGuide + verticalGuide.offset;
+      this.guideLineVertical.stroke(getCanvasTheme().snapGuide?.stroke ?? "#d7612f");
       this.guideLineVertical.points([
         verticalGuide.lineGuide,
         this.app.stageApi.screenToCanvas({ x: 0, y: 0 }).y,
@@ -1477,6 +1479,7 @@ export class SelectionPlugin extends BasePlugin {
 
     if (horizontalGuide) {
       nextPosition.y = horizontalGuide.lineGuide + horizontalGuide.offset;
+      this.guideLineHorizontal.stroke(getCanvasTheme().snapGuide?.stroke ?? "#d7612f");
       this.guideLineHorizontal.points([
         this.app.stageApi.screenToCanvas({ x: 0, y: 0 }).x,
         horizontalGuide.lineGuide,

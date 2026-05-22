@@ -3,9 +3,11 @@ import {
   BaseContextMenuItem,
   BasePlugin,
 } from "../core/baseClasses.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 import {
   DEFAULT_LINE_OPACITY,
   DEFAULT_STROKE,
+  getDefaultConnectionStroke,
   CONNECTION_KIND_DIRECTED,
   CONNECTION_KIND_TERMDEF,
   TERMDEF_LINE_OPACITY,
@@ -220,8 +222,8 @@ export class ConnectionsPlugin extends BasePlugin {
 
     this.autoConnectPreviewLine = new Konva.Arrow({
       points: [0, 0, 0, 0, 0, 0, 0, 0],
-      stroke: DEFAULT_STROKE,
-      fill: DEFAULT_STROKE,
+      stroke: getDefaultConnectionStroke(),
+      fill: getDefaultConnectionStroke(),
       strokeWidth: 3,
       opacity: 0,
       pointerLength: 10,
@@ -290,12 +292,13 @@ export class ConnectionsPlugin extends BasePlugin {
   }
 
   createControlHandle(offsetKey) {
+    const handleTheme = getCanvasTheme().connectionHandle;
     const handle = new Konva.Circle({
       radius: CONTROL_HANDLE_RADIUS,
-      fill: "#fffaf2",
-      stroke: "#d7612f",
+      fill: handleTheme?.fill ?? "#fffaf2",
+      stroke: handleTheme?.stroke ?? "#d7612f",
       strokeWidth: 2,
-      shadowColor: "rgba(54, 41, 25, 0.18)",
+      shadowColor: handleTheme?.shadowColor ?? "rgba(54, 41, 25, 0.18)",
       shadowBlur: 10,
       shadowOpacity: 0.35,
       draggable: true,
@@ -744,6 +747,10 @@ export class ConnectionsPlugin extends BasePlugin {
   }
 
   showAutoConnectPreview() {
+    const theme = getCanvasTheme();
+    const previewStroke = theme.buttonConnectionPreview?.stroke ?? theme.buttonConnection?.stroke ?? getDefaultConnectionStroke();
+    this.autoConnectPreviewLine.stroke(previewStroke);
+    this.autoConnectPreviewLine.fill(previewStroke);
     this.autoConnectPreviewLine.visible(true);
     this.autoConnectPreviewLine.opacity(AUTO_CONNECT_PREVIEW_MAX_OPACITY);
     this.syncAutoConnectPreview();
@@ -1002,6 +1009,13 @@ export class ConnectionsPlugin extends BasePlugin {
     const inverseScale = 1 / this.app.stageApi.getScale();
     this.controlHandleGroup.visible(true);
 
+    const handleTheme = getCanvasTheme().connectionHandle;
+    Object.values(this.controlHandles).forEach((h) => {
+      h.fill(handleTheme?.fill ?? "#fffaf2");
+      h.stroke(handleTheme?.stroke ?? "#d7612f");
+      h.shadowColor(handleTheme?.shadowColor ?? "rgba(54, 41, 25, 0.18)");
+    });
+
     this.controlHandles.controlOffsetStart.setAttrs({
       x: geometry.cp1.x,
       y: geometry.cp1.y,
@@ -1065,10 +1079,14 @@ export class ConnectionsPlugin extends BasePlugin {
         .forEach((connectionNode) => this.removeConnection(connectionNode));
     }
 
+    const buttonStroke = isButtonNode(source)
+      ? (getCanvasTheme().buttonConnection?.stroke ?? getDefaultConnectionStroke())
+      : undefined;
     const connection = await this.app.addComponent("connection", {
       sourceNodeId: sourceId,
       targetNodeId: targetId,
       hiddenUntilEndpointSelected: isButtonNode(source),
+      ...(buttonStroke != null ? { stroke: buttonStroke } : {}),
     });
 
     if (!connection) return null;

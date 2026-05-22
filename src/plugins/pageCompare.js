@@ -1,5 +1,6 @@
 import { BaseCommand, BasePlugin } from "../core/baseClasses.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 
 const PANE_MIN_SCALE = 0.08;
 const PANE_MAX_SCALE = 6;
@@ -7,7 +8,11 @@ const PANE_ZOOM_STEP = 1.08;
 const PANE_FIT_PADDING = 24;
 const SNAPSHOT_MAX_PIXEL_RATIO = 4;
 const SNAPSHOT_MAX_PIXELS = 16000000;
-const SELECTION_STROKE = "#f2b84b";
+const DEFAULT_SELECTION_STROKE = "#f2b84b";
+
+function getSelectionStroke() {
+  return getCanvasTheme().page?.stroke ?? DEFAULT_SELECTION_STROKE;
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -313,7 +318,7 @@ export class PageComparePlugin extends BasePlugin {
         y: bounds.y - 8,
         width: bounds.width + 16,
         height: bounds.height + 16,
-        stroke: SELECTION_STROKE,
+        stroke: getSelectionStroke(),
         strokeWidth: 3,
         dash: index === 0 ? [] : [10, 7],
         cornerRadius: 22,

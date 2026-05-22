@@ -1,6 +1,7 @@
 import { BaseComponent } from "../core/baseClasses.js";
 import { DISPLAY_FONT_FAMILY, UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import { getCanvasTheme } from "../theme/canvasTheme.js";
 import { EditableTextBehavior } from "./editableText.js";
 
 const DEFAULT_WIDTH = 360;
@@ -224,6 +225,7 @@ function getMaxScroll(height, contentHeight, headerHeight) {
 }
 
 export function normalizeRankingBoxData(data = {}) {
+  const theme = getCanvasTheme().rankingBox;
   const width = normalizeDimension(data.width, DEFAULT_WIDTH, MIN_WIDTH);
   const height = normalizeDimension(data.height, DEFAULT_HEIGHT, MIN_HEIGHT);
   const items = normalizeRankingItems(data.items);
@@ -251,8 +253,8 @@ export function normalizeRankingBoxData(data = {}) {
     ),
     contentHeight,
     titleFontSize,
-    titleColor: normalizeColor(data.titleColor, DEFAULT_RANKING_BOX_TITLE_COLOR),
-    themeColor: normalizeColor(data.themeColor, DEFAULT_RANKING_BOX_THEME_COLOR),
+    titleColor: normalizeColor(data.titleColor, theme.titleColor),
+    themeColor: normalizeColor(data.themeColor, theme.themeColor),
   };
 }
 
@@ -503,17 +505,19 @@ export class RankingBoxComponent extends BaseComponent {
   static label = "Ranking Box";
   static description = "Sortable box for collecting references to text blocks";
 
-  async createNode({
-    x,
-    y,
-    width = DEFAULT_WIDTH,
-    height = DEFAULT_HEIGHT,
-    label = DEFAULT_RANKING_BOX_LABEL,
-    items = [],
-    titleFontSize = DEFAULT_RANKING_BOX_TITLE_FONT_SIZE,
-    titleColor = DEFAULT_RANKING_BOX_TITLE_COLOR,
-    themeColor = DEFAULT_RANKING_BOX_THEME_COLOR,
-  }) {
+  async createNode(payload = {}) {
+    const theme = getCanvasTheme().rankingBox;
+    const {
+      x,
+      y,
+      width = DEFAULT_WIDTH,
+      height = DEFAULT_HEIGHT,
+      label = DEFAULT_RANKING_BOX_LABEL,
+      items = [],
+      titleFontSize = DEFAULT_RANKING_BOX_TITLE_FONT_SIZE,
+      titleColor = theme.titleColor,
+      themeColor = theme.themeColor,
+    } = payload;
     const themeStyles = getRankingBoxThemeStyles(themeColor);
     const headerHeight = getRankingBoxHeaderHeight(titleFontSize);
     const titleHeight = getRankingBoxTitleHeight(titleFontSize);
