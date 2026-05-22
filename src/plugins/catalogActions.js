@@ -12,6 +12,7 @@ const SHAPE_TYPE_LABELS = {
   rhombus: "Rhombus",
   triangle: "Triangle",
 };
+const CATALOG_ACTION_TOAST_DURATION = 3000;
 
 function getSelectionPlugin(app) {
   return app.plugins.find(
@@ -36,17 +37,6 @@ function syncCatalogNodeUi(node, data) {
     const count = data.items.length;
     subtitleNode.text(count === 1 ? "1 item" : `${count} items`);
   }
-}
-
-function notifyCatalogAction(message) {
-  if (!message) return;
-
-  if (import.meta.env.VITE_E2E === "1") {
-    console.info(`[catalog] ${message}`);
-    return;
-  }
-
-  window.alert(message);
 }
 
 function getDefaultShapeTitle(node) {
@@ -115,9 +105,27 @@ export function getUniqueCatalogTitle(node, items = []) {
   return `${baseTitle} ${suffix}`;
 }
 
+function collectCatalogTargetNodes(nodes = []) {
+  const targetNodes = [];
+  const seenIds = new Set();
+
+  nodes.forEach((node) => {
+    if (node?.getAttr?.("componentType") === "catalog") return;
+
+    const targetNode = resolveCatalogTargetNode(node);
+    const targetId = targetNode?.id?.();
+    if (!targetNode || !targetId || seenIds.has(targetId)) return;
+
+    seenIds.add(targetId);
+    targetNodes.push(targetNode);
+  });
+
+  return targetNodes;
+}
+
 class AddSelectedNodeToCatalogCommand extends BaseCommand {
   static commandId = "catalog:add-selected";
-  static label = "Add Selected Node To Catalog";
+  static label = "Add Selected Nodes To Catalog";
 
   execute() {
     this.plugin.addSelectedNodeToCatalog();
@@ -132,16 +140,58 @@ export class CatalogActionsPlugin extends BasePlugin {
   }
 
   onSetup() {
+    this.toastEl = null;
+    this.toastTimeout = null;
+    this.toastHideTimeout = null;
+    this.buildActionToast();
+
     this.app.keybindings.register("ctrl+alt+a", "catalog:add-selected");
     this.app.keybindings.register("meta+alt+a", "catalog:add-selected");
 
     this.cleanups.push(() => this.app.keybindings.unregister("ctrl+alt+a"));
     this.cleanups.push(() => this.app.keybindings.unregister("meta+alt+a"));
+    this.cleanups.push(() => {
+      window.clearTimeout(this.toastTimeout);
+      window.clearTimeout(this.toastHideTimeout);
+      this.toastEl?.remove();
+    });
+  }
+
+  buildActionToast() {
+    this.toastEl = document.createElement("div");
+    this.toastEl.className = "catalog-action-toast";
+    this.toastEl.hidden = true;
+    this.toastEl.dataset.testid = "catalog-action-toast";
+    this.toastEl.setAttribute("role", "status");
+    this.toastEl.setAttribute("aria-live", "polite");
+    document.body.append(this.toastEl);
+  }
+
+  notifyCatalogAction(message) {
+    if (!message || !this.toastEl) return;
+
+    window.clearTimeout(this.toastTimeout);
+    window.clearTimeout(this.toastHideTimeout);
+    this.toastEl.textContent = message;
+    this.toastEl.hidden = false;
+
+    window.requestAnimationFrame(() => {
+      this.toastEl?.classList.add("is-visible");
+    });
+
+    this.toastTimeout = window.setTimeout(() => {
+      this.toastEl?.classList.remove("is-visible");
+      this.toastHideTimeout = window.setTimeout(() => {
+        if (this.toastEl) {
+          this.toastEl.hidden = true;
+        }
+      }, 650);
+    }, CATALOG_ACTION_TOAST_DURATION);
   }
 
   addSelectedNodeToCatalog() {
     if (this.app.isReadOnly()) {
-      notifyCatalogAction("Switch to Edit before changing the catalog.");
+      this.notifyCatalogAction("Switch to Edit before changing the catalog.");
       return;
     }
 
@@ -152,48 +202,48 @@ export class CatalogActionsPlugin extends BasePlugin {
     }
 
     const selectedNodes = selectionPlugin.getSelectedNodes();
-    const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
-
-    if (!selectedNode) {
-      notifyCatalogAction(
-        selectedNodes.length > 1
-          ? "Please select one node before adding it to the catalog."
-          : "Please select a node first.",
-      );
+    if (!selectedNodes.length) {
+      this.notifyCatalogAction("Please select a node first.");
       return;
     }
 
-    if (selectedNode.getAttr("componentType") === "catalog") {
-      notifyCatalogAction("You cannot add the catalog node into itself.");
+    const targetNodes = collectCatalogTargetNodes(selectedNodes);
+    if (!targetNodes.length) {
+      this.notifyCatalogAction("You cannot add the catalog node into itself.");
       return;
     }
 
     const catalogNode = getCatalogNode(this.app);
     if (!catalogNode) {
-      notifyCatalogAction("Catalog node not found.");
+      this.notifyCatalogAction("Catalog node not found.");
       return;
     }
 
     const catalogData = getCatalogData(catalogNode);
-    const targetNode = resolveCatalogTargetNode(selectedNode);
-    if (!targetNode) return;
+    let nextItems = catalogData.items;
+    let addedCount = 0;
 
-    const existingItem = findCatalogItemByNodeId(
-      catalogData.items,
-      targetNode.id(),
-    );
+    targetNodes.forEach((targetNode) => {
+      const existingItem = findCatalogItemByNodeId(nextItems, targetNode.id());
+      if (existingItem) return;
 
-    if (existingItem) {
-      notifyCatalogAction("This node is already in the catalog.");
+      nextItems = insertCatalogItemIntoItems(nextItems, {
+        nodeId: targetNode.id(),
+        title: getUniqueCatalogTitle(targetNode, nextItems),
+        titleSource: "node",
+        parentId: null,
+      });
+      addedCount += 1;
+    });
+
+    if (!addedCount) {
+      this.notifyCatalogAction(
+        targetNodes.length === 1
+          ? "This node is already in the catalog."
+          : "These nodes are already in the catalog.",
+      );
       return;
     }
-
-    const nextItems = insertCatalogItemIntoItems(catalogData.items, {
-      nodeId: targetNode.id(),
-      title: getUniqueCatalogTitle(targetNode, catalogData.items),
-      titleSource: "node",
-      parentId: null,
-    });
 
     const nextData = {
       ...catalogData,
@@ -207,7 +257,5 @@ export class CatalogActionsPlugin extends BasePlugin {
 
     catalogNode.getLayer()?.batchDraw?.();
     this.app.mainLayer.batchDraw();
-
-    notifyCatalogAction(`Added "${getNodeDisplayTitle(targetNode)}" to catalog.`);
   }
 }

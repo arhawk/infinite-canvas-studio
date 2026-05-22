@@ -1,13 +1,31 @@
 function parseShortcut(shortcut) {
   const parts = shortcut.toLowerCase().split("+").map((s) => s.trim());
+  const modifiers = ["ctrl", "cmd", "meta", "mod", "shift", "alt"];
+
   return {
-    ctrl: parts.includes("ctrl") || parts.includes("cmd") || parts.includes("mod"),
+    ctrl: parts.includes("ctrl") || parts.includes("cmd") || parts.includes("meta") || parts.includes("mod"),
     shift: parts.includes("shift"),
     alt: parts.includes("alt"),
-    key: parts.filter(
-      (p) => !["ctrl", "cmd", "mod", "shift", "alt"].includes(p),
-    )[0],
+    key: parts.filter((p) => !modifiers.includes(p))[0],
   };
+}
+
+function getPhysicalKey(event) {
+  const code = event.code || "";
+  if (/^Key[A-Z]$/.test(code)) {
+    return code.slice(3).toLowerCase();
+  }
+  if (/^Digit[0-9]$/.test(code)) {
+    return code.slice(5);
+  }
+  return null;
+}
+
+function matchesKey(parsedKey, event) {
+  if (event.key?.toLowerCase?.() === parsedKey) return true;
+
+  const physicalKey = getPhysicalKey(event);
+  return physicalKey === parsedKey;
 }
 
 function matchesEvent(parsed, event) {
@@ -16,7 +34,7 @@ function matchesEvent(parsed, event) {
     parsed.shift === event.shiftKey &&
     parsed.alt === event.altKey;
 
-  return modifierMatch && event.key.toLowerCase() === parsed.key;
+  return modifierMatch && matchesKey(parsed.key, event);
 }
 
 export class KeybindingRegistry {

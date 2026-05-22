@@ -33,6 +33,25 @@ describe("KeybindingRegistry", () => {
     expect(commandRegistry.execute).toHaveBeenCalledWith("selection:duplicate");
   });
 
+  it("matches letter shortcuts by physical key when alt changes the typed character", () => {
+    const commandRegistry = { execute: vi.fn() };
+    const registry = new KeybindingRegistry(commandRegistry);
+    registries.push(registry);
+
+    registry.register("meta+alt+a", "catalog:add-selected");
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "å",
+        code: "KeyA",
+        metaKey: true,
+        altKey: true,
+        bubbles: true,
+      }),
+    );
+
+    expect(commandRegistry.execute).toHaveBeenCalledWith("catalog:add-selected");
+  });
+
   it("ignores shortcuts while typing in form fields", () => {
     const commandRegistry = { execute: vi.fn() };
     const registry = new KeybindingRegistry(commandRegistry);

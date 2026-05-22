@@ -398,17 +398,10 @@ export class CatalogPanelPlugin extends BasePlugin {
           <div class="catalog-remove-popover__actions">
             <button
               type="button"
-            class="catalog-remove-popover__secondary"
-            data-testid="catalog-remove-outline"
-          >
-            Outline only
-          </button>
-            <button
-              type="button"
-              class="catalog-remove-popover__danger"
-              data-testid="catalog-remove-canvas"
+              class="catalog-remove-popover__secondary"
+              data-testid="catalog-remove-outline"
             >
-              Delete all
+              Remove
             </button>
             <button
               type="button"
@@ -423,9 +416,6 @@ export class CatalogPanelPlugin extends BasePlugin {
     document.body.append(this.removePopoverEl);
     this.listenDom(this.removePopoverEl.querySelector("[data-testid='catalog-remove-outline']"), "click", () => {
       this.confirmRemoveOutlineOnly();
-    });
-    this.listenDom(this.removePopoverEl.querySelector("[data-testid='catalog-remove-canvas']"), "click", () => {
-      this.confirmRemoveOutlineAndCanvas();
     });
     this.listenDom(this.removePopoverEl.querySelector("[data-testid='catalog-remove-cancel']"), "click", () => {
       this.hideRemovePopover();
@@ -846,14 +836,8 @@ export class CatalogPanelPlugin extends BasePlugin {
   }
 
   requestRemoveCatalogItem(item, anchorEl = null) {
-    const node = this.app.mainLayer.findOne(`#${item.nodeId}`);
-    const isMissing = !node?.getStage?.();
-    if (isMissing) {
-      return this.commitItemsMutation((items) => removeCatalogItemPromoteChildrenInItems(items, item.id));
-    }
-
-    this.showRemovePopover(item, anchorEl);
-    return true;
+    this.hideRemovePopover();
+    return this.commitItemsMutation((items) => removeCatalogItemPromoteChildrenInItems(items, item.id));
   }
 
   confirmRemoveOutlineOnly() {
@@ -864,14 +848,7 @@ export class CatalogPanelPlugin extends BasePlugin {
   }
 
   confirmRemoveOutlineAndCanvas() {
-    const pending = this.pendingRemoval;
-    if (!pending) return false;
-    const node = this.app.mainLayer.findOne(`#${pending.nodeId}`);
-    this.hideRemovePopover();
-    const removed = this.commitItemsMutation((items) => removeCatalogItemFromItems(items, pending.itemId));
-    if (!removed || !node?.getStage?.()) return removed;
-    this.destroyCanvasNodeTree(node);
-    return true;
+    return this.confirmRemoveOutlineOnly();
   }
 
   showRemovePopover(item, anchorEl = null) {

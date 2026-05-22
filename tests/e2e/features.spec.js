@@ -463,6 +463,90 @@ test("adds the selected node to the outline panel", async ({ page }) => {
   await expect(page.getByTestId("catalog-panel")).toContainText("Sticky note");
 });
 
+test("adds the selected node to the outline with the mac command option shortcut", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const pageNode = await addComponent(page, "page", {
+    x: 180,
+    y: 160,
+    width: 520,
+    height: 320,
+    label: "Shortcut Page",
+  });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), pageNode.id);
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "å",
+        code: "KeyA",
+        metaKey: true,
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+
+  await expect
+    .poll(async () => (await listCatalogItems(page)).map((item) => item.renderedTitle))
+    .toEqual(["Shortcut Page"]);
+});
+
+test("shows duplicate outline add feedback as a top-center toast", async ({ page }) => {
+  await page.evaluate(() => {
+    window.__outlineAlertCalls = [];
+    window.alert = (message) => {
+      window.__outlineAlertCalls.push(String(message ?? ""));
+    };
+    window.__APP_TEST_API__.ensureCatalogNode();
+  });
+
+  const sticky = await addComponent(page, "sticky", { x: 220, y: 220 });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+
+  await page.getByTestId("catalog-add-selected").click();
+  await page.getByTestId("catalog-add-selected").click();
+
+  const toast = page.getByTestId("catalog-action-toast");
+  await expect(toast).toHaveText("This node is already in the catalog.");
+  await expect(toast).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => window.__outlineAlertCalls.length)).toBe(0);
+
+  const box = await toast.boundingBox();
+  const viewport = page.viewportSize();
+  if (!box || !viewport) {
+    throw new Error("Catalog toast was not measurable.");
+  }
+  expect(Math.abs((box.x + box.width / 2) - (viewport.width / 2))).toBeLessThan(16);
+  expect(box.y).toBeLessThan(130);
+
+  await expect(toast).toBeHidden({ timeout: 4500 });
+});
+
+test("adds multiple selected nodes to the outline panel in one action", async ({ page }) => {
+  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
+
+  const pageNode = await addComponent(page, "page", {
+    x: 120,
+    y: 120,
+    width: 520,
+    height: 320,
+    label: "Batch Page",
+  });
+  const sticky = await addComponent(page, "sticky", { x: 720, y: 220 });
+  const button = await addComponent(page, "button", { x: 920, y: 220, label: "Launch" });
+
+  await page.evaluate(
+    (ids) => window.__APP_TEST_API__.selectNodes(ids),
+    [pageNode.id, sticky.id, button.id],
+  );
+  await page.getByTestId("catalog-add-selected").click();
+
+  await expect
+    .poll(async () => (await listCatalogItems(page)).map((item) => item.renderedTitle))
+    .toEqual(["Batch Page", "Sticky note", "Launch"]);
+});
+
 test("gives shape outline items readable default titles and keeps same-type shapes distinguishable", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
 
@@ -845,7 +929,7 @@ test("lets shape outline items be renamed with the existing outline interaction"
     .toBe("Process Box");
 });
 
-test("removing a normal outline item can keep the canvas element when confirmation is declined", async ({ page }) => {
+test("removing a normal outline item keeps the canvas element", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
 
   const sticky = await addComponent(page, "sticky", { x: 240, y: 240 });
@@ -855,133 +939,32 @@ test("removing a normal outline item can keep the canvas element when confirmati
   const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Sticky note" }).first();
   await row.focus();
   await page.keyboard.press("Delete");
-  await expect(page.getByTestId("catalog-remove-popover")).toBeVisible();
-  await page.getByTestId("catalog-remove-outline").click();
 
   await expect.poll(async () => (await listCatalogItems(page)).length).toBe(0);
   await expect.poll(async () => Boolean(await getNode(page, sticky.id))).toBe(true);
-});
-
-test("removing a normal outline item deletes the canvas element only after confirmation", async ({ page }) => {
-  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
-
-  const sticky = await addComponent(page, "sticky", { x: 260, y: 260 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
-  await page.getByTestId("catalog-add-selected").click();
-
-  const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Sticky note" }).first();
-  await row.focus();
-  await page.keyboard.press("Delete");
-  await expect(page.getByTestId("catalog-remove-popover")).toBeVisible();
-  await page.getByTestId("catalog-remove-canvas").click();
-
-  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(0);
-  await expect.poll(async () => Boolean(await getNode(page, sticky.id))).toBe(false);
-});
-
-test("cancel keeps both the outline item and canvas element", async ({ page }) => {
-  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
-
-  const sticky = await addComponent(page, "sticky", { x: 280, y: 280 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
-  await page.getByTestId("catalog-add-selected").click();
-
-  const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Sticky note" }).first();
-  await row.focus();
-  await page.keyboard.press("Delete");
-  await expect(page.getByTestId("catalog-remove-popover")).toBeVisible();
-  await page.getByTestId("catalog-remove-cancel").click();
-
   await expect(page.getByTestId("catalog-remove-popover")).toBeHidden();
-  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(1);
-  await expect.poll(async () => Boolean(await getNode(page, sticky.id))).toBe(true);
 });
 
-test("clicking outside closes the outline removal popover without deleting anything", async ({ page }) => {
+test("removing a page outline item keeps the page on the canvas", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
 
-  const sticky = await addComponent(page, "sticky", { x: 300, y: 220 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
-  await page.getByTestId("catalog-add-selected").click();
-
-  const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Sticky note" }).first();
-  await row.focus();
-  await page.keyboard.press("Delete");
-  await expect(page.getByTestId("catalog-remove-popover")).toBeVisible();
-
-  const canvasBox = await page.locator("#canvas-container").boundingBox();
-  await page.mouse.click(canvasBox.x + 24, canvasBox.y + 24);
-
-  await expect(page.getByTestId("catalog-remove-popover")).toBeHidden();
-  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(1);
-  await expect.poll(async () => Boolean(await getNode(page, sticky.id))).toBe(true);
-});
-
-test("pressing escape closes the outline removal popover without deleting anything", async ({ page }) => {
-  await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
-
-  const sticky = await addComponent(page, "sticky", { x: 320, y: 220 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
-  await page.getByTestId("catalog-add-selected").click();
-
-  const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Sticky note" }).first();
-  await row.focus();
-  await page.keyboard.press("Delete");
-  await expect(page.getByTestId("catalog-remove-popover")).toBeVisible();
-  await page.keyboard.press("Escape");
-
-  await expect(page.getByTestId("catalog-remove-popover")).toBeHidden();
-  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(1);
-  await expect.poll(async () => Boolean(await getNode(page, sticky.id))).toBe(true);
-});
-
-test("uses a custom outline removal popover with compact copy and unified action styles", async ({ page }) => {
-  await page.evaluate(() => {
-    window.__outlineConfirmCalls = [];
-    window.confirm = (...args) => {
-      window.__outlineConfirmCalls.push(args);
-      return true;
-    };
-    window.__APP_TEST_API__.ensureCatalogNode();
+  const pageNode = await addComponent(page, "page", {
+    x: 180,
+    y: 140,
+    width: 500,
+    height: 300,
+    label: "Keep Canvas Page",
   });
-
-  const sticky = await addComponent(page, "sticky", { x: 260, y: 220 });
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), sticky.id);
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), pageNode.id);
   await page.getByTestId("catalog-add-selected").click();
 
-  const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Sticky note" }).first();
+  const row = page.locator('[data-testid^="catalog-item-"]').filter({ hasText: "Keep Canvas Page" }).first();
   await row.focus();
   await page.keyboard.press("Delete");
 
-  const popover = page.getByTestId("catalog-remove-popover");
-  await expect(popover).toBeVisible();
-  await expect(popover).toHaveAttribute("role", "dialog");
-  await expect(popover).toContainText("Remove from outline?");
-  await expect(popover).toContainText("Outline only");
-  await expect(popover).toContainText("Delete all");
-  await expect(popover).toContainText("Cancel");
-  await expect(popover).not.toContainText("This will only remove the item from the outline");
-  await expect.poll(async () => page.evaluate(() => window.__outlineConfirmCalls.length)).toBe(0);
-
-  const outlineButton = page.getByTestId("catalog-remove-outline");
-  const deleteButton = page.getByTestId("catalog-remove-canvas");
-  const cancelButton = page.getByTestId("catalog-remove-cancel");
-
-  const styles = await Promise.all([outlineButton, deleteButton, cancelButton].map((locator) => locator.evaluate((element) => {
-    const computed = window.getComputedStyle(element);
-    return {
-      color: computed.color,
-      backgroundColor: computed.backgroundColor,
-      borderRadius: computed.borderRadius,
-      borderColor: computed.borderColor,
-      fontSize: computed.fontSize,
-      fontWeight: computed.fontWeight,
-      minHeight: computed.minHeight,
-    };
-  })));
-
-  expect(styles[0]).toEqual(styles[1]);
-  expect(styles[1]).toEqual(styles[2]);
+  await expect.poll(async () => (await listCatalogItems(page)).length).toBe(0);
+  await expect.poll(async () => Boolean(await getNode(page, pageNode.id))).toBe(true);
+  await expect(page.getByTestId("catalog-remove-canvas")).toHaveCount(0);
 });
 
 test("removes orphan outline items automatically when the canvas element disappears", async ({ page }) => {

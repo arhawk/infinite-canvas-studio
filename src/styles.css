@@ -341,6 +341,39 @@ textarea {
   text-align: center;
 }
 
+.catalog-action-toast {
+  position: fixed;
+  top: 4.85rem;
+  left: 50%;
+  z-index: 95;
+  max-width: min(30rem, calc(100vw - 2rem));
+  padding: 0.68rem 1rem;
+  border: 1px solid rgba(215, 97, 47, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.72);
+  backdrop-filter: blur(0.45rem);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -0.55rem) scale(0.98);
+  transition:
+    opacity 650ms ease,
+    transform 650ms ease;
+}
+
+.catalog-action-toast[hidden] {
+  display: none !important;
+}
+
+.catalog-action-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
 .catalog-item-group {
   display: flex;
   flex-direction: column;
@@ -5071,6 +5104,11 @@ body.theme-colorful .catalog-sidebar__add {
 
 body.theme-colorful .catalog-sidebar__add:hover {
   background: rgba(212, 83, 126, 0.14);
+}
+
+body.theme-colorful .catalog-action-toast {
+  border-color: rgba(212, 83, 126, 0.18);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 body.is-presentation-mode .left-toolbar {
