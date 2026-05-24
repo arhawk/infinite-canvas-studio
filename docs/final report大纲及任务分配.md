@@ -16,17 +16,17 @@ The abstract should be between 150-600 words. Briefly summarise your project/res
 
 [**1\.**	**Introduction (Yuchen)**](#introduction)
 
-[**2\.**	**Related Literature (xiaoyancao)**](#related-literature)
+[**2\.**	**Related Literature (Qiuwen)**](#related-literature)
 
-[2.1	Literature Review (xiaoyancao)](#literature-review)
+[2.1	Literature Review (Qiuwen)](#literature-review)
 
-[**3\.**	**Project Problems (Qiuwen)**](#project-problems)
+[**3\.**	**Project Problems (xiaoyancao)**](#project-problems)
 
-[3.1	Project Aims & Objectives (Qiuwen)](#project-aims-&-objectives)
+[3.1	Project Aims & Objectives (xiaoyancao)](#project-aims-&-objectives)
 
-[3.2	Project Questions (Qiuwen)](#project-questions)
+[3.2	Project Questions (xiaoyancao)](#project-questions)
 
-[3.3	Project Scope (Qiuwen)](#project-scope)
+[3.3	Project Scope (xiaoyancao)](#project-scope)
 
 [**4\.**	**Methodologies (BowenBai)**](#methodologies)
 
