@@ -8,55 +8,55 @@ The abstract should be between 150-600 words. Briefly summarise your project/res
 
 **任务分配**
 
-[Contribution Statement (All)	i](#contribution-statement)
+[Contribution Statement (All)](#contribution-statement)
 
-[Abstract (ZeruLi)	ii](#abstract)
+[Abstract (ZeruLi)](#abstract)
 
-[Table of Contents iii](#table-of-contents)
+[Table of Contents](#table-of-contents)
 
-[**1\.**	**Introduction (Yuchen)	1**](#introduction)
+[**1\.**	**Introduction (Yuchen)**](#introduction)
 
-[**2\.**	**Related Literature (xiaoyancao)	1**](#related-literature)
+[**2\.**	**Related Literature (xiaoyancao)**](#related-literature)
 
-[2.1	Literature Review (xiaoyancao)	1](#literature-review)
+[2.1	Literature Review (xiaoyancao)](#literature-review)
 
-[**3\.**	**Project Problems (Qiuwen)	2**](#project-problems)
+[**3\.**	**Project Problems (Qiuwen)**](#project-problems)
 
-[3.1	Project Aims & Objectives (Qiuwen)	2](#project-aims-&-objectives)
+[3.1	Project Aims & Objectives (Qiuwen)](#project-aims-&-objectives)
 
-[3.2	Project Questions (Qiuwen)	2](#project-questions)
+[3.2	Project Questions (Qiuwen)](#project-questions)
 
-[3.3	Project Scope (Qiuwen)	2](#project-scope)
+[3.3	Project Scope (Qiuwen)](#project-scope)
 
-[**4\.**	**Methodologies (BowenBai)	2**](#methodologies)
+[**4\.**	**Methodologies (BowenBai)**](#methodologies)
 
-[4.1	Methods (BowenBai)	3](#methods)
+[4.1	Methods (BowenBai)](#methods)
 
-[4.2	Data Collection (Jialu Shi)	3](#data-collection)
+[4.2	Data Collection (Jialu Shi)](#data-collection)
 
-[4.3	Data Analysis (Jialu Shi)	3](#data-analysis)
+[4.3	Data Analysis (Jialu Shi)](#data-analysis)
 
-[4.4	Deployment (Zehao)	3](#deployment)
+[4.4	Deployment (Zehao)](#deployment)
 
-[4.5	Testing (Zehao)	3](#testing)
+[4.5	Testing (Zehao)](#testing)
 
-[**5\.**	**Resources	4**](#resources)
+[**5\.**	**Resources**](#resources)
 
-[5.1	Hardware & Software (Zehao)	4](#hardware-&-software)
+[5.1	Hardware & Software (Zehao)](#hardware-&-software)
 
-[5.2	Materials (Yuchen)	4](#materials)
+[5.2	Materials (Yuchen)](#materials)
 
-[5.3	Roles & Responsibilities (All)	4](#roles-&-responsibilities)
+[5.3	Roles & Responsibilities (All)](#roles-&-responsibilities)
 
-[**6\.**	**Milestones / Schedule (ZeruLi)	4**](#milestones-/-schedule)
+[**6\.**	**Milestones / Schedule (ZeruLi)**](#milestones-/-schedule)
 
-[**7\.**	**Results (BowenBai)	5**](#results)
+[**7\.**	**Results (BowenBai)**](#results)
 
-[**8\.**	**Discussion (xuexinlin)	6**](#discussion)
+[**8\.**	**Discussion (xuexinlin)**](#discussion)
 
-[**9\.**	**Limitations and Future Works (yuchen)	6**](#limitations-and-future-works)
+[**9\.**	**Limitations and Future Works (yuchen)**](#limitations-and-future-works)
 
-[**References (Jialu Shi)	7**](#references)
+[**References (Jialu Shi)**](#references)
 
 **AI use acknowledgement （BowenBai）**
 
