@@ -96,6 +96,7 @@ describe("document schema", () => {
       type: "warm-paper",
       color: "#ead7b1",
       opacity: 1,
+      themeId: "default",
     });
     expect(currentNoBackground.background).toEqual(DEFAULT_BACKGROUND_STATE);
   });

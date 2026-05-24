@@ -221,11 +221,19 @@ export class BackgroundPlugin extends BasePlugin {
     return this.app.getBackgroundState?.();
   }
 
-  applyTheme(styleId) {
-    const option = getStyleOption(styleId);
+  applyThemeState(themeId) {
+    const option = getStyleOption(themeId);
     this.currentTheme = option.id;
     document.body.classList.toggle("theme-colorful", option.id === CANVAS_THEME_IDS.colorful);
-    this.applyBackgroundChange({ color: option.canvasColor });
+    return option;
+  }
+
+  applyTheme(styleId) {
+    const option = this.applyThemeState(styleId);
+    this.applyBackgroundChange({
+      color: option.canvasColor,
+      themeId: option.id,
+    });
     applyCanvasThemeToDefaultNodes(this.app, option.id);
     this.syncStylePills();
   }
@@ -248,6 +256,7 @@ export class BackgroundPlugin extends BasePlugin {
 
   syncControls(state = this.getBackgroundState()) {
     const nextState = cloneBackgroundState(state);
+    this.applyThemeState(nextState.themeId);
 
     for (const button of this.typeButtonsEl?.querySelectorAll("[data-background-type]") ?? []) {
       button.setAttribute("aria-pressed", String(button.dataset.backgroundType === nextState.type));

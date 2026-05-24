@@ -30,6 +30,7 @@ function createApp(backgroundState = DEFAULT_BACKGROUND_STATE) {
       background.type = nextState.type;
       background.color = nextState.color;
       background.opacity = nextState.opacity;
+      background.themeId = nextState.themeId;
       return { ...background };
     }),
     mainLayer: {
@@ -77,6 +78,7 @@ describe("document serializer background support", () => {
       type: "grid",
       color: "#dde6f5",
       opacity: 1,
+      themeId: "default",
     });
   });
 
@@ -96,6 +98,7 @@ describe("document serializer background support", () => {
       type: "warm-paper",
       color: "#ead7b1",
       opacity: 1,
+      themeId: "default",
     });
   });
 
@@ -122,6 +125,7 @@ describe("document serializer background support", () => {
       type: "warm-paper",
       color: "#ead7b1",
       opacity: 0.42,
+      themeId: "default",
     });
   });
 
@@ -148,6 +152,7 @@ describe("document serializer background support", () => {
       type: "solid",
       color: "#c8d8f0",
       opacity: 0.66,
+      themeId: "default",
     });
   });
 

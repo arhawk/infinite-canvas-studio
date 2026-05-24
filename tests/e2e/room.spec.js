@@ -73,6 +73,18 @@ async function getViewport(page) {
   return page.evaluate(() => window.__APP_TEST_API__.getViewportState());
 }
 
+async function getToolbarThemeSnapshot(page) {
+  return page.evaluate(() => {
+    const toolbar = document.querySelector('[data-testid="toolbar"]');
+    const styles = toolbar ? getComputedStyle(toolbar) : null;
+    return {
+      colorful: document.body.classList.contains("theme-colorful"),
+      toolbarBackground: styles?.backgroundColor ?? "",
+      toolbarBorder: styles?.borderColor ?? "",
+    };
+  });
+}
+
 async function showTopToolbar(page) {
   const hoverZone = page.getByTestId("presentation-toolbar-hover-zone");
   const box = await hoverZone.boundingBox();
@@ -228,6 +240,18 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect.poll(async () => (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
+
+  await page.evaluate(() => window.__APP_TEST_API__.setMode("edit"));
+  const hostBackgroundToggle = page.getByTestId("background-toggle");
+  await expect(hostBackgroundToggle).toBeVisible();
+  await hostBackgroundToggle.click();
+  await page.getByTestId("style-pill-colorful").click();
+
+  await expect.poll(async () => (await getToolbarThemeSnapshot(page)).colorful).toBe(true);
+  const hostTheme = await getToolbarThemeSnapshot(page);
+  await expect.poll(async () => (await getToolbarThemeSnapshot(viewer)).colorful).toBe(true);
+  await expect.poll(async () => (await getToolbarThemeSnapshot(viewer)).toolbarBackground).toBe(hostTheme.toolbarBackground);
+  await expect.poll(async () => (await getToolbarThemeSnapshot(viewer)).toolbarBorder).toBe(hostTheme.toolbarBorder);
 
   await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
   await showTopToolbar(viewer);

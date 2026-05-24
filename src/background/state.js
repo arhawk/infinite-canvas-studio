@@ -1,3 +1,5 @@
+import { CANVAS_THEME_IDS } from "../theme/canvasTheme.js";
+
 export const BACKGROUND_TYPES = {
   BLANK: "blank",
   SOLID: "solid",
@@ -10,6 +12,7 @@ export const DEFAULT_BACKGROUND_STATE = {
   type: BACKGROUND_TYPES.GRID,
   color: "#f7f3ea",
   opacity: 1,
+  themeId: CANVAS_THEME_IDS.default,
 };
 
 function normalizeHexColor(value, fallback = DEFAULT_BACKGROUND_STATE.color) {
@@ -26,6 +29,19 @@ function normalizeOpacity(value, fallback = DEFAULT_BACKGROUND_STATE.opacity) {
   return Math.max(0, Math.min(1, numericValue));
 }
 
+function inferThemeIdFromState(state = {}) {
+  const color = normalizeHexColor(state.color);
+  return color === "#ffffff"
+    ? CANVAS_THEME_IDS.colorful
+    : CANVAS_THEME_IDS.default;
+}
+
+function normalizeThemeId(value, state = {}) {
+  if (value === CANVAS_THEME_IDS.colorful) return CANVAS_THEME_IDS.colorful;
+  if (value === CANVAS_THEME_IDS.default) return CANVAS_THEME_IDS.default;
+  return inferThemeIdFromState(state);
+}
+
 export function normalizeBackgroundState(state = {}) {
   const source = state && typeof state === "object" ? state : {};
   const type = Object.values(BACKGROUND_TYPES).includes(source.type)
@@ -36,6 +52,7 @@ export function normalizeBackgroundState(state = {}) {
     type,
     color: normalizeHexColor(source.color),
     opacity: normalizeOpacity(source.opacity),
+    themeId: normalizeThemeId(source.themeId, source),
   };
 }
 

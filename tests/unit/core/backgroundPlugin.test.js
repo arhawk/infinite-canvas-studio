@@ -91,6 +91,7 @@ describe("BackgroundPlugin", () => {
       type: "dot",
       color: "#f7f3ea",
       opacity: 1,
+      themeId: "default",
     });
   });
 
@@ -110,6 +111,7 @@ describe("BackgroundPlugin", () => {
       type: "grid",
       color: "#c8d8f0",
       opacity: 1,
+      themeId: "default",
     });
   });
 
@@ -161,6 +163,7 @@ describe("BackgroundPlugin", () => {
       type: "grid",
       color: "#f7f3ea",
       opacity: 0.42,
+      themeId: "default",
     });
     expect(opacityValueEl.textContent).toBe("42%");
     expect(opacityEl.title).toBe("42%");
@@ -206,12 +209,14 @@ describe("BackgroundPlugin", () => {
     document.querySelector('[data-style-id="colorful"]').click();
     expect(document.body.classList.contains("theme-colorful")).toBe(true);
     expect(app.getBackgroundState().color).toBe("#ffffff");
+    expect(app.getBackgroundState().themeId).toBe("colorful");
     expect(document.querySelector('[data-style-id="colorful"]').getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("false");
 
     document.querySelector('[data-style-id="default"]').click();
     expect(document.body.classList.contains("theme-colorful")).toBe(false);
     expect(app.getBackgroundState().color).toBe("#f7f3ea");
+    expect(app.getBackgroundState().themeId).toBe("default");
     expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -229,5 +234,22 @@ describe("BackgroundPlugin", () => {
 
     expect(app.getBackgroundState().color).toBe("#ffffff");
     expect(swatch.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("applies the colorful body theme when synced background state changes remotely", () => {
+    const app = createApp();
+    const plugin = createPlugin(app);
+
+    plugin.setup();
+    app.setBackgroundState({
+      type: "grid",
+      color: "#ffffff",
+      opacity: 1,
+      themeId: "colorful",
+    });
+
+    expect(document.body.classList.contains("theme-colorful")).toBe(true);
+    expect(document.querySelector('[data-style-id="colorful"]').getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector('[data-style-id="default"]').getAttribute("aria-pressed")).toBe("false");
   });
 });

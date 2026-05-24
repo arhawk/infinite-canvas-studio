@@ -7,6 +7,12 @@ describe("background state normalization", () => {
     expect(normalizeBackgroundState({})).toEqual(DEFAULT_BACKGROUND_STATE);
   });
 
+  it("tracks the active canvas theme in background state", () => {
+    expect(normalizeBackgroundState({ themeId: "colorful", color: "#ffffff" }).themeId).toBe("colorful");
+    expect(normalizeBackgroundState({ color: "#ffffff" }).themeId).toBe("colorful");
+    expect(normalizeBackgroundState({ color: "#f7f3ea" }).themeId).toBe("default");
+  });
+
   it("accepts valid opacity values and clamps boundaries", () => {
     expect(normalizeBackgroundState({ opacity: 0 }).opacity).toBe(0);
     expect(normalizeBackgroundState({ opacity: 1 }).opacity).toBe(1);
