@@ -84,6 +84,7 @@ body.theme-colorful {
   --icon-pen: #d4537e;
   --icon-eraser: #ba7517;
   --icon-shape: #1d9e75;
+  --icon-text-style: #8a5a2f;
   --icon-components: #378add;
   --icon-calculator: #d85a30;
   --icon-timer: #639922;
@@ -5048,6 +5049,21 @@ body.is-room-viewer #load-document-action {
   pointer-events: none;
 }
 
+.left-toolbar__btn--text-style {
+  font-family: "Trebuchet MS", "Avenir Next Condensed", "Avenir Next", "Segoe UI", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.left-toolbar__text-style-glyph {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
 body.theme-colorful .left-toolbar__pill {
   box-shadow:
     0 2px 8px rgba(30, 30, 80, 0.10),
@@ -5067,6 +5083,7 @@ body.theme-colorful [data-testid="tool-button-arrange"] { color: var(--icon-arra
 body.theme-colorful [data-testid="tool-button-pen"] { color: var(--icon-pen); }
 body.theme-colorful [data-testid="tool-button-eraser"] { color: var(--icon-eraser); }
 body.theme-colorful [data-testid="tool-button-shape"] { color: var(--icon-shape); }
+body.theme-colorful [data-testid="text-style-preset-trigger"] { color: var(--icon-text-style); }
 body.theme-colorful [data-testid="components-trigger"] { color: var(--icon-components); }
 body.theme-colorful [data-testid="calculator-toggle"] { color: var(--icon-calculator); }
 body.theme-colorful [data-testid="timer-toggle"] { color: var(--icon-timer); }
@@ -5264,6 +5281,99 @@ body.is-presentation-mode #catalog-panel {
 .pen-dropdown {
   width: 4rem;
   padding: 0.55rem 0.4rem 0.65rem;
+}
+
+.text-style-dropdown {
+  width: 14.5rem;
+  padding: 0.55rem;
+}
+
+.text-style-dropdown__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.text-style-dropdown__option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 0.85rem;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.text-style-dropdown__option:hover,
+.text-style-dropdown__option.is-active {
+  background: rgba(61, 47, 32, 0.06);
+  border-color: rgba(215, 97, 47, 0.18);
+}
+
+.text-style-dropdown__option:hover {
+  transform: translateY(-1px);
+}
+
+.text-style-dropdown__option.is-active {
+  box-shadow: inset 0 0 0 1px rgba(215, 97, 47, 0.08);
+}
+
+.text-style-dropdown__sample {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.55rem;
+  min-width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(61, 47, 32, 0.08);
+  font-family: "Trebuchet MS", "Avenir Next Condensed", "Avenir Next", "Segoe UI", sans-serif;
+  line-height: 1;
+}
+
+.text-style-dropdown__sample--title {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.text-style-dropdown__sample--body {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.text-style-dropdown__sample--note {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #8a8175;
+}
+
+.text-style-dropdown__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.text-style-dropdown__meta strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.text-style-dropdown__meta small {
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .pen-dropdown__title {
@@ -5741,6 +5851,12 @@ body.theme-colorful .pen-dropdown__title {
 
 body.theme-colorful .pen-dropdown__tool-button:hover:not(:disabled) {
   background: rgba(127, 119, 221, 0.08);
+}
+
+body.theme-colorful .text-style-dropdown__option:hover,
+body.theme-colorful .text-style-dropdown__option.is-active {
+  background: rgba(127, 119, 221, 0.08);
+  border-color: rgba(127, 119, 221, 0.18);
 }
 
 body.theme-colorful .mode-capsule {

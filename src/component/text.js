@@ -2,6 +2,13 @@ import { BaseComponent } from "../core/baseClasses.js";
 import { EditableTextBehavior } from "./editableText.js";
 import { UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
+import {
+  buildTextStylePayload,
+  DEFAULT_TEXT_STYLE_PRESET_ID,
+  inferTextStylePresetId,
+  normalizeTextFontStyle,
+  normalizeTextStylePresetId,
+} from "./textStylePresets.js";
 
 const MIN_WIDTH = 48;
 const MIN_HEIGHT = 32;
@@ -38,32 +45,57 @@ export class TextComponent extends BaseComponent {
   static label = "Text";
   static description = "Editable thought label";
 
+  getDefaultStylePayload() {
+    const plugin = this.app?.getPlugin?.("text-style-toolbar");
+    const presetId = plugin?.getDefaultPresetId?.() ?? DEFAULT_TEXT_STYLE_PRESET_ID;
+    return buildTextStylePayload(presetId);
+  }
+
   async createNode({
     x,
     y,
     text = "New idea",
-    fontSize = 24,
-    fill = "#1d1b16",
+    fontSize,
+    fill,
+    fontStyle,
+    textStylePreset,
     padding = 12,
     width,
     height,
-  }) {
+  } = {}) {
+    const defaultStyle = this.getDefaultStylePayload();
+    const presetId = normalizeTextStylePresetId(
+      textStylePreset,
+      defaultStyle.textStylePreset ?? DEFAULT_TEXT_STYLE_PRESET_ID,
+    );
+    const presetStyle = buildTextStylePayload(presetId);
+    const resolvedFontSize = Number.isFinite(fontSize) ? fontSize : presetStyle.fontSize;
+    const resolvedFill = typeof fill === "string" && fill ? fill : presetStyle.fill;
+    const resolvedFontStyle = normalizeTextFontStyle(fontStyle, presetStyle.fontStyle);
     const textNode = new Konva.Text({
       x,
       y,
       text,
       width: MIN_WIDTH,
       height: MIN_HEIGHT,
-      fontSize,
+      fontSize: resolvedFontSize,
+      fontStyle: resolvedFontStyle,
       fontFamily: UI_FONT_FAMILY,
-      fill,
+      fill: resolvedFill,
       padding,
       lineHeight: 1.25,
       wrap: "word",
       verticalAlign: "top",
       draggable: true,
+      textStylePreset: presetId,
     });
-    const autoSize = measureDefaultTextBox(textNode, text, fontSize, padding, textNode.lineHeight());
+    const autoSize = measureDefaultTextBox(
+      textNode,
+      text,
+      resolvedFontSize,
+      padding,
+      textNode.lineHeight(),
+    );
     textNode.width(normalizeDimension(width, autoSize.width, MIN_WIDTH));
     textNode.height(normalizeDimension(height, autoSize.height, MIN_HEIGHT));
 
@@ -74,10 +106,21 @@ export class TextComponent extends BaseComponent {
   }
 
   serializeNode(node) {
+    const fontStyle = normalizeTextFontStyle(node.fontStyle?.(), "400");
+    const textStylePreset = normalizeTextStylePresetId(
+      node.getAttr?.("textStylePreset"),
+      inferTextStylePresetId({
+        fontSize: node.fontSize?.(),
+        fontStyle,
+        fill: node.fill?.(),
+      }),
+    );
     return {
       text: node.text(),
       fontSize: node.fontSize(),
+      fontStyle,
       fill: node.fill(),
+      textStylePreset,
       padding: node.padding(),
       width: node.width(),
       height: node.height(),
@@ -88,6 +131,7 @@ export class TextComponent extends BaseComponent {
   async applySerializedData(node, data = {}) {
     node.text(typeof data.text === "string" ? data.text : "New idea");
     if (Number.isFinite(data.fontSize)) node.fontSize(data.fontSize);
+    node.fontStyle(normalizeTextFontStyle(data.fontStyle, node.fontStyle?.() ?? "400"));
     if (typeof data.fill === "string" && data.fill) node.fill(data.fill);
     if (Number.isFinite(data.padding)) node.padding(data.padding);
     node.width(normalizeDimension(data.width, node.width(), MIN_WIDTH));
@@ -95,5 +139,16 @@ export class TextComponent extends BaseComponent {
     node.lineHeight(Number.isFinite(data.lineHeight) ? data.lineHeight : 1.25);
     node.wrap("word");
     node.verticalAlign("top");
+    node.setAttr(
+      "textStylePreset",
+      normalizeTextStylePresetId(
+        data.textStylePreset,
+        inferTextStylePresetId({
+          fontSize: node.fontSize(),
+          fontStyle: node.fontStyle?.(),
+          fill: node.fill(),
+        }),
+      ),
+    );
   }
 }
