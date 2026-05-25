@@ -90,7 +90,6 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     this._toggle = toggleEl;
     this._widget = widgetEl;
     this._state = defaultState();
-    this._applyingRemoteState = false;
 
     renderIcons(toggleEl, { width: 18, height: 18, "stroke-width": 2 });
     this._buildWidget(widgetEl);
@@ -105,7 +104,6 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     const next = this._widget.hidden;
     this._widget.hidden = !next;
     this._toggle.setAttribute("aria-pressed", String(next));
-    this._emitStateChange();
   }
 
   _handleKeydown(event) {
@@ -254,7 +252,6 @@ export class BinaryCalculatorPlugin extends BasePlugin {
 
       this._widget.style.left = newLeft + "px";
       this._widget.style.top  = newTop  + "px";
-      this._emitStateChange();
     });
 
     this.listenDom(document, "mouseup", () => {
@@ -387,53 +384,6 @@ export class BinaryCalculatorPlugin extends BasePlugin {
       const digit = key[1]; // "d0" → "0"
       btn.disabled = !validSet.has(digit);
     }
-    this._emitStateChange();
-  }
-
-  _emitStateChange() {
-    if (this._applyingRemoteState) return;
-    if (this.app.emit) {
-      this.app.emit("calculator:state-change", this.exportSyncState());
-      return;
-    }
-    this.app.events?.emit?.("calculator:state-change", this.exportSyncState());
-  }
-
-  exportSyncState() {
-    return {
-      visible: !this._widget.hidden,
-      position: {
-        left: this._widget.style.left || "",
-        top: this._widget.style.top || "",
-        right: this._widget.style.right || "",
-        bottom: this._widget.style.bottom || "",
-      },
-      state: { ...this._state },
-    };
-  }
-
-  applySyncState(nextState, { remote = false } = {}) {
-    if (!nextState || typeof nextState !== "object") return;
-    if (remote) this._applyingRemoteState = true;
-
-    this._widget.hidden = !Boolean(nextState.visible);
-    this._toggle.setAttribute("aria-pressed", String(Boolean(nextState.visible)));
-
-    const position = nextState.position ?? {};
-    this._widget.style.left = typeof position.left === "string" ? position.left : "";
-    this._widget.style.top = typeof position.top === "string" ? position.top : "";
-    this._widget.style.right = typeof position.right === "string" ? position.right : "";
-    this._widget.style.bottom = typeof position.bottom === "string" ? position.bottom : "";
-
-    const state = nextState.state ?? {};
-    this._state.inputStr = typeof state.inputStr === "string" ? state.inputStr : "0";
-    this._state.accumulator = Number.isFinite(state.accumulator) ? state.accumulator : null;
-    this._state.pendingOp = typeof state.pendingOp === "string" ? state.pendingOp : null;
-    this._state.waitingForInput = Boolean(state.waitingForInput);
-    this._state.currentBase = [2, 8, 10, 16].includes(state.currentBase) ? state.currentBase : 10;
-
-    this._syncDisplay();
-    if (remote) this._applyingRemoteState = false;
   }
 }
 

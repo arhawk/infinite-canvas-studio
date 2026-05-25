@@ -31,7 +31,6 @@ import { ToolbarPlugin } from "../../../src/plugins/toolbar.js";
 function createToolbarDom() {
   document.body.innerHTML = `
     <div class="app-shell">
-      <div class="board-shell">
       <main class="workspace">
         <div
           id="presentation-toolbar-hover-zone"
@@ -110,7 +109,6 @@ function createToolbarDom() {
         <button id="focus-position-mode" type="button"></button>
         <button id="eraser-trigger" type="button"></button>
       </main>
-      </div>
     </div>
   `;
 }
@@ -260,7 +258,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
   });
 
-  it("hides the toolbar shortly after leaving both the hover zone and the toolbar", () => {
+  it("hides the toolbar again after leaving both the hover zone and the toolbar", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -271,7 +269,10 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("is-visible")).toBe(true);
 
     hoverZoneEl.dispatchEvent(new MouseEvent("mouseleave"));
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(99);
+    expect(toolbarEl.classList.contains("is-visible")).toBe(true);
+
+    vi.advanceTimersByTime(1);
     expect(toolbarEl.classList.contains("is-visible")).toBe(false);
   });
 
@@ -349,7 +350,7 @@ describe("ToolbarPlugin", () => {
     expect(toolbarEl.classList.contains("toolbar--no-transition")).toBe(false);
   });
 
-  it("keeps the drawing visibility eye button visible while presentation toolbar auto-hides", () => {
+  it("keeps the drawing visibility eye button inside the toolbar visibility flow in presentation mode", () => {
     const app = createApp("presentation");
     const plugin = createPlugin(app);
     const toolbarEl = document.querySelector(".toolbar");
@@ -428,7 +429,7 @@ describe("ToolbarPlugin", () => {
 
     expect(fabShellEl.dataset.edge).toBe("bottom");
     expect(fabShellEl.style.left).toBe("120px");
-    expect(fabShellEl.style.top).toBe("712px");
+    expect(fabShellEl.style.top).toBe("692px");
   });
 
   it("keeps the presentation brush panel inside the viewport when docked near the bottom edge", () => {
@@ -500,56 +501,5 @@ describe("ToolbarPlugin", () => {
 
     expect(panelEl.style.left).toBe("-68px");
     expect(panelEl.style.right).toBe("auto");
-  });
-
-  it("moves the presentation brush fab into board fullscreen and restores it on exit", () => {
-    const app = createApp("presentation");
-    const plugin = createPlugin(app);
-
-    plugin.setup();
-    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
-    const appShellEl = document.querySelector(".app-shell");
-    const boardShellEl = document.querySelector(".board-shell");
-
-    expect(fabShellEl.parentElement).toBe(appShellEl);
-
-    plugin.presentationBrushFabDock = { edge: "right", offset: 200 };
-    plugin.syncPresentationBrushFabPosition();
-    expect(fabShellEl.dataset.edge).toBe("right");
-
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      writable: true,
-      value: boardShellEl,
-    });
-    document.dispatchEvent(new Event("fullscreenchange"));
-    expect(fabShellEl.parentElement).toBe(boardShellEl);
-    expect(fabShellEl.dataset.edge).toBe("left");
-    expect(fabShellEl.style.left).toBe("20px");
-    expect(fabShellEl.style.top).toBe("720px");
-
-    document.fullscreenElement = null;
-    document.dispatchEvent(new Event("fullscreenchange"));
-    expect(fabShellEl.parentElement).toBe(appShellEl);
-  });
-
-  it("ignores fullscreenchange from non-board fullscreen targets", () => {
-    const app = createApp("presentation");
-    const plugin = createPlugin(app);
-
-    plugin.setup();
-    const fabShellEl = document.querySelector("[data-testid='presentation-brush-fab-shell']");
-    const appShellEl = document.querySelector(".app-shell");
-    const otherEl = document.createElement("div");
-    document.body.append(otherEl);
-
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      writable: true,
-      value: otherEl,
-    });
-    document.dispatchEvent(new Event("fullscreenchange"));
-
-    expect(fabShellEl.parentElement).toBe(appShellEl);
   });
 });

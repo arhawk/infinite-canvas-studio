@@ -23,8 +23,7 @@
   "dependencies": {
     "konva": "^9.3.22",
     "lucide": "^0.577.0",
-    "qrcode": "^1.5.4",
-    "ws": "^8.18.3"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",

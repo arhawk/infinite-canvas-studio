@@ -28,21 +28,8 @@ export function getRoomIdFromPath(pathname = window.location.pathname) {
   return match?.[1] ?? null;
 }
 
-function normalizeSessionType(value) {
-  if (value === "room") return "room";
-  return null;
-}
-
-export function getRouteSession(pathname = window.location.pathname, search = window.location.search) {
-  const querySessionType = normalizeSessionType(new URLSearchParams(String(search ?? "")).get("session"));
-  const roomId = getRoomIdFromPath(pathname);
-  if (!roomId) return null;
-  if (querySessionType) return { roomId, sessionType: querySessionType };
-  return { roomId, sessionType: "room" };
-}
-
 export function getShareUrl(roomId, origin = window.location.origin) {
-  return `${origin}/room/${roomId}?session=room`;
+  return `${origin}/room/${roomId}`;
 }
 
 export function getRoomWebSocketUrl(roomId, role, locationRef = window.location) {

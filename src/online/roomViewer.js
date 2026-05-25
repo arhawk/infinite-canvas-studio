@@ -5,6 +5,6 @@ export function createViewerClient(roomId) {
   return new RoomClient({
     roomId,
     role: "viewer",
-    getUrl: (id, role) => getRoomWebSocketUrl(id, role, window.location),
+    getUrl: getRoomWebSocketUrl,
   });
 }

@@ -16,16 +16,15 @@ function createDom() {
 }
 
 function setupPlugin() {
-  const app = { emit: vi.fn() };
   plugin = new BinaryCalculatorPlugin(
-    app,
+    {},
     {
       toggleEl: document.querySelector("#calculator-toggle"),
       widgetEl: document.querySelector("#calculator-widget"),
     },
   );
   plugin.setup();
-  return { plugin, app };
+  return plugin;
 }
 
 function press(key, target = document) {
@@ -94,49 +93,5 @@ describe("BinaryCalculatorPlugin", () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(displayValue()).toBe("0");
-  });
-
-  it("supports export/apply sync state roundtrip", () => {
-    document.querySelector("#calculator-toggle").click();
-    press("1");
-    press("A");
-    press("+");
-
-    const state = plugin.exportSyncState();
-    const otherDom = document.createElement("div");
-    otherDom.innerHTML = `
-      <button id="calculator-toggle-2" type="button" aria-pressed="false"></button>
-      <div id="calculator-widget-2" hidden></div>
-    `;
-    document.body.append(otherDom);
-    const peer = new BinaryCalculatorPlugin(
-      { emit: vi.fn() },
-      {
-        toggleEl: otherDom.querySelector("#calculator-toggle-2"),
-        widgetEl: otherDom.querySelector("#calculator-widget-2"),
-      },
-    );
-    peer.setup();
-    peer.applySyncState(state, { remote: true });
-
-    expect(peer.exportSyncState().state).toEqual(state.state);
-    expect(otherDom.querySelector("#calculator-widget-2").hidden).toBe(false);
-    peer.destroy();
-  });
-
-  it("does not emit calculator:state-change while applying remote state", () => {
-    const emitSpy = vi.spyOn(plugin.app, "emit");
-    plugin.applySyncState({
-      visible: true,
-      state: {
-        inputStr: "255",
-        accumulator: null,
-        pendingOp: null,
-        waitingForInput: false,
-        currentBase: 10,
-      },
-    }, { remote: true });
-
-    expect(emitSpy).not.toHaveBeenCalledWith("calculator:state-change", expect.anything());
   });
 });

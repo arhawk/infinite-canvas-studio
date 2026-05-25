@@ -348,8 +348,8 @@ app.use(CenterMapPlugin, {
 });
 
 const embeddedSnapshot = readEmbeddedSnapshot();
-const routeSession = roomSharePlugin.getRouteSession();
-const bootLoadingLayer = routeSession
+const routeRoomId = roomSharePlugin.getRouteRoomId();
+const bootLoadingLayer = routeRoomId
   ? documentPlugin.showDocumentLoadingLayer({
     label: "Waiting for host...",
     total: 0,
@@ -363,9 +363,9 @@ const bootLoadingLayer = routeSession
 
 app.start();
 
-if (routeSession) {
+if (routeRoomId) {
   roomSharePlugin.adoptViewerWaitingLayer(bootLoadingLayer);
-  await roomSharePlugin.startSession(routeSession.sessionType, routeSession.roomId);
+  await roomSharePlugin.startViewer(routeRoomId);
 } else if (embeddedSnapshot) {
   await app.documentManager?.loadDocument?.(embeddedSnapshot, {
     source: "embedded-html",

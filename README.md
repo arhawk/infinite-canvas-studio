@@ -36,11 +36,8 @@ pnpm dev
 pnpm run server
 ```
 
-Run `pnpm dev` and `pnpm run server` in separate terminals during local sharing/collab development.
-
 The Vite dev server runs on `http://localhost:3000`.
-The room relay server runs with `pnpm run server`. A root-level `pnpm install` is sufficient for both frontend and relay dependencies.
-When the frontend is opened from `localhost`, `127.0.0.1`, or `::1`, room requests go through the Vite `/api` and `/ws` proxy to the local server. Other hosts use `au.baitian.moe:3001`; tests can override this with `window.__ROOM_BACKEND_HOST__`.
+The room relay server runs with `pnpm run server`. When the frontend is opened from `localhost`, `127.0.0.1`, or `::1`, room requests go through the Vite `/api` and `/ws` proxy to the local server. Other hosts use `au.baitian.moe:3001`; tests can override this with `window.__ROOM_BACKEND_HOST__`.
 
 Runtime HTML export uses the generated `dist/__export-template` file as the template source.
 

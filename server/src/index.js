@@ -3,11 +3,13 @@ import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
-import {  MAX_HTTP_BODY_BYTES,
+import {
+  MAX_HTTP_BODY_BYTES,
   MAX_WS_MESSAGE_BYTES,
   SERVER_MESSAGE_TYPES,
   VIEWER_CONTROL_MESSAGE_TYPES,
-  VIEWER_CONTROL_ROOM_MESSAGE_TYPES,  canHostRelayMessageType,
+  VIEWER_CONTROL_ROOM_MESSAGE_TYPES,
+  canHostRelayMessageType,
   canViewerRelayMessageType,
   isRoomId,
   readMessage,
@@ -80,10 +82,6 @@ function readRequestBody(req, maxBytes = MAX_HTTP_BODY_BYTES) {
 }
 
 async function handleCreateRoom(req, res) {
-  return handleCreateSession(req, res);
-}
-
-async function handleCreateSession(req, res) {
   try {
     if (!consumeRateLimit(createRoomRateBuckets, getClientIp(req), CREATE_ROOM_RATE_LIMIT)) {
       sendHttpJson(res, 429, { error: "Too many room creation attempts." });
@@ -192,8 +190,7 @@ function parseRoomSocketUrl(request) {
   const match = url.pathname.match(/^\/ws\/rooms\/(\d{4})$/);
   const roomId = match?.[1] ?? null;
   const role = url.searchParams.get("role");
-  const allowedRoles = ["host", "viewer"];
-  if (!roomId || !isRoomId(roomId) || !allowedRoles.includes(role)) {
+  if (!roomId || !isRoomId(roomId) || !["host", "viewer"].includes(role)) {
     return null;
   }
   return { roomId, role };

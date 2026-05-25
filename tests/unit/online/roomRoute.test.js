@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   getCreateRoomApiUrl,
-  getRouteSession,
   getRoomIdFromPath,
   getRoomWebSocketUrl,
   getShareUrl,
@@ -20,27 +19,8 @@ describe("room route helpers", () => {
   it("builds share URLs without host secrets", () => {
     const url = getShareUrl("1234", "https://example.test");
 
-    expect(url).toBe("https://example.test/room/1234?session=room");
+    expect(url).toBe("https://example.test/room/1234");
     expect(url).not.toContain("hostToken");
-  });
-
-  it("resolves room session from /room path", () => {
-    expect(getRouteSession("/room/1234", "?session=room")).toEqual({
-      roomId: "1234",
-      sessionType: "room",
-    });
-    expect(getRouteSession("/room/1234", "")).toEqual({
-      roomId: "1234",
-      sessionType: "room",
-    });
-    expect(getRouteSession("/room/1234", "?session=invalid")).toEqual({
-      roomId: "1234",
-      sessionType: "room",
-    });
-    expect(getRouteSession("/room/1234", "?session=foo")).toEqual({
-      roomId: "1234",
-      sessionType: "room",
-    });
   });
 
   it("builds backend URLs against the fixed room backend host", () => {

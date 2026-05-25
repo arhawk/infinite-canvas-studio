@@ -180,7 +180,6 @@ test("shows pending feedback while creating a room", async ({ page }) => {
 
   await page.goto("/");
   await waitForTestApi(page);
-  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
 
   await showTopToolbar(page);
   await page.getByTestId("share-btn").click();
@@ -203,7 +202,6 @@ test("shows pending feedback while creating a room", async ({ page }) => {
 test("shares a password-protected room with QR and viewer camera modes", async ({ page, context }) => {
   await page.goto("/");
   await waitForTestApi(page);
-  await page.evaluate(() => window.__APP_TEST_API__.setMode("presentation"));
 
   await showTopToolbar(page);
   await page.getByTestId("share-btn").click();
@@ -218,7 +216,7 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   const qrBox = await page.getByTestId("room-share-qr").boundingBox();
   expect(linkBox.y).toBeGreaterThan(qrBox.y + qrBox.height - 1);
   const href = await shareLink.getAttribute("href");
-  expect(href).toMatch(/\/room\/\d{4}\?session=room$/);
+  expect(href).toMatch(/\/room\/\d{4}$/);
   expect(href).not.toContain("secret");
   expect(href).not.toContain("hostToken");
   await expect(page.getByTestId("room-share-qr")).toBeVisible();
@@ -240,18 +238,6 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect.poll(async () => (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
-
-  await page.evaluate(() => window.__APP_TEST_API__.setMode("edit"));
-  const hostBackgroundToggle = page.getByTestId("background-toggle");
-  await expect(hostBackgroundToggle).toBeVisible();
-  await hostBackgroundToggle.click();
-  await page.getByTestId("style-pill-colorful").click();
-
-  await expect.poll(async () => (await getToolbarThemeSnapshot(page)).colorful).toBe(true);
-  const hostTheme = await getToolbarThemeSnapshot(page);
-  await expect.poll(async () => (await getToolbarThemeSnapshot(viewer)).colorful).toBe(true);
-  await expect.poll(async () => (await getToolbarThemeSnapshot(viewer)).toolbarBackground).toBe(hostTheme.toolbarBackground);
-  await expect.poll(async () => (await getToolbarThemeSnapshot(viewer)).toolbarBorder).toBe(hostTheme.toolbarBorder);
 
   await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
   await showTopToolbar(viewer);

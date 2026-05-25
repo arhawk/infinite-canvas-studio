@@ -47,7 +47,6 @@ export class TimerPlugin extends BasePlugin {
       finished: false,
       lastTick: null,
     };
-    this._applyingRemoteState = false;
 
     this.listenDom(toggleEl, "click", () => this._handleToggle());
     this.listenDom(closeEl, "click", () => this._hide());
@@ -94,13 +93,11 @@ export class TimerPlugin extends BasePlugin {
     const isHidden = widgetEl.hidden;
     widgetEl.hidden = !isHidden;
     toggleEl.setAttribute("aria-pressed", String(isHidden));
-    this._emitStateChange();
   }
 
   _hide() {
     this.ui.widgetEl.hidden = true;
     this.ui.toggleEl.setAttribute("aria-pressed", "false");
-    this._emitStateChange();
   }
 
   _setupDrag(widget) {
@@ -142,7 +139,6 @@ export class TimerPlugin extends BasePlugin {
 
       widget.style.left = newLeft + "px";
       widget.style.top  = newTop  + "px";
-      this._emitStateChange();
     });
 
     const endDrag = () => {
@@ -284,88 +280,5 @@ export class TimerPlugin extends BasePlugin {
 
     const isOpen = !this.ui.widgetEl.hidden;
     toggleEl.setAttribute("aria-pressed", String(isOpen));
-    this._emitStateChange();
-  }
-
-  _emitStateChange() {
-    if (this._applyingRemoteState) return;
-    if (this.app.emit) {
-      this.app.emit("timer:state-change", this.exportSyncState());
-      return;
-    }
-    this.app.events?.emit?.("timer:state-change", this.exportSyncState());
-  }
-
-  exportSyncState() {
-    const widgetEl = this.ui.widgetEl;
-    return {
-      visible: !widgetEl.hidden,
-      position: {
-        left: widgetEl.style.left || "",
-        top: widgetEl.style.top || "",
-        right: widgetEl.style.right || "",
-        bottom: widgetEl.style.bottom || "",
-      },
-      mode: this.state.mode,
-      running: this.state.running,
-      elapsed: this.state.elapsed,
-      remaining: this.state.remaining,
-      timerDuration: this.state.timerDuration,
-      finished: this.state.finished,
-      lastTick: this.state.lastTick,
-      capturedAt: Date.now(),
-    };
-  }
-
-  applySyncState(nextState, { remote = false } = {}) {
-    if (!nextState || typeof nextState !== "object") return;
-    const numeric = (value, fallback) => (Number.isFinite(value) ? value : fallback);
-
-    if (remote) this._applyingRemoteState = true;
-    this._clearTick();
-
-    const widgetEl = this.ui.widgetEl;
-    widgetEl.hidden = !Boolean(nextState.visible);
-    this.ui.toggleEl.setAttribute("aria-pressed", String(Boolean(nextState.visible)));
-
-    const position = nextState.position ?? {};
-    widgetEl.style.left = typeof position.left === "string" ? position.left : "";
-    widgetEl.style.top = typeof position.top === "string" ? position.top : "";
-    widgetEl.style.right = typeof position.right === "string" ? position.right : "";
-    widgetEl.style.bottom = typeof position.bottom === "string" ? position.bottom : "";
-
-    this.state.mode = nextState.mode === "stopwatch" ? "stopwatch" : "timer";
-    this.state.running = Boolean(nextState.running);
-    this.state.elapsed = numeric(nextState.elapsed, 0);
-    this.state.remaining = numeric(nextState.remaining, 0);
-    this.state.timerDuration = numeric(nextState.timerDuration, this.state.remaining);
-    this.state.finished = Boolean(nextState.finished);
-    this.state.lastTick = Number.isFinite(nextState.lastTick) ? nextState.lastTick : null;
-
-    const capturedAt = numeric(nextState.capturedAt, Date.now());
-    const now = Date.now();
-    const drift = Math.max(0, now - capturedAt);
-    if (this.state.running && !this.state.finished) {
-      if (this.state.mode === "stopwatch") {
-        this.state.elapsed += drift;
-      } else {
-        this.state.remaining = Math.max(0, this.state.remaining - drift);
-        if (this.state.remaining === 0) {
-          this.state.finished = true;
-          this.state.running = false;
-        }
-      }
-    }
-
-    if (this.state.running && !this.state.finished) {
-      this.state.lastTick = now;
-      this.state.intervalId = window.setInterval(() => this._tick(), TICK_INTERVAL_MS);
-    } else {
-      this.state.running = false;
-      this.state.intervalId = null;
-    }
-
-    this._syncUi();
-    if (remote) this._applyingRemoteState = false;
   }
 }
