@@ -112,6 +112,7 @@ export class TimerPlugin extends BasePlugin {
     let startX, startY, startLeft, startTop;
 
     this.listenDom(widget, "pointerdown", (e) => {
+      if (!this._isDragAllowed()) return;
       if (e.target.closest("button, input, label, select")) return;
       e.preventDefault();
 
@@ -152,6 +153,7 @@ export class TimerPlugin extends BasePlugin {
       if (!dragging) return;
       dragging = false;
       widget.style.cursor = "";
+      this._notifyStateChange();
     };
     this.listenDom(widget, "pointerup", endDrag);
     this.listenDom(widget, "pointercancel", endDrag);
@@ -263,6 +265,7 @@ export class TimerPlugin extends BasePlugin {
       timerDuration: this.state.timerDuration,
       finished: this.state.finished,
       visible: !this.ui.widgetEl.hidden,
+      position: this._getInlinePosition(),
     };
   }
 
@@ -278,6 +281,7 @@ export class TimerPlugin extends BasePlugin {
       this.state.finished = Boolean(state.finished);
       this.state.lastTick = this.state.running ? Date.now() : null;
       this.ui.widgetEl.hidden = !Boolean(state.visible);
+      this._applyPosition(state.position);
       if (this.state.running && !this.state.finished) {
         this.state.intervalId = window.setInterval(() => this._tick(), TICK_INTERVAL_MS);
       }
@@ -309,6 +313,36 @@ export class TimerPlugin extends BasePlugin {
     if (this._isApplyingRemoteState) return;
     const state = this.getSyncState();
     for (const cb of this._stateListeners) cb(state);
+  }
+
+  _getInlinePosition() {
+    const left = Number.parseFloat(this.ui.widgetEl.style.left);
+    const top = Number.parseFloat(this.ui.widgetEl.style.top);
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+    return { left, top };
+  }
+
+  _applyPosition(position) {
+    if (
+      position
+      && Number.isFinite(position.left)
+      && Number.isFinite(position.top)
+    ) {
+      this.ui.widgetEl.style.left = `${position.left}px`;
+      this.ui.widgetEl.style.top = `${position.top}px`;
+      this.ui.widgetEl.style.right = "auto";
+      this.ui.widgetEl.style.bottom = "auto";
+      return;
+    }
+    this.ui.widgetEl.style.left = "";
+    this.ui.widgetEl.style.top = "";
+    this.ui.widgetEl.style.right = "";
+    this.ui.widgetEl.style.bottom = "";
+  }
+
+  _isDragAllowed() {
+    const roomShare = this.app?.getPlugin?.("room-share");
+    return !roomShare?.viewer?.client;
   }
 
   _formatMs(ms) {

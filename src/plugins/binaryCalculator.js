@@ -224,6 +224,7 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     let startX, startY, startLeft, startTop;
 
     this.listenDom(header, "mousedown", (e) => {
+      if (!this._isDragAllowed()) return;
       if (e.target.closest(".calc-widget__close")) return;
       e.preventDefault();
 
@@ -264,6 +265,7 @@ export class BinaryCalculatorPlugin extends BasePlugin {
       if (!dragging) return;
       dragging = false;
       header.style.cursor = "";
+      this._notifyStateChange();
     });
   }
 
@@ -280,6 +282,7 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     return {
       ...this._state,
       visible: !this._widget.hidden,
+      position: this._getInlinePosition(),
     };
   }
 
@@ -296,6 +299,7 @@ export class BinaryCalculatorPlugin extends BasePlugin {
       };
       this._widget.hidden = !Boolean(state.visible);
       this._toggle.setAttribute("aria-pressed", String(!this._widget.hidden));
+      this._applyPosition(state.position);
       this._syncDisplay();
     } finally {
       this._isApplyingRemoteState = false;
@@ -323,6 +327,36 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     if (this._isApplyingRemoteState) return;
     const state = this.getSyncState();
     for (const cb of this._stateListeners) cb(state);
+  }
+
+  _getInlinePosition() {
+    const left = Number.parseFloat(this._widget.style.left);
+    const top = Number.parseFloat(this._widget.style.top);
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+    return { left, top };
+  }
+
+  _applyPosition(position) {
+    if (
+      position
+      && Number.isFinite(position.left)
+      && Number.isFinite(position.top)
+    ) {
+      this._widget.style.left = `${position.left}px`;
+      this._widget.style.top = `${position.top}px`;
+      this._widget.style.right = "auto";
+      this._widget.style.bottom = "auto";
+      return;
+    }
+    this._widget.style.left = "";
+    this._widget.style.top = "";
+    this._widget.style.right = "";
+    this._widget.style.bottom = "";
+  }
+
+  _isDragAllowed() {
+    const roomShare = this.app?.getPlugin?.("room-share");
+    return !roomShare?.viewer?.client;
   }
 
   _processAction(state, action) {

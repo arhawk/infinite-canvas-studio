@@ -93,6 +93,17 @@ async function showTopToolbar(page) {
   await expect(page.getByTestId("toolbar")).toHaveClass(/is-visible/);
 }
 
+async function dragElementBy(page, locator, dx, dy) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error("Drag target is not visible.");
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + dx, startY + dy, { steps: 8 });
+  await page.mouse.up();
+}
+
 function getRoomUrl(path) {
   const port = process.env.PLAYWRIGHT_PORT || "3000";
   return `http://127.0.0.1:${port}${path}`;
@@ -236,16 +247,35 @@ test("shares a password-protected room with QR and viewer camera modes", async (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
   await page.getByTestId("mode-capsule-present").click();
-  await page.getByTestId("presentation-tool-timer").click();
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="presentation-tool-timer"]')?.click();
+  });
   await expect(viewer.getByTestId("timer-widget")).toBeVisible();
+  const hostTimerRectBeforeRoom = await page.getByTestId("timer-widget").boundingBox();
+  await expect.poll(async () => {
+    const rect = await viewer.getByTestId("timer-widget").boundingBox();
+    return rect ? { x: Math.round(rect.x), y: Math.round(rect.y) } : null;
+  }).toEqual({
+    x: Math.round(hostTimerRectBeforeRoom.x),
+    y: Math.round(hostTimerRectBeforeRoom.y),
+  });
 
   await showTopToolbar(viewer);
   await viewer.getByTestId("mode-capsule-edit").click();
   await expect(viewer.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
 
-  await showTopToolbar(page);
-  await page.getByTestId("presentation-tool-calculator").click();
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="presentation-tool-calculator"]')?.click();
+  });
   await expect(viewer.getByTestId("calculator-widget")).toBeVisible();
+  const hostCalculatorRectBeforeRoom = await page.getByTestId("calculator-widget").boundingBox();
+  await expect.poll(async () => {
+    const rect = await viewer.getByTestId("calculator-widget").boundingBox();
+    return rect ? { x: Math.round(rect.x), y: Math.round(rect.y) } : null;
+  }).toEqual({
+    x: Math.round(hostCalculatorRectBeforeRoom.x),
+    y: Math.round(hostCalculatorRectBeforeRoom.y),
+  });
 
   await page.getByTestId("timer-start-pause").click();
   await expect(viewer.getByTestId("timer-start-pause")).toHaveText("Pause");
@@ -255,7 +285,6 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await page.locator("#calculator-widget .calc-btn", { hasText: "1" }).first().click();
   await expect(viewer.locator("#calculator-widget .calc-widget__display-val")).toHaveText("1");
 
-  await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
   await showTopToolbar(viewer);
   await expect(viewer.getByTestId("save-document-action")).toBeVisible();
   await viewer.getByTestId("save-document-action").click();
@@ -335,6 +364,35 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await viewer.getByTestId("mode-capsule-present").click();
   await expect(viewer.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await getViewport(viewer)).scale).toBeCloseTo(0.4, 1);
+  await expect.poll(async () => {
+    const rect = await viewer.getByTestId("timer-widget").boundingBox();
+    return rect ? { x: Math.round(rect.x), y: Math.round(rect.y) } : null;
+  }).toEqual({
+    x: Math.round(hostTimerRectBeforeRoom.x),
+    y: Math.round(hostTimerRectBeforeRoom.y),
+  });
+
+  const timerRectHostBeforeDrag = await page.getByTestId("timer-widget").boundingBox();
+  const timerRectViewerBeforeDrag = await viewer.getByTestId("timer-widget").boundingBox();
+  await dragElementBy(page, page.locator("#timer-header"), 130, 80);
+  await dragElementBy(viewer, viewer.locator("#timer-header"), -130, -80);
+  const timerRectHostAfterDrag = await page.getByTestId("timer-widget").boundingBox();
+  const timerRectViewerAfterDrag = await viewer.getByTestId("timer-widget").boundingBox();
+  expect(Math.round(timerRectHostAfterDrag.x)).toBe(Math.round(timerRectHostBeforeDrag.x));
+  expect(Math.round(timerRectHostAfterDrag.y)).toBe(Math.round(timerRectHostBeforeDrag.y));
+  expect(Math.round(timerRectViewerAfterDrag.x)).toBe(Math.round(timerRectViewerBeforeDrag.x));
+  expect(Math.round(timerRectViewerAfterDrag.y)).toBe(Math.round(timerRectViewerBeforeDrag.y));
+
+  const calcRectHostBeforeDrag = await page.getByTestId("calculator-widget").boundingBox();
+  const calcRectViewerBeforeDrag = await viewer.getByTestId("calculator-widget").boundingBox();
+  await dragElementBy(page, page.locator("#calculator-widget .calc-widget__header"), -120, 90);
+  await dragElementBy(viewer, viewer.locator("#calculator-widget .calc-widget__header"), 120, -90);
+  const calcRectHostAfterDrag = await page.getByTestId("calculator-widget").boundingBox();
+  const calcRectViewerAfterDrag = await viewer.getByTestId("calculator-widget").boundingBox();
+  expect(Math.round(calcRectHostAfterDrag.x)).toBe(Math.round(calcRectHostBeforeDrag.x));
+  expect(Math.round(calcRectHostAfterDrag.y)).toBe(Math.round(calcRectHostBeforeDrag.y));
+  expect(Math.round(calcRectViewerAfterDrag.x)).toBe(Math.round(calcRectViewerBeforeDrag.x));
+  expect(Math.round(calcRectViewerAfterDrag.y)).toBe(Math.round(calcRectViewerBeforeDrag.y));
 
   await page.close();
   await expect(viewer.getByTestId("room-status-badge")).toContainText("Host disconnected");

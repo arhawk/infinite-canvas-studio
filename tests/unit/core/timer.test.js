@@ -7,6 +7,7 @@ vi.mock("../../../src/lib/icons.js", () => ({
 import { TimerPlugin } from "../../../src/plugins/timer.js";
 
 let plugin;
+let roomShare;
 
 function createDom() {
   document.body.innerHTML = `
@@ -27,7 +28,19 @@ function createDom() {
 }
 
 function setupPlugin() {
-  plugin = new TimerPlugin({}, {
+  roomShare = { host: { connected: false }, viewer: { client: null } };
+  plugin = new TimerPlugin({
+    getPlugin(id) {
+      return id === "room-share" ? roomShare : null;
+    },
+    tools: { register() {}, unregister() {} },
+    commands: { register() {}, unregister() {} },
+    contextMenu: { register() {}, unregister() {} },
+    modeManager: { register: () => () => {}, isEnabled: () => true, getConfig: () => ({}) },
+    on() {
+      return () => {};
+    },
+  }, {
     toggleEl: document.querySelector("#timer-toggle"),
     widgetEl: document.querySelector("#timer-widget"),
     headerEl: document.querySelector("#timer-header"),
@@ -78,5 +91,61 @@ describe("TimerPlugin", () => {
 
     expect(document.querySelector("#timer-display").textContent).toContain("00:05");
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("syncs inline position through getSyncState/applySyncState", () => {
+    const widget = document.querySelector("#timer-widget");
+    widget.style.left = "130px";
+    widget.style.top = "45px";
+    const syncState = plugin.getSyncState();
+    expect(syncState.position).toEqual({ left: 130, top: 45 });
+
+    plugin.applySyncState({ visible: true, position: { left: 210, top: 95 } });
+    expect(widget.style.left).toBe("210px");
+    expect(widget.style.top).toBe("95px");
+    expect(widget.style.right).toBe("auto");
+    expect(widget.style.bottom).toBe("auto");
+
+    plugin.applySyncState({ visible: true, position: null });
+    expect(widget.style.left).toBe("");
+    expect(widget.style.top).toBe("");
+    expect(widget.style.right).toBe("");
+    expect(widget.style.bottom).toBe("");
+  });
+
+  it("blocks dragging for viewer clients", () => {
+    const widget = document.querySelector("#timer-widget");
+    widget.hidden = false;
+    widget.setPointerCapture = vi.fn();
+    roomShare.viewer.client = {};
+
+    const event = new Event("pointerdown", { bubbles: true, cancelable: true });
+    Object.assign(event, {
+      pointerId: 1,
+      clientX: 40,
+      clientY: 40,
+    });
+    widget.dispatchEvent(event);
+
+    expect(widget.style.cursor).toBe("");
+    expect(widget.setPointerCapture).not.toHaveBeenCalled();
+  });
+
+  it("allows dragging for room host", () => {
+    const widget = document.querySelector("#timer-widget");
+    widget.hidden = false;
+    widget.setPointerCapture = vi.fn();
+    roomShare.host.connected = true;
+
+    const event = new Event("pointerdown", { bubbles: true, cancelable: true });
+    Object.assign(event, {
+      pointerId: 1,
+      clientX: 40,
+      clientY: 40,
+    });
+    widget.dispatchEvent(event);
+
+    expect(widget.style.cursor).toBe("grabbing");
+    expect(widget.setPointerCapture).toHaveBeenCalledWith(1);
   });
 });

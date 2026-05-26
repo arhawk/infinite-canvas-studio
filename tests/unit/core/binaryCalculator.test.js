@@ -7,6 +7,7 @@ vi.mock("../../../src/lib/icons.js", () => ({
 import { BinaryCalculatorPlugin } from "../../../src/plugins/binaryCalculator.js";
 
 let plugin;
+let roomShare;
 
 function createDom() {
   document.body.innerHTML = `
@@ -16,8 +17,20 @@ function createDom() {
 }
 
 function setupPlugin() {
+  roomShare = { host: { connected: false }, viewer: { client: null } };
   plugin = new BinaryCalculatorPlugin(
-    {},
+    {
+      getPlugin(id) {
+        return id === "room-share" ? roomShare : null;
+      },
+      tools: { register() {}, unregister() {} },
+      commands: { register() {}, unregister() {} },
+      contextMenu: { register() {}, unregister() {} },
+      modeManager: { register: () => () => {}, isEnabled: () => true, getConfig: () => ({}) },
+      on() {
+        return () => {};
+      },
+    },
     {
       toggleEl: document.querySelector("#calculator-toggle"),
       widgetEl: document.querySelector("#calculator-widget"),
@@ -116,5 +129,55 @@ describe("BinaryCalculatorPlugin", () => {
     });
     expect(displayValue()).toBe("1010");
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("syncs inline position through getSyncState/applySyncState", () => {
+    const widget = document.querySelector("#calculator-widget");
+    widget.style.left = "80px";
+    widget.style.top = "150px";
+    const state = plugin.getSyncState();
+    expect(state.position).toEqual({ left: 80, top: 150 });
+
+    plugin.applySyncState({ visible: true, position: { left: 250, top: 300 } });
+    expect(widget.style.left).toBe("250px");
+    expect(widget.style.top).toBe("300px");
+    expect(widget.style.right).toBe("auto");
+    expect(widget.style.bottom).toBe("auto");
+
+    plugin.applySyncState({ visible: true, position: null });
+    expect(widget.style.left).toBe("");
+    expect(widget.style.top).toBe("");
+    expect(widget.style.right).toBe("");
+    expect(widget.style.bottom).toBe("");
+  });
+
+  it("blocks dragging for viewer clients", () => {
+    const widget = document.querySelector("#calculator-widget");
+    widget.hidden = false;
+    roomShare.viewer.client = {};
+    const header = document.querySelector(".calc-widget__header");
+
+    header.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true,
+      clientX: 20,
+      clientY: 20,
+    }));
+
+    expect(header.style.cursor).toBe("");
+  });
+
+  it("allows dragging for room host", () => {
+    const widget = document.querySelector("#calculator-widget");
+    widget.hidden = false;
+    roomShare.host.connected = true;
+    const header = document.querySelector(".calc-widget__header");
+
+    header.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true,
+      clientX: 20,
+      clientY: 20,
+    }));
+
+    expect(header.style.cursor).toBe("grabbing");
   });
 });
