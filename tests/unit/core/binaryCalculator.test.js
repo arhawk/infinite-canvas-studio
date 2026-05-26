@@ -94,4 +94,27 @@ describe("BinaryCalculatorPlugin", () => {
     expect(event.defaultPrevented).toBe(false);
     expect(displayValue()).toBe("0");
   });
+
+  it("becomes non-interactive in readonly mode", () => {
+    document.querySelector("#calculator-toggle").click();
+    plugin.setReadonly(true);
+    document.querySelector("#calculator-toggle").click();
+    press("7");
+    expect(displayValue()).toBe("0");
+  });
+
+  it("applySyncState updates UI without triggering onStateChange loop", () => {
+    const handler = vi.fn();
+    plugin.onStateChange(handler);
+    plugin.applySyncState({
+      inputStr: "1010",
+      currentBase: 2,
+      pendingOp: null,
+      waitingForInput: false,
+      accumulator: null,
+      visible: true,
+    });
+    expect(displayValue()).toBe("1010");
+    expect(handler).not.toHaveBeenCalled();
+  });
 });

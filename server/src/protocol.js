@@ -1,6 +1,10 @@
 export const ROOM_ID_PATTERN = /^\d{4}$/;
 export const APP_MESSAGE_PREFIX = "app:";
 export const VIEWER_CONTROL_MESSAGE_TYPES = new Set(["viewer:join"]);
+export const VIEWER_BLOCKED_APP_MESSAGE_TYPES = new Set([
+  "app:timer-state",
+  "app:calculator-state",
+]);
 
 // Future frontend features can add app-prefixed business events without a
 // backend deploy, while room-prefixed messages stay reserved for room protocol.
@@ -38,7 +42,7 @@ export function canHostRelayMessageType(type) {
 }
 
 export function canViewerRelayMessageType(type) {
-  return isAppRelayMessageType(type);
+  return isAppRelayMessageType(type) && !VIEWER_BLOCKED_APP_MESSAGE_TYPES.has(type);
 }
 
 export function safeJsonParse(text) {

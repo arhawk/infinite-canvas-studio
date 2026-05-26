@@ -305,12 +305,15 @@ export class RoomSharePlugin extends BasePlugin {
     });
     client.on("host:joined", () => {
       this.host.connected = true;
-      this.app.emit("room:share:change");
+      this.app.events.emit("room:share:change");
       void this.sendHostState();
       this.flushHostViewport();
     });
     client.on("viewer:joined", () => {
       void this.sendHostState();
+      window.setTimeout(() => {
+        this.app.events.emit("room:viewer:joined");
+      }, 0);
     });
     client.on("room:viewers", ({ count }) => {
       this.host.viewerCount = Number.isFinite(count) ? count : 0;
@@ -321,7 +324,7 @@ export class RoomSharePlugin extends BasePlugin {
     });
     client.on("close", () => {
       this.host.connected = false;
-      this.app.emit("room:share:change");
+      this.app.events.emit("room:share:change");
       this.updateRoomBadge();
     });
     client.connect();
@@ -346,6 +349,9 @@ export class RoomSharePlugin extends BasePlugin {
       "draw:removed",
       "background:change",
       "document:load:end",
+      "page-compare:room-sync-needed",
+      "page-compare:open",
+      "page-compare:close",
     ].forEach((eventName) => this.listen(eventName, scheduleState));
   }
 
@@ -377,7 +383,8 @@ export class RoomSharePlugin extends BasePlugin {
       download: false,
       format: "json",
     });
-    this.host.client?.send("room:state", { document });
+    const compareState = this.app.getPlugin?.("page-compare")?.exportRoomCompareState?.() ?? null;
+    this.host.client?.send("room:state", { document, compareState });
   }
 
   async startViewer(roomId) {
@@ -414,17 +421,19 @@ export class RoomSharePlugin extends BasePlugin {
     client.on("room:joined", () => {
       this.viewer.joined = true;
       this.clearViewerAutoJoinTimer();
-      this.app.emit("room:share:change");
+      this.app.events.emit("room:share:change");
       this.hidePasswordPrompt();
       this.updateRoomBadge("Waiting for host...");
       this.showViewerWaitingLayer();
       this.startViewerReadyTimer();
     });
-    client.on("room:state", ({ document }) => {
+    client.on("room:state", ({ document, compareState }) => {
       if (!document) return;
       this.viewer.receivedState = true;
       this.clearViewerReadyTimer();
       void this.app.documentManager?.loadDocument?.(document, { source: "room" }).then(() => {
+        const pageCompare = this.app.getPlugin?.("page-compare");
+        pageCompare?.applyRoomCompareState?.(compareState ?? null);
         this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
         this.syncViewerUi();
         this.hideViewerWaitingLayer();
@@ -463,7 +472,7 @@ export class RoomSharePlugin extends BasePlugin {
         return;
       }
       if (this.viewer.closedByServer) return;
-      this.app.emit("room:share:change");
+      this.app.events.emit("room:share:change");
       this.hideViewerWaitingLayer();
       this.updateRoomBadge("Room disconnected");
     });

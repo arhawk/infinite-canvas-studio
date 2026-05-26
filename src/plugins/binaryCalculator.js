@@ -90,6 +90,9 @@ export class BinaryCalculatorPlugin extends BasePlugin {
     this._toggle = toggleEl;
     this._widget = widgetEl;
     this._state = defaultState();
+    this._readonly = false;
+    this._isApplyingRemoteState = false;
+    this._stateListeners = new Set();
 
     renderIcons(toggleEl, { width: 18, height: 18, "stroke-width": 2 });
     this._buildWidget(widgetEl);
@@ -101,12 +104,15 @@ export class BinaryCalculatorPlugin extends BasePlugin {
   // ── Toggle ──────────────────────────────────────────────────────────────────
 
   _handleToggle() {
+    if (this._readonly) return;
     const next = this._widget.hidden;
     this._widget.hidden = !next;
     this._toggle.setAttribute("aria-pressed", String(next));
+    this._notifyStateChange();
   }
 
   _handleKeydown(event) {
+    if (this._readonly) return;
     if (this._widget.hidden || isEditableTarget(event.target)) return;
 
     const action = actionFromKeyboardEvent(event);
@@ -264,8 +270,59 @@ export class BinaryCalculatorPlugin extends BasePlugin {
   // ── State machine ───────────────────────────────────────────────────────────
 
   _handleButton(action) {
+    if (this._readonly) return;
     this._processAction(this._state, action);
     this._syncDisplay();
+    this._notifyStateChange();
+  }
+
+  getSyncState() {
+    return {
+      ...this._state,
+      visible: !this._widget.hidden,
+    };
+  }
+
+  applySyncState(state = {}) {
+    this._isApplyingRemoteState = true;
+    try {
+      this._state = {
+        ...defaultState(),
+        inputStr: typeof state.inputStr === "string" ? state.inputStr : "0",
+        accumulator: Number.isFinite(state.accumulator) ? state.accumulator : null,
+        pendingOp: typeof state.pendingOp === "string" ? state.pendingOp : null,
+        waitingForInput: Boolean(state.waitingForInput),
+        currentBase: [2, 8, 10, 16].includes(state.currentBase) ? state.currentBase : 10,
+      };
+      this._widget.hidden = !Boolean(state.visible);
+      this._toggle.setAttribute("aria-pressed", String(!this._widget.hidden));
+      this._syncDisplay();
+    } finally {
+      this._isApplyingRemoteState = false;
+    }
+  }
+
+  setReadonly(readonly) {
+    this._readonly = Boolean(readonly);
+    this._toggle.disabled = this._readonly;
+    this._widget
+      .querySelectorAll("button, input, select, textarea")
+      .forEach((el) => {
+        if (el.classList.contains("calc-widget__display")) return;
+        el.disabled = this._readonly;
+      });
+  }
+
+  onStateChange(cb) {
+    if (typeof cb !== "function") return () => {};
+    this._stateListeners.add(cb);
+    return () => this._stateListeners.delete(cb);
+  }
+
+  _notifyStateChange() {
+    if (this._isApplyingRemoteState) return;
+    const state = this.getSyncState();
+    for (const cb of this._stateListeners) cb(state);
   }
 
   _processAction(state, action) {

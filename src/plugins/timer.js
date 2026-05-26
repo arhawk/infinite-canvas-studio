@@ -47,6 +47,9 @@ export class TimerPlugin extends BasePlugin {
       finished: false,
       lastTick: null,
     };
+    this._readonly = false;
+    this._isApplyingRemoteState = false;
+    this._stateListeners = new Set();
 
     this.listenDom(toggleEl, "click", () => this._handleToggle());
     this.listenDom(closeEl, "click", () => this._hide());
@@ -89,15 +92,19 @@ export class TimerPlugin extends BasePlugin {
   }
 
   _handleToggle() {
+    if (this._readonly) return;
     const { widgetEl, toggleEl } = this.ui;
     const isHidden = widgetEl.hidden;
     widgetEl.hidden = !isHidden;
     toggleEl.setAttribute("aria-pressed", String(isHidden));
+    this._notifyStateChange();
   }
 
   _hide() {
+    if (this._readonly) return;
     this.ui.widgetEl.hidden = true;
     this.ui.toggleEl.setAttribute("aria-pressed", "false");
+    this._notifyStateChange();
   }
 
   _setupDrag(widget) {
@@ -151,6 +158,7 @@ export class TimerPlugin extends BasePlugin {
   }
 
   _switchMode(newMode) {
+    if (this._readonly) return;
     if (newMode === this.state.mode) return;
     this._clearTick();
     this.state.mode = newMode;
@@ -160,9 +168,11 @@ export class TimerPlugin extends BasePlugin {
     this.state.finished = false;
     this.state.lastTick = null;
     this._syncUi();
+    this._notifyStateChange();
   }
 
   _handleStartPause() {
+    if (this._readonly) return;
     if (this.state.running) {
       this._pause();
     } else {
@@ -181,12 +191,14 @@ export class TimerPlugin extends BasePlugin {
       TICK_INTERVAL_MS,
     );
     this._syncUi();
+    this._notifyStateChange();
   }
 
   _pause() {
     this._clearTick();
     this.state.running = false;
     this._syncUi();
+    this._notifyStateChange();
   }
 
   _clearTick() {
@@ -197,6 +209,7 @@ export class TimerPlugin extends BasePlugin {
   }
 
   _handleReset() {
+    if (this._readonly) return;
     this._clearTick();
     this.state.running = false;
     this.state.finished = false;
@@ -207,15 +220,18 @@ export class TimerPlugin extends BasePlugin {
       this.state.remaining = this.state.timerDuration;
     }
     this._syncUi();
+    this._notifyStateChange();
   }
 
   _handleDurationInput() {
+    if (this._readonly) return;
     if (this.state.running) return;
     const ms = this._readDurationMs();
     this.state.timerDuration = ms;
     this.state.remaining = ms;
     this.state.finished = false;
     this._syncUi();
+    this._notifyStateChange();
   }
 
   _tick() {
@@ -235,6 +251,64 @@ export class TimerPlugin extends BasePlugin {
       }
     }
     this._syncUi();
+    this._notifyStateChange();
+  }
+
+  getSyncState() {
+    return {
+      mode: this.state.mode,
+      running: this.state.running,
+      elapsed: this.state.elapsed,
+      remaining: this.state.remaining,
+      timerDuration: this.state.timerDuration,
+      finished: this.state.finished,
+      visible: !this.ui.widgetEl.hidden,
+    };
+  }
+
+  applySyncState(state = {}) {
+    this._isApplyingRemoteState = true;
+    try {
+      this._clearTick();
+      this.state.mode = state.mode === "stopwatch" ? "stopwatch" : "timer";
+      this.state.running = Boolean(state.running);
+      this.state.elapsed = Math.max(0, Number(state.elapsed) || 0);
+      this.state.remaining = Math.max(0, Number(state.remaining) || 0);
+      this.state.timerDuration = Math.max(0, Number(state.timerDuration) || 0);
+      this.state.finished = Boolean(state.finished);
+      this.state.lastTick = this.state.running ? Date.now() : null;
+      this.ui.widgetEl.hidden = !Boolean(state.visible);
+      if (this.state.running && !this.state.finished) {
+        this.state.intervalId = window.setInterval(() => this._tick(), TICK_INTERVAL_MS);
+      }
+      this._syncUi();
+    } finally {
+      this._isApplyingRemoteState = false;
+    }
+  }
+
+  setReadonly(readonly) {
+    this._readonly = Boolean(readonly);
+    const disabled = this._readonly;
+    const { toggleEl, startPauseEl, resetEl, mmInputEl, ssInputEl, tabs } = this.ui;
+    toggleEl.disabled = disabled;
+    startPauseEl.disabled = disabled || startPauseEl.disabled;
+    resetEl.disabled = disabled;
+    mmInputEl.disabled = disabled || this.state.running;
+    ssInputEl.disabled = disabled || this.state.running;
+    for (const tab of tabs) tab.disabled = disabled;
+  }
+
+  onStateChange(cb) {
+    if (typeof cb !== "function") return () => {};
+    this._stateListeners.add(cb);
+    return () => this._stateListeners.delete(cb);
+  }
+
+  _notifyStateChange() {
+    if (this._isApplyingRemoteState) return;
+    const state = this.getSyncState();
+    for (const cb of this._stateListeners) cb(state);
   }
 
   _formatMs(ms) {
@@ -267,8 +341,8 @@ export class TimerPlugin extends BasePlugin {
     }
 
     durationRowEl.hidden = mode !== "timer";
-    mmInputEl.disabled = running;
-    ssInputEl.disabled = running;
+    mmInputEl.disabled = this._readonly || running;
+    ssInputEl.disabled = this._readonly || running;
 
     const ms = mode === "stopwatch" ? elapsed : remaining;
     displayEl.textContent = this._formatMs(ms);
@@ -276,9 +350,12 @@ export class TimerPlugin extends BasePlugin {
 
     startPauseEl.textContent = running ? "Pause" : "Start";
     startPauseEl.disabled =
-      finished || (mode === "timer" && timerDuration === 0 && !running);
+      this._readonly || finished || (mode === "timer" && timerDuration === 0 && !running);
+    resetEl.disabled = this._readonly;
+    for (const tab of tabs) tab.disabled = this._readonly;
 
     const isOpen = !this.ui.widgetEl.hidden;
+    toggleEl.disabled = this._readonly;
     toggleEl.setAttribute("aria-pressed", String(isOpen));
   }
 }

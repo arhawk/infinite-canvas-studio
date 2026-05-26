@@ -146,6 +146,7 @@ export class PageComparePlugin extends BasePlugin {
     this.previousViewport = null;
     this.previousSelectionIds = [];
     this.isOpen = false;
+    this.isApplyingRoomState = false;
 
     this.app.overlayLayer.add(this.selectionOutlineGroup);
     this.buildSelectionBar();
@@ -350,6 +351,8 @@ export class PageComparePlugin extends BasePlugin {
     this.openPages = [...this.selectedPages];
     this.isOpen = true;
     this.renderOverlay();
+    this.app.events.emit("page-compare:open");
+    this.emitRoomSyncEvent("page-compare:open");
     this.emitState();
     return true;
   }
@@ -374,6 +377,8 @@ export class PageComparePlugin extends BasePlugin {
     this.previousViewport = null;
     this.previousSelectionIds = [];
     this.openPages = [];
+    this.app.events.emit("page-compare:close");
+    this.emitRoomSyncEvent("page-compare:close");
     this.emitState();
   }
 
@@ -475,6 +480,7 @@ export class PageComparePlugin extends BasePlugin {
 
   fitOpenPanes({ force = false } = {}) {
     this.paneViews.forEach((view) => view.fit({ force }));
+    if (force) this.emitRoomSyncEvent("page-compare:fit");
   }
 
   refreshPaneSnapshots({ fitAfterLoad = false } = {}) {
@@ -558,7 +564,18 @@ export class PageComparePlugin extends BasePlugin {
       applyTransform();
     };
 
-    const showSnapshot = (snapshot, { fitAfterLoad = false } = {}) => {
+    const applyRoomPaneViewInit = (viewInit = null) => {
+      if (!viewInit) return;
+      if (!Number.isFinite(viewInit.scale) || viewInit.scale <= 0) return;
+      if (!Number.isFinite(viewInit.x) || !Number.isFinite(viewInit.y)) return;
+      state.scale = clamp(viewInit.scale, PANE_MIN_SCALE, PANE_MAX_SCALE);
+      state.x = viewInit.x;
+      state.y = viewInit.y;
+      state.isFit = viewInit.isFit !== false;
+      applyTransform();
+    };
+
+    const showSnapshot = (snapshot, { fitAfterLoad = false, viewInit = null } = {}) => {
       state.snapshot = snapshot;
       image.hidden = false;
       error.hidden = true;
@@ -570,6 +587,10 @@ export class PageComparePlugin extends BasePlugin {
 
       const shouldFit = fitAfterLoad || state.isFit;
       image.onload = () => {
+        if (viewInit) {
+          applyRoomPaneViewInit(viewInit);
+          return;
+        }
         if (shouldFit) {
           fit({ force: true });
         } else {
@@ -581,6 +602,10 @@ export class PageComparePlugin extends BasePlugin {
 
       window.setTimeout(() => {
         if (image.complete && state.snapshot === snapshot) {
+          if (viewInit) {
+            applyRoomPaneViewInit(viewInit);
+            return;
+          }
           if (shouldFit) {
             fit({ force: true });
           } else {
@@ -664,6 +689,7 @@ export class PageComparePlugin extends BasePlugin {
         hasSnapshot: Boolean(state.snapshot),
         snapshot: state.snapshot
           ? {
+              url: state.snapshot.url,
               width: state.snapshot.width,
               height: state.snapshot.height,
               pixelRatio: state.snapshot.pixelRatio,
@@ -690,7 +716,22 @@ export class PageComparePlugin extends BasePlugin {
       };
     };
 
-    return { pane, viewport, fit, refreshSnapshot, getState };
+    const applyRoomSnapshot = (snapshot, paneViewInit = null) => {
+      if (!snapshot || typeof snapshot.url !== "string") {
+        showUnavailable();
+        return;
+      }
+      showSnapshot(snapshot, { fitAfterLoad: false, viewInit: paneViewInit });
+    };
+
+    return {
+      pane,
+      viewport,
+      fit,
+      refreshSnapshot,
+      getState,
+      applyRoomSnapshot,
+    };
   }
 
   createPageSnapshot(pageNode, { viewportRect = null } = {}) {
@@ -762,10 +803,113 @@ export class PageComparePlugin extends BasePlugin {
     };
   }
 
+  emitRoomSyncEvent(reason = "state") {
+    if (this.isApplyingRoomState) return;
+    this.app.events.emit("page-compare:room-sync-needed", { reason });
+  }
+
+  exportRoomCompareState() {
+    const paneSnapshots = this.paneViews.map((view, index) => {
+      const state = view.getState();
+      const snapshot = state.snapshot;
+      return {
+        index,
+        pageId: state.pageId,
+        title: state.title,
+        width: snapshot?.width ?? null,
+        height: snapshot?.height ?? null,
+        pixelRatio: snapshot?.pixelRatio ?? null,
+        dataUrl: snapshot?.url ?? null,
+      };
+    });
+    const paneViewInit = this.paneViews.map((view, index) => {
+      const state = view.getState();
+      return {
+        index,
+        pageId: state.pageId,
+        x: state.transform.x,
+        y: state.transform.y,
+        scale: state.transform.scale,
+        isFit: state.transform.isFit,
+      };
+    });
+    return {
+      isOpen: this.isOpen,
+      selectedPageIds: this.selectedPages.map((page) => page.id()),
+      openPageIds: this.openPages.map((page) => page.id()),
+      paneSnapshots,
+      paneViewInit,
+      isFullscreen: Boolean(this.overlay && document.fullscreenElement === this.overlay),
+    };
+  }
+
+  applyRoomCompareState(roomState = null) {
+    this.isApplyingRoomState = true;
+    try {
+      if (!roomState?.isOpen) {
+        this.close({ restore: false });
+        this.clearPageSelection();
+        return;
+      }
+
+      const selectedPages = (roomState.selectedPageIds ?? [])
+        .map((id) => this.app.mainLayer.findOne(`#${id}`))
+        .filter((node) => isPageNode(node));
+      if (selectedPages.length) {
+        this.setPageSelection(selectedPages);
+      }
+
+      const openPages = (roomState.openPageIds ?? [])
+        .map((id) => this.app.mainLayer.findOne(`#${id}`))
+        .filter((node) => isPageNode(node));
+      if (openPages.length !== 2) {
+        this.close({ restore: false });
+        return;
+      }
+
+      this.previousViewport = null;
+      this.previousSelectionIds = [];
+      this.openPages = openPages;
+      this.isOpen = true;
+      this.renderOverlay();
+
+      const snapshotByPageId = new Map(
+        (roomState.paneSnapshots ?? [])
+          .filter((pane) => pane && typeof pane.pageId === "string")
+          .map((pane) => [pane.pageId, pane]),
+      );
+      const viewInitByPageId = new Map(
+        (roomState.paneViewInit ?? [])
+          .filter((pane) => pane && typeof pane.pageId === "string")
+          .map((pane) => [pane.pageId, pane]),
+      );
+
+      this.paneViews.forEach((view, index) => {
+        const paneState = view.getState();
+        const paneSnapshot = snapshotByPageId.get(paneState.pageId) ?? roomState.paneSnapshots?.[index];
+        if (!paneSnapshot || typeof paneSnapshot.dataUrl !== "string") {
+          view.refreshSnapshot({ fitAfterLoad: true });
+          return;
+        }
+        view.applyRoomSnapshot({
+          url: paneSnapshot.dataUrl,
+          width: paneSnapshot.width,
+          height: paneSnapshot.height,
+          pixelRatio: paneSnapshot.pixelRatio,
+        }, viewInitByPageId.get(paneState.pageId) ?? roomState.paneViewInit?.[index] ?? null);
+      });
+
+      this.emitState();
+    } finally {
+      this.isApplyingRoomState = false;
+    }
+  }
+
   swapPages() {
     if (!this.isOpen || this.openPages.length !== 2) return;
     this.openPages = [this.openPages[1], this.openPages[0]];
     this.renderOverlay();
+    this.emitRoomSyncEvent("page-compare:swap");
   }
 
   toggleFullscreen() {
@@ -774,10 +918,12 @@ export class PageComparePlugin extends BasePlugin {
     if (document.fullscreenElement) {
       const exitPromise = document.exitFullscreen?.();
       exitPromise?.catch?.(() => {});
+      this.emitRoomSyncEvent("page-compare:fullscreen-exit");
       return;
     }
 
     const fullscreenPromise = this.overlay.requestFullscreen?.();
     fullscreenPromise?.catch?.(() => {});
+    this.emitRoomSyncEvent("page-compare:fullscreen-enter");
   }
 }

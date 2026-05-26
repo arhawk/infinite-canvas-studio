@@ -181,7 +181,6 @@ test("shows pending feedback while creating a room", async ({ page }) => {
   await page.goto("/");
   await waitForTestApi(page);
 
-  await showTopToolbar(page);
   await page.getByTestId("share-btn").click();
   await page.getByTestId("room-share-create").click();
 
@@ -203,7 +202,6 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await page.goto("/");
   await waitForTestApi(page);
 
-  await showTopToolbar(page);
   await page.getByTestId("share-btn").click();
   await page.getByTestId("room-share-password").fill("secret");
   await page.getByTestId("room-share-create").click();
@@ -226,7 +224,6 @@ test("shares a password-protected room with QR and viewer camera modes", async (
 
   const viewer = await context.newPage();
   await viewer.goto(href);
-  await waitForTestApi(viewer);
   await expect(viewer.getByTestId("room-password-prompt")).toBeVisible();
   await viewer.getByTestId("room-password-input").fill("secret");
   await viewer.getByTestId("room-password-submit").click();
@@ -238,6 +235,25 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect.poll(async () => (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
+  await page.getByTestId("mode-capsule-present").click();
+  await page.getByTestId("presentation-tool-timer").click();
+  await expect(viewer.getByTestId("timer-widget")).toBeVisible();
+
+  await showTopToolbar(viewer);
+  await viewer.getByTestId("mode-capsule-edit").click();
+  await expect(viewer.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
+
+  await showTopToolbar(page);
+  await page.getByTestId("presentation-tool-calculator").click();
+  await expect(viewer.getByTestId("calculator-widget")).toBeVisible();
+
+  await page.getByTestId("timer-start-pause").click();
+  await expect(viewer.getByTestId("timer-start-pause")).toHaveText("Pause");
+  await page.getByTestId("timer-start-pause").click();
+  await expect(viewer.getByTestId("timer-start-pause")).toHaveText("Start");
+
+  await page.locator("#calculator-widget .calc-btn", { hasText: "1" }).first().click();
+  await expect(viewer.locator("#calculator-widget .calc-widget__display-val")).toHaveText("1");
 
   await expect(viewer.getByTestId("toolbar")).not.toHaveClass(/is-visible/);
   await showTopToolbar(viewer);
@@ -324,6 +340,82 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(viewer.getByTestId("room-status-badge")).toContainText("Host disconnected");
 });
 
+test("syncs page compare snapshots from host to viewer without syncing viewer local pane transforms", async ({ page, context }) => {
+  await page.goto("/");
+  await waitForTestApi(page);
+
+  await page.getByTestId("share-btn").click();
+  await page.getByTestId("room-share-create").click();
+  const shareLink = page.getByTestId("room-share-link");
+  await expect(shareLink).toBeVisible();
+  await expect.poll(async () => shareLink.getAttribute("href")).not.toBe("#");
+  const href = await shareLink.getAttribute("href");
+  expect(href).toMatch(/\/room\/\d{4}$/);
+
+  const viewer = await context.newPage();
+  await viewer.goto(href);
+  await expect(viewer.getByTestId("room-status-badge")).toBeVisible();
+  const openCompare = async (targetPage) => {
+    await targetPage.waitForFunction(() => Boolean(window.__APP_TEST_API__));
+    return targetPage.evaluate(async () => {
+      window.__APP_TEST_API__.setMode("edit");
+      await window.__APP_TEST_API__.addComponent("page", { x: 120, y: 120 });
+      await window.__APP_TEST_API__.addComponent("page", { x: 760, y: 120 });
+      window.__APP_TEST_API__.setMode("presentation");
+      const nodes = window.__APP_TEST_API__.listNodes();
+      const pageIds = nodes.filter((node) => node.componentType === "page").map((node) => node.id).slice(0, 2);
+      if (pageIds.length !== 2) return false;
+      return window.__APP_TEST_API__.openPageCompare(pageIds);
+    });
+  };
+
+  expect(await openCompare(page)).toBe(true);
+  await expect(page.getByTestId("page-compare-overlay")).toBeVisible();
+  await expect(viewer.getByTestId("page-compare-overlay")).toBeVisible();
+  await expect.poll(async () => (
+    viewer.getByTestId("page-compare-pane-1").locator("img").getAttribute("src")
+  )).toContain("data:image/png");
+  await expect.poll(async () => (
+    viewer.getByTestId("page-compare-pane-2").locator("img").getAttribute("src")
+  )).toContain("data:image/png");
+
+  const beforeSwap = await Promise.all([
+    viewer.getByTestId("page-compare-pane-1").locator(".page-compare-pane__header").textContent(),
+    viewer.getByTestId("page-compare-pane-2").locator(".page-compare-pane__header").textContent(),
+  ]);
+  await page.getByTestId("page-compare-swap").click();
+  await expect.poll(async () => Promise.all([
+    viewer.getByTestId("page-compare-pane-1").locator(".page-compare-pane__header").textContent(),
+    viewer.getByTestId("page-compare-pane-2").locator(".page-compare-pane__header").textContent(),
+  ])).toEqual([beforeSwap[1], beforeSwap[0]]);
+
+  const viewerInitialTransform = await viewer.getByTestId("page-compare-pane-1").locator("img").evaluate((img) => ({
+    x: Number(img.dataset.compareX),
+    y: Number(img.dataset.compareY),
+    scale: Number(img.dataset.compareScale),
+  }));
+  const paneBox = await viewer.getByTestId("page-compare-pane-1").locator(".page-compare-pane__viewport").boundingBox();
+  await viewer.mouse.move(paneBox.x + paneBox.width / 2, paneBox.y + paneBox.height / 2);
+  await viewer.mouse.wheel(0, -260);
+  const viewerZoomedTransform = await viewer.getByTestId("page-compare-pane-1").locator("img").evaluate((img) => ({
+    x: Number(img.dataset.compareX),
+    y: Number(img.dataset.compareY),
+    scale: Number(img.dataset.compareScale),
+  }));
+  expect(viewerZoomedTransform.scale).toBeGreaterThan(viewerInitialTransform.scale);
+
+  const hostTransformAfterViewerZoom = await page.getByTestId("page-compare-pane-1").locator("img").evaluate((img) => ({
+    x: Number(img.dataset.compareX),
+    y: Number(img.dataset.compareY),
+    scale: Number(img.dataset.compareScale),
+  }));
+  expect(hostTransformAfterViewerZoom.scale).toBeCloseTo(viewerInitialTransform.scale, 2);
+
+  await page.getByTestId("page-compare-exit").click();
+  await expect(page.getByTestId("page-compare-overlay")).toBeHidden();
+  await expect(viewer.getByTestId("page-compare-overlay")).toBeHidden();
+});
+
 test("shows room not ready when a viewer joins before the host socket", async ({ page, request }) => {
   const response = await request.post(getCreateRoomApiUrl(), {
     data: { password: "" },
@@ -389,6 +481,16 @@ test("server relays forward-compatible app events after authorization", async ({
   });
 
   viewer.send("room:reaction", { emoji: "👍" });
+  await expect(viewer.waitFor("room:error")).resolves.toMatchObject({
+    payload: { code: "bad-viewer-message" },
+  });
+
+  viewer.send("app:timer-state", { state: { running: true } });
+  await expect(viewer.waitFor("room:error")).resolves.toMatchObject({
+    payload: { code: "bad-viewer-message" },
+  });
+
+  viewer.send("app:calculator-state", { state: { inputStr: "1" } });
   await expect(viewer.waitFor("room:error")).resolves.toMatchObject({
     payload: { code: "bad-viewer-message" },
   });

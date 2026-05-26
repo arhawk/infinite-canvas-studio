@@ -31,6 +31,7 @@ import { DocumentPlugin } from "./plugins/document.js";
 import { RoomSharePlugin } from "./plugins/roomShare.js";
 import { TimerPlugin } from "./plugins/timer.js";
 import { BinaryCalculatorPlugin } from "./plugins/binaryCalculator.js";
+import { CalcTimerSyncPlugin } from "./plugins/calcTimerSync.js";
 import { EmojiReactionsPlugin } from "./plugins/emojiReactions.js";
 import { PresentModeHintPlugin } from "./plugins/presentModeHint.js";
 import { MinimapPlugin } from "./plugins/minimap.js";
@@ -339,6 +340,7 @@ app.use(TimerPlugin, {
   ssInputEl: ui.timerSs,
   durationRowEl: ui.timerDurationRow,
 });
+app.use(CalcTimerSyncPlugin);
 app.use(EmojiReactionsPlugin, {
   toggleEl: toolbarPlugin.presentationReactionsBtnEl,
 });

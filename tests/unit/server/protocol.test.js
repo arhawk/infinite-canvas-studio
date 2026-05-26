@@ -26,6 +26,8 @@ describe("room protocol relay compatibility", () => {
   it("allows viewers to relay future app events without granting room protocol control", () => {
     expect(canViewerRelayMessageType("app:reaction")).toBe(true);
     expect(canViewerRelayMessageType("app:future-widget-event")).toBe(true);
+    expect(canViewerRelayMessageType("app:timer-state")).toBe(false);
+    expect(canViewerRelayMessageType("app:calculator-state")).toBe(false);
     expect(canViewerRelayMessageType("room:reaction")).toBe(false);
     expect(canViewerRelayMessageType("room:state")).toBe(false);
     expect(canViewerRelayMessageType("room:viewport")).toBe(false);
