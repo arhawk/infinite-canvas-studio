@@ -1,129 +1,284 @@
-# Mind Map Infinite Canvas
+# Mimi Mind Map Infinite Canvas
 
-A vanilla JavaScript infinite-canvas board built on Konva.js with a lightweight Vite setup. The current app combines canvas-native nodes, DOM-overlay components, catalog-driven outline data, presentation navigation, local undo/redo history, and document export/import in an extension-friendly architecture.
+Product and system handover documentation for the Mimi infinite-canvas teaching and presentation tool.
 
-For internal architecture, extension conventions, and implementation details, see [AGENTS.md](AGENTS.md).
+This README is intended for the client, teaching team, markers, and future maintainers who need to run, verify, hand over, or retire the product. Internal architecture and development conventions remain in [AGENTS.md](AGENTS.md) and [pr-guide.md](pr-guide.md).
 
-## Highlights
+## Product Overview
 
-- Infinite canvas pan and zoom with stage-aware coordinate conversion
-- Palette components for `Page`, `Button`, `Text`, `Sticky Note`, `Image`, `Iframe`, `Ranking Box`, `JS Code Runner`, and `Local Video`
-- Multi-select, Shift marquee selection, copy/paste, and clipboard image paste
-- Pen, Pencil, Highlighter, and whole-stroke Eraser tools
-- Container capture/release and curved component-to-component connections
-- Catalog outline panel with branch collapse and visibility syncing
-- Attachments on attachment-aware components such as `Page` and legacy `Container`
-- Presentation navigation through pages, buttons, and connection edge jump buttons
-- Online room sharing with optional host passwords, QR links, and viewer/host camera following
-- Local undo/redo, JSON save/load, and single-file HTML export
-- Teaching utilities including minimap, page compare, binary calculator, timer, and center-map controls
+Mimi is a browser-based infinite canvas for building non-linear teaching boards and presentation flows. A teacher can create pages, styled text, sticky notes, images, shapes, embedded web pages, code runners, local videos, ranking activities, attachments, and connections. The board can then be presented locally or shared through temporary online rooms.
 
-## Stack
+Core user-facing capabilities include:
 
-- pnpm
-- Vite
-- Vanilla JavaScript
-- Konva.js
-- Lucide Icons
-- Vitest
-- Playwright
+- Infinite canvas pan, zoom, fit-all, and minimap navigation
+- Edit and Present modes for teacher preparation and delivery
+- Component palette for Page, Button, Text, Sticky Note, Image, Iframe, Ranking Box, JS Code Runner, Local Video, and Shapes
+- Text style presets for Title, Body, and Note text, plus contextual editing controls for selected content
+- Shape creation and styling for rectangles, ovals/circles, rhombuses, and triangles
+- Drawing tools, highlighter, whole-stroke eraser, and undo/redo
+- Background controls for blank, grid, or dot canvas backgrounds, theme presets, colors, and opacity
+- Right-side outline for lesson structure and branch collapse
+- Component-to-component connections and button-based presentation jumps
+- Page Compare, Timer, Binary Calculator, and Emoji Reactions for teaching sessions
+- Online sharing through temporary room/collaboration links with optional passwords
+- Local save/load/export as JSON, single-file HTML, and Chromium-supported PROJ folder export
 
-## Development
+For end-user workflows, see [docs/product-documentation.html](docs/product-documentation.html).
+
+## Hosting System Requirements
+
+### Required
+
+- Node.js `^20.19.0` or `>=22.12.0`
+- pnpm `10.23.0` or compatible
+- A modern Chromium, Firefox, Safari, or Edge browser for normal use
+- Static web hosting for the built frontend output in `dist/`
+
+### Recommended Browser Features
+
+- Chromium-based browser for the best support of local folder project export/import (`Save as PROJ` / `Load PROJ`)
+- WebSocket support for online room sharing
+- Local file access permissions when users open local attachments or PROJ folders
+
+### Optional Room Relay Server
+
+Online room sharing uses a Node.js HTTP/WebSocket relay in `server/src/index.js`. The frontend can run without the relay for local editing, JSON export, and HTML export, but room links require the relay service.
+
+The default hosted relay target for non-local deployments is:
+
+```text
+au.baitian.moe:3001
+```
+
+When the frontend runs on `localhost`, `127.0.0.1`, or `::1`, Vite proxies `/api` and `/ws` to the local relay server on port `3001`.
+
+## Installation Instructions
+
+From the repository root:
 
 ```bash
 pnpm install
-pnpm dev
-pnpm run server
 ```
 
-The Vite dev server runs on `http://localhost:3000`.
-The room relay server runs with `pnpm run server`. When the frontend is opened from `localhost`, `127.0.0.1`, or `::1`, room requests go through the Vite `/api` and `/ws` proxy to the local server. Other hosts use `au.baitian.moe:3001`; tests can override this with `window.__ROOM_BACKEND_HOST__`.
+No database setup, external dataset import, or user-account initialization is required.
 
-Runtime HTML export uses the generated `dist/__export-template` file as the template source.
-
-## Build And Verification
-
-```bash
-pnpm build
-pnpm preview
-pnpm test:unit
-pnpm test:e2e
-pnpm test
-```
-
-`pnpm build` keeps the normal Vite output for development hosting and deployment, then refreshes the runtime HTML export template:
-
-- `dist/index.html`
-- `dist/assets/*`
-- `dist/__export-template`
-
-`dist/__export-template` is generated during `pnpm build`, and runtime HTML export loads the template from `/__export-template`. Users create a self-contained HTML document from the app's save/export menu.
-
-On a new machine, install the Playwright browser once before the first E2E run:
+For first-time Playwright E2E testing on a new machine:
 
 ```bash
 pnpm exec playwright install chromium
 ```
 
-## Feature Overview
+## Build And Run Instructions
 
-- Primary app modes: `edit` and `presentation`
-- Editor tools: `arrange`, `pen`, `pencil`, `highlighter`, and `eraser`
-- Hidden/internal component types include `catalog` and `connection`
-- Local undo/redo supports add, delete, move, transform, editor changes, attachment changes, connection edits, focus attribute updates, completed brush strokes, and erased strokes
-- Local save/load exports and imports full JSON board snapshots including nodes, drawings, catalog data, saved focus attributes, attachment metadata, and viewport state
-- Single-file export embeds a normalized document snapshot into the exported HTML so it can reopen itself offline
-- Share creates a four-digit `/room/1234` link. The share popover disables the create button while the request is pending, then shows a QR code with the link underneath and hides the password input/create button.
-- Room viewers cannot enter edit mode or load documents. They can download JSON/HTML from the existing save menu, switch between free viewer camera and host-follow camera, and automatically leave host-follow mode if they pan or zoom.
-- Local `file://` HTML exports hide the Share button because they cannot reliably use the hosted room backend from a local file context.
+### Local Development
 
-## Testing
+Run the frontend:
 
-Current automated coverage includes:
+```bash
+pnpm dev
+```
 
-- Core unit tests for registries, keybindings, mode management, component serialization, runtime HTML export, catalog helpers, and branch visibility
-- Component unit tests for `iframe` and `javascriptEditor`
-- Playwright smoke tests for mode switching, add/delete flow, undo/redo add flow, brush undo/redo, and whole-stroke erase undo/redo
-- Playwright feature tests for connections, focus navigation, component editor changes, document roundtrip load, button-driven navigation, and undo/redo of node movement
-- Playwright room tests for create-room feedback, password-protected sharing, QR/link layout, viewer camera modes, room readiness, and unauthorized WebSocket messages
+Open:
 
-The E2E harness uses `window.__APP_TEST_API__` for canvas-heavy flows instead of relying on fragile pixel math. Current helpers include:
+```text
+http://localhost:3000
+```
 
-- node lookup and summaries
-- viewport control
-- node movement
-- connection creation
-- focus saving
-- document export / load
-- history reset / undo / redo
-- component editor opening
+For local room/collaboration testing, run the relay server in a separate terminal:
 
-## Offline Constraints
+```bash
+pnpm run server
+```
 
-The app targets offline-safe typography by default:
+### Production Build
 
-- The project no longer depends on Google Fonts at runtime
-- Normal builds and single-file exports both use local/system font stacks only
-- Exported single-file HTML embeds its current document snapshot for offline reopening
+Build the static frontend:
 
-Current limitation:
+```bash
+pnpm build
+```
 
-- Offline support currently favors local availability over exact font matching, so the app no longer renders with the original `IBM Plex Sans` / `Space Grotesk` web fonts
-- Browser security policies can still limit embedded web pages inside `Iframe` components
+The build output is generated in:
 
-## Project Structure
+```text
+dist/
+```
 
-- `index.html`: application shell and toolbar layout
-- `src/main.js`: app bootstrap, component registration, plugin mounting, starter data, and E2E hook-up
-- `src/styles.css`: global styling and responsive layout
-- `src/core/`: app infrastructure, mode management, registries, and base classes
-- `src/document/`: document schema, import/export helpers, and runtime HTML export support
-- `src/online/`: room route helpers plus host/viewer WebSocket clients
-- `src/component/`: component definitions for page, button, text, sticky, image, iframe, video, ranking box, JavaScript editor, catalog, connection, and legacy container
-- `src/plugins/`: selection, drawing, toolbar, catalog, connections, focus, attachments/bookmarks, history, document, minimap, page compare, timer, calculator, and related UI behavior
-- `src/component/LeftToolbar/` + `src/component/ComponentsDropdown/`: primary add-component entry UI (left toolbar trigger + components dropdown)
-- `server/`: stateless Node.js room relay for HTTP room creation and WebSocket message forwarding
-- `src/testApi.js`: browser-only helpers used by Playwright
-- `tests/unit/`: Vitest coverage for core logic and selected extension modules
-- `tests/e2e/`: Playwright smoke and feature coverage
-- `pr-guide.md`: contributor guide for branching, PRs, and conflict resolution
+The build also refreshes:
+
+```text
+dist/__export-template
+```
+
+The runtime HTML export feature depends on this template being served at `/__export-template` by the Vite dev/preview server or deployment.
+
+Preview the production build locally:
+
+```bash
+pnpm preview
+```
+
+### Verification
+
+```bash
+pnpm test:smoke
+pnpm test:unit
+pnpm test:e2e
+pnpm test
+```
+
+`pnpm test` runs the smoke build, Vitest unit tests, and Playwright E2E tests.
+
+## Optional Room Relay Server Setup
+
+Run the relay:
+
+```bash
+pnpm run server
+```
+
+Expected local relay port:
+
+```text
+3001
+```
+
+Room sharing behavior:
+
+- In Present mode, Share creates a room link for viewers.
+- In Edit mode, Share creates a collaboration link.
+- A room/collaboration may use an optional password.
+- Share links use a four-digit route such as `/room/1234?session=room`.
+- Viewers can follow the host camera or switch to their own viewer camera.
+- Online viewer permissions are restricted compared with the teacher host.
+
+## Editing And Presentation Features
+
+The main editing surface combines canvas-level tools and contextual controls:
+
+- The left toolbar opens component, pen, shape, text style, background, undo/redo, and center-map controls.
+- Text style presets apply to new Text components and to a selected Text component in Edit mode. The current presets are **Title**, **Body**, and **Note**.
+- Shape tools create rectangles, ovals/circles, rhombuses, and triangles. Selected shapes expose controls for type, text size, text color, fill color, opacity, border color, border width, layer order, and connection creation.
+- Background controls change the canvas theme, background pattern, color, and opacity.
+- Contextual toolbars appear for supported selected content such as pages, buttons, sticky notes, images, videos, text, shapes, JavaScript editor nodes, and connections.
+- Present mode keeps delivery tools available for page comparison, timer/stopwatch, binary calculator, emoji reactions, drawing visibility, minimap, and camera/navigation behavior.
+
+## Configuration And External Services
+
+### Environment And Build Configuration
+
+- Vite configuration: [vite.config.js](vite.config.js)
+- Test configuration: [vitest.config.js](vitest.config.js), [playwright.config.js](playwright.config.js)
+- Cloudflare assets example: [wrangler.jsonc](wrangler.jsonc)
+- Room relay code: [server/src/index.js](server/src/index.js)
+
+### External Dataset Connections
+
+Not applicable. The product does not require a school database, external dataset, or preloaded data connection.
+
+Users may optionally add:
+
+- Iframe URLs
+- Web links as attachments/bookmarks
+- Local files and folders through browser-supported file APIs
+- Images and videos embedded into exported documents
+
+These are user-provided resources, not system-level dataset connections.
+
+## User Account Creation
+
+Not applicable.
+
+Mimi does not include a persistent user account system. Room sharing uses temporary room IDs, optional passwords, and short-lived host/viewer sessions rather than registered accounts.
+
+## Data Storage Model
+
+Mimi has no application database.
+
+The primary data formats are:
+
+- **Runtime state**: current browser session state in memory
+- **JSON export**: editable board snapshot for backup and later restore
+- **Single-file HTML export**: browser-openable offline snapshot with the board state embedded
+- **PROJ folder export**: Chromium-supported local project folder containing the board snapshot, an offline HTML entry file, and copied local attachments when browser permissions allow it
+- **Temporary room state**: relay-held online state for active room/collaboration sessions
+
+Because there is no central database, long-term user data retention depends on exported JSON, HTML, or PROJ files.
+
+PROJ export is a local folder workflow, not a server-side project database and not a zip file generated by the app. In supported Chromium-based browsers, `Save as PROJ` asks the user to choose a writable directory, then creates a timestamped project folder with this structure:
+
+```text
+<project-folder>/
+  index.html
+  project.json
+  attachments/
+    copied-local-attachment-files
+```
+
+`project.json` is the editable document snapshot. `index.html` is an offline HTML entry file built from the same snapshot. The `attachments/` folder stores local-file attachments that the browser can still read at export time; attachments with missing or denied file handles may be skipped with a warning.
+
+## Error Situations And Recovery
+
+| Situation / message | Likely cause | Recovery |
+| --- | --- | --- |
+| `pnpm install` fails | Node or pnpm version mismatch | Confirm Node meets the version in `package.json`, then reinstall dependencies. |
+| `http://localhost:3000` does not open | Vite dev server is not running or port `3000` is occupied | Stop the conflicting process or change the Vite port, then rerun `pnpm dev`. |
+| Room creation fails | Relay server unavailable, network failure, or backend host unreachable | For local testing run `pnpm run server`; for deployment confirm the relay host and WebSocket access. |
+| Viewer cannot join room | Wrong room link/password, expired server state, or relay connection failure | Regenerate the room link, re-enter the password, or restart the relay if self-hosted. |
+| Local exported HTML does not show Share | Browser `file://` security restrictions | Use the hosted app for room sharing. Local HTML is intended for offline viewing/editing. |
+| HTML export template unavailable | `dist/__export-template` missing or not served | Run `pnpm build` and confirm `/__export-template` is accessible. |
+| `Save as PROJ` or `Load PROJ` disabled | Browser lacks File System Access API support | Use Chromium-based browsers, or use JSON/HTML export instead. |
+| PROJ export skips an attachment | The browser no longer has permission to read that local file or folder | Reconnect the attachment or reload the original project/folder, then export again. |
+| Iframe shows loading/error or remains blank | Target website blocks embedding with browser security headers | Use a link/attachment instead of embedding the site. |
+| JSON/HTML import fails | Invalid file, incompatible snapshot, or corrupted export | Re-export from a known working board or restore from a previous backup file. |
+| Local attachment cannot reopen | Browser file permission was revoked or the folder handle is missing | Reconnect the folder/file or use a PROJ export where supported. |
+
+## Backup And Restore
+
+Recommended backup routine:
+
+1. Save an editable JSON snapshot after major editing sessions.
+2. Export a single-file HTML copy for offline delivery or submission.
+3. Use PROJ export when local attachments need to stay organized with the board.
+4. Store final deliverables in the agreed client-accessible folder.
+
+Restore options:
+
+- Use **Load HTML/JSON** to restore a JSON or exported HTML snapshot.
+- Use **Load PROJ** in a Chromium-based browser to restore a PROJ folder and rebind copied attachment files.
+- Open an exported single-file HTML directly in a browser for offline use.
+
+There is no database backup/restore procedure because the product does not use a database.
+
+## End Of Life / Removal Of User
+
+There is no user account removal workflow because Mimi has no persistent account system.
+
+For project end-of-life or removal:
+
+- Remove deployed static files from the hosting provider.
+- Stop the optional room relay server.
+- Delete or archive exported JSON, HTML, and PROJ files according to the client retention decision.
+- Remove shared deliverable links when they are no longer needed.
+- Remove local browser permissions for files/folders if local attachments were used.
+
+## Final Deliverable Links
+
+These links should be confirmed with the client before final submission:
+
+- User guide / product manual: [docs/product-documentation.html](docs/product-documentation.html)
+- Product-generated Mimi documentation artifact: [docs/mimi-documentation-20260515.html](docs/mimi-documentation-20260515.html)
+- Repository link: `TODO: add final GitHub repository or release link`
+- Demo video link: `TODO: add final demo video link`
+- Presentation slides link: `TODO: add final slides link`
+- Final deliverables folder link: `TODO: add client-accessible OneDrive/Google Drive/GitHub release link`
+- Agreed client handover due date: `TODO: confirm with client`
+
+## Maintainer Notes
+
+Development and architecture details are intentionally kept outside this README:
+
+- Architecture and extension conventions: [AGENTS.md](AGENTS.md)
+- Pull request workflow: [pr-guide.md](pr-guide.md)
+- Component implementation notes: [components.md](components.md)
+- UI notes: [UI.md](UI.md)
