@@ -3,33 +3,32 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mimi Product Documentation</title>
+  <title>Mimi User Guide / Product Manual</title>
   <style>
     :root {
-      --bg: #f6f7f3;
+      --bg: #f7f8f4;
       --panel: #ffffff;
       --ink: #1f2933;
-      --muted: #65717f;
-      --line: #d9dfd4;
+      --muted: #64717f;
+      --line: #d8dfd7;
       --accent: #2f7d6d;
-      --accent-2: #c07a30;
+      --accent-dark: #185b50;
+      --warn: #b86f26;
       --soft: #eaf3ef;
-      --soft-2: #fff3df;
+      --soft-warn: #fff3df;
       --code: #263238;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Inter, "Segoe UI", Arial, sans-serif;
       color: var(--ink);
       background: var(--bg);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
       line-height: 1.65;
     }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
     .app {
       display: grid;
-      grid-template-columns: 280px minmax(0, 1fr);
+      grid-template-columns: 290px minmax(0, 1fr);
       min-height: 100vh;
     }
     aside {
@@ -58,16 +57,18 @@
     }
     nav a {
       display: block;
+      margin: 2px 0;
       padding: 8px 10px;
       border-radius: 6px;
       color: var(--ink);
       font-size: 14px;
+      text-decoration: none;
     }
     nav a.active,
     nav a:hover {
+      color: var(--accent-dark);
       background: var(--soft);
       text-decoration: none;
-      color: #185b50;
     }
     main {
       min-width: 0;
@@ -85,7 +86,11 @@
       line-height: 1.15;
       letter-spacing: 0;
     }
-    .hero p { margin: 0; color: var(--muted); max-width: 820px; }
+    .hero p {
+      max-width: 860px;
+      margin: 0;
+      color: var(--muted);
+    }
     .tabs {
       max-width: 1040px;
       margin: 0 auto 24px;
@@ -145,7 +150,10 @@
       padding: 14px;
       background: #fcfdfb;
     }
-    .card strong { display: block; margin-bottom: 6px; }
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
     .callout {
       margin: 16px 0;
       padding: 14px 16px;
@@ -154,8 +162,8 @@
       border-radius: 6px;
     }
     .callout.warn {
-      border-left-color: var(--accent-2);
-      background: var(--soft-2);
+      border-left-color: var(--warn);
+      background: var(--soft-warn);
     }
     table {
       width: 100%;
@@ -177,14 +185,6 @@
       border-radius: 4px;
       color: var(--code);
     }
-    pre {
-      overflow: auto;
-      background: #1f2933;
-      color: #ecf2f0;
-      padding: 14px;
-      border-radius: 8px;
-    }
-    pre code { background: transparent; color: inherit; padding: 0; }
     details {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -203,6 +203,10 @@
       border: 1px solid var(--line);
       border-radius: 6px;
       font: inherit;
+    }
+    .placeholder {
+      color: var(--muted);
+      font-style: italic;
     }
     .hidden { display: none !important; }
     @media (max-width: 860px) {
@@ -226,138 +230,385 @@
   <div class="app">
     <aside>
       <div class="brand">
-        <h1>Mimi Docs</h1>
-        <p>Infinite canvas product guide</p>
+        <h1>Mimi Manual</h1>
+        <p>User guide and product manual</p>
       </div>
       <input id="search" class="search" placeholder="Search features, e.g. Page, export, share" />
       <nav id="toc" aria-label="Documentation table of contents">
-        <a href="#overview" data-tab="overview">Overview</a>
-        <a href="#quickstart" data-tab="quickstart">Create Your First Project</a>
-        <a href="#interface" data-tab="interface">Interface And Modes</a>
-        <a href="#components" data-tab="components">Components</a>
-        <a href="#navigation" data-tab="navigation">Outline And Navigation</a>
-        <a href="#export" data-tab="export">Save, Export, Share</a>
-        <a href="#tools" data-tab="tools">Tools And Shortcuts</a>
+        <a href="#usage" data-tab="usage">Normal Usage Patterns</a>
+        <a href="#teacher-edit" data-tab="teacher-edit">Teacher Edit Workflow</a>
+        <a href="#presentation" data-tab="presentation">Presentation Workflow</a>
+        <a href="#sharing" data-tab="sharing">Student / Viewer Sharing</a>
+        <a href="#save-load-export" data-tab="save-load-export">Save / Load / Export</a>
+        <a href="#components-tools" data-tab="components-tools">Components And Tools</a>
+        <a href="#expected-outcomes" data-tab="expected-outcomes">Expected Outcomes</a>
+        <a href="#faq" data-tab="faq">FAQ And Limitations</a>
       </nav>
     </aside>
     <main>
       <header class="hero">
-        <h2>Mimi Mind Map Infinite Canvas Product Documentation</h2>
-        <p>This is end-user product documentation: it starts with a first-project workflow, then explains each major feature, mode difference, and common shortcut.</p>
+        <h2>Mimi User Guide / Product Manual</h2>
+        <p>This guide focuses on normal product usage: how teachers build boards, present lessons, share sessions with students, save work, and recover from common limitations. System installation and handover details are covered in the repository README.</p>
       </header>
       <div class="tabs" role="tablist" aria-label="Documentation tabs">
-        <button class="tab" role="tab" data-tab="overview">Overview</button>
-        <button class="tab" role="tab" data-tab="quickstart">Quick Start</button>
-        <button class="tab" role="tab" data-tab="interface">Interface</button>
-        <button class="tab" role="tab" data-tab="components">Components</button>
-        <button class="tab" role="tab" data-tab="navigation">Navigation</button>
-        <button class="tab" role="tab" data-tab="export">Export</button>
-        <button class="tab" role="tab" data-tab="tools">Tools</button>
+        <button class="tab" role="tab" data-tab="usage">Usage Patterns</button>
+        <button class="tab" role="tab" data-tab="teacher-edit">Edit Workflow</button>
+        <button class="tab" role="tab" data-tab="presentation">Presentation</button>
+        <button class="tab" role="tab" data-tab="sharing">Sharing</button>
+        <button class="tab" role="tab" data-tab="save-load-export">Save / Export</button>
+        <button class="tab" role="tab" data-tab="components-tools">Components</button>
+        <button class="tab" role="tab" data-tab="expected-outcomes">Outcomes</button>
+        <button class="tab" role="tab" data-tab="faq">FAQ</button>
       </div>
       <div class="content" id="content">
-                <section class="section active" id="overview" data-section="overview"><h3>Product Overview</h3><p>Mimi is an infinite-canvas visual organization and presentation tool. Users can create pages, text, sticky notes, images, embedded web pages, code runners, local videos, ranking activities, and shapes, then organize them with outlines, connections, jump buttons, and presentation mode.</p><div class="grid"><div class="card"><strong>Lesson presentations</strong>Organize multiple Pages into non-linear lessons with Buttons and connections.</div><div class="card"><strong>Classroom activities</strong>Use Ranking Box, pens, highlighter, timer, and Page Compare for activities.</div><div class="card"><strong>Resource navigation</strong>Keep web pages, images, videos, attachments, and notes in one canvas.</div><div class="card"><strong>Online viewing</strong>The teacher-side Host presents the board while student-side Viewers follow or browse freely.</div></div><h4>Core Capabilities</h4><ul><li>Infinite canvas with pan, zoom, and overview navigation.</li><li>Teacher-side modes: Edit for creating and organizing content, Present for maximizing delivery space.</li><li>Student-side views: Host follows the presenter camera, Viewer allows free panning and zooming.</li><li>Components including Page, Button, Text, Sticky Note, Image, Iframe, Ranking Box, JS Code Runner, and Local Video.</li><li>Local JSON save/load and single-file HTML export.</li></ul></section>
-
-        <section class="section" id="quickstart" data-section="quickstart">
-          <h3>Create Your First Presentation Board</h3>
-          <ol>
-            <li>Enter <code>Edit</code> mode.</li>
-            <li>Click <code>Components</code> in the left toolbar and choose <code>Page</code>.</li>
-            <li>Add <code>Text</code>, <code>Sticky Note</code>, <code>Image</code>, <code>Iframe</code>, <code>JS Code Runner</code>, or <code>Local Video</code>.</li>
-            <li>Create a <code>Button</code> and connect it to a target Page or component.</li>
-            <li>Add key components to the right-side <code>Outline</code>.</li>
-            <li>Switch to <code>Present</code> and test page navigation, button jumps, and Page Compare.</li>
-            <li>Export JSON or HTML.</li>
-          </ol>
-          <details open>
-            <summary>Open the local development version</summary>
-            <pre><code>pnpm install
-pnpm dev</code></pre>
-            <p>Visit <code>http://localhost:3000</code>.</p>
-          </details>
-          <details>
-            <summary>How to use Page</summary>
-            <p>A Page works like a slide. Put related text, images, buttons, and videos on the same Page so they can move together as one presentation unit.</p>
-          </details>
-          <details>
-            <summary>How to use Button</summary>
-            <p>A Button is a one-way jump. For two-way navigation, create one Button on each side and point each Button to the other destination.</p>
-          </details>
-        </section>
-
-                <section class="section" id="interface" data-section="interface"><h3>Interface And Modes</h3><h4>Main Areas</h4><table><thead><tr><th>Area</th><th>Purpose</th></tr></thead><tbody><tr><td>Left toolbar</td><td>Cursor, Brush tools, Eraser, Shapes, Components, Timer, Binary Calculator, Style, and fit-all.</td></tr><tr><td>Top toolbar</td><td>Project title, save, load, share, Edit/Present switch, and contextual actions.</td></tr><tr><td>Infinite canvas</td><td>Create, move, resize, connect, and present content.</td></tr><tr><td>Right Outline</td><td>Manage hierarchy, order, renaming, and branch collapse.</td></tr><tr><td>Overview</td><td>Bottom-right minimap for global position and unlinked-page warnings.</td></tr></tbody></table><h4>Mode Concepts</h4><table><thead><tr><th>User</th><th>Mode</th><th>Meaning</th></tr></thead><tbody><tr><td>Teacher / Host</td><td>Edit</td><td>Create and edit content. Components, toolbars, the right Outline, and floating panels are fully available.</td></tr><tr><td>Teacher / Host</td><td>Present</td><td>Deliver content. Editing toolbars collapse, the canvas area is maximized, and only presentation navigation plus necessary floating tools remain.</td></tr><tr><td>Student / Viewer</td><td>Host</td><td>Follow the presenter's canvas position and zoom.</td></tr><tr><td>Student / Viewer</td><td>Viewer</td><td>Free viewing camera. If students pan or zoom, the app automatically switches from Host view to Viewer view.</td></tr></tbody></table><div class="callout warn">Online room Viewers can only view and save a copy. They cannot enter Edit mode, modify board content, or load a document over the Host state.</div></section>
-
-        <section class="section" id="components" data-section="components">
-          <h3>Components</h3>
+        <section class="section active" id="usage" data-section="usage">
+          <h3>Normal Usage Patterns</h3>
+          <p>Mimi is designed for teachers and students who need a flexible visual workspace instead of a fixed linear slide deck.</p>
           <div class="grid">
-            <div class="card"><strong>Page</strong>Basic presentation surface with child components, attachments, background, connections, and navigation.</div>
-            <div class="card"><strong>Button</strong>Jump control that connects to a target and navigates in Present mode.</div>
-            <div class="card"><strong>Text</strong>Basic text box for titles, explanations, questions, and notes.</div>
-            <div class="card"><strong>Sticky Note</strong>Colored note block for prompts, reminders, and discussion records.</div>
-            <div class="card"><strong>Image</strong>Uploaded image with resizing, connections, layer ordering, and inline document saving.</div>
-            <div class="card"><strong>Iframe</strong>Embedded web URL for display or interaction.</div>
-            <div class="card"><strong>Ranking Box</strong>Sorting activity container for ranking text items.</div>
-            <div class="card"><strong>JS Code Runner</strong>JavaScript runner with code, preview, and console areas.</div>
-            <div class="card"><strong>Local Video</strong>Local video component using browser-native playback controls.</div>
+            <div class="card"><strong>Lesson presentation</strong>Create one Page per topic, connect pages with Buttons or connections, then switch to Present mode.</div>
+            <div class="card"><strong>Classroom activity</strong>Use Ranking Box, Sticky Notes, shapes, drawing tools, Timer, Emoji Reactions, and Page Compare for discussion and comparison tasks.</div>
+            <div class="card"><strong>Resource board</strong>Place web pages, videos, images, code examples, attachments, and notes in one navigable canvas.</div>
+            <div class="card"><strong>Shared viewing</strong>Create a temporary room so viewers can follow the teacher camera or browse freely.</div>
           </div>
-          <details>
-            <summary>Shapes</summary>
-            <p>Shapes include rectangle, circle, diamond, and triangle. They support text, font size, text color, fill, opacity, stroke color, stroke width, layer ordering, and connections.</p>
-          </details>
-          <details>
-            <summary>Iframe limitation</summary>
-            <p>Some websites block embedding through security policies. If a site cannot display, save it as an attachment or text link instead.</p>
-          </details>
+          <h4>Typical Flow</h4>
+          <ol>
+            <li>Open the app and stay in <code>Edit</code> mode.</li>
+            <li>Add Pages and arrange them on the infinite canvas.</li>
+            <li>Add teaching content with Text, Sticky Note, Image, Iframe, JS Code Runner, Local Video, Ranking Box, and Shapes.</li>
+            <li>Use the Outline and connections to build a meaningful lesson structure.</li>
+            <li>Save a JSON or HTML backup before presenting.</li>
+            <li>Switch to <code>Present</code> mode and deliver the lesson.</li>
+            <li>Share through a room link if students need to join remotely.</li>
+          </ol>
         </section>
 
-        <section class="section" id="navigation" data-section="navigation">
-          <h3>Outline, Connections, And Navigation</h3>
-          <h4>Outline</h4>
-          <p>The right-side Outline structures the freeform canvas. Select components and click <code>Add selected</code>, or drag components into the outline. Click an item to center the viewport, double-click to rename it, and drag or use direction controls to adjust order and hierarchy.</p>
-          <h4>Connections</h4>
-          <p>Connections express relationships between components and can also support presentation navigation. Use connections for conceptual relationships and Button for explicit click-to-jump actions.</p>
-          <h4>Overview</h4>
-          <p>Overview is the bottom-right minimap. It shows the current viewport, lets users click to move around, marks selected components, and warns about Pages without connection targets.</p>
-          <h4>Page Compare</h4>
-          <p>In Present mode, select one Page, hold <code>Shift</code>, and click another Page to compare them. The comparison window supports swapping, zooming, fit-to-window, fullscreen, and <code>Esc</code> close.</p>
-        </section>
-
-                <section class="section" id="export" data-section="export"><h3>Save, Export, And Online Sharing</h3><div class="grid"><div class="card"><strong>JSON</strong>Best for continued editing. Saves components, styles, connections, outline, attachments, drawings, annotations, and viewport state.</div><div class="card"><strong>HTML</strong>Best for offline delivery or submission. Produces one browser-openable snapshot file.</div><div class="card"><strong>Host</strong>Create rooms, edit the board, and broadcast board state plus camera position to Viewers.</div><div class="card"><strong>Viewer</strong>Follow Host or browse freely, and save a copy, without editing Host content.</div></div><div class="callout warn">Local <code>file://</code> HTML exports hide Share because local files cannot reliably use the online room service.</div></section>
-
-                        <section class="section" id="tools" data-section="tools">
-          <h3>Teaching Helpers And Shortcuts</h3>
-          <h4>Helpers</h4>
+        <section class="section" id="teacher-edit" data-section="teacher-edit">
+          <h3>Teacher Edit Workflow</h3>
+          <h4>Build The Canvas</h4>
+          <ol>
+            <li>Click <code>Components</code> on the left toolbar and drag a component to the canvas.</li>
+            <li>Use <code>Page</code> as the main lesson surface. Place related components on top of the Page.</li>
+            <li>Use <code>Text</code> and <code>Sticky Note</code> for explanations, questions, reminders, and discussion notes.</li>
+            <li>Use <code>Image</code>, <code>Iframe</code>, <code>Local Video</code>, and <code>JS Code Runner</code> for media and demonstrations.</li>
+            <li>Use <code>Shape</code> and <code>Button</code> style controls to adjust fill, opacity, border, text size, and layer order.</li>
+          </ol>
+          <h4>Organize Content</h4>
           <ul>
-            <li><strong>Timer</strong>: countdowns, timed activities, and presentation pacing. Press <code>Enter</code> in minute or second inputs to finish editing.</li>
-            <li><strong>Binary Calculator</strong>: binary calculations and computer science teaching.</li>
-            <li><strong>Overview / Minimap</strong>: shows the current viewport, selected component location, page connection status, and supports clicking to move the camera.</li>
-            <li><strong>Page Compare</strong>: view two Pages side by side in Present mode. Select one Page, hold <code>Shift</code>, click another Page, and press <code>Esc</code> to close.</li>
-            <li><strong>Background Style</strong>: Default/Colorful themes, Blank/Grid/Dot, colors, and opacity.</li>
+            <li>Use the right Outline to list important Pages or components in teaching order.</li>
+            <li>Use connections to show relationships between components.</li>
+            <li>Use Buttons for explicit click-to-jump navigation in Present mode.</li>
+            <li>Use attachments/bookmarks on attachment-capable components when external files or URLs should remain close to a Page.</li>
           </ul>
+          <h4>Editing Controls</h4>
+          <table>
+            <thead><tr><th>Action</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>Drag selected component</td><td>Move content around the canvas.</td></tr>
+              <tr><td><code>Mod</code> + click</td><td>Select multiple components.</td></tr>
+              <tr><td><code>Shift</code> + drag empty canvas</td><td>Marquee-select components.</td></tr>
+              <tr><td><code>Delete</code> / <code>Backspace</code></td><td>Delete selected components.</td></tr>
+              <tr><td><code>Mod+C</code> / <code>Mod+V</code></td><td>Copy and paste selected components.</td></tr>
+              <tr><td><code>Mod+Z</code> / <code>Mod+Shift+Z</code> / <code>Mod+Y</code></td><td>Undo and redo local edits.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="presentation" data-section="presentation">
+          <h3>Presentation Workflow</h3>
+          <ol>
+            <li>Prepare and save the board in Edit mode.</li>
+            <li>Switch the mode capsule from <code>Edit</code> to <code>Present</code>.</li>
+            <li>Use Buttons, connected Pages, arrow navigation, and saved focus positions to move through the lesson.</li>
+            <li>Move the mouse to the top of the board to reveal the presentation toolbar.</li>
+            <li>Use Timer, Binary Calculator, Emoji Reactions, drawing tools, and Page Compare when relevant to the lesson.</li>
+            <li>Press <code>Esc</code> to leave Present mode and return to Edit mode.</li>
+          </ol>
+          <h4>Presentation Helpers</h4>
+          <div class="grid">
+            <div class="card"><strong>Page Compare</strong>Select one Page, hold <code>Shift</code>, and click another Page in Present mode to compare both Pages.</div>
+            <div class="card"><strong>Timer</strong>Use countdowns or stopwatch-style timing for activities.</div>
+            <div class="card"><strong>Binary Calculator</strong>Support computer science explanations and binary calculations.</div>
+            <div class="card"><strong>Emoji Reactions</strong>Collect quick lightweight feedback during presentation sessions.</div>
+          </div>
+        </section>
+
+        <section class="section" id="sharing" data-section="sharing">
+          <h3>Student / Viewer Sharing Workflow</h3>
+          <p>Mimi supports temporary online viewing sessions through the Share button. The final product uses a Host / Viewer room model rather than multi-user board editing.</p>
+          <table>
+            <thead><tr><th>Teacher mode</th><th>Share result</th><th>Typical use</th></tr></thead>
+            <tbody>
+              <tr><td>Edit</td><td>Room link</td><td>The teacher can prepare or adjust the board while the Host broadcasts board state and camera updates.</td></tr>
+              <tr><td>Present</td><td>Room link</td><td>The teacher presents and viewers follow or browse without editing the host state.</td></tr>
+            </tbody>
+          </table>
+          <h4>Create A Room Link</h4>
+          <ol>
+            <li>Click <code>Share</code> in the top toolbar.</li>
+            <li>Optionally enter a room password.</li>
+            <li>Click <code>Create room</code>.</li>
+            <li>Share the displayed URL or QR code with viewers.</li>
+          </ol>
+          <h4>Viewer Modes</h4>
+          <ul>
+            <li><strong>Host:</strong> follow the teacher's camera position and zoom.</li>
+            <li><strong>Viewer:</strong> pan and zoom freely without forcing the teacher camera.</li>
+            <li>If a viewer pans or zooms while following Host, Mimi switches that viewer to free Viewer mode.</li>
+          </ul>
+          <div class="callout warn">Local <code>file://</code> HTML exports hide Share because local files cannot reliably use the online room relay.</div>
+        </section>
+
+        <section class="section" id="save-load-export" data-section="save-load-export">
+          <h3>Save / Load / Export Workflow</h3>
+          <p>Use the top toolbar save/load buttons or keyboard shortcuts <code>Mod+S</code> and <code>Mod+O</code>.</p>
+          <table>
+            <thead><tr><th>Format</th><th>Best for</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Save as JSON</td><td>Editable backup and later restore</td><td>Saves components, styles, outline, connections, drawings, attachments metadata, background state, and viewport state.</td></tr>
+              <tr><td>Save as HTML</td><td>Offline viewing, submission, or sharing a self-contained snapshot</td><td>Embeds the board state into a single browser-openable file.</td></tr>
+              <tr><td>Save as PROJ</td><td>Project-folder handover with attachments</td><td>Requires a Chromium-based browser with File System Access API support.</td></tr>
+              <tr><td>Load HTML/JSON</td><td>Restore a saved board</td><td>Loading replaces the current board after confirmation.</td></tr>
+              <tr><td>Load PROJ</td><td>Restore a project folder</td><td>Requires Chromium-based browser support.</td></tr>
+            </tbody>
+          </table>
+          <h4>Recommended Backup Habit</h4>
+          <ol>
+            <li>Save JSON while actively editing.</li>
+            <li>Export HTML before a demo, class, or submission.</li>
+            <li>Use PROJ when local attachments need to remain bundled with the board.</li>
+          </ol>
+        </section>
+
+        <section class="section" id="components-tools" data-section="components-tools">
+          <h3>Components And Tools</h3>
+          <div class="grid">
+            <div class="card"><strong>Page</strong>Slide-like surface for grouping lesson content and saving focus positions.</div>
+            <div class="card"><strong>Button</strong>One-way jump control for presentation navigation.</div>
+            <div class="card"><strong>Text</strong>Plain editable text for headings, explanations, and labels.</div>
+            <div class="card"><strong>Sticky Note</strong>Colored note block for prompts and discussion records.</div>
+            <div class="card"><strong>Image</strong>Uploaded image component with resizing and styling controls.</div>
+            <div class="card"><strong>Iframe</strong>Embedded webpage component with URL input and interaction mode.</div>
+            <div class="card"><strong>Ranking Box</strong>Classroom ranking/sorting activity component.</div>
+            <div class="card"><strong>JS Code Runner</strong>Code editor with preview and console output.</div>
+            <div class="card"><strong>Local Video</strong>Browser-native local video playback component.</div>
+            <div class="card"><strong>Shapes</strong>Rectangle, oval/circle, rhombus, triangle, and line-style visual blocks.</div>
+          </div>
+          <h4>Tool Groups</h4>
+          <table>
+            <thead><tr><th>Tool</th><th>Use</th></tr></thead>
+            <tbody>
+              <tr><td>Arrange / Cursor</td><td>Select, move, resize, copy, delete, connect, and organize components.</td></tr>
+              <tr><td>Pen, Pencil, Highlighter</td><td>Draw freehand strokes during preparation or presentation.</td></tr>
+              <tr><td>Highlighter</td><td>Add translucent freehand emphasis on the canvas.</td></tr>
+              <tr><td>Eraser</td><td>Remove whole drawing strokes.</td></tr>
+              <tr><td>Background Style</td><td>Switch between grid, dot, blank, colorful, and opacity settings.</td></tr>
+              <tr><td>Overview / Minimap</td><td>Show the board position, selected component marker, and page-link warnings.</td></tr>
+            </tbody>
+          </table>
+          <h4>Keyboard Shortcuts</h4>
           <p><code>Mod</code> usually means <code>Ctrl</code> on Windows/Linux and <code>Cmd</code> on macOS.</p>
           <h4>General Canvas And File Shortcuts</h4>
-          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
-            <tr><td>Mouse wheel</td><td>Zoom the canvas</td></tr><tr><td>Middle-button drag</td><td>Pan the canvas</td></tr><tr><td><code>Space</code> + drag</td><td>Pan the canvas</td></tr><tr><td><code>Home</code></td><td>Fit all content to the viewport</td></tr><tr><td><code>Mod+S</code></td><td>Open save/export menu</td></tr><tr><td><code>Mod+O</code></td><td>Load a JSON document</td></tr><tr><td><code>Esc</code></td><td>Close the save menu, comparison window, selected overlays, or current tool panels</td></tr>
-          </tbody></table>
+          <table>
+            <thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td>Mouse wheel</td><td>Zoom the canvas</td></tr>
+              <tr><td>Middle-button drag</td><td>Pan the canvas</td></tr>
+              <tr><td><code>Space</code> + drag</td><td>Pan the canvas</td></tr>
+              <tr><td><code>Home</code></td><td>Fit all content to the viewport</td></tr>
+              <tr><td><code>Mod+S</code></td><td>Open save/export menu</td></tr>
+              <tr><td><code>Mod+O</code></td><td>Open load menu</td></tr>
+              <tr><td><code>Esc</code></td><td>Close the save menu, load menu, comparison window, selected overlays, or current tool panels</td></tr>
+            </tbody>
+          </table>
           <h4>Edit Mode Shortcuts</h4>
-          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
-            <tr><td>Drag empty canvas</td><td>Pan the canvas while using the Arrange tool</td></tr><tr><td><code>Mod</code> + click</td><td>Multi-select components</td></tr><tr><td><code>Shift</code> + drag empty canvas</td><td>Marquee-select components</td></tr><tr><td><code>Delete</code> / <code>Backspace</code></td><td>Delete selected components</td></tr><tr><td><code>Mod+C</code></td><td>Copy selected components</td></tr><tr><td><code>Mod+V</code></td><td>Paste components</td></tr><tr><td><code>Mod+Z</code></td><td>Undo</td></tr><tr><td><code>Mod+Shift+Z</code> / <code>Mod+Y</code></td><td>Redo</td></tr><tr><td><code>Ctrl+Alt+A</code></td><td>Add the selected node to the right Outline</td></tr><tr><td>Hold <code>Shift</code> while drawing with Shape</td><td>Proportional scaling of shapes</td></tr>
-          </tbody></table>
+          <table>
+            <thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td>Drag empty canvas</td><td>Pan the canvas while using the Arrange tool</td></tr>
+              <tr><td><code>Mod</code> + click</td><td>Multi-select components</td></tr>
+              <tr><td><code>Shift</code> + drag empty canvas</td><td>Marquee-select components</td></tr>
+              <tr><td><code>Delete</code> / <code>Backspace</code></td><td>Delete selected components</td></tr>
+              <tr><td><code>Mod+C</code></td><td>Copy selected components</td></tr>
+              <tr><td><code>Mod+V</code></td><td>Paste components</td></tr>
+              <tr><td><code>Mod+Z</code></td><td>Undo</td></tr>
+              <tr><td><code>Mod+Shift+Z</code> / <code>Mod+Y</code></td><td>Redo</td></tr>
+              <tr><td><code>Ctrl+Alt+A</code></td><td>Add the selected node to the right Outline</td></tr>
+              <tr><td>Hold <code>Shift</code> while drawing with Shape</td><td>Proportional scaling of shapes</td></tr>
+            </tbody>
+          </table>
           <h4>Present Mode Shortcuts</h4>
-          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
-            <tr><td><code>ArrowUp</code> / <code>ArrowDown</code> / <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>Navigate by page or saved focus direction</td></tr><tr><td><code>Esc</code></td><td>Exit Present and return to Edit</td></tr><tr><td><code>Mod+Shift+F</code></td><td>Toggle presentation-board fullscreen</td></tr><tr><td>Move the mouse to the top area</td><td>Reveal the auto-hidden presentation toolbar</td></tr><tr><td><code>Shift</code> + click another Page</td><td>Open Page Compare</td></tr>
-          </tbody></table>
+          <table>
+            <thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td><code>ArrowUp</code> / <code>ArrowDown</code> / <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>Navigate by page or saved focus direction</td></tr>
+              <tr><td><code>Esc</code></td><td>Exit Present and return to Edit</td></tr>
+              <tr><td><code>Mod+Shift+F</code></td><td>Toggle presentation-board fullscreen</td></tr>
+              <tr><td>Move the mouse to the top area</td><td>Reveal the auto-hidden presentation toolbar</td></tr>
+              <tr><td><code>Shift</code> + click another Page</td><td>Open Page Compare</td></tr>
+            </tbody>
+          </table>
           <h4>Student Viewer Restrictions</h4>
-          <table><thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
-            <tr><td><code>Mod+S</code></td><td>Allowed: save/export the current viewed copy</td></tr><tr><td><code>Mod+O</code></td><td>Blocked: viewers cannot load a document over the Host state</td></tr><tr><td><code>Mod+Z</code> / <code>Mod+Y</code></td><td>Blocked: viewers cannot undo or redo Host state</td></tr><tr><td>Pan or zoom</td><td>If following Host, automatically switch to free Viewer camera</td></tr><tr><td>Click the <code>Host</code> / <code>Viewer</code> mode capsule</td><td>Switch between following the Host and free viewing</td></tr>
-          </tbody></table>
+          <table>
+            <thead><tr><th>Shortcut / Action</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td><code>Mod+S</code></td><td>Allowed: save/export the current viewed copy</td></tr>
+              <tr><td><code>Mod+O</code></td><td>Blocked: viewers cannot load a document over the Host state</td></tr>
+              <tr><td><code>Mod+Z</code> / <code>Mod+Y</code></td><td>Blocked: viewers cannot undo or redo Host state</td></tr>
+              <tr><td>Pan or zoom</td><td>If following Host, automatically switch to free Viewer camera</td></tr>
+              <tr><td>Click the <code>Host</code> / <code>Viewer</code> mode capsule</td><td>Switch between following the Host and free viewing</td></tr>
+            </tbody>
+          </table>
           <h4>Right Outline Shortcuts</h4>
-          <table><thead><tr><th>Context</th><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
-            <tr><td>Outline item focused</td><td><code>Enter</code> / <code>Space</code></td><td>Jump to and center the linked component</td></tr><tr><td>Outline item focused and editable</td><td><code>ArrowUp</code> / <code>ArrowDown</code></td><td>Reorder within the same level</td></tr><tr><td>Outline item focused and editable</td><td><code>ArrowRight</code></td><td>Indent under the previous sibling</td></tr><tr><td>Outline item focused and editable</td><td><code>ArrowLeft</code></td><td>Promote to the parent's level</td></tr><tr><td>Outline item focused and editable</td><td><code>Delete</code> / <code>Backspace</code></td><td>Remove the item from the Outline and promote its children</td></tr><tr><td>Renaming after double-click</td><td><code>Enter</code></td><td>Finish renaming</td></tr><tr><td>Renaming after double-click</td><td><code>Esc</code></td><td>Cancel renaming</td></tr><tr><td>Title text editing</td><td>Normal arrow keys</td><td>Move the text cursor</td></tr><tr><td>Title text editing</td><td>Double-tap <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>Finish editing and adjust outline hierarchy</td></tr>
-          </tbody></table>
+          <table>
+            <thead><tr><th>Context</th><th>Shortcut / Action</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td>Outline item focused</td><td><code>Enter</code> / <code>Space</code></td><td>Jump to and center the linked component</td></tr>
+              <tr><td>Outline item focused and editable</td><td><code>ArrowUp</code> / <code>ArrowDown</code></td><td>Reorder within the same level</td></tr>
+              <tr><td>Outline item focused and editable</td><td><code>ArrowRight</code></td><td>Indent under the previous sibling</td></tr>
+              <tr><td>Outline item focused and editable</td><td><code>ArrowLeft</code></td><td>Promote to the parent's level</td></tr>
+              <tr><td>Outline item focused and editable</td><td><code>Delete</code> / <code>Backspace</code></td><td>Remove the item from the Outline and promote its children</td></tr>
+              <tr><td>Renaming after double-click</td><td><code>Enter</code></td><td>Finish renaming</td></tr>
+              <tr><td>Renaming after double-click</td><td><code>Esc</code></td><td>Cancel renaming</td></tr>
+              <tr><td>Title text editing</td><td>Normal arrow keys</td><td>Move the text cursor</td></tr>
+              <tr><td>Title text editing</td><td>Double-tap <code>ArrowLeft</code> / <code>ArrowRight</code></td><td>Finish editing and adjust outline hierarchy</td></tr>
+            </tbody>
+          </table>
           <h4>Left Component Area And Component Shortcuts</h4>
-          <table><thead><tr><th>Component / Area</th><th>Shortcut / Action</th><th>Function</th></tr></thead><tbody>
-            <tr><td>Components panel</td><td>Drag component to canvas</td><td>Create a component</td></tr><tr><td>Text / Sticky / Button / Shape text</td><td><code>Mod+Enter</code></td><td>Commit inline text editing</td></tr><tr><td>Text / Sticky / Button / Shape text</td><td><code>Esc</code></td><td>Cancel or close inline text editing</td></tr><tr><td>Iframe URL input</td><td><code>Enter</code></td><td>Apply the URL change</td></tr><tr><td>Iframe interaction mode</td><td><code>Esc</code></td><td>Exit webpage interaction mode</td></tr><tr><td>Iframe more-actions button</td><td><code>Enter</code> / <code>Space</code></td><td>Open or close the Iframe action menu</td></tr><tr><td>JS Code Runner</td><td><code>Mod+Enter</code></td><td>Run code</td></tr><tr><td>Component Editor modal</td><td><code>Esc</code></td><td>Close the modal</td></tr><tr><td>Connection creation</td><td><code>Esc</code></td><td>Cancel connection creation</td></tr><tr><td>Pen preset popup</td><td><code>Esc</code></td><td>Close pen presets</td></tr><tr><td>Eraser panel</td><td><code>Esc</code></td><td>Close the eraser panel</td></tr>
-          </tbody></table>
+          <table>
+            <thead><tr><th>Component / Area</th><th>Shortcut / Action</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td>Components panel</td><td>Drag component to canvas</td><td>Create a component</td></tr>
+              <tr><td>Text / Sticky / Button / Shape text</td><td><code>Mod+Enter</code></td><td>Commit inline text editing</td></tr>
+              <tr><td>Text / Sticky / Button / Shape text</td><td><code>Esc</code></td><td>Cancel or close inline text editing</td></tr>
+              <tr><td>Iframe URL input</td><td><code>Enter</code></td><td>Apply the URL change</td></tr>
+              <tr><td>Iframe interaction mode</td><td><code>Esc</code></td><td>Exit webpage interaction mode</td></tr>
+              <tr><td>Iframe more-actions button</td><td><code>Enter</code> / <code>Space</code></td><td>Open or close the Iframe action menu</td></tr>
+              <tr><td>JS Code Runner</td><td><code>Mod+Enter</code></td><td>Run code</td></tr>
+              <tr><td>Component Editor modal</td><td><code>Esc</code></td><td>Close the modal</td></tr>
+              <tr><td>Connection creation</td><td><code>Esc</code></td><td>Cancel connection creation</td></tr>
+              <tr><td>Pen preset popup</td><td><code>Esc</code></td><td>Close pen presets</td></tr>
+              <tr><td>Eraser panel</td><td><code>Esc</code></td><td>Close the eraser panel</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="expected-outcomes" data-section="expected-outcomes">
+          <h3>Expected Outcomes Alignment</h3>
+          <p>This table maps the original client expectations from the early project brief to the final delivered product. Differences are noted where the team changed scope, found technical limits, or delivered an alternative implementation.</p>
+          <table>
+            <thead>
+              <tr><th>Original client expectation</th><th>Delivered in Mimi</th><th>Status</th><th>Notes / deviation reason</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Replace PowerPoint for lectures with an HTML-based, highly interactive system.</td>
+                <td>Infinite-canvas presentation board with Pages, Present mode, local HTML export, navigation, drawing, helpers, and interactive components.</td>
+                <td>Achieved</td>
+                <td>Mimi is not a linear slide clone; it uses a non-linear canvas model to support lecture flow and exploration.</td>
+              </tr>
+              <tr>
+                <td>Support text, videos, and interactive JavaScript elements.</td>
+                <td>Text, Sticky Note, Local Video, Iframe, Image, Ranking Box, and JS Code Runner components.</td>
+                <td>Achieved</td>
+                <td>Interactive JavaScript is delivered through the JS Code Runner; videos are supported as local browser media.</td>
+              </tr>
+              <tr>
+                <td>Explore the student point of view and audience participation beyond presenter-only online systems.</td>
+                <td>Room sharing, Host/Viewer camera modes, optional room passwords, QR links, viewer restrictions, synced presentation helpers, and Emoji Reactions.</td>
+                <td>Partially achieved</td>
+                <td>The product includes viewer-side watching, free browsing, and lightweight reactions. Multi-user editing and student-generated board annotations were removed from final scope because of synchronization complexity and project time limits.</td>
+              </tr>
+              <tr>
+                <td>Consider how presentations are stored: online, local SBC, offline, or downloadable one-page format.</td>
+                <td>JSON backup, single-file HTML export, PROJ folder export in Chromium, static frontend build, and optional room relay server.</td>
+                <td>Mostly achieved</td>
+                <td>Offline single-file HTML is implemented. Local SBC deployment was considered through the static build plus relay architecture but was not packaged as a dedicated appliance.</td>
+              </tr>
+              <tr>
+                <td>Target both presenters and presentees and keep audiences engaged.</td>
+                <td>Edit/Present modes for teachers, Host/Viewer modes for students, Page Compare, Timer, Binary Calculator, drawing tools, and reactions.</td>
+                <td>Partially achieved</td>
+                <td>Presenter workflows are stronger than audience workflows. More audience-side interaction remains future work.</td>
+              </tr>
+              <tr>
+                <td>Allow audience games or audience text highlighting when students have problems.</td>
+                <td>Ranking Box, JS Code Runner, Emoji Reactions, drawing tools for the presenter, and the read-only Viewer room foundation.</td>
+                <td>Partially achieved</td>
+                <td>Small activity components exist, but audience-side highlighting/problem marking and shared board editing were not completed.</td>
+              </tr>
+              <tr>
+                <td>Minimum viable product: multi-page presentation without online support plus presenter tools like binary calculator or drawing/sketch panel.</td>
+                <td>Multi-page canvas Pages, Present mode, local HTML export, drawing/highlighter/eraser, Binary Calculator, Timer, and Page Compare.</td>
+                <td>Achieved</td>
+                <td>This became the core presenter-focused MVP before later student/viewer features were added.</td>
+              </tr>
+              <tr>
+                <td>Add audience interaction methods after the MVP.</td>
+                <td>Online room viewing, Host/Viewer camera modes, QR/password join flow, read-only viewer restrictions, synced presentation helpers, and Emoji Reactions.</td>
+                <td>Partially achieved</td>
+                <td>Audience interaction exists as viewing, camera choice, and reactions, but not as full student annotation or multi-user edit broadcasting.</td>
+              </tr>
+              <tr>
+                <td>Features added beyond the early brief.</td>
+                <td>Shapes, background themes, PROJ folder save/load, minimap warnings, Page Compare, Timer, Binary Calculator, Emoji Reactions, and room sync for presentation helper state.</td>
+                <td>Added value</td>
+                <td>These features strengthen classroom presentation, handover, and offline/online delivery without changing the app into a multi-user whiteboard editor.</td>
+              </tr>
+              <tr>
+                <td>Features cancelled or changed during delivery.</td>
+                <td>Multi-user board editing, old text-annotation layer, public legacy container component, account system, and persistent cloud storage.</td>
+                <td>Changed scope</td>
+                <td>The final product is a local-first teaching board with optional temporary room viewing. Long-term storage is handled through JSON, HTML, and PROJ export rather than accounts or a database.</td>
+              </tr>
+              <tr>
+                <td>Use a lightweight approach, avoid too many frameworks, and work in bandwidth-constrained contexts.</td>
+                <td>Vanilla JavaScript, Vite, Konva.js, plain CSS, local/system fonts, and a small dependency set.</td>
+                <td>Achieved</td>
+                <td>The implementation avoids a heavy frontend framework and supports static hosting and local exports.</td>
+              </tr>
+              <tr>
+                <td>Package the presentation as a self-contained blob with local CSS and JavaScript.</td>
+                <td>Single-file HTML export embeds the document snapshot and generated app assets for offline reopening.</td>
+                <td>Achieved</td>
+                <td>Room sharing is intentionally unavailable from local <code>file://</code> exports because it depends on the relay service.</td>
+              </tr>
+              <tr>
+                <td>Evaluation priorities: usability, functionality, documentation, system design, development process, and thinking outside the box.</td>
+                <td>User manual, README handover documentation, automated tests, plugin/component architecture, and final reflection materials.</td>
+                <td>Achieved / to be evaluated</td>
+                <td>Final judgement depends on client and marker evaluation; the deliverables explicitly document design decisions and process reflections.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="faq" data-section="faq">
+          <h3>FAQ And Common Limitations</h3>
+          <details open>
+            <summary>Which export format should I use?</summary>
+            <p>Use JSON for continued editing, HTML for offline viewing or submission, and PROJ when a Chromium-based browser can export a folder with attachments.</p>
+          </details>
+          <details>
+            <summary>Why can't some websites display inside an Iframe?</summary>
+            <p>Some websites block embedding through browser security policies. Use a plain link or attachment when embedding is blocked.</p>
+          </details>
+          <details>
+            <summary>Why does a local exported HTML file hide Share?</summary>
+            <p>Local <code>file://</code> pages cannot reliably connect to the online room relay. Use the hosted app for live room sharing.</p>
+          </details>
+          <details>
+            <summary>Can viewers edit the host board?</summary>
+            <p>No. Room viewers cannot edit, undo/redo, or load a document over the host state. They can follow the Host camera, switch to free Viewer camera, react with Emoji Reactions, and save/export their own copy.</p>
+          </details>
+          <details>
+            <summary>Can a Button jump both ways automatically?</summary>
+            <p>A Button is a one-way jump. Create one Button in each direction when two-way navigation is needed.</p>
+          </details>
+          <details>
+            <summary>Where is installation and recovery documentation?</summary>
+            <p>System requirements, installation, error recovery, backup/restore, and end-of-life notes are in the repository README.</p>
+          </details>
+          <p class="placeholder">Additional client-specific classroom scenarios can be added after final feedback.</p>
         </section>
       </div>
     </main>
@@ -369,7 +620,7 @@ pnpm dev</code></pre>
     const search = document.querySelector("#search");
 
     function activate(id) {
-      const next = sections.some((section) => section.dataset.section === id) ? id : "overview";
+      const next = sections.some((section) => section.dataset.section === id) ? id : "usage";
       sections.forEach((section) => section.classList.toggle("active", section.dataset.section === next));
       tabButtons.forEach((button) => button.setAttribute("aria-selected", String(button.dataset.tab === next)));
       document.querySelectorAll("#toc a").forEach((link) => link.classList.toggle("active", link.dataset.tab === next));
@@ -397,7 +648,7 @@ pnpm dev</code></pre>
     });
 
     window.addEventListener("hashchange", () => activate(location.hash.slice(1)));
-    activate(location.hash.slice(1) || "overview");
+    activate(location.hash.slice(1) || "usage");
   </script>
 </body>
 </html>
