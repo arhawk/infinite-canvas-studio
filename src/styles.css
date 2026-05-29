@@ -4630,7 +4630,7 @@ body.is-room-viewer #load-document-action {
   position: absolute;
   bottom: 1.25rem;
   right: 1.25rem;
-  z-index: 20;
+  z-index: 9000;
   width: 12.5rem; /* = MINIMAP_W + horizontal padding */
   padding: 0.55rem 0.6rem 0.6rem;
   border: 1px solid var(--line);
@@ -4997,7 +4997,7 @@ body.is-room-viewer #load-document-action {
   position: fixed;
   left: 16px;
   top: calc(2.5rem + 12px);
-  z-index: 41;
+  z-index: 9001;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5649,7 +5649,7 @@ body.is-presentation-mode #catalog-panel {
 
 .instant-tooltip {
   position: fixed;
-  z-index: 2000;
+  z-index: 9002;
   max-width: min(36ch, calc(100vw - 1rem));
   padding: 0.35rem 0.55rem;
   border-radius: 0.45rem;
