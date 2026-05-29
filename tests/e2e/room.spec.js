@@ -243,6 +243,17 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await expect(viewer.getByTestId("mode-capsule-present")).toHaveText("Host");
   await expect(viewer.getByTestId("load-document-action")).toBeHidden();
   await expect(viewer.getByTestId("components-trigger")).toBeHidden();
+  await expect(viewer.getByTestId("presentation-tool-timer")).toBeHidden();
+  await expect(viewer.getByTestId("presentation-tool-calculator")).toBeHidden();
+  await expect.poll(async () => (
+    page.evaluate(() => ({
+      timerHidden: Boolean(document.querySelector('[data-testid="presentation-tool-timer"]')?.hidden),
+      calculatorHidden: Boolean(document.querySelector('[data-testid="presentation-tool-calculator"]')?.hidden),
+    }))
+  )).toEqual({
+    timerHidden: false,
+    calculatorHidden: false,
+  });
   await expect.poll(async () => (
     viewer.evaluate(() => window.__APP_TEST_API__.listNodes().length)
   )).toBeGreaterThan(0);
@@ -263,6 +274,8 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await showTopToolbar(viewer);
   await viewer.getByTestId("mode-capsule-edit").click();
   await expect(viewer.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
+  await expect(viewer.getByTestId("presentation-tool-timer")).toBeHidden();
+  await expect(viewer.getByTestId("presentation-tool-calculator")).toBeHidden();
 
   await page.evaluate(() => {
     document.querySelector('[data-testid="presentation-tool-calculator"]')?.click();
@@ -376,6 +389,8 @@ test("shares a password-protected room with QR and viewer camera modes", async (
   await showTopToolbar(viewer);
   await viewer.getByTestId("mode-capsule-present").click();
   await expect(viewer.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
+  await expect(viewer.getByTestId("presentation-tool-timer")).toBeHidden();
+  await expect(viewer.getByTestId("presentation-tool-calculator")).toBeHidden();
   await expect.poll(async () => (await getViewport(viewer)).scale).toBeCloseTo(0.4, 1);
   await expect.poll(async () => {
     const rect = await viewer.getByTestId("timer-widget").boundingBox();

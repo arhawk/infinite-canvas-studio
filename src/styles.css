@@ -931,6 +931,10 @@ body.is-presentation-mode .toolbar.is-visible {
   display: none !important;
 }
 
+.presentation-brush-fab__tool[hidden] {
+  display: none !important;
+}
+
 .presentation-brush-fab__ball,
 .presentation-brush-fab__tool {
   display: inline-flex;

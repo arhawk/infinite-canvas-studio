@@ -829,6 +829,7 @@ export class ToolbarPlugin extends BasePlugin {
     });
     this.listen("draw:added", () => this.syncUi());
     this.listen("draw:removed", () => this.syncUi());
+    this.listen("room:share:change", () => this.syncUi());
 
     this.setupModeToggle();
     this.setupPresentationToolbarAutoHide();
@@ -1543,6 +1544,15 @@ export class ToolbarPlugin extends BasePlugin {
     const activeToolId = this.app.getEditorTool();
     const isBrushActive = this.isBrushFamilyActive(activeToolId);
     const isEraserActive = activeToolId === "eraser";
+    const roomShare = this.app.getPlugin("room-share");
+    const isViewerClient = Boolean(roomShare?.viewer?.client);
+
+    if (this.presentationTimerBtnEl) {
+      this.presentationTimerBtnEl.hidden = isViewerClient;
+    }
+    if (this.presentationCalculatorBtnEl) {
+      this.presentationCalculatorBtnEl.hidden = isViewerClient;
+    }
 
     this.presentationBrushFabEl.hidden = !isPresentation;
     if (!isPresentation) {
