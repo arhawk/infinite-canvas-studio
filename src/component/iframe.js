@@ -494,8 +494,8 @@ export class IframeComponent extends BaseComponent {
       );
 
       header.hidden = !editMode;
-      header.classList.toggle("is-layout-hidden", editMode && !editable);
-      header.setAttribute("aria-hidden", String(editMode && !editable));
+      header.classList.remove("is-layout-hidden");
+      header.setAttribute("aria-hidden", "false");
       body.classList.toggle("has-header", editMode);
       overlay.dataset.mode = editable ? "edit" : "interactive";
       urlInput.disabled = !editable;
