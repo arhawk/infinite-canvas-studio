@@ -27,6 +27,27 @@ async function getNode(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNode(nodeId), id);
 }
 
+async function getIframeRenderState(page, id) {
+  return page.evaluate((nodeId) => {
+    const node = window.__APP_TEST_API__.getNode(nodeId);
+    const overlay = document.querySelector(`.iframe-component__overlay[data-iframe-node-id="${nodeId}"]`);
+    const viewport = overlay?.querySelector?.(".iframe-component__viewport") ?? null;
+    const viewportRect = viewport?.getBoundingClientRect?.() ?? null;
+
+    return {
+      node,
+      editorTool: window.__APP_TEST_API__.getEditorTool(),
+      viewportTransform: viewport?.style?.transform ?? "",
+      viewportRect: viewportRect
+        ? {
+            width: viewportRect.width,
+            height: viewportRect.height,
+          }
+        : null,
+    };
+  }, id);
+}
+
 async function countDomMatches(page, selector) {
   return page.evaluate((value) => document.querySelectorAll(value).length, selector);
 }
@@ -4538,6 +4559,65 @@ test("keeps iframe action buttons from triggering drag and still allows dragging
   expect(afterDrag.bounds.y).toBeGreaterThan(before.bounds.y + 30);
 });
 
+test("does not resize iframe when switching to shape or components tools", async ({ page }) => {
+  const iframe = await addComponent(page, "iframe", {
+    x: 280,
+    y: 220,
+    url: buildIframePageUrl({ title: "Iframe tool switching" }),
+  });
+  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), iframe.id);
+  await expect
+    .poll(async () => (await getNode(page, iframe.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+  await waitForPaint(page);
+
+  const before = await getIframeRenderState(page, iframe.id);
+  expect(before.node?.summary).toMatchObject({
+    width: 420,
+    height: 280,
+    scaleX: 1,
+    scaleY: 1,
+    headerHidden: false,
+    headerLayoutHidden: false,
+    bodyHasHeader: true,
+  });
+
+  await page.getByTestId("tool-button-shape").click();
+  await waitForPaint(page);
+  const afterShape = await getIframeRenderState(page, iframe.id);
+  expect(afterShape.editorTool).toBe("shape");
+  expect(afterShape.node?.bounds).toEqual(before.node?.bounds);
+  expect(afterShape.node?.summary).toMatchObject({
+    width: before.node?.summary?.width,
+    height: before.node?.summary?.height,
+    scaleX: before.node?.summary?.scaleX,
+    scaleY: before.node?.summary?.scaleY,
+    zoom: before.node?.summary?.zoom,
+    panX: before.node?.summary?.panX,
+    panY: before.node?.summary?.panY,
+  });
+  expect(afterShape.node?.summary?.viewportTransform).toBe(before.node?.summary?.viewportTransform);
+  expect(afterShape.viewportTransform).toBe(before.viewportTransform);
+
+  await page.getByTestId("components-trigger").click();
+  await expect(page.getByTestId("palette-card-page")).toBeVisible();
+  await waitForPaint(page);
+  const afterComponents = await getIframeRenderState(page, iframe.id);
+  expect(afterComponents.editorTool).toBe("components");
+  expect(afterComponents.node?.bounds).toEqual(before.node?.bounds);
+  expect(afterComponents.node?.summary).toMatchObject({
+    width: before.node?.summary?.width,
+    height: before.node?.summary?.height,
+    scaleX: before.node?.summary?.scaleX,
+    scaleY: before.node?.summary?.scaleY,
+    zoom: before.node?.summary?.zoom,
+    panX: before.node?.summary?.panX,
+    panY: before.node?.summary?.panY,
+  });
+  expect(afterComponents.node?.summary?.viewportTransform).toBe(before.node?.summary?.viewportTransform);
+  expect(afterComponents.viewportTransform).toBe(before.viewportTransform);
+});
+
 test("keeps iframe draggable and clamps zoom back to the fit-to-view minimum after resize", async ({ page }) => {
   const iframe = await addComponent(page, "iframe", {
     x: 240,
@@ -4575,6 +4655,10 @@ test("keeps iframe draggable and clamps zoom back to the fit-to-view minimum aft
   const resized = await getNode(page, iframe.id);
   expect(resized.bounds.width).toBeGreaterThan(original.bounds.width);
   expect(resized.bounds.height).toBeGreaterThan(original.bounds.height);
+  expect(resized.summary.width).toBeCloseTo(560, 1);
+  expect(resized.summary.height).toBeCloseTo(360, 1);
+  expect(resized.summary.scaleX).toBeCloseTo(1, 4);
+  expect(resized.summary.scaleY).toBeCloseTo(1, 4);
 
   const shieldBox = await page.locator(".iframe-component__shield").boundingBox();
   const dragStart = {

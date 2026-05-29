@@ -261,17 +261,28 @@ function getNodeSummary(node) {
     const overlay = node._iframeOverlayEl ?? null;
     const frame = overlay?.querySelector?.(".iframe-component__frame") ?? null;
     const shield = overlay?.querySelector?.(".iframe-component__shield") ?? null;
+    const viewport = overlay?.querySelector?.(".iframe-component__viewport") ?? null;
+    const header = overlay?.querySelector?.(".iframe-component__topbar") ?? null;
+    const body = overlay?.querySelector?.(".iframe-component__body") ?? null;
 
     return {
       url: node.getAttr("iframeUrl") ?? "",
       zoom: Number(node.getAttr("iframeZoom")) || 1,
       panX: Number(node.getAttr("iframePanX")) || 0,
       panY: Number(node.getAttr("iframePanY")) || 0,
+      width: node.width?.() ?? null,
+      height: node.height?.() ?? null,
+      scaleX: node.scaleX?.() ?? null,
+      scaleY: node.scaleY?.() ?? null,
       interactive: node.getAttr("iframeInteractive") === true,
       hasOverlay: Boolean(overlay),
       overlayZIndex: overlay?.style?.zIndex ?? "",
       hasShield: Boolean(shield),
       shieldHidden: shield?.hidden ?? null,
+      headerHidden: header?.hidden ?? null,
+      headerLayoutHidden: header?.classList?.contains?.("is-layout-hidden") ?? false,
+      bodyHasHeader: body?.classList?.contains?.("has-header") ?? false,
+      viewportTransform: viewport?.style?.transform ?? "",
       framePointerEvents: frame?.style?.pointerEvents ?? "",
       frameSrc: frame?.getAttribute?.("src") ?? "",
     };

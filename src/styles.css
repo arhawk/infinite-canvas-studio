@@ -2688,6 +2688,11 @@ body.is-room-viewer #load-document-action {
   display: none !important;
 }
 
+.iframe-component__topbar.is-layout-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .iframe-component__url-form {
   display: flex;
   align-items: center;

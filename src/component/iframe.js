@@ -235,8 +235,9 @@ export class IframeComponent extends BaseComponent {
     if (!stage) return;
 
     const getCurrentUrl = () => node.getAttr("iframeUrl") ?? "";
+    const isEditMode = () => this.app.getMode?.() === "edit";
     const getIsEditable = () => (
-      !this.app.isReadOnly?.() &&
+      isEditMode() &&
       this.app.modeManager?.matches?.({ mode: "edit", editorTool: "arrange" }) === true
     );
 
@@ -384,7 +385,7 @@ export class IframeComponent extends BaseComponent {
     let stackSyncFrame = null;
 
     const getManualInteraction = () => node.getAttr("iframeInteractionMode") === true;
-    const getInteractive = () => !getIsEditable() || getManualInteraction();
+    const getInteractive = () => this.app.isReadOnly?.() || getManualInteraction();
     const isShapeMode = () => (
       this.app.getMode?.() === "edit" &&
       this.app.getEditorTool?.() === "shape"
@@ -484,6 +485,7 @@ export class IframeComponent extends BaseComponent {
     };
 
     const syncHeaderState = () => {
+      const editMode = isEditMode();
       const editable = getIsEditable();
       const url = getCurrentUrl();
       const canConnect = Boolean(
@@ -491,8 +493,10 @@ export class IframeComponent extends BaseComponent {
         connectionsPlugin?.isConnectable?.(node),
       );
 
-      header.hidden = !editable;
-      body.classList.toggle("has-header", editable);
+      header.hidden = !editMode;
+      header.classList.toggle("is-layout-hidden", editMode && !editable);
+      header.setAttribute("aria-hidden", String(editMode && !editable));
+      body.classList.toggle("has-header", editMode);
       overlay.dataset.mode = editable ? "edit" : "interactive";
       urlInput.disabled = !editable;
       interactButton.disabled = !editable || !url;
@@ -502,6 +506,7 @@ export class IframeComponent extends BaseComponent {
         ? "Exit webpage interaction"
         : "Interact with webpage";
       connectButton.disabled = !canConnect;
+      menuTrigger.disabled = !editable;
       if (!isEditingUrl && urlInput.value !== url) {
         urlInput.value = url;
       }
