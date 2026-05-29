@@ -84,8 +84,7 @@ function getRootSelectableNodes(app) {
 
 function clearMainLayer(app) {
   getRootSelectableNodes(app).forEach((node) => {
-    app.events.emit("node:removed", { node });
-    node.destroy();
+    app.destroySelectableNodeTree(node, { draw: false });
   });
   app.mainLayer.batchDraw();
 }

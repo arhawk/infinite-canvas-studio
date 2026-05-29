@@ -822,9 +822,7 @@ export class HistoryPlugin extends BasePlugin {
     const rootId = snapshots[0]?.id;
     const rootNode = this.findSelectableNodeById(rootId);
     if (!rootNode?.getStage?.()) return;
-
-    this.app.events.emit("node:removed", { node: rootNode });
-    rootNode.destroy();
+    this.app.destroySelectableNodeTree(rootNode, { draw: false });
   }
 
   async restoreNodeSnapshots(snapshots = []) {

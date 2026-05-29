@@ -1,4 +1,5 @@
 import { BaseComponent } from "../core/baseClasses.js";
+import { createOverlayNodeDragBridge } from "./overlayInteraction.js";
 import { applyOverlayOcclusionStyles, getOverlayOcclusionRects } from "./overlayOcclusion.js";
 import { DISPLAY_FONT_FAMILY } from "../lib/fonts.js";
 import { renderIcons } from "../lib/icons.js";
@@ -376,13 +377,7 @@ export class IframeComponent extends BaseComponent {
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
     const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
-    const containersPlugin = this.app.getPlugin?.("containers") ?? null;
     const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
-    let dragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let nodeStartX = 0;
-    let nodeStartY = 0;
     let menuOpen = false;
     let lastFrameUrl = "";
     let isEditingUrl = false;
@@ -390,6 +385,10 @@ export class IframeComponent extends BaseComponent {
 
     const getManualInteraction = () => node.getAttr("iframeInteractionMode") === true;
     const getInteractive = () => !getIsEditable() || getManualInteraction();
+    const isShapeMode = () => (
+      this.app.getMode?.() === "edit" &&
+      this.app.getEditorTool?.() === "shape"
+    );
 
     const hideContextMenu = () => {
       contextMenuPlugin?.hideMenu?.();
@@ -441,6 +440,10 @@ export class IframeComponent extends BaseComponent {
       node.setAttr("iframeInteractionMode", resolved);
       applyViewport();
       this.#syncOverlay(node);
+    };
+
+    const syncPointerInterception = () => {
+      overlay.classList.toggle("is-pointer-pass-through", isShapeMode());
     };
 
     const positionLayerMenuAtPoint = (clientPoint) => {
@@ -580,40 +583,6 @@ export class IframeComponent extends BaseComponent {
           y: event.clientY,
         },
       });
-    };
-
-    const beginDrag = (event) => {
-      if (!getIsEditable()) return;
-      event.preventDefault();
-      event.stopPropagation();
-      dragging = true;
-      dragStartX = event.clientX;
-      dragStartY = event.clientY;
-      nodeStartX = node.x();
-      nodeStartY = node.y();
-      selectionPlugin?.setSelected?.([node]);
-      this.app.events.emit("node:change:start", { node });
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "grabbing";
-    };
-
-    const onDragMove = (event) => {
-      if (!dragging) return;
-      const stageScale = this.app.stageApi?.getScale?.() ?? stage.scaleX() ?? 1;
-      node.x(nodeStartX + (event.clientX - dragStartX) / stageScale);
-      node.y(nodeStartY + (event.clientY - dragStartY) / stageScale);
-      node.getLayer()?.batchDraw();
-      this.#syncOverlay(node);
-      this.app.events.emit("node:changing", { node });
-    };
-
-    const endDrag = () => {
-      if (!dragging) return;
-      dragging = false;
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-      containersPlugin?.finalizeCaptureForNode?.(node);
-      this.app.events.emit("node:changed", { node });
     };
 
     const applyInteractiveMode = () => {
@@ -852,9 +821,16 @@ export class IframeComponent extends BaseComponent {
     document.addEventListener("mousedown", handleDocumentPointerDown, true);
     overlay.addEventListener("mousedown", handleOverlayMouseDown, true);
     overlay.addEventListener("contextmenu", handleOverlayContextMenu, true);
-    shield.addEventListener("mousedown", beginDrag);
-    document.addEventListener("mousemove", onDragMove);
-    document.addEventListener("mouseup", endDrag);
+    const cleanupDragBridge = createOverlayNodeDragBridge({
+      app: this.app,
+      node,
+      handle: shield,
+      canStartDrag: () => getIsEditable() && !getManualInteraction(),
+      onPointerDown: () => {
+        hideContextMenu();
+        selectionPlugin?.setSelected?.([node]);
+      },
+    });
 
     frame.addEventListener("load", () => {
       hideStatus();
@@ -873,6 +849,7 @@ export class IframeComponent extends BaseComponent {
     );
     const stopListeningToInteraction = this.app.on?.("interaction:change", () => {
       applyViewport();
+      syncPointerInterception();
       this.#syncOverlay(node);
     });
     const stopListeningToSelection = this.app.on?.("selection:change", ({ nodes = [] } = {}) => {
@@ -894,15 +871,12 @@ export class IframeComponent extends BaseComponent {
         stackSyncFrame = null;
       }
       closeLayerMenu();
+      cleanupDragBridge?.();
       overlay.removeEventListener("mousedown", handleOverlayMouseDown, true);
       overlay.removeEventListener("contextmenu", handleOverlayContextMenu, true);
-      document.removeEventListener("mousemove", onDragMove);
-      document.removeEventListener("mouseup", endDrag);
       document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
       document.removeEventListener("mousedown", handleDocumentPointerDown, true);
       window.removeEventListener("keydown", handleWindowKeyDown);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
       stopListeningToInteraction?.();
       stopListeningToSelection?.();
       stopListeningToNodeAddedForStack?.();
@@ -917,6 +891,7 @@ export class IframeComponent extends BaseComponent {
       node._iframeOverlayCleanup = null;
     };
 
+    syncPointerInterception();
     this.#syncOverlay(node);
   }
 

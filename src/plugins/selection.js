@@ -804,11 +804,10 @@ export class SelectionPlugin extends BasePlugin {
 
   deleteSelection() {
     if (!this.isEnabled()) return;
-    const nodes = this.getSelectedNodes();
+    const nodes = this.getSelectedRootNodes();
     if (!nodes.length) return;
     nodes.forEach((node) => {
-      this.app.events.emit("node:removed", { node });
-      node.destroy();
+      this.app.destroySelectableNodeTree(node, { draw: false });
     });
     this.clearSelection();
     this.layer.batchDraw();

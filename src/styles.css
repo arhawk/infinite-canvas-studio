@@ -2930,6 +2930,15 @@ body.is-room-viewer #load-document-action {
   pointer-events: none;
 }
 
+.iframe-component__overlay.is-pointer-pass-through,
+.javascript-editor-component__overlay.is-pointer-pass-through,
+.video-component__overlay.is-pointer-pass-through,
+.iframe-component__overlay.is-pointer-pass-through *,
+.javascript-editor-component__overlay.is-pointer-pass-through *,
+.video-component__overlay.is-pointer-pass-through * {
+  pointer-events: none !important;
+}
+
 .javascript-editor-component__header {
   display: flex;
   align-items: center;

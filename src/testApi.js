@@ -1,4 +1,6 @@
 
+import { getOverlayOcclusionRects } from "./component/overlayOcclusion.js";
+
 function getContainerRect(app) {
   return app.stage.container().getBoundingClientRect();
 }
@@ -455,6 +457,39 @@ export function setupAppTestApi(app) {
       const node = getNodeById(app, id);
       return node ? serializeNode(app, node) : null;
     },
+    getOverlayOcclusionState: (id) => {
+      const node = getNodeById(app, id);
+      if (!node) return null;
+
+      const componentType = node.getAttr?.("componentType") ?? "";
+      if (!["iframe", "javascriptEditor", "video"].includes(componentType)) {
+        return null;
+      }
+
+      const width = Number(node.width?.()) || 0;
+      const height = Number(node.height?.()) || 0;
+      const transform = node.getAbsoluteTransform?.(app.stage) ?? null;
+      const origin = transform?.point
+        ? transform.point({ x: 0, y: 0 })
+        : {
+            x: Number(node.x?.()) || 0,
+            y: Number(node.y?.()) || 0,
+          };
+      return {
+        width,
+        height,
+        origin: {
+          x: origin.x,
+          y: origin.y,
+        },
+        rects: getOverlayOcclusionRects(app, node, width, height).map((rect) => ({
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        })),
+      };
+    },
     selectNode: (id) => {
       const selectionPlugin = getPlugin(app, "selection");
       const node = getNodeById(app, id);
@@ -695,10 +730,7 @@ export function setupAppTestApi(app) {
       const node = getNodeById(app, id);
       if (!node?.getStage?.()) return false;
 
-      app.events.emit("node:removed", { node });
-      node.destroy();
-      app.mainLayer.batchDraw();
-      return true;
+      return app.destroySelectableNodeTree(node);
     },
     createConnection: async (sourceId, targetId) => {
       const connectionsPlugin = getPlugin(app, "connections");
@@ -857,12 +889,12 @@ export function setupAppTestApi(app) {
       return true;
     },
     clearBoard: () => {
-      const nodes = app.mainLayer.find(".selectable");
+      const nodes = app.mainLayer.getChildren()
+        .filter((node) => node?.hasName?.("selectable"));
 
       nodes.forEach((node) => {
         if (!node?.getStage?.()) return;
-        app.events.emit("node:removed", { node });
-        node.destroy();
+        app.destroySelectableNodeTree(node, { draw: false });
       });
 
       app.drawLayer.destroyChildren();

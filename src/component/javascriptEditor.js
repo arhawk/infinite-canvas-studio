@@ -1,4 +1,9 @@
 import { BaseComponent } from "../core/baseClasses.js";
+import { createOverlayNodeDragBridge } from "./overlayInteraction.js";
+import {
+  applyOverlayOcclusionStyles as applySharedOverlayOcclusionStyles,
+  getOverlayOcclusionRects as getSharedOverlayOcclusionRects,
+} from "./overlayOcclusion.js";
 import { DISPLAY_FONT_FAMILY, UI_FONT_FAMILY } from "../lib/fonts.js";
 import { Konva } from "../lib/konva.js";
 import { getCanvasTheme } from "../theme/canvasTheme.js";
@@ -88,198 +93,6 @@ function getOutputRatioForHeight(availableHeight, outputHeight) {
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, value));
-}
-
-function rectsIntersect(a, b) {
-  if (!a || !b) return false;
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
-}
-
-function intersectRects(a, b) {
-  if (!rectsIntersect(a, b)) return null;
-  const x1 = Math.max(a.x, b.x);
-  const y1 = Math.max(a.y, b.y);
-  const x2 = Math.min(a.x + a.width, b.x + b.width);
-  const y2 = Math.min(a.y + a.height, b.y + b.height);
-  return {
-    x: x1,
-    y: y1,
-    width: Math.max(0, x2 - x1),
-    height: Math.max(0, y2 - y1),
-  };
-}
-
-function getRectFromPoints(points) {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  const x1 = Math.min(...xs);
-  const y1 = Math.min(...ys);
-  const x2 = Math.max(...xs);
-  const y2 = Math.max(...ys);
-  return {
-    x: x1,
-    y: y1,
-    width: Math.max(0, x2 - x1),
-    height: Math.max(0, y2 - y1),
-  };
-}
-
-function clampRectToBounds(rect, width, height) {
-  const x1 = clamp(rect.x, 0, width);
-  const y1 = clamp(rect.y, 0, height);
-  const x2 = clamp(rect.x + rect.width, 0, width);
-  const y2 = clamp(rect.y + rect.height, 0, height);
-  return {
-    x: x1,
-    y: y1,
-    width: Math.max(0, x2 - x1),
-    height: Math.max(0, y2 - y1),
-  };
-}
-
-function getDisjointCoverRects(width, height, rects = []) {
-  const sourceRects = rects
-    .map((rect) => clampRectToBounds(rect, width, height))
-    .filter((rect) => rect.width >= 1 && rect.height >= 1);
-
-  if (!sourceRects.length) return [];
-
-  const xs = [...new Set(
-    sourceRects.flatMap((rect) => [
-      formatCssNumber(rect.x),
-      formatCssNumber(rect.x + rect.width),
-    ]),
-  )].sort((a, b) => a - b);
-
-  const ys = [...new Set(
-    sourceRects.flatMap((rect) => [
-      formatCssNumber(rect.y),
-      formatCssNumber(rect.y + rect.height),
-    ]),
-  )].sort((a, b) => a - b);
-
-  const disjointRects = [];
-  for (let yIndex = 0; yIndex < ys.length - 1; yIndex += 1) {
-    const y1 = ys[yIndex];
-    const y2 = ys[yIndex + 1];
-    if (y2 - y1 < 1) continue;
-
-    let currentRowRect = null;
-    for (let xIndex = 0; xIndex < xs.length - 1; xIndex += 1) {
-      const x1 = xs[xIndex];
-      const x2 = xs[xIndex + 1];
-      if (x2 - x1 < 1) continue;
-
-      const center = {
-        x: x1 + (x2 - x1) / 2,
-        y: y1 + (y2 - y1) / 2,
-      };
-      const isCovered = sourceRects.some((rect) => (
-        center.x >= rect.x &&
-        center.x <= rect.x + rect.width &&
-        center.y >= rect.y &&
-        center.y <= rect.y + rect.height
-      ));
-
-      if (!isCovered) {
-        if (currentRowRect) {
-          disjointRects.push(currentRowRect);
-          currentRowRect = null;
-        }
-        continue;
-      }
-
-      if (currentRowRect && Math.abs(currentRowRect.x + currentRowRect.width - x1) < 0.01) {
-        currentRowRect.width = x2 - currentRowRect.x;
-      } else {
-        if (currentRowRect) {
-          disjointRects.push(currentRowRect);
-        }
-        currentRowRect = {
-          x: x1,
-          y: y1,
-          width: x2 - x1,
-          height: y2 - y1,
-        };
-      }
-    }
-
-    if (currentRowRect) {
-      disjointRects.push(currentRowRect);
-    }
-  }
-
-  return disjointRects;
-}
-
-function formatCssNumber(value) {
-  return Number.isFinite(value) ? Number(value.toFixed(2)) : 0;
-}
-
-function buildOverlayClipPath(width, height, occlusionRects) {
-  const safeWidth = Math.max(0, width);
-  const safeHeight = Math.max(0, height);
-  const pathParts = [
-    `M 0 0 H ${formatCssNumber(safeWidth)} V ${formatCssNumber(safeHeight)} H 0 Z`,
-  ];
-
-  occlusionRects.forEach((rect) => {
-    const x1 = formatCssNumber(rect.x);
-    const y1 = formatCssNumber(rect.y);
-    const x2 = formatCssNumber(rect.x + rect.width);
-    const y2 = formatCssNumber(rect.y + rect.height);
-    pathParts.push(`M ${x1} ${y1} V ${y2} H ${x2} V ${y1} H ${x1} Z`);
-  });
-
-  return `path("${pathParts.join(" ")}")`;
-}
-
-function buildOverlayMask(width, height, occlusionRects) {
-  const safeWidth = Math.max(1, formatCssNumber(width));
-  const safeHeight = Math.max(1, formatCssNumber(height));
-  const holes = occlusionRects.map((rect) => (
-    `<rect x="${formatCssNumber(rect.x)}" y="${formatCssNumber(rect.y)}" width="${formatCssNumber(rect.width)}" height="${formatCssNumber(rect.height)}" fill="black"/>`
-  )).join("");
-  const svg = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}">`,
-    `<rect width="${safeWidth}" height="${safeHeight}" fill="white"/>`,
-    holes,
-    "</svg>",
-  ].join("");
-
-  return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
-}
-
-function isAncestorNode(ancestor, node) {
-  if (!ancestor || !node || ancestor === node) return false;
-  let parent = node.getParent?.() ?? null;
-  while (parent) {
-    if (parent === ancestor) return true;
-    parent = parent.getParent?.() ?? null;
-  }
-  return false;
-}
-
-function getStackIndex(node) {
-  if (!node) return -1;
-  if (typeof node.getAbsoluteZIndex === "function") {
-    const absoluteIndex = node.getAbsoluteZIndex();
-    if (Number.isFinite(absoluteIndex)) return absoluteIndex;
-  }
-
-  const chain = [];
-  let current = node;
-  while (current) {
-    chain.unshift(current.zIndex?.() ?? 0);
-    current = current.getParent?.() ?? null;
-  }
-
-  return chain.reduce((total, value) => total * 1000 + value, 0);
 }
 
 function buildPreviewBridgeScript(nodeId, runRevision = 0) {
@@ -1031,7 +844,9 @@ export class JavaScriptEditorComponent extends BaseComponent {
     overlay.style.zIndex = String(Math.max(1, this.app.getSelectableStackIndex?.(node) ?? 1));
     overlay.style.transform = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
 
-    const occlusionRects = isVisible ? this.#getOverlayOcclusionRects(node) : [];
+    const occlusionRects = isVisible
+      ? getSharedOverlayOcclusionRects(this.app, node, node.width(), node.height())
+      : [];
     const hasOcclusion = occlusionRects.length > 0;
     overlay.hidden = !isVisible;
     overlay.classList.toggle("is-stack-occluded", hasOcclusion);
@@ -1044,71 +859,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
   }
 
   #applyOverlayOcclusion(overlay, width, height, occlusionRects = []) {
-    const disjointOcclusionRects = getDisjointCoverRects(width, height, occlusionRects);
-    if (!disjointOcclusionRects.length) {
-      overlay.style.clipPath = "";
-      overlay.style.maskImage = "";
-      overlay.style.webkitMaskImage = "";
-      overlay.style.maskSize = "";
-      overlay.style.webkitMaskSize = "";
-      overlay.style.maskRepeat = "";
-      overlay.style.webkitMaskRepeat = "";
-      return;
-    }
-
-    const clipPath = buildOverlayClipPath(width, height, disjointOcclusionRects);
-    const maskImage = buildOverlayMask(width, height, disjointOcclusionRects);
-    overlay.style.clipPath = clipPath;
-    overlay.style.maskImage = maskImage;
-    overlay.style.webkitMaskImage = maskImage;
-    overlay.style.maskSize = "100% 100%";
-    overlay.style.webkitMaskSize = "100% 100%";
-    overlay.style.maskRepeat = "no-repeat";
-    overlay.style.webkitMaskRepeat = "no-repeat";
-  }
-
-  #getOverlayOcclusionRects(node) {
-    const stage = node.getStage?.() ?? null;
-    const layer = this.app.mainLayer ?? node.getLayer?.() ?? null;
-    if (!stage || !layer) return [];
-
-    const ownBox = node.getClientRect({
-      relativeTo: stage,
-      skipShadow: true,
-    });
-    const ownStackIndex = getStackIndex(node);
-    const candidates = layer.find?.(".selectable") ?? [];
-    const localTransform = node.getAbsoluteTransform(stage).copy().invert();
-
-    return candidates.flatMap((candidate) => {
-      if (!candidate || candidate === node) return [];
-      if (!candidate.getStage?.()) return [];
-      if (candidate.isVisible?.() === false) return [];
-      if ((candidate.opacity?.() ?? 1) <= 0) return [];
-      if (candidate.getAttr?.("componentType") === "connection") return [];
-      if (isAncestorNode(candidate, node) || isAncestorNode(node, candidate)) return [];
-      if (getStackIndex(candidate) <= ownStackIndex) return [];
-
-      const candidateBox = candidate.getClientRect({
-        relativeTo: stage,
-        skipShadow: true,
-      });
-      const intersection = intersectRects(ownBox, candidateBox);
-      if (!intersection) return [];
-
-      const localRect = getRectFromPoints([
-        localTransform.point({ x: intersection.x, y: intersection.y }),
-        localTransform.point({ x: intersection.x + intersection.width, y: intersection.y }),
-        localTransform.point({
-          x: intersection.x + intersection.width,
-          y: intersection.y + intersection.height,
-        }),
-        localTransform.point({ x: intersection.x, y: intersection.y + intersection.height }),
-      ]);
-      const clippedRect = clampRectToBounds(localRect, node.width(), node.height());
-      if (clippedRect.width < 1 || clippedRect.height < 1) return [];
-      return [clippedRect];
-    });
+    applySharedOverlayOcclusionStyles(overlay, width, height, occlusionRects);
   }
 
   #setStatus(node, text, tone = "idle") {
@@ -1502,19 +1253,13 @@ export class JavaScriptEditorComponent extends BaseComponent {
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
     const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
-    const catalogPanelPlugin = this.app.getPlugin?.("catalog-panel") ?? null;
-    const containersPlugin = this.app.getPlugin?.("containers") ?? null;
     const inlineChange = this.#createInlineChangeTracker(node);
     node._javascriptEditorInlineChange = inlineChange;
 
     let monacoEditor = null;
     let ignoreMonacoChanges = false;
-    let draggingNode = false;
     let resizingOutput = false;
-    let dragStartX = 0;
     let dragStartY = 0;
-    let nodeStartX = 0;
-    let nodeStartY = 0;
     let outputStartHeight = 0;
     let outputAvailableHeight = 0;
     let iframe = null;
@@ -1523,6 +1268,10 @@ export class JavaScriptEditorComponent extends BaseComponent {
     const isEditableInteraction = () => (
       !this.app.isReadOnly?.() &&
       this.app.modeManager?.matches?.({ mode: "edit", editorTool: "arrange" }) === true
+    );
+    const isShapeMode = () => (
+      this.app.getMode?.() === "edit" &&
+      this.app.getEditorTool?.() === "shape"
     );
 
     const scheduleStackSync = () => {
@@ -1546,18 +1295,16 @@ export class JavaScriptEditorComponent extends BaseComponent {
     };
 
     const clearPointerInteractionState = () => {
-      draggingNode = false;
       resizingOutput = false;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
-      catalogPanelPlugin?.clearDropPreview?.();
-      catalogPanelPlugin?.panelEl?.classList?.remove?.("is-drag-active");
     };
 
     const syncInteractionMode = () => {
       const editable = isEditableInteraction();
       overlay.classList.toggle("is-read-only", !editable);
       overlay.dataset.interactionMode = editable ? "edit" : "view";
+      overlay.classList.toggle("is-pointer-pass-through", isShapeMode());
       fallbackTextarea.readOnly = !editable;
       fallbackTextarea.setAttribute("aria-readonly", String(!editable));
       closeButton.hidden = !editable;
@@ -1571,7 +1318,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
         domReadOnly: !editable,
       });
 
-      if (!editable && (draggingNode || resizingOutput)) {
+      if (!editable && resizingOutput) {
         clearPointerInteractionState();
       }
 
@@ -1753,36 +1500,6 @@ export class JavaScriptEditorComponent extends BaseComponent {
       syncInteractionMode();
     });
 
-    const beginDrag = (event) => {
-      if (!isEditableInteraction()) return;
-      if (event.button !== 0 || event.target.closest("button")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      this.#hideContextMenu();
-      stage.setPointersPositions?.(event);
-      draggingNode = true;
-      dragStartX = event.clientX;
-      dragStartY = event.clientY;
-      nodeStartX = node.x();
-      nodeStartY = node.y();
-      syncSelection();
-      const targetNode = node.findAncestor?.(".page-root", true);
-      catalogPanelPlugin?.dragOrigins?.set?.(node.id(), {
-        x: node.x(),
-        y: node.y(),
-        targetNodeId:
-          targetNode?.getAttr?.("componentType") === "page"
-            ? targetNode.id?.()
-            : node.id(),
-      });
-      if (catalogPanelPlugin?.isEditable) {
-        catalogPanelPlugin.panelEl?.classList?.add?.("is-drag-active");
-      }
-      this.app.events.emit("node:change:start", { node });
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "grabbing";
-    };
-
     const beginOutputResize = (event) => {
       if (!isEditableInteraction()) return;
       if (event.button !== 0) return;
@@ -1809,18 +1526,6 @@ export class JavaScriptEditorComponent extends BaseComponent {
     };
 
     const onPointerMove = (event) => {
-      if (draggingNode) {
-        stage.setPointersPositions?.(event);
-        const stageScale = this.app.stageApi?.getScale?.() ?? stage.scaleX() ?? 1;
-        node.x(nodeStartX + (event.clientX - dragStartX) / stageScale);
-        node.y(nodeStartY + (event.clientY - dragStartY) / stageScale);
-        node.getLayer()?.batchDraw();
-        this.#syncOverlay(node);
-        catalogPanelPlugin?.updateDropPreview?.();
-        this.app.events.emit("node:changing", { node });
-        return;
-      }
-
       if (!resizingOutput) return;
       const nextOutputHeight = clampOutputHeight(
         outputAvailableHeight,
@@ -1835,27 +1540,12 @@ export class JavaScriptEditorComponent extends BaseComponent {
     };
 
     const endPointerInteraction = (event) => {
-      if (!draggingNode && !resizingOutput) return;
-
-      const wasDraggingNode = draggingNode;
-      const wasResizingOutput = resizingOutput;
+      if (!resizingOutput) return;
       stage.setPointersPositions?.(event);
-      draggingNode = false;
       resizingOutput = false;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
-      catalogPanelPlugin?.panelEl?.classList?.remove?.("is-drag-active");
-
-      if (wasDraggingNode) {
-        containersPlugin?.handleCapture?.(node);
-        catalogPanelPlugin?.handleCanvasNodeDrop?.(node);
-        catalogPanelPlugin?.clearDropPreview?.();
-        this.app.events.emit("node:changed", { node });
-      }
-
-      if (wasResizingOutput) {
-        this.app.events.emit("node:changed", { node });
-      }
+      this.app.events.emit("node:changed", { node });
     };
 
     const handleOverlayMouseDown = (event) => {
@@ -1886,7 +1576,17 @@ export class JavaScriptEditorComponent extends BaseComponent {
 
     overlay.addEventListener("mousedown", handleOverlayMouseDown, true);
     overlay.addEventListener("contextmenu", handleOverlayContextMenu, true);
-    header.addEventListener("mousedown", beginDrag);
+    const cleanupDragBridge = createOverlayNodeDragBridge({
+      app: this.app,
+      node,
+      handle: header,
+      canStartDrag: () => isEditableInteraction(),
+      isInteractiveTarget: (target) => target instanceof Element && Boolean(target.closest("button")),
+      onPointerDown: () => {
+        this.#hideContextMenu();
+        syncSelection();
+      },
+    });
     header.addEventListener("dblclick", (event) => {
       if (!isEditableInteraction()) return;
       if (event.target.closest("button")) return;
@@ -1928,9 +1628,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
       event.stopPropagation();
       if (!isEditableInteraction()) return;
       this.#hideContextMenu();
-      this.app.events.emit("node:removed", { node });
-      node.destroy();
-      this.app.mainLayer?.batchDraw?.();
+      this.app.destroySelectableNodeTree(node);
     });
 
     clearButton.addEventListener("click", () => {
@@ -2058,6 +1756,7 @@ export class JavaScriptEditorComponent extends BaseComponent {
       offNodeRemovedForStack?.();
       offNodeChangingForStack?.();
       offNodeChangedForStack?.();
+      cleanupDragBridge?.();
       document.removeEventListener("mousemove", onPointerMove);
       document.removeEventListener("mouseup", endPointerInteraction);
       overlay.removeEventListener("mousedown", handleOverlayMouseDown, true);

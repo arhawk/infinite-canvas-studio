@@ -1,4 +1,5 @@
 import { BaseComponent } from "../core/baseClasses.js";
+import { createOverlayNodeDragBridge } from "./overlayInteraction.js";
 import { applyOverlayOcclusionStyles, getOverlayOcclusionRects } from "./overlayOcclusion.js";
 import { Konva } from "../lib/konva.js";
 import { getCanvasTheme } from "../theme/canvasTheme.js";
@@ -216,14 +217,7 @@ export class VideoComponent extends BaseComponent {
 
     const selectionPlugin = this.app.getPlugin?.("selection") ?? null;
     const connectionsPlugin = this.app.getPlugin?.("connections") ?? null;
-    const containersPlugin = this.app.getPlugin?.("containers") ?? null;
     const contextMenuPlugin = this.app.getPlugin?.("context-menu") ?? null;
-    const catalogPanelPlugin = this.app.getPlugin?.("catalog-panel") ?? null;
-    let dragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let nodeStartX = 0;
-    let nodeStartY = 0;
     let stackSyncFrame = null;
 
     const isEditableInteraction = () => (
@@ -241,6 +235,13 @@ export class VideoComponent extends BaseComponent {
         stackSyncFrame = null;
         this.#syncOverlay(node);
       });
+    };
+
+    const syncPointerInterception = () => {
+      const isShapeMode =
+        this.app.getMode?.() === "edit" &&
+        this.app.getEditorTool?.() === "shape";
+      overlay.classList.toggle("is-pointer-pass-through", isShapeMode);
     };
 
     const completePendingConnectionToSelf = () => {
@@ -279,72 +280,30 @@ export class VideoComponent extends BaseComponent {
       });
     };
 
-    const beginDrag = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      stage.setPointersPositions?.(event);
-      dragging = true;
-      dragStartX = event.clientX;
-      dragStartY = event.clientY;
-      nodeStartX = node.x();
-      nodeStartY = node.y();
-      selectionPlugin?.setSelected?.([node]);
-      const targetNode = node.findAncestor?.(".page-root", true);
-      catalogPanelPlugin?.dragOrigins?.set?.(node.id(), {
-        x: node.x(),
-        y: node.y(),
-        targetNodeId:
-          targetNode?.getAttr?.("componentType") === "page"
-            ? targetNode.id?.()
-            : node.id(),
-      });
-      if (catalogPanelPlugin?.isEditable) {
-        catalogPanelPlugin.panelEl?.classList?.add?.("is-drag-active");
-      }
-      this.app.events.emit("node:change:start", { node });
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "grabbing";
-      topbar.classList.add("is-dragging");
-    };
-
-    const onDragMove = (event) => {
-      if (!dragging) return;
-      stage.setPointersPositions?.(event);
-      const stageScale = this.app.stageApi?.getScale?.() ?? stage.scaleX() ?? 1;
-      node.x(nodeStartX + (event.clientX - dragStartX) / stageScale);
-      node.y(nodeStartY + (event.clientY - dragStartY) / stageScale);
-      node.getLayer()?.batchDraw();
-      this.#syncOverlay(node);
-      catalogPanelPlugin?.updateDropPreview?.();
-      this.app.events.emit("node:changing", { node });
-    };
-
-    const endDrag = (event) => {
-      if (!dragging) return;
-      stage.setPointersPositions?.(event);
-      dragging = false;
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-      topbar.classList.remove("is-dragging");
-      catalogPanelPlugin?.panelEl?.classList?.remove?.("is-drag-active");
-      catalogPanelPlugin?.handleCanvasNodeDrop?.(node);
-      catalogPanelPlugin?.clearDropPreview?.();
-      containersPlugin?.finalizeCaptureForNode?.(node);
-      this.app.events.emit("node:changed", { node });
-    };
-
     overlay.addEventListener("mousedown", handleOverlayMouseDown, true);
     overlay.addEventListener("contextmenu", handleOverlayContextMenu, true);
-    topbar.addEventListener("mousedown", beginDrag);
-    document.addEventListener("mousemove", onDragMove);
-    document.addEventListener("mouseup", endDrag);
+    const cleanupDragBridge = createOverlayNodeDragBridge({
+      app: this.app,
+      node,
+      handle: topbar,
+      canStartDrag: () => isEditableInteraction(),
+      isInteractiveTarget: (target) => target instanceof Element && Boolean(target.closest("button")),
+      onPointerDown: () => {
+        hideContextMenu();
+        selectionPlugin?.setSelected?.([node]);
+      },
+    });
 
     const sync = () => this.#syncOverlay(node);
     node.on("dragmove.videoOverlay transform.videoOverlay absoluteTransformChange.videoOverlay", sync);
+    node.on("dragstart.videoOverlayState dragend.videoOverlayState", () => {
+      topbar.classList.toggle("is-dragging", node.isDragging?.() === true);
+    });
     stage.on(
       `xChange.video${node._id} yChange.video${node._id} scaleXChange.video${node._id} scaleYChange.video${node._id}`,
       sync,
     );
+    const offInteractionChange = this.app.on("interaction:change", syncPointerInterception);
     const offNodeAddedForStack = this.app.on("node:added", scheduleStackSync);
     const offNodeRemovedForStack = this.app.on("node:removed", scheduleStackSync);
     const offNodeChangingForStack = this.app.on("node:changing", scheduleStackSync);
@@ -360,18 +319,18 @@ export class VideoComponent extends BaseComponent {
       offNodeRemovedForStack?.();
       offNodeChangingForStack?.();
       offNodeChangedForStack?.();
+      offInteractionChange?.();
+      cleanupDragBridge?.();
       overlay.removeEventListener("mousedown", handleOverlayMouseDown, true);
       overlay.removeEventListener("contextmenu", handleOverlayContextMenu, true);
-      document.removeEventListener("mousemove", onDragMove);
-      document.removeEventListener("mouseup", endDrag);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
       node.off(".videoOverlay");
+      node.off(".videoOverlayState");
       stage.off(`.video${node._id}`);
       overlay.remove();
     };
     node.setAttr("_overlayId", overlayId);
 
+    syncPointerInterception();
     this.#syncOverlay(node);
   }
 

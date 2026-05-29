@@ -288,4 +288,34 @@ export class App {
   sendNodeToBack(node) {
     return this.setSelectableIndex(node, 0);
   }
+
+  getSelectableDescendants(rootNode) {
+    if (!rootNode?.find) return [];
+    return Array.from(rootNode.find((node) => (
+      node !== rootNode &&
+      isSelectableNode(node) &&
+      node?.getStage?.()
+    )) ?? []);
+  }
+
+  destroySelectableNodeTree(rootNode, { draw = true } = {}) {
+    if (!isSelectableNode(rootNode) || !rootNode?.getStage?.()) return false;
+
+    const layer = rootNode.getLayer?.() ?? null;
+    this.getSelectableDescendants(rootNode)
+      .slice()
+      .reverse()
+      .forEach((node) => {
+        this.events.emit("node:removed", { node });
+      });
+
+    this.events.emit("node:removed", { node: rootNode });
+    rootNode.destroy();
+
+    if (draw) {
+      layer?.batchDraw?.();
+    }
+
+    return true;
+  }
 }

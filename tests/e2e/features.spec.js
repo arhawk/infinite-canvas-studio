@@ -27,6 +27,10 @@ async function getNode(page, id) {
   return page.evaluate((nodeId) => window.__APP_TEST_API__.getNode(nodeId), id);
 }
 
+async function countDomMatches(page, selector) {
+  return page.evaluate((value) => document.querySelectorAll(value).length, selector);
+}
+
 async function getNodeOrder(page, ids) {
   return page.evaluate((nodeIds) => (
     window.__APP_TEST_API__
@@ -3368,6 +3372,112 @@ test("keeps the JavaScript editor behind later overlapping components", async ({
     });
 });
 
+test("keeps the JavaScript editor visible through the hollow area of a transparent shape", async ({ page }) => {
+  const editor = await addComponent(page, "javascriptEditor", {
+    x: 220,
+    y: 220,
+    title: "Transparent Shape Check",
+  });
+
+  await expect
+    .poll(async () => (await getNode(page, editor.id))?.summary?.hasOverlay ?? false)
+    .toBe(true);
+
+  const shape = await addComponent(page, "shape", {
+    x: 260,
+    y: 250,
+    width: 360,
+    height: 240,
+    shapeType: "rectangle",
+    fillOpacity: 0,
+    strokeWidth: 16,
+    stroke: "#111111",
+  });
+
+  const points = await page.evaluate(({ editorId, shapeId }) => {
+    const editorNode = window.__APP_TEST_API__.getNode(editorId);
+    const shapeNode = window.__APP_TEST_API__.getNode(shapeId);
+    const editorBounds = editorNode?.bounds ?? null;
+    const shapeBounds = shapeNode?.bounds ?? null;
+    if (!editorBounds || !shapeBounds) return null;
+
+    const overlap = {
+      x1: Math.max(editorBounds.x, shapeBounds.x),
+      y1: Math.max(editorBounds.y, shapeBounds.y),
+      x2: Math.min(editorBounds.x + editorBounds.width, shapeBounds.x + shapeBounds.width),
+      y2: Math.min(editorBounds.y + editorBounds.height, shapeBounds.y + shapeBounds.height),
+    };
+    if (!(overlap.x2 > overlap.x1 && overlap.y2 > overlap.y1)) return null;
+
+    return {
+      center: {
+        canvas: {
+          x: overlap.x1 + (overlap.x2 - overlap.x1) / 2,
+          y: overlap.y1 + (overlap.y2 - overlap.y1) / 2,
+        },
+      },
+      border: {
+        canvas: {
+          x: overlap.x1 + 8,
+          y: overlap.y1 + 8,
+        },
+      },
+    };
+  }, {
+    editorId: editor.id,
+    shapeId: shape.id,
+  });
+
+  expect(points).toBeTruthy();
+
+  const occlusionState = await page.evaluate((editorId) => (
+    window.__APP_TEST_API__.getOverlayOcclusionState(editorId)
+  ), editor.id);
+
+  expect(occlusionState).toBeTruthy();
+
+  const isPointCovered = (point, rects = []) => (
+    rects.some((rect) => (
+      point.x >= rect.x &&
+      point.x <= rect.x + rect.width &&
+      point.y >= rect.y &&
+      point.y <= rect.y + rect.height
+    ))
+  );
+
+  const localCenter = {
+    x: points.center.canvas.x - occlusionState.origin.x,
+    y: points.center.canvas.y - occlusionState.origin.y,
+  };
+  const localBorder = {
+    x: points.border.canvas.x - occlusionState.origin.x,
+    y: points.border.canvas.y - occlusionState.origin.y,
+  };
+  const localOuterTop = {
+    x: localCenter.x,
+    y: localBorder.y - 4,
+  };
+  const localOuterLeft = {
+    x: localBorder.x - 4,
+    y: localCenter.y,
+  };
+
+  expect(isPointCovered(localCenter, occlusionState.rects)).toBe(false);
+  expect(isPointCovered(localBorder, occlusionState.rects)).toBe(true);
+  expect(isPointCovered(localOuterTop, occlusionState.rects)).toBe(true);
+  expect(isPointCovered(localOuterLeft, occlusionState.rects)).toBe(true);
+
+  await expect(page.getByTestId("javascript-editor-overlay")).toBeVisible();
+  await expect
+    .poll(async () => page.getByTestId("javascript-editor-overlay").evaluate((el) => ({
+      isOccluded: el.classList.contains("is-stack-occluded"),
+      clipPath: getComputedStyle(el).clipPath,
+    })))
+    .toMatchObject({
+      isOccluded: true,
+    });
+});
+
 test("lets the JavaScript editor participate in catalog drag and activation flows", async ({ page }) => {
   await page.evaluate(() => window.__APP_TEST_API__.ensureCatalogNode());
 
@@ -3771,6 +3881,80 @@ test("captures the JavaScript editor into a page and keeps it aligned when the p
   expect(afterMove.bounds.x - beforeMove.bounds.x).toBeCloseTo(180, 1);
   expect(afterMove.bounds.y - beforeMove.bounds.y).toBeCloseTo(140, 1);
 });
+
+for (const { type, overlaySelector } of [
+  {
+    type: "javascriptEditor",
+    overlaySelector: ".javascript-editor-component__overlay",
+  },
+  {
+    type: "video",
+    overlaySelector: ".video-component__overlay",
+  },
+  {
+    type: "iframe",
+    overlaySelector: ".iframe-component__overlay",
+  },
+]) {
+  test(`removes ${type} overlays when deleting a parent page`, async ({ page }) => {
+    const pageNode = await addComponent(page, "page", {
+      x: 180,
+      y: 160,
+      width: 560,
+      height: 360,
+    });
+    const child = await addComponent(page, type, {
+      x: 280,
+      y: 240,
+    });
+
+    await expect.poll(async () => (await getNode(page, child.id))?.parentId ?? null).toBe(pageNode.id);
+    await expect.poll(async () => (await getNode(page, child.id))?.summary?.hasOverlay ?? false).toBe(true);
+    await expect.poll(async () => countDomMatches(page, overlaySelector)).toBe(1);
+
+    await page.evaluate((nodeId) => {
+      window.__APP_TEST_API__.selectNode(nodeId);
+      window.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "Delete",
+        bubbles: true,
+      }));
+    }, pageNode.id);
+
+    await expect.poll(async () => (await getNode(page, pageNode.id)) ?? null).toBe(null);
+    await expect.poll(async () => (await getNode(page, child.id)) ?? null).toBe(null);
+    await expect.poll(async () => countDomMatches(page, overlaySelector)).toBe(0);
+  });
+
+  test(`allows shape drawing to start on top of ${type} overlays`, async ({ page }) => {
+    const overlayNode = await addComponent(page, type, {
+      x: 240,
+      y: 200,
+    });
+
+    await expect.poll(async () => (await getNode(page, overlayNode.id))?.summary?.hasOverlay ?? false).toBe(true);
+    await page.getByTestId("tool-button-shape").click();
+
+    const overlaySnapshot = await getNode(page, overlayNode.id);
+    const start = await canvasPointToPage(page, {
+      x: overlaySnapshot.bounds.x + overlaySnapshot.bounds.width * 0.35,
+      y: overlaySnapshot.bounds.y + overlaySnapshot.bounds.height * 0.35,
+    });
+    const end = {
+      x: start.x + 140,
+      y: start.y + 90,
+    };
+
+    await dragBetweenPagePoints(page, start, end, 10);
+
+    await expect
+      .poll(async () => (
+        (await page.evaluate(() => window.__APP_TEST_API__.listNodes()))
+          .filter((node) => node.componentType === "shape")
+          .length
+      ))
+      .toBe(1);
+  });
+}
 
 async function expectOverlayNodePageParentingLifecycle(page, {
   type,

@@ -820,19 +820,7 @@ export class CatalogPanelPlugin extends BasePlugin {
 
   destroyCanvasNodeTree(rootNode) {
     if (!rootNode?.getStage?.()) return false;
-
-    const descendants = rootNode.find?.(".selectable")?.toArray?.() ?? [];
-    descendants
-      .filter((node) => node?.getStage?.())
-      .reverse()
-      .forEach((node) => {
-        this.app.events.emit("node:removed", { node });
-      });
-
-    this.app.events.emit("node:removed", { node: rootNode });
-    rootNode.destroy();
-    this.app.mainLayer.batchDraw();
-    return true;
+    return this.app.destroySelectableNodeTree(rootNode);
   }
 
   requestRemoveCatalogItem(item, anchorEl = null) {
