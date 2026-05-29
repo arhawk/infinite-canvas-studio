@@ -87,6 +87,62 @@ function getStackIndex(node) {
   return node.zIndex?.() ?? -1;
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getRectCenter(box) {
+  return {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  };
+}
+
+function getRectAnchorToward(box, point) {
+  const center = getRectCenter(box);
+  const halfWidth = Math.max(box.width / 2, 1);
+  const halfHeight = Math.max(box.height / 2, 1);
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+
+  if (Math.abs(dx) / halfWidth >= Math.abs(dy) / halfHeight) {
+    const direction = dx >= 0 ? 1 : -1;
+    const ratio = Math.abs(dx) < 0.001 ? 0 : halfWidth / Math.abs(dx);
+    return {
+      point: {
+        x: center.x + direction * halfWidth,
+        y: clamp(center.y + dy * ratio, box.y, box.y + box.height),
+      },
+      normal: { x: direction, y: 0 },
+    };
+  }
+
+  const direction = dy >= 0 ? 1 : -1;
+  const ratio = Math.abs(dy) < 0.001 ? 0 : halfHeight / Math.abs(dy);
+  return {
+    point: {
+      x: clamp(center.x + dx * ratio, box.x, box.x + box.width),
+      y: center.y + direction * halfHeight,
+    },
+    normal: { x: 0, y: direction },
+  };
+}
+
+function getDistance(a, b) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function alignControlToNormal(anchor, control, normal) {
+  const projectedDistance = Math.max(
+    24,
+    (control.x - anchor.x) * normal.x + (control.y - anchor.y) * normal.y,
+  );
+  return {
+    x: anchor.x + normal.x * projectedDistance,
+    y: anchor.y + normal.y * projectedDistance,
+  };
+}
+
 class ConnectNodesCommand extends BaseCommand {
   static commandId = "connection:connect";
   static label = "Connect to...";
@@ -322,6 +378,11 @@ export class ConnectionsPlugin extends BasePlugin {
       event.cancelBubble = true;
     });
 
+    handle.on("contextmenu", (event) => {
+      event.evt?.preventDefault?.();
+      event.cancelBubble = true;
+    });
+
     handle.on("dragstart", (event) => {
       event.cancelBubble = true;
       if (this.selectedConnection) {
@@ -465,47 +526,30 @@ export class ConnectionsPlugin extends BasePlugin {
   }
 
   calculateConnectionPoints(sourceBox, targetBox) {
-    const sourceCenter = {
-      x: sourceBox.x + sourceBox.width / 2,
-      y: sourceBox.y + sourceBox.height / 2,
+    const sourceCenter = getRectCenter(sourceBox);
+    const targetCenter = getRectCenter(targetBox);
+    const sourceAnchor = getRectAnchorToward(sourceBox, targetCenter);
+    const targetAnchor = getRectAnchorToward(targetBox, sourceCenter);
+    const start = sourceAnchor.point;
+    const end = targetAnchor.point;
+    const controlDistance = Math.max(60, getDistance(start, end) / 2);
+    const cp1 = {
+      x: start.x + sourceAnchor.normal.x * controlDistance,
+      y: start.y + sourceAnchor.normal.y * controlDistance,
     };
-    const targetCenter = {
-      x: targetBox.x + targetBox.width / 2,
-      y: targetBox.y + targetBox.height / 2,
+    const cp2 = {
+      x: end.x + targetAnchor.normal.x * controlDistance,
+      y: end.y + targetAnchor.normal.y * controlDistance,
     };
 
-    let start;
-    let end;
-    let cp1;
-    let cp2;
-
-    if (targetCenter.x > sourceCenter.x + sourceBox.width / 2) {
-      start = { x: sourceBox.x + sourceBox.width, y: sourceCenter.y };
-      end = { x: targetBox.x, y: targetCenter.y };
-      const dx = Math.max(60, (end.x - start.x) / 2);
-      cp1 = { x: start.x + dx, y: start.y };
-      cp2 = { x: end.x - dx, y: end.y };
-    } else if (targetCenter.x < sourceCenter.x - sourceBox.width / 2) {
-      start = { x: sourceBox.x, y: sourceCenter.y };
-      end = { x: targetBox.x + targetBox.width, y: targetCenter.y };
-      const dx = Math.max(60, (start.x - end.x) / 2);
-      cp1 = { x: start.x - dx, y: start.y };
-      cp2 = { x: end.x + dx, y: end.y };
-    } else if (targetCenter.y >= sourceCenter.y) {
-      start = { x: sourceCenter.x, y: sourceBox.y + sourceBox.height };
-      end = { x: targetCenter.x, y: targetBox.y };
-      const dy = Math.max(60, (end.y - start.y) / 2);
-      cp1 = { x: start.x, y: start.y + dy };
-      cp2 = { x: end.x, y: end.y - dy };
-    } else {
-      start = { x: sourceCenter.x, y: sourceBox.y };
-      end = { x: targetCenter.x, y: targetBox.y + targetBox.height };
-      const dy = Math.max(60, (start.y - end.y) / 2);
-      cp1 = { x: start.x, y: start.y - dy };
-      cp2 = { x: end.x, y: end.y + dy };
-    }
-
-    return { start, end, baseCp1: cp1, baseCp2: cp2 };
+    return {
+      start,
+      end,
+      baseCp1: cp1,
+      baseCp2: cp2,
+      sourceNormal: sourceAnchor.normal,
+      targetNormal: targetAnchor.normal,
+    };
   }
 
   getConnectionGeometry(connectionNode) {
@@ -521,16 +565,19 @@ export class ConnectionsPlugin extends BasePlugin {
     const startOffset = readOffset(connectionNode.getAttr("controlOffsetStart"));
     const endOffset = readOffset(connectionNode.getAttr("controlOffsetEnd"));
 
+    const cp1 = {
+      x: baseGeometry.baseCp1.x + startOffset.x,
+      y: baseGeometry.baseCp1.y + startOffset.y,
+    };
+    const rawCp2 = {
+      x: baseGeometry.baseCp2.x + endOffset.x,
+      y: baseGeometry.baseCp2.y + endOffset.y,
+    };
+
     return {
       ...baseGeometry,
-      cp1: {
-        x: baseGeometry.baseCp1.x + startOffset.x,
-        y: baseGeometry.baseCp1.y + startOffset.y,
-      },
-      cp2: {
-        x: baseGeometry.baseCp2.x + endOffset.x,
-        y: baseGeometry.baseCp2.y + endOffset.y,
-      },
+      cp1,
+      cp2: alignControlToNormal(baseGeometry.end, rawCp2, baseGeometry.targetNormal),
     };
   }
 
