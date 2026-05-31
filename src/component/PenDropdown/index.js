@@ -170,6 +170,7 @@ export class PenDropdownPlugin extends BasePlugin {
   wireTrigger(triggerBtn) {
     if (!triggerBtn) return;
     this._triggerBtn = triggerBtn;
+    this._triggerBtn.setAttribute("aria-expanded", "false");
     this.listenDom(triggerBtn, "click", (event) => {
       this.clearAnchorElement();
       event.stopPropagation();
@@ -194,7 +195,14 @@ export class PenDropdownPlugin extends BasePlugin {
   }
 
   setAnchorElement(anchorEl = null) {
+    const previousAnchorEl = this._anchorEl ?? null;
     this._anchorEl = anchorEl ?? null;
+    if (previousAnchorEl && previousAnchorEl !== this._anchorEl && previousAnchorEl !== this._triggerBtn) {
+      previousAnchorEl.setAttribute("aria-expanded", "false");
+    }
+    if (this._anchorEl) {
+      this._anchorEl.setAttribute("aria-expanded", String(this._open));
+    }
     this.reposition();
   }
 
@@ -215,7 +223,7 @@ export class PenDropdownPlugin extends BasePlugin {
     this._open = true;
     this._dropdown.hidden = false;
     this._positionDropdown();
-    this._syncAnchorPressedState(true);
+    this._syncAnchorExpandedState(true);
     this._render();
   }
 
@@ -223,7 +231,7 @@ export class PenDropdownPlugin extends BasePlugin {
     this._open = false;
     this._dropdown.hidden = true;
     this._closeEditor();
-    this._syncAnchorPressedState(false);
+    this._syncAnchorExpandedState(false);
   }
 
   toggle() {
@@ -406,6 +414,12 @@ export class PenDropdownPlugin extends BasePlugin {
     ) {
       return;
     }
+
+    if (this._isBrushTool(this.app.getEditorTool?.())) {
+      this._closeEditor();
+      return;
+    }
+
     this.close();
   }
 
@@ -425,11 +439,11 @@ export class PenDropdownPlugin extends BasePlugin {
     return this._anchorEl ?? this._triggerBtn ?? null;
   }
 
-  _syncAnchorPressedState(pressed) {
-    const value = String(pressed);
-    this._triggerBtn?.setAttribute("aria-pressed", value);
+  _syncAnchorExpandedState(expanded) {
+    const value = String(expanded);
+    this._triggerBtn?.setAttribute("aria-expanded", value);
     if (this._anchorEl && this._anchorEl !== this._triggerBtn) {
-      this._anchorEl.setAttribute("aria-pressed", value);
+      this._anchorEl.setAttribute("aria-expanded", value);
     }
   }
 

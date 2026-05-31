@@ -484,6 +484,8 @@ test("marquee selects multiple components and supports JSON clipboard paste", as
 
 test("draws a brush stroke on the canvas", async ({ page }) => {
   await page.getByTestId("tool-button-pen").click();
+  await expect(page.getByTestId("tool-button-pen")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("pen-dropdown")).toBeVisible();
   const rect = await page.evaluate(() => window.__APP_TEST_API__.getCanvasContainerRect());
   const start = {
     x: rect.left + rect.width * 0.45,
@@ -498,6 +500,9 @@ test("draws a brush stroke on the canvas", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 10 });
   await page.mouse.up();
+
+  await expect(page.getByTestId("tool-button-pen")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("pen-dropdown")).toBeVisible();
 
   await expect
     .poll(async () => page.evaluate(() => window.__APP_TEST_API__.countDrawables()))

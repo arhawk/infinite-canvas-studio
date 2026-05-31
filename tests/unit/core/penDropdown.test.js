@@ -4,7 +4,7 @@ import { PenDropdownPlugin } from "../../../src/component/PenDropdown/index.js";
 function createDom() {
   document.body.innerHTML = `
     <div class="app-shell">
-      <button id="pen-trigger" type="button" aria-pressed="false"></button>
+      <button id="pen-trigger" type="button" aria-pressed="true" aria-expanded="false"></button>
     </div>
   `;
 }
@@ -60,7 +60,7 @@ describe("PenDropdownPlugin", () => {
     document.body.innerHTML = "";
   });
 
-  it("toggles from the left toolbar trigger and closes on outside click", () => {
+  it("stays open on outside click while the active tool is still a brush", () => {
     const app = createApp();
     const plugin = new PenDropdownPlugin(app);
     plugin.setup();
@@ -71,10 +71,12 @@ describe("PenDropdownPlugin", () => {
     trigger.click();
     expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(false);
     expect(trigger.getAttribute("aria-pressed")).toBe("true");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
 
     document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(true);
-    expect(trigger.getAttribute("aria-pressed")).toBe("false");
+    expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(false);
+    expect(trigger.getAttribute("aria-pressed")).toBe("true");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("closes on Escape and keeps the preset editor in the same popup flow", () => {
@@ -94,6 +96,25 @@ describe("PenDropdownPlugin", () => {
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(true);
+    expect(document.querySelector('[data-testid="pen-preset-editor"]').hidden).toBe(true);
+  });
+
+  it("closes only the preset editor on outside click while keeping the brush dropdown open", () => {
+    const app = createApp();
+    const plugin = new PenDropdownPlugin(app);
+    plugin.setup();
+    plugin.setState(createState());
+    plugin.wireTrigger(document.querySelector("#pen-trigger"));
+
+    document.querySelector("#pen-trigger").click();
+    document.querySelector('[data-testid="pen-preset-1"]').click();
+
+    expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(false);
+    expect(document.querySelector('[data-testid="pen-preset-editor"]').hidden).toBe(false);
+
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+    expect(document.querySelector('[data-testid="pen-dropdown"]').hidden).toBe(false);
     expect(document.querySelector('[data-testid="pen-preset-editor"]').hidden).toBe(true);
   });
 
