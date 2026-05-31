@@ -6201,7 +6201,15 @@ test("undoes and redoes a node move", async ({ page }) => {
 });
 
 test("keeps pen preset settings separate for each brush tool", async ({ page }) => {
+  const ensurePenDropdownOpen = async () => {
+    const dropdown = page.getByTestId("pen-dropdown");
+    if (await dropdown.isVisible()) return;
+    await page.getByTestId("tool-button-pen").click();
+    await expect(dropdown).toBeVisible();
+  };
+
   await page.getByTestId("tool-button-pen").click();
+  await expect(page.getByTestId("pen-dropdown")).toBeVisible();
   await page.getByTestId("pen-preset-0").click();
 
   await page.getByTestId("pen-r-input").fill("255");
@@ -6210,7 +6218,7 @@ test("keeps pen preset settings separate for each brush tool", async ({ page }) 
   await page.getByTestId("pen-preset-width").fill("6");
   await drawStroke(page);
 
-  await page.getByTestId("tool-button-pen").click();
+  await ensurePenDropdownOpen();
   await page.getByTestId("brush-type-pencil").click();
   await page.getByTestId("pen-preset-0").click();
   await expect(page.getByTestId("pen-r-input")).toHaveValue("74");
@@ -6224,13 +6232,15 @@ test("keeps pen preset settings separate for each brush tool", async ({ page }) 
   await page.getByTestId("pen-preset-width").fill("2");
   await drawStroke(page, { xRatio: 0.38, yRatio: 0.55, dx: 70, dy: 24 });
 
-  await page.getByTestId("tool-button-pen").click();
+  await ensurePenDropdownOpen();
+  await page.getByTestId("brush-type-pen").click();
   await page.getByTestId("pen-preset-0").click();
   await expect(page.getByTestId("pen-r-input")).toHaveValue("255");
   await expect(page.getByTestId("pen-g-input")).toHaveValue("0");
   await expect(page.getByTestId("pen-b-input")).toHaveValue("0");
   await expect(page.getByTestId("pen-preset-width")).toHaveValue("6");
 
+  await ensurePenDropdownOpen();
   await page.getByTestId("brush-type-pencil").click();
   await page.getByTestId("pen-preset-0").click();
   await expect(page.getByTestId("pen-r-input")).toHaveValue("18");

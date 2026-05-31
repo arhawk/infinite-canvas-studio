@@ -145,6 +145,9 @@ function createApp(mode = "edit") {
       listeners.set(event, handlers);
       return () => handlers.delete(handler);
     },
+    getPlugin(pluginId) {
+      return this.plugins.find((plugin) => plugin.id === pluginId) ?? null;
+    },
     getMode() {
       return this.mode;
     },

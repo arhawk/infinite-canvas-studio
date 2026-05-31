@@ -578,6 +578,12 @@ export function setupAppTestApi(app) {
       app.stageApi.setViewport(viewport);
       return getViewportState(app);
     },
+    setRoomViewerMode: (mode) => {
+      const roomShare = app.roomShare;
+      if (!roomShare?.viewer?.client) return false;
+      roomShare.setViewerViewMode?.(mode);
+      return roomShare.viewer.viewMode;
+    },
     getCanvasContainerRect: () => {
       const rect = getContainerRect(app);
       return {
