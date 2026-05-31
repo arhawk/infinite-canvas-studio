@@ -2,7 +2,11 @@
 
 Product and system handover documentation for the Mimi infinite-canvas teaching and presentation tool.
 
-This README is intended for the client, teaching team, markers, and future maintainers who need to run, verify, hand over, or retire the product. Internal architecture and development conventions remain in [AGENTS.md](AGENTS.md) and [pr-guide.md](pr-guide.md).
+This README is intended for the client, teaching team, markers, and future maintainers who need to run, verify, hand over, or retire the product. Internal architecture and development conventions remain in [AGENTS.md](AGENTS.md).
+
+## Final Deliverable Links:
+The document linked here contains all the deliverables that we have provided to the client.
+https://docs.google.com/document/d/1vWV58lKnK8Rf_BzS93d-kscz-ddYiHIgBAhaB6lNKQM/edit?usp=sharing
 
 ## Product Overview
 
@@ -262,23 +266,10 @@ For project end-of-life or removal:
 - Remove shared deliverable links when they are no longer needed.
 - Remove local browser permissions for files/folders if local attachments were used.
 
-## Final Deliverable Links
-
-These links should be confirmed with the client before final submission:
-
-- User guide / product manual: [docs/product-documentation.html](docs/product-documentation.html)
-- Product-generated Mimi documentation artifact: [docs/mimi-documentation-20260515.html](docs/mimi-documentation-20260515.html)
-- Repository link: `TODO: add final GitHub repository or release link`
-- Demo video link: `TODO: add final demo video link`
-- Presentation slides link: `TODO: add final slides link`
-- Final deliverables folder link: `TODO: add client-accessible OneDrive/Google Drive/GitHub release link`
-- Agreed client handover due date: `TODO: confirm with client`
-
 ## Maintainer Notes
 
 Development and architecture details are intentionally kept outside this README:
 
 - Architecture and extension conventions: [AGENTS.md](AGENTS.md)
-- Pull request workflow: [pr-guide.md](pr-guide.md)
 - Component implementation notes: [components.md](components.md)
 - UI notes: [UI.md](UI.md)
