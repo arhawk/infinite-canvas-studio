@@ -51,6 +51,28 @@ describe("openAttachmentEntry", () => {
     expect(revokeObjectUrlSpy).not.toHaveBeenCalled();
   });
 
+  it("opens html attachments as raw blob url instead of escaped preview", async () => {
+    const file = new File(["<h1>Hello</h1>"], "index.html", { type: "text/html" });
+    file.arrayBuffer = vi.fn(async () => new TextEncoder().encode("<h1>Hello</h1>").buffer);
+    loadHandleRecord.mockResolvedValue({ handle: file });
+
+    const ok = await openAttachmentEntry(
+      {
+        id: "att-html",
+        kind: "local-file",
+        handleKey: "h-html",
+      },
+      { directory: null, entries: [] },
+      vi.fn(),
+    );
+
+    expect(ok).toBe(true);
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
+    expect(createObjectUrlSpy.mock.calls[0][0]).toBe(file);
+    expect(file.arrayBuffer).not.toHaveBeenCalled();
+    expect(openSpy).toHaveBeenCalledWith("blob:test", "_blank", "noopener,noreferrer");
+  });
+
   it("opens binary attachments as raw blob url", async () => {
     const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const file = new File([bytes], "image.png", { type: "image/png" });

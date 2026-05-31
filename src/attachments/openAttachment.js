@@ -79,6 +79,7 @@ function isTextLikeAttachment(entry, file = null) {
   const fileMimeType = String(file?.type ?? "").toLowerCase();
   const mimeType = fileMimeType || entryMimeType;
 
+  if (mimeType === "text/html" || mimeType === "application/xhtml+xml") return false;
   if (mimeType.startsWith("text/")) return true;
   if (mimeType === "application/json") return true;
 
