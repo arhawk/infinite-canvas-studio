@@ -4,10 +4,6 @@ import {
   DEFAULT_COLOR_SWATCHES,
 } from "../lib/colorToolbar.js";
 import { renderIcons } from "../lib/icons.js";
-import {
-  inferTextStylePresetId,
-  normalizeTextFontStyle,
-} from "../component/textStylePresets.js";
 import { withTrackedNodeMutation } from "./nodeMutation.js";
 import { getClientPoint, getPluginById, resolveSelectableFromStageEvent } from "./toolbarShared.js";
 
@@ -336,12 +332,6 @@ export class TextToolbarPlugin extends BasePlugin {
     const fontSize = clampFontSize(this.fontSizeEl.value);
     const fill = this.textColorEl.value || "#1d1b16";
     const current = component.serializeNode(node);
-    const fontStyle = normalizeTextFontStyle(current.fontStyle, "400");
-    const textStylePreset = inferTextStylePresetId({
-      fontSize,
-      fontStyle,
-      fill,
-    });
     if (current.fontSize === fontSize && current.fill === fill) {
       this.syncFontSizeValue(fontSize);
       return;
@@ -351,9 +341,7 @@ export class TextToolbarPlugin extends BasePlugin {
       await component.applySerializedData(node, {
         ...current,
         fontSize,
-        fontStyle,
         fill,
-        textStylePreset,
       });
       node.getLayer?.()?.batchDraw?.();
       this.app.overlayLayer?.batchDraw?.();

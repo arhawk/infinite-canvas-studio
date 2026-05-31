@@ -67,9 +67,6 @@ export function installKonvaMock(vi) {
       strokeWidth(value) { if (value == null) return this._attrs.strokeWidth ?? 0; this._attrs.strokeWidth = value; return this; }
       text(value) { if (value == null) return this._attrs.text ?? ""; this._attrs.text = value; return this; }
       fontSize(value) { if (value == null) return this._attrs.fontSize ?? 0; this._attrs.fontSize = value; return this; }
-      fontStyle(value) { if (value == null) return this._attrs.fontStyle ?? "400"; this._attrs.fontStyle = value; return this; }
-      padding(value) { if (value == null) return this._attrs.padding ?? 0; this._attrs.padding = value; return this; }
-      lineHeight(value) { if (value == null) return this._attrs.lineHeight ?? 1; this._attrs.lineHeight = value; return this; }
       wrap(value) { if (value == null) return this._attrs.wrap ?? "none"; this._attrs.wrap = value; return this; }
       verticalAlign(value) { if (value == null) return this._attrs.verticalAlign ?? "top"; this._attrs.verticalAlign = value; return this; }
       ellipsis(value) { if (value == null) return this._attrs.ellipsis ?? false; this._attrs.ellipsis = value; return this; }

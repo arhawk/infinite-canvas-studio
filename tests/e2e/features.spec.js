@@ -5044,54 +5044,6 @@ test("edits text blocks from the floating toolbar and inline text editor", async
     }));
 });
 
-test("switches text style presets from the toolbar for new and selected text", async ({ page }) => {
-  const trigger = page.getByTestId("text-style-preset-trigger");
-  const dropdown = page.getByTestId("text-style-preset-dropdown");
-
-  await expect(trigger).toBeVisible();
-  await trigger.click();
-  await expect(dropdown).toBeVisible();
-  await trigger.click();
-  await expect(dropdown).toBeHidden();
-
-  await trigger.click();
-  await expect(dropdown).toBeVisible();
-  await page.getByTestId("text-style-preset-note").click();
-  await expect(dropdown).toBeHidden();
-
-  const textId = await createNodeFromPalette(page, "text");
-  await expect
-    .poll(async () => (await getNode(page, textId))?.summary ?? {})
-    .toEqual(expect.objectContaining({
-      fontSize: 18,
-      fontStyle: "400",
-      fill: "#8a8175",
-      textStylePreset: "note",
-    }));
-
-  await page.evaluate((nodeId) => window.__APP_TEST_API__.selectNode(nodeId), textId);
-  await waitForPaint(page);
-
-  await trigger.click();
-  await expect(dropdown).toBeVisible();
-  await expect(page.getByTestId("text-style-preset-note")).toHaveAttribute("aria-checked", "true");
-  await page.getByTestId("text-style-preset-title").click();
-
-  await expect
-    .poll(async () => (await getNode(page, textId))?.summary ?? {})
-    .toEqual(expect.objectContaining({
-      fontSize: 36,
-      fontStyle: "700",
-      fill: "#1d1b16",
-      textStylePreset: "title",
-    }));
-
-  await trigger.click();
-  await expect(page.getByTestId("text-style-preset-title")).toHaveAttribute("aria-checked", "true");
-  await page.mouse.click(24, 180);
-  await expect(dropdown).toBeHidden();
-});
-
 test("edits text inline and resizes the box without scaling the font", async ({ page }) => {
   const defaultText = await addComponent(page, "text", {
     x: 120,

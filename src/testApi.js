@@ -103,8 +103,6 @@ function getNodeSummary(node) {
       text: node.text?.() ?? "",
       fill: node.fill?.() ?? null,
       fontSize: node.fontSize?.() ?? null,
-      fontStyle: node.fontStyle?.() ?? null,
-      textStylePreset: node.getAttr?.("textStylePreset") ?? null,
       width: node.width?.() ?? null,
       height: node.height?.() ?? null,
       scaleX: node.scaleX?.() ?? null,

@@ -43,17 +43,6 @@ export class LeftToolbarPlugin extends BasePlugin {
     this._toolGroupEl.className = "left-toolbar__group";
     toolPill.appendChild(this._toolGroupEl);
 
-    this.textStyleBtn = document.createElement("button");
-    this.textStyleBtn.type = "button";
-    this.textStyleBtn.className = "left-toolbar__btn left-toolbar__btn--text-style";
-    this.textStyleBtn.dataset.tooltip = "Text styles: Body";
-    this.textStyleBtn.setAttribute("aria-label", "Text styles (Body)");
-    this.textStyleBtn.setAttribute("aria-pressed", "false");
-    this.textStyleBtn.setAttribute("aria-expanded", "false");
-    this.textStyleBtn.dataset.testid = "text-style-preset-trigger";
-    this.textStyleBtn.innerHTML = '<span class="left-toolbar__text-style-glyph" aria-hidden="true">T</span>';
-    toolPill.appendChild(this.textStyleBtn);
-
     this.backgroundBtn = this._makeBtn("palette", "Style", "background-toggle");
     this.backgroundBtn.setAttribute("aria-pressed", "false");
     toolPill.appendChild(this.backgroundBtn);

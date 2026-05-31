@@ -9,7 +9,6 @@ import { ImageToolbarPlugin } from "./plugins/imageToolbar.js";
 import { VideoToolbarPlugin } from "./plugins/videoToolbar.js";
 import { PageToolbarPlugin } from "./plugins/pageToolbar.js";
 import { TextToolbarPlugin } from "./plugins/textToolbar.js";
-import { TextStyleToolbarPlugin } from "./plugins/textStyleToolbar.js";
 import { JavaScriptEditorToolbarPlugin } from "./plugins/javascriptEditorToolbar.js";
 import { BackgroundPlugin } from "./plugins/background.js";
 import { SelectionPlugin } from "./plugins/selection.js";
@@ -210,9 +209,6 @@ function mountToolbarPlugins(app, ui, leftToolbar) {
   app.use(ImageToolbarPlugin);
   app.use(VideoToolbarPlugin);
   app.use(PageToolbarPlugin);
-  app.use(TextStyleToolbarPlugin, {
-    toggleEl: leftToolbar.textStyleBtn,
-  });
   app.use(TextToolbarPlugin);
   app.use(JavaScriptEditorToolbarPlugin);
 
