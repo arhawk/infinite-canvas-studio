@@ -28,8 +28,8 @@ describe("openAttachmentEntry", () => {
   });
 
   it("opens text-like attachments as utf-8 html preview", async () => {
-    const file = new File(["学习成长\n- computer"], "notes.txt", { type: "text/plain" });
-    file.arrayBuffer = vi.fn(async () => new TextEncoder().encode("学习成长\n- computer").buffer);
+    const file = new File(["learning growth\n- computer"], "notes.txt", { type: "text/plain" });
+    file.arrayBuffer = vi.fn(async () => new TextEncoder().encode("learning growth\n- computer").buffer);
     loadHandleRecord.mockResolvedValue({ handle: file });
 
     const ok = await openAttachmentEntry(
@@ -131,7 +131,7 @@ describe("openAttachmentEntry", () => {
     expect(ok).toBe(false);
     expect(openSpy).not.toHaveBeenCalled();
     expect(showStatus).toHaveBeenCalledWith(
-      "缺少可用本地对象。请重新 Load PROJ（或重新选择目录/文件）后再试。",
+      "Missing local object. Please reload PROJ (or reselect the directory/file) and try again.",
       "error",
     );
   });
@@ -154,13 +154,13 @@ describe("openAttachmentEntry", () => {
 
     expect(ok).toBe(false);
     expect(showStatus).toHaveBeenCalledWith(
-      "缺少可用本地对象。请重新 Load PROJ（或重新选择目录/文件）后再试。",
+      "Missing local object. Please reload PROJ (or reselect the directory/file) and try again.",
       "error",
     );
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const message = alertSpy.mock.calls[0][0];
-    expect(message).toContain("尝试访问目标");
-    expect(message).toContain("原始路径: DemoFolder");
+    expect(message).toContain("Attempted target");
+    expect(message).toContain("Original path: DemoFolder");
   });
 
   it("alerts readable error for legacy handleKey-only entries", async () => {
@@ -177,7 +177,7 @@ describe("openAttachmentEntry", () => {
 
     expect(ok).toBe(false);
     expect(alertSpy).toHaveBeenCalledTimes(1);
-    expect(String(alertSpy.mock.calls[0][0])).toContain("缺少可用本地对象");
+    expect(String(alertSpy.mock.calls[0][0])).toContain("Missing local object");
   });
 
   it("rejects unsafe relative path traversal for local-file handle", async () => {
@@ -202,7 +202,7 @@ describe("openAttachmentEntry", () => {
       showStatus,
     );
     expect(ok).toBe(false);
-    expect(showStatus).toHaveBeenCalledWith("附件路径非法或越界，已拒绝访问。", "error");
+    expect(showStatus).toHaveBeenCalledWith("Attachment path is invalid or out of bounds. Access denied.", "error");
   });
 
   it("fails with permission hint when read permission is denied", async () => {
@@ -230,7 +230,7 @@ describe("openAttachmentEntry", () => {
     expect(ok).toBe(false);
     expect(openSpy).not.toHaveBeenCalled();
     expect(showStatus).toHaveBeenCalledWith(
-      "读取权限被拒绝。请重新 Load PROJ（或重新选择目录）后再试。",
+      "Read permission denied. Please reload PROJ (or reselect the directory) and try again.",
       "error",
     );
   });

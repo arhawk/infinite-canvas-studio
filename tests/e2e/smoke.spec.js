@@ -590,7 +590,7 @@ test("draws a styled shape from the toolbar and supports undo and redo", async (
 });
 
 test("sizes the shape inline editor to wrapped text", async ({ page }) => {
-  const text = "测试".repeat(28);
+  const text = "test".repeat(28);
   const shape = await page.evaluate((shapeText) => (
     window.__APP_TEST_API__.addComponent("shape", {
       x: 180,

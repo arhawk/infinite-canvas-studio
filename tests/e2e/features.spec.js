@@ -765,8 +765,8 @@ test("presentation page shows attachment bookmarks and does not open attachments
   );
 
   await page.evaluate(() => window.__APP_TEST_API__.clickAttachmentBookmark(2));
-  await expect.poll(async () => page.evaluate(() => window.__LAST_ALERT_MESSAGE__)).toContain("尝试访问目标");
-  await expect.poll(async () => page.evaluate(() => window.__LAST_ALERT_MESSAGE__)).toContain("原始路径");
+  await expect.poll(async () => page.evaluate(() => window.__LAST_ALERT_MESSAGE__)).toContain("Attempted target");
+  await expect.poll(async () => page.evaluate(() => window.__LAST_ALERT_MESSAGE__)).toContain("Original path");
 });
 
 test("reorders component layers and preserves them through undo and document roundtrip", async ({ page }) => {

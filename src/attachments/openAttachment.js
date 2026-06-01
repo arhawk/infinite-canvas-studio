@@ -28,10 +28,10 @@ function buildOriginalPath(entry, state) {
 function showOpenFailure(entry, state, reason, showStatus = () => {}) {
   const attemptedTarget = resolveAttachmentOpenTarget(entry) || entry?.label || "(none)";
   const detail = [
-    `附件打开失败：${entry?.label || "Attachment"}`,
-    `尝试访问目标: ${attemptedTarget}`,
-    `原始路径: ${buildOriginalPath(entry, state)}`,
-    `失败原因: ${reason}`,
+    `Attachment open failed: ${entry?.label || "Attachment"}`,
+    `Attempted target: ${attemptedTarget}`,
+    `Original path: ${buildOriginalPath(entry, state)}`,
+    `Failure reason: ${reason}`,
   ].join("\n");
   showStatus(reason, "error");
   window.alert(detail);
@@ -174,7 +174,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
       showOpenFailure(
         entry,
         state,
-        "缺少可用本地对象。请重新 Load PROJ（或重新选择目录/文件）后再试。",
+        "Missing local object. Please reload PROJ (or reselect the directory/file) and try again.",
         showStatus,
       );
       return false;
@@ -199,7 +199,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
       showOpenFailure(
         entry,
         state,
-        "读取权限被拒绝。请重新 Load PROJ（或重新选择目录）后再试。",
+        "Read permission denied. Please reload PROJ (or reselect the directory) and try again.",
         showStatus,
       );
       return false;
@@ -207,7 +207,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
 
     const targetPath = entry.path ?? entry.fileName;
     if (!isSafeRelativeAttachmentPath(targetPath)) {
-      showOpenFailure(entry, state, "附件路径非法或越界，已拒绝访问。", showStatus);
+      showOpenFailure(entry, state, "Attachment path is invalid or out of bounds. Access denied.", showStatus);
       return false;
     }
 
@@ -216,7 +216,7 @@ export async function openAttachmentEntry(entry, state, showStatus = () => {}) {
       showOpenFailure(
         entry,
         state,
-        "无法定位附件文件。请重新 Load PROJ（或重新选择目录）后再试。",
+        "Unable to locate the attachment file. Please reload PROJ (or reselect the directory) and try again.",
         showStatus,
       );
       return false;
