@@ -1,3 +1,18 @@
+# Infinite Canvas Studio
+
+A collaborative infinite canvas mind-map application built with Vite, vanilla JavaScript, Konva.js, and a WebSocket relay server.
+
+## Live Demo
+
+- Frontend Demo: https://infinite-canvas-studio.vercel.app
+- Backend Health Check: https://infinite-canvas-studio.onrender.com/health
+
+## Tech Stack
+
+- Frontend: Vite, Vanilla JavaScript, Konva.js
+- Backend: Node.js, WebSocket relay
+- Deployment: Vercel frontend + Render backend
+
 # Mimi Mind Map Infinite Canvas
 
 Product and system handover documentation for the Mimi infinite-canvas teaching and presentation tool.
