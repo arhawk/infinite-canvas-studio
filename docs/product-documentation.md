@@ -1,13 +1,13 @@
-# Mimi Mind Map Infinite Canvas Product Documentation
+# Infinite Canvas Studio Product Documentation
 
 Version target: the current frontend application in this repository  
 Audience: teachers, students, presenters, content creators, and users who need to organize lessons, activities, or presentations on an infinite canvas
 
 ## 1. Product Overview
 
-Mimi is an infinite-canvas visual organization and presentation tool. Users can create pages, text blocks, sticky notes, images, embedded web pages, JavaScript runners, local videos, ranking activities, and shapes. These elements can then be organized with an outline, connections, jump buttons, presentation navigation, and page comparison.
+Infinite Canvas Studio is an infinite-canvas visual organization and presentation tool. Users can create pages, text blocks, sticky notes, images, embedded web pages, JavaScript runners, local videos, ranking activities, and shapes. These elements can then be organized with an outline, connections, jump buttons, presentation navigation, and page comparison.
 
-Mimi is suitable for:
+Infinite Canvas Studio is suitable for:
 
 - Building lesson canvases and classroom activity materials
 - Creating non-linear presentations
@@ -111,7 +111,7 @@ When editing is complete, switch to `Present`:
 
 ## 4. Modes
 
-Mimi has teacher-side modes and student-side views. The teacher side controls content creation and delivery; the student side is used when viewing an online room.
+Infinite Canvas Studio has teacher-side modes and student-side views. The teacher side controls content creation and delivery; the student side is used when viewing an online room.
 
 ### 4.1 Teacher Edit Mode
 

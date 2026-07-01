@@ -79,7 +79,7 @@ export function readEmbeddedSnapshotFromHtmlText(htmlText) {
   return readEmbeddedSnapshot(doc);
 }
 
-export function buildRuntimeExportHtml(template, snapshot, { title = "Mind Map Infinite Canvas" } = {}) {
+export function buildRuntimeExportHtml(template, snapshot, { title = "Infinite Canvas Studio" } = {}) {
   validateRuntimeExportTemplate(template);
 
   const normalized = normalizeDocumentSnapshot(snapshot);

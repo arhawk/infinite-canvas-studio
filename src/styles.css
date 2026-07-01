@@ -5099,10 +5099,9 @@ body.theme-colorful [data-testid="presentation-tool-reactions"] { color: var(--i
 body.theme-colorful [data-testid="presentation-tool-cancel"] { color: #e94335; }
 
 body.theme-colorful .mimi-circle { fill: #e94335; }
-body.theme-colorful .mimi-letter--1 { color: #e94335; }
-body.theme-colorful .mimi-letter--2 { color: #34a853; }
-body.theme-colorful .mimi-letter--3 { color: #4285f4; }
-body.theme-colorful .mimi-letter--4 { color: #d946a0; }
+body.theme-colorful .ics-letter--1 { color: #e94335; }
+body.theme-colorful .ics-letter--2 { color: #34a853; }
+body.theme-colorful .ics-letter--3 { color: #4285f4; }
 
 body.theme-colorful .catalog-sidebar__mark {
   background: linear-gradient(180deg, rgba(212, 83, 126, 0.25), rgba(212, 83, 126, 0.1));

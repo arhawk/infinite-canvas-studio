@@ -13,9 +13,9 @@ A collaborative infinite canvas mind-map application built with Vite, vanilla Ja
 - Backend: Node.js, WebSocket relay
 - Deployment: Vercel frontend + Render backend
 
-# Mimi Mind Map Infinite Canvas
+# Infinite Canvas Studio
 
-Product and system handover documentation for the Mimi infinite-canvas teaching and presentation tool.
+Product and system handover documentation for the Infinite Canvas Studio teaching and presentation tool.
 
 This README is intended for the client, teaching team, markers, and future maintainers who need to run, verify, hand over, or retire the product. Internal architecture and development conventions remain in [AGENTS.md](AGENTS.md).
 
@@ -25,7 +25,7 @@ https://docs.google.com/document/d/1vWV58lKnK8Rf_BzS93d-kscz-ddYiHIgBAhaB6lNKQM/
 
 ## Product Overview
 
-Mimi is a browser-based infinite canvas for building non-linear teaching boards and presentation flows. A teacher can create pages, styled text, sticky notes, images, shapes, embedded web pages, code runners, local videos, ranking activities, attachments, and connections. The board can then be presented locally or shared through temporary online rooms.
+Infinite Canvas Studio is a browser-based infinite canvas for building non-linear teaching boards and presentation flows. A teacher can create pages, styled text, sticky notes, images, shapes, embedded web pages, code runners, local videos, ranking activities, attachments, and connections. The board can then be presented locally or shared through temporary online rooms.
 
 Core user-facing capabilities include:
 
@@ -238,11 +238,11 @@ These are user-provided resources, not system-level dataset connections.
 
 Not applicable.
 
-Mimi does not include a persistent user account system. Room sharing uses temporary room IDs, optional passwords, and short-lived host/viewer sessions rather than registered accounts.
+Infinite Canvas Studio does not include a persistent user account system. Room sharing uses temporary room IDs, optional passwords, and short-lived host/viewer sessions rather than registered accounts.
 
 ## Data Storage Model
 
-Mimi has no application database.
+Infinite Canvas Studio has no application database.
 
 The primary data formats are:
 
@@ -301,7 +301,7 @@ There is no database backup/restore procedure because the product does not use a
 
 ## End Of Life / Removal Of User
 
-There is no user account removal workflow because Mimi has no persistent account system.
+There is no user account removal workflow because Infinite Canvas Studio has no persistent account system.
 
 For project end-of-life or removal:
 
