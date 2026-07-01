@@ -20,8 +20,14 @@ import {
 import { cleanupRateBuckets, consumeRateLimit } from "./rateLimit.js";
 import { RoomStore, verifyPassword } from "./roomStore.js";
 
-const PORT = Number.parseInt(process.env.PORT ?? "3001", 10);
+const PORT = Number.parseInt(process.env.PORT || "3001", 10);
 const CLEANUP_INTERVAL_MS = 30_000;
+const ALLOWED_ORIGINS = new Set(
+  String(process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 const CREATE_ROOM_RATE_LIMIT = {
   max: Number.parseInt(process.env.ROOM_CREATE_RATE_LIMIT_MAX ?? "30", 10),
   windowMs: Number.parseInt(process.env.ROOM_CREATE_RATE_LIMIT_WINDOW_MS ?? "60000", 10),
@@ -39,12 +45,37 @@ const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WS_MESSAGE_BYT
 const createRoomRateBuckets = new Map();
 const passwordRateBuckets = new Map();
 
-function sendHttpJson(res, statusCode, payload) {
-  const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
+function getRequestOrigin(req) {
+  return typeof req.headers.origin === "string" ? req.headers.origin : "";
+}
+
+function isOriginAllowed(origin) {
+  return !origin || ALLOWED_ORIGINS.size === 0 || ALLOWED_ORIGINS.has(origin);
+}
+
+function getCorsHeaders(origin) {
+  const headers = {
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Origin": "*",
+  };
+
+  if (ALLOWED_ORIGINS.size === 0) {
+    headers["Access-Control-Allow-Origin"] = "*";
+    return headers;
+  }
+
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers.Vary = "Origin";
+  }
+
+  return headers;
+}
+
+function sendHttpJson(res, statusCode, payload, origin = "") {
+  const body = JSON.stringify(payload);
+  res.writeHead(statusCode, {
+    ...getCorsHeaders(origin),
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
   });
@@ -81,17 +112,17 @@ function readRequestBody(req, maxBytes = MAX_HTTP_BODY_BYTES) {
   });
 }
 
-async function handleCreateRoom(req, res) {
+async function handleCreateRoom(req, res, origin = "") {
   try {
     if (!consumeRateLimit(createRoomRateBuckets, getClientIp(req), CREATE_ROOM_RATE_LIMIT)) {
-      sendHttpJson(res, 429, { error: "Too many room creation attempts." });
+      sendHttpJson(res, 429, { error: "Too many room creation attempts." }, origin);
       return;
     }
 
     const bodyText = await readRequestBody(req);
     const parsed = bodyText.trim() ? safeJsonParse(bodyText) : { value: {}, error: null };
     if (parsed.error) {
-      sendHttpJson(res, 400, { error: "Invalid JSON body." });
+      sendHttpJson(res, 400, { error: "Invalid JSON body." }, origin);
       return;
     }
 
@@ -102,10 +133,10 @@ async function handleCreateRoom(req, res) {
       url: `/room/${room.roomId}`,
       hostToken: room.hostToken,
       requiresPassword: room.requiresPassword,
-    });
+    }, origin);
   } catch (error) {
     const status = error?.code === "room-capacity" ? 503 : 400;
-    sendHttpJson(res, status, { error: error instanceof Error ? error.message : "Failed to create room." });
+    sendHttpJson(res, status, { error: error instanceof Error ? error.message : "Failed to create room." }, origin);
   }
 }
 
@@ -124,9 +155,9 @@ function getContentType(pathname) {
   }[extension] ?? "application/octet-stream";
 }
 
-function serveStatic(req, res, url) {
+function serveStatic(req, res, url, origin = "") {
   if (!existsSync(distRoot)) {
-    sendHttpJson(res, 404, { error: "Static dist directory not found." });
+    sendHttpJson(res, 404, { error: "Static dist directory not found." }, origin);
     return;
   }
 
@@ -137,7 +168,7 @@ function serveStatic(req, res, url) {
   const resolved = resolve(candidate);
 
   if (!resolved.startsWith(distRoot)) {
-    sendHttpJson(res, 403, { error: "Forbidden." });
+    sendHttpJson(res, 403, { error: "Forbidden." }, origin);
     return;
   }
 
@@ -146,7 +177,7 @@ function serveStatic(req, res, url) {
     : join(distRoot, "index.html");
 
   if (!existsSync(filePath)) {
-    sendHttpJson(res, 404, { error: "File not found." });
+    sendHttpJson(res, 404, { error: "File not found." }, origin);
     return;
   }
 
@@ -156,33 +187,30 @@ function serveStatic(req, res, url) {
 
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  const origin = getRequestOrigin(req);
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Origin": "*",
-    });
+    res.writeHead(204, getCorsHeaders(origin));
     res.end();
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/health") {
-    sendHttpJson(res, 200, { ok: true });
+    sendHttpJson(res, 200, { status: "ok" }, origin);
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/rooms") {
-    void handleCreateRoom(req, res);
+    void handleCreateRoom(req, res, origin);
     return;
   }
 
   if (req.method !== "GET" && req.method !== "HEAD") {
-    sendHttpJson(res, 405, { error: "Method not allowed." });
+    sendHttpJson(res, 405, { error: "Method not allowed." }, origin);
     return;
   }
 
-  serveStatic(req, res, url);
+  serveStatic(req, res, url, origin);
 });
 
 function parseRoomSocketUrl(request) {
@@ -365,6 +393,13 @@ wss.on("connection", (socket, request, { room, role }) => {
 });
 
 server.on("upgrade", (request, socket, head) => {
+  const origin = getRequestOrigin(request);
+  if (!isOriginAllowed(origin)) {
+    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
   const info = parseRoomSocketUrl(request);
   if (!info) {
     socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");

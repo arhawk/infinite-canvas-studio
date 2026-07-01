@@ -1,26 +1,33 @@
-export const ROOM_BACKEND_HOST = "au.baitian.moe:3001";
+export const ROOM_BACKEND_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3001";
 
-function isLocalDevHost(locationRef = window.location) {
-  const hostname = locationRef.hostname ?? "";
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    hostname === "[::1]"
-  );
-}
-
-function getRoomBackendHost(locationRef = window.location) {
+function getRoomBackendUrl(locationRef = window.location) {
   const overrideHost = globalThis.window?.__ROOM_BACKEND_HOST__;
   if (overrideHost) {
-    return overrideHost;
+    const protocol = locationRef.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${overrideHost}`;
   }
 
-  if (isLocalDevHost(locationRef) && locationRef.host) {
-    return locationRef.host;
-  }
+  return ROOM_BACKEND_URL;
+}
 
-  return ROOM_BACKEND_HOST;
+function toWebSocketUrl(backendUrl) {
+  const url = new URL(backendUrl);
+  if (url.protocol === "http:") {
+    url.protocol = "ws:";
+  } else if (url.protocol === "https:") {
+    url.protocol = "wss:";
+  }
+  return url;
+}
+
+function toHttpUrl(backendUrl) {
+  const url = new URL(backendUrl);
+  if (url.protocol === "ws:") {
+    url.protocol = "http:";
+  } else if (url.protocol === "wss:") {
+    url.protocol = "https:";
+  }
+  return url;
 }
 
 export function getRoomIdFromPath(pathname = window.location.pathname) {
@@ -33,11 +40,16 @@ export function getShareUrl(roomId, origin = window.location.origin) {
 }
 
 export function getRoomWebSocketUrl(roomId, role, locationRef = window.location) {
-  const protocol = locationRef.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${getRoomBackendHost(locationRef)}/ws/rooms/${roomId}?role=${encodeURIComponent(role)}`;
+  const url = toWebSocketUrl(getRoomBackendUrl(locationRef));
+  url.pathname = `/ws/rooms/${roomId}`;
+  url.search = `?role=${encodeURIComponent(role)}`;
+  return url.toString();
 }
 
 export function getCreateRoomApiUrl(locationRef = window.location) {
-  const protocol = locationRef.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${getRoomBackendHost(locationRef)}/api/rooms`;
+  const url = toHttpUrl(getRoomBackendUrl(locationRef));
+  url.pathname = "/api/rooms";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
 }

@@ -4,7 +4,7 @@ import {
   getRoomIdFromPath,
   getRoomWebSocketUrl,
   getShareUrl,
-  ROOM_BACKEND_HOST,
+  ROOM_BACKEND_URL,
 } from "../../../src/online/roomRoute.js";
 
 describe("room route helpers", () => {
@@ -23,7 +23,7 @@ describe("room route helpers", () => {
     expect(url).not.toContain("hostToken");
   });
 
-  it("builds backend URLs against the fixed room backend host", () => {
+  it("builds backend URLs from the configured room backend URL", () => {
     const apiUrl = getCreateRoomApiUrl({
       protocol: "https:",
       hostname: "mimi.example",
@@ -35,12 +35,13 @@ describe("room route helpers", () => {
       host: "mimi.example",
     });
 
-    expect(apiUrl).toBe(`https://${ROOM_BACKEND_HOST}/api/rooms`);
-    expect(url).toBe(`wss://${ROOM_BACKEND_HOST}/ws/rooms/1234?role=host`);
+    expect(apiUrl).toBe("http://localhost:3001/api/rooms");
+    expect(url).toBe("ws://localhost:3001/ws/rooms/1234?role=host");
+    expect(ROOM_BACKEND_URL).toBe("ws://localhost:3001");
     expect(url).not.toContain("hostToken");
   });
 
-  it("uses the Vite dev server as the room backend on local hosts", () => {
+  it("falls back to localhost when no environment URL is set", () => {
     const apiUrl = getCreateRoomApiUrl({
       protocol: "http:",
       hostname: "localhost",
@@ -52,7 +53,7 @@ describe("room route helpers", () => {
       host: "127.0.0.1:3000",
     });
 
-    expect(apiUrl).toBe("http://localhost:3000/api/rooms");
-    expect(url).toBe("ws://127.0.0.1:3000/ws/rooms/1234?role=viewer");
+    expect(apiUrl).toBe("http://localhost:3001/api/rooms");
+    expect(url).toBe("ws://localhost:3001/ws/rooms/1234?role=viewer");
   });
 });
