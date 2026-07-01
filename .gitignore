@@ -5,6 +5,7 @@ dist-single-html/
 # Dependencies
 node_modules/
 .pnpm-store/
+.venv/
 
 # Logs
 *.log

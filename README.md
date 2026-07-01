@@ -58,7 +58,19 @@ When the frontend runs on `localhost`, `127.0.0.1`, or `::1`, Vite proxies `/api
 
 ## Installation Instructions
 
-From the repository root:
+From the repository root, enter the project environment first:
+
+```bash
+. ./scripts/activate-env.sh
+```
+
+This uses the Node runtime already available on the host, prepares the repo-pinned
+`pnpm` version through `corepack`, and exposes `pnpm` inside the project shell.
+
+After activation, the prompt shows a `(.venv)` prefix so you can see that the
+project environment is active.
+
+Then install dependencies:
 
 ```bash
 pnpm install
@@ -71,6 +83,24 @@ For first-time Playwright E2E testing on a new machine:
 ```bash
 pnpm exec playwright install chromium
 ```
+
+### Environment Usage
+
+To enter the project environment in a new terminal session, run:
+
+```bash
+. ./scripts/activate-env.sh
+```
+
+To leave the environment and restore your previous shell path and prompt, run:
+
+```bash
+deactivate
+```
+
+The environment is shell-local, so it does not persist across new terminal
+windows or tabs. Open a new terminal and source the activation script again
+whenever you want `pnpm` available in that session.
 
 ## Build And Run Instructions
 
