@@ -1628,6 +1628,8 @@ export class ToolbarPlugin extends BasePlugin {
     this.clearStrokesEl.type = "button";
     this.clearStrokesEl.className = "ghost-button toolbar__eraser-clear";
     this.clearStrokesEl.dataset.testid = "clear-strokes";
+    this.clearStrokesEl.dataset.tooltip = "Clear all brush strokes";
+    this.clearStrokesEl.setAttribute("aria-label", "Clear all brush strokes");
     this.clearStrokesEl.textContent = "Clear Strokes";
 
     panel.append(sliderRow, this.clearStrokesEl);
