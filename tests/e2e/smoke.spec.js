@@ -162,6 +162,27 @@ test("shows presentation mode hint and exits with Escape", async ({ page }) => {
   );
 });
 
+test("fits all content when Home is pressed", async ({ page }) => {
+  await clickPaletteCard(page, "sticky");
+  await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+
+  const before = await page.evaluate(() => window.__APP_TEST_API__.setViewport({
+    scale: 0.45,
+    position: { x: -900, y: -600 },
+  }));
+
+  await page.keyboard.press("Home");
+
+  await expect.poll(async () => {
+    const after = await page.evaluate(() => window.__APP_TEST_API__.getViewportState());
+    return (
+      Math.abs(after.scale - before.scale) > 0.01
+      || Math.abs(after.position.x - before.position.x) > 1
+      || Math.abs(after.position.y - before.position.y) > 1
+    );
+  }).toBe(true);
+});
+
 test("toggles board fullscreen with Mod+Shift+F only in presentation mode", async ({ page }) => {
   const toggleShortcut = process.platform === "darwin" ? "Meta+Shift+F" : "Control+Shift+F";
 
