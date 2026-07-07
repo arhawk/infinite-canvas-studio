@@ -3685,6 +3685,62 @@ body.is-room-viewer #load-document-action {
   color: #a33d24;
 }
 
+.room-share-popover__coeditors {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.room-share-popover__coeditors[hidden] {
+  display: none;
+}
+
+.room-share-popover__coeditors-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.room-share-popover__viewer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.room-share-popover__viewer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.room-share-popover__viewer-id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-share-popover__viewer-action {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.room-share-popover__viewer-empty {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+body.is-room-coeditor .room-status-badge {
+  background: rgba(31, 111, 235, 0.12);
+}
+
 .room-password-prompt {
   position: fixed;
   inset: 0;

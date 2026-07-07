@@ -71,7 +71,13 @@ function createApp() {
     modeManager: { register: () => () => {}, isEnabled: () => true, getConfig: () => ({}) },
     documentManager: {
       loadDocument: vi.fn(async () => {}),
-      exportDocument: vi.fn(async () => ({ nodes: [] })),
+      getDocumentSnapshot: vi.fn(() => ({ schemaVersion: 1, documentId: "doc-1", revision: 0, nodes: [] })),
+      getCollaborationRevision: vi.fn(() => 0),
+      setCollaborationRevision: vi.fn(),
+      advanceCollaborationRevision: vi.fn(() => 1),
+    },
+    history: {
+      applyCollaborationOperations: vi.fn(async () => {}),
     },
     getMode: () => "edit",
     getPlugin(pluginId) {
@@ -140,6 +146,50 @@ describe("RoomSharePlugin room-only sync", () => {
       document: { nodes: [] },
       compareState,
     });
+    plugin.destroy();
+  });
+
+  it("applies incremental room patches without reloading the full document", async () => {
+    const app = createApp();
+    const plugin = new RoomSharePlugin(app, {
+      shareEl: document.querySelector('[data-testid="share-btn"]'),
+    });
+    plugin.setup();
+    await plugin.startViewer("1234");
+    plugin.viewer.receivedState = true;
+    plugin.viewer.client.emit("room:patch", {
+      baseRevision: 0,
+      revision: 1,
+      operations: [{ type: "add-drawing", snapshot: { id: "d1", points: [0, 0] } }],
+    });
+    await Promise.resolve();
+
+    expect(app.history.applyCollaborationOperations).toHaveBeenCalledTimes(1);
+    expect(app.documentManager.loadDocument).not.toHaveBeenCalled();
+    expect(app.documentManager.setCollaborationRevision).toHaveBeenCalledWith(1);
+    plugin.destroy();
+  });
+
+  it("grants co-editor access to a targeted viewer", async () => {
+    const app = createApp();
+    app.setMode = vi.fn();
+    app.setEditorTool = vi.fn();
+    app.unlockPresentationMode = vi.fn();
+    const plugin = new RoomSharePlugin(app, {
+      shareEl: document.querySelector('[data-testid="share-btn"]'),
+    });
+    plugin.setup();
+    await plugin.startViewer("1234");
+    plugin.viewer.viewerId = "viewer-1";
+
+    plugin.viewer.client.emit("app:collab-grant", {
+      viewerId: "viewer-1",
+      editorToken: "token-1",
+    });
+
+    expect(plugin.viewer.isCoEditor).toBe(true);
+    expect(app.unlockPresentationMode).toHaveBeenCalled();
+    expect(app.setMode).toHaveBeenCalledWith("edit");
     plugin.destroy();
   });
 

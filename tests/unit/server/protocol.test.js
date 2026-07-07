@@ -15,6 +15,7 @@ describe("room protocol relay compatibility", () => {
 
   it("allows hosts to broadcast room protocol state and future app events", () => {
     expect(canHostRelayMessageType("room:state")).toBe(true);
+    expect(canHostRelayMessageType("room:patch")).toBe(true);
     expect(canHostRelayMessageType("room:viewport")).toBe(true);
     expect(canHostRelayMessageType("app:reaction")).toBe(true);
     expect(canHostRelayMessageType("app:future-widget-event")).toBe(true);

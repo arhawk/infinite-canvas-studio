@@ -585,6 +585,31 @@ export class DocumentPlugin extends BasePlugin {
     return snapshot;
   }
 
+  getDocumentSnapshot() {
+    return exportDocumentSnapshot(this.app, {
+      documentId: this.documentState.documentId,
+      revision: this.documentState.revision,
+      meta: {
+        title: this.documentState.title,
+      },
+    });
+  }
+
+  getCollaborationRevision() {
+    return this.documentState.revision;
+  }
+
+  setCollaborationRevision(revision) {
+    if (Number.isFinite(revision)) {
+      this.documentState.revision = revision;
+    }
+  }
+
+  advanceCollaborationRevision() {
+    this.documentState.revision += 1;
+    return this.documentState.revision;
+  }
+
   getRuntimeHtmlTemplate() {
     if (typeof window === "undefined") return "";
     return resolveRuntimeHtmlTemplate({

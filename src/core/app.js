@@ -48,6 +48,7 @@ export class App {
     this.cursorOverride = null;
     this.isReplayingHistory = false;
     this.isRestoringDocument = false;
+    this.isApplyingRemotePatch = false;
     this.presentationLockReason = null;
     this.activeInlineTextEditor = null;
     this.history = null;

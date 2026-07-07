@@ -8,7 +8,7 @@ export const VIEWER_BLOCKED_APP_MESSAGE_TYPES = new Set([
 
 // Future frontend features can add app-prefixed business events without a
 // backend deploy, while room-prefixed messages stay reserved for room protocol.
-export const HOST_ONLY_ROOM_MESSAGE_TYPES = new Set(["room:state", "room:viewport"]);
+export const HOST_ONLY_ROOM_MESSAGE_TYPES = new Set(["room:state", "room:patch", "room:viewport"]);
 export const VIEWER_CONTROL_ROOM_MESSAGE_TYPES = new Set(["room:ping", "room:request-state"]);
 export const SERVER_MESSAGE_TYPES = {
   HOST_JOINED: "host:joined",

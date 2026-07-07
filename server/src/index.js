@@ -286,7 +286,10 @@ function handleViewerJoin(room, socket, payload = {}) {
 
   socket.roomJoined = true;
   store.addViewer(room, socket);
-  sendJson(socket, SERVER_MESSAGE_TYPES.ROOM_JOINED, { roomId: room.roomId });
+  sendJson(socket, SERVER_MESSAGE_TYPES.ROOM_JOINED, {
+    roomId: room.roomId,
+    viewerId: socket.connectionId,
+  });
   if (room.hostSocket) {
     sendJson(room.hostSocket, SERVER_MESSAGE_TYPES.VIEWER_JOINED, { viewerId: socket.connectionId });
     broadcastViewerCount(room);

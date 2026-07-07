@@ -153,7 +153,11 @@ export class HistoryPlugin extends BasePlugin {
   static pluginId = "history";
 
   isTrackingSuspended() {
-    return this.isApplyingHistory || this.app.isRestoringDocument;
+    return (
+      this.isApplyingHistory ||
+      this.app.isRestoringDocument ||
+      this.app.isApplyingRemotePatch
+    );
   }
 
   commands() {
@@ -327,6 +331,7 @@ export class HistoryPlugin extends BasePlugin {
     }
     this.future = [];
     this.syncUi();
+    this.app.events.emit("history:committed", { entry: clonePlainData(entry) });
   }
 
   getSelectableParentId(node) {
@@ -693,6 +698,26 @@ export class HistoryPlugin extends BasePlugin {
     this.toastTimeout = window.setTimeout(() => {
       this.toastEl?.classList.remove("is-visible");
     }, HISTORY_TOAST_DURATION);
+  }
+
+  async applyCollaborationOperations(operations = []) {
+    if (!Array.isArray(operations) || !operations.length) return;
+
+    this.cancelPendingCommit();
+    this.pendingOperations = [];
+    this.pendingNodeSnapshots.clear();
+    this.isApplyingHistory = true;
+    this.app.isReplayingHistory = true;
+
+    try {
+      for (const operation of operations) {
+        await this.applyOperation(operation, "redo");
+      }
+      this.redrawAllLayers();
+    } finally {
+      this.app.isReplayingHistory = false;
+      this.isApplyingHistory = false;
+    }
   }
 
   async undo() {
