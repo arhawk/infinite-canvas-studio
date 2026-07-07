@@ -631,6 +631,8 @@ export class HistoryPlugin extends BasePlugin {
     this.toastEl = document.createElement("div");
     this.toastEl.className = "history-action-toast";
     this.toastEl.hidden = true;
+    this.toastEl.setAttribute("role", "status");
+    this.toastEl.setAttribute("aria-live", "polite");
     this.toastEl.dataset.testid = "history-action-toast";
     document.body.append(this.toastEl);
   }

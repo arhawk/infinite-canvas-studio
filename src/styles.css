@@ -5061,6 +5061,11 @@ body.is-room-viewer #load-document-action {
   cursor: not-allowed;
 }
 
+.left-toolbar__btn:focus-visible {
+  outline: 2px solid rgba(215, 97, 47, 0.65);
+  outline-offset: 2px;
+}
+
 .left-toolbar__btn svg {
   display: block;
   pointer-events: none;
@@ -5865,4 +5870,16 @@ body.theme-colorful .room-share-popover__result a {
 .present-mode-hint.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .present-mode-hint,
+  .present-mode-hint.is-visible,
+  .document-toast,
+  .document-toast.is-visible,
+  .history-action-toast,
+  .history-action-toast.is-visible {
+    transition: none;
+    transform: none;
+  }
 }

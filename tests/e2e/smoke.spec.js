@@ -150,6 +150,18 @@ test("switches between edit and presentation mode", async ({ page }) => {
   );
 });
 
+test("shows presentation mode hint and exits with Escape", async ({ page }) => {
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".present-mode-hint")).toHaveText("Press Esc to exit presentation mode");
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "edit",
+  );
+});
+
 test("toggles board fullscreen with Mod+Shift+F only in presentation mode", async ({ page }) => {
   const toggleShortcut = process.platform === "darwin" ? "Meta+Shift+F" : "Control+Shift+F";
 
@@ -270,10 +282,21 @@ test("undoes and redoes adding a sticky note", async ({ page }) => {
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
 
   await page.getByTestId("undo-action").click();
+  await expect(page.getByTestId("history-action-toast")).toHaveText("Undid adding Sticky Note");
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 
   await page.getByTestId("redo-action").click();
+  await expect(page.getByTestId("history-action-toast")).toHaveText("Redid adding Sticky Note");
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
+});
+
+test("renames the document title with double-click", async ({ page }) => {
+  await page.getByTestId("project-title").dblclick();
+  const titleInput = page.getByTestId("title-rename-input");
+  await expect(titleInput).toBeVisible();
+  await titleInput.fill("Lesson Plan");
+  await titleInput.press("Enter");
+  await expect(page.getByTestId("project-title")).toHaveText("Lesson Plan");
 });
 
 test("shows save and load actions to the left of share with tooltips", async ({ page }) => {
