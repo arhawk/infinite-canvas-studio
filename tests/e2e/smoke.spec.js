@@ -282,9 +282,11 @@ test("undoes and redoes adding a sticky note", async ({ page }) => {
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
 
   await page.getByTestId("undo-action").click();
+  await expect(page.getByTestId("history-action-toast")).toHaveText("Undid adding Sticky Note");
   await expect.poll(async () => (await listNodes(page)).length).toBe(0);
 
   await page.getByTestId("redo-action").click();
+  await expect(page.getByTestId("history-action-toast")).toHaveText("Redid adding Sticky Note");
   await expect.poll(async () => (await listNodes(page)).length).toBe(1);
 });
 
