@@ -211,6 +211,16 @@ export class DocumentPlugin extends BasePlugin {
 
     this.listenDom(titleEl, "dblclick", () => this._openTitleEditor());
 
+    this.listenDom(window, "keydown", (event) => {
+      if (event.key !== "F2") return;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
+        return;
+      }
+      if (this._titleEditing) return;
+      event.preventDefault();
+      this._openTitleEditor();
+    });
+
     this.listen("document:load:end", () => {
       if (!this._titleEditing) {
         titleEl.textContent = this.documentState.title;
