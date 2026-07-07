@@ -7,6 +7,7 @@ const TOOLTIP_TARGET_REGION_SELECTOR = [
   ".components-dropdown",
   ".sidebar",
   ".presentation-brush-fab",
+  ".document-export-menu",
 ].join(", ");
 
 const INTERACTIVE_SELECTOR = [
