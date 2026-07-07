@@ -3737,6 +3737,14 @@ body.is-room-viewer #load-document-action {
   color: rgba(0, 0, 0, 0.55);
 }
 
+body.is-room-coeditor:not(.is-presentation-mode) .left-toolbar {
+  display: flex;
+}
+
+body.is-room-coeditor:not(.is-presentation-mode) #catalog-panel {
+  display: block;
+}
+
 body.is-room-coeditor .room-status-badge {
   background: rgba(31, 111, 235, 0.12);
 }

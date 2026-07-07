@@ -151,6 +151,22 @@ export class RoomSharePlugin extends BasePlugin {
     return getRoomIdFromPath();
   }
 
+  isRoomViewerClient() {
+    return Boolean(this.viewer.client);
+  }
+
+  isCoEditorClient() {
+    return Boolean(this.viewer.client && this.viewer.isCoEditor);
+  }
+
+  isRoomReadOnlyClient() {
+    return this.isRoomViewerClient() && !this.isCoEditorClient();
+  }
+
+  canRoomClientEdit() {
+    return this.isCoEditorClient();
+  }
+
   adoptViewerWaitingLayer(layer) {
     if (!layer) return;
     this.viewer.waitingLayer?.hide?.();
@@ -577,7 +593,9 @@ export class RoomSharePlugin extends BasePlugin {
         this.collaboration.setRevisionFromDocument(document);
         const pageCompare = this.app.getPlugin?.("page-compare");
         pageCompare?.applyRoomCompareState?.(compareState ?? null);
-        if (!this.viewer.isCoEditor) {
+        if (this.viewer.isCoEditor) {
+          this.enterCoEditorEditingMode();
+        } else {
           this.app.lockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
         }
         this.syncViewerUi();
@@ -649,12 +667,19 @@ export class RoomSharePlugin extends BasePlugin {
     if (!editorToken) return;
     this.viewer.isCoEditor = true;
     this.viewer.editorToken = editorToken;
+    this.enterCoEditorEditingMode();
+    this.updateRoomBadge("Co-editing enabled");
+  }
+
+  enterCoEditorEditingMode() {
     this.app.unlockPresentationMode?.(ROOM_VIEWER_LOCK_REASON);
     this.app.setMode?.("edit");
     this.app.setEditorTool?.("arrange");
+    document.body.classList.remove("is-room-viewer");
     document.body.classList.add("is-room-coeditor");
     this.syncViewerUi();
-    this.updateRoomBadge("Co-editing enabled");
+    this.app.getPlugin?.("toolbar")?.syncUi?.();
+    this.app.events.emit("room:share:change");
   }
 
   revokeCoEditorAccess() {
@@ -791,7 +816,12 @@ export class RoomSharePlugin extends BasePlugin {
 
     this.listenDom(modeCapsuleEditEl, "click", (event) => {
       if (!this.viewer.client) return;
-      if (this.viewer.isCoEditor) return;
+      if (this.viewer.isCoEditor) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.enterCoEditorEditingMode();
+        return;
+      }
       event.preventDefault();
       event.stopImmediatePropagation();
       this.setViewerViewMode(VIEW_MODE_VIEWER);
@@ -799,7 +829,14 @@ export class RoomSharePlugin extends BasePlugin {
 
     this.listenDom(modeCapsulePresentEl, "click", (event) => {
       if (!this.viewer.client) return;
-      if (this.viewer.isCoEditor) return;
+      if (this.viewer.isCoEditor) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.app.setMode?.("presentation");
+        this.syncViewerUi();
+        this.app.getPlugin?.("toolbar")?.syncUi?.();
+        return;
+      }
       event.preventDefault();
       event.stopImmediatePropagation();
       this.setViewerViewMode(VIEW_MODE_HOST);

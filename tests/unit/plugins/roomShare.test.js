@@ -175,6 +175,8 @@ describe("RoomSharePlugin room-only sync", () => {
     app.setMode = vi.fn();
     app.setEditorTool = vi.fn();
     app.unlockPresentationMode = vi.fn();
+    app.getPlugin = vi.fn(() => ({ syncUi: vi.fn() }));
+    app.events.emit = vi.fn();
     const plugin = new RoomSharePlugin(app, {
       shareEl: document.querySelector('[data-testid="share-btn"]'),
     });
@@ -190,6 +192,24 @@ describe("RoomSharePlugin room-only sync", () => {
     expect(plugin.viewer.isCoEditor).toBe(true);
     expect(app.unlockPresentationMode).toHaveBeenCalled();
     expect(app.setMode).toHaveBeenCalledWith("edit");
+    expect(app.setEditorTool).toHaveBeenCalledWith("arrange");
+    expect(document.body.classList.contains("is-room-coeditor")).toBe(true);
+    expect(document.body.classList.contains("is-room-viewer")).toBe(false);
+    plugin.destroy();
+  });
+
+  it("exposes co-editor edit capability helpers", () => {
+    const app = createApp();
+    const plugin = new RoomSharePlugin(app, {
+      shareEl: document.querySelector('[data-testid="share-btn"]'),
+    });
+    plugin.setup();
+    plugin.viewer.client = { close: vi.fn() };
+    expect(plugin.isRoomReadOnlyClient()).toBe(true);
+    expect(plugin.canRoomClientEdit()).toBe(false);
+    plugin.viewer.isCoEditor = true;
+    expect(plugin.isRoomReadOnlyClient()).toBe(false);
+    expect(plugin.canRoomClientEdit()).toBe(true);
     plugin.destroy();
   });
 

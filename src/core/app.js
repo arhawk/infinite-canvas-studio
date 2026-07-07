@@ -110,11 +110,15 @@ export class App {
 
   setMode(mode) {
     if (this.presentationLockReason && mode === "edit") {
-      if (this.modeManager.getMode() !== "presentation") {
-        this.modeManager.setMode("presentation");
+      const canCoEdit = this.getPlugin?.("room-share")?.canRoomClientEdit?.();
+      if (!canCoEdit) {
+        if (this.modeManager.getMode() !== "presentation") {
+          this.modeManager.setMode("presentation");
+        }
+        this.syncCursor();
+        return;
       }
-      this.syncCursor();
-      return;
+      this.presentationLockReason = null;
     }
     this.modeManager.setMode(mode);
     this.syncCursor();
