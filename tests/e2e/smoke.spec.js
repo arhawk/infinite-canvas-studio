@@ -150,6 +150,18 @@ test("switches between edit and presentation mode", async ({ page }) => {
   );
 });
 
+test("shows presentation mode hint and exits with Escape", async ({ page }) => {
+  await page.getByTestId("mode-capsule-present").click();
+  await expect(page.getByTestId("mode-capsule-present")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".present-mode-hint")).toHaveText("Press Esc to exit presentation mode");
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("mode-capsule-edit")).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => page.evaluate(() => window.__APP_TEST_API__.getMode())).toBe(
+    "edit",
+  );
+});
+
 test("toggles board fullscreen with Mod+Shift+F only in presentation mode", async ({ page }) => {
   const toggleShortcut = process.platform === "darwin" ? "Meta+Shift+F" : "Control+Shift+F";
 
