@@ -5871,3 +5871,15 @@ body.theme-colorful .room-share-popover__result a {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .present-mode-hint,
+  .present-mode-hint.is-visible,
+  .document-toast,
+  .document-toast.is-visible,
+  .history-action-toast,
+  .history-action-toast.is-visible {
+    transition: none;
+    transform: none;
+  }
+}
