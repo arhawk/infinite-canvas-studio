@@ -381,6 +381,7 @@ export class DocumentPlugin extends BasePlugin {
     const wrapper = document.createElement("span");
     wrapper.className = "document-export-menu__item-wrap";
     wrapper.title = reason;
+    wrapper.dataset.tooltip = reason;
     wrapper.dataset.disabledReason = reason;
     wrapper.append(button);
     return wrapper;
