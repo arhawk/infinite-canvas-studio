@@ -148,6 +148,7 @@ export class DocumentPlugin extends BasePlugin {
       });
       exportEl.dataset.tooltip = "Save document (Mod+S)";
       exportEl.setAttribute("aria-label", "Save document (Mod+S)");
+      exportEl.setAttribute("aria-expanded", "false");
     }
 
     if (importEl) {
@@ -161,6 +162,7 @@ export class DocumentPlugin extends BasePlugin {
       });
       importEl.dataset.tooltip = "Load document (Mod+O)";
       importEl.setAttribute("aria-label", "Load document (Mod+O)");
+      importEl.setAttribute("aria-expanded", "false");
     }
 
     if (importInputEl) {
@@ -470,13 +472,16 @@ export class DocumentPlugin extends BasePlugin {
 
   openExportMenu() {
     if (!this.exportMenuEl) return;
+    this.closeLoadMenu();
     this.exportMenuEl.hidden = false;
     this.positionExportMenu();
+    this.syncExportMenuExpanded(true);
   }
 
   closeExportMenu() {
     if (!this.exportMenuEl) return;
     this.exportMenuEl.hidden = true;
+    this.syncExportMenuExpanded(false);
   }
 
   toggleExportMenu() {
@@ -512,13 +517,16 @@ export class DocumentPlugin extends BasePlugin {
 
   openLoadMenu() {
     if (!this.loadMenuEl) return;
+    this.closeExportMenu();
     this.loadMenuEl.hidden = false;
     this.positionLoadMenu();
+    this.syncLoadMenuExpanded(true);
   }
 
   closeLoadMenu() {
     if (!this.loadMenuEl) return;
     this.loadMenuEl.hidden = true;
+    this.syncLoadMenuExpanded(false);
   }
 
   toggleLoadMenu() {
@@ -528,6 +536,14 @@ export class DocumentPlugin extends BasePlugin {
       return;
     }
     this.closeLoadMenu();
+  }
+
+  syncExportMenuExpanded(isOpen) {
+    this.ui?.exportEl?.setAttribute("aria-expanded", String(isOpen));
+  }
+
+  syncLoadMenuExpanded(isOpen) {
+    this.ui?.importEl?.setAttribute("aria-expanded", String(isOpen));
   }
 
   createDocumentState(overrides = {}) {
