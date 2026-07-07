@@ -548,6 +548,8 @@ export class DocumentPlugin extends BasePlugin {
     this.statusEl = document.createElement("div");
     this.statusEl.className = "document-toast";
     this.statusEl.hidden = true;
+    this.statusEl.setAttribute("role", "status");
+    this.statusEl.setAttribute("aria-live", "polite");
     this.statusEl.dataset.testid = "document-status-toast";
     document.body.append(this.statusEl);
   }
