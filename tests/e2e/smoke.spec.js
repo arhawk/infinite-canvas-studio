@@ -320,6 +320,15 @@ test("renames the document title with double-click", async ({ page }) => {
   await expect(page.getByTestId("project-title")).toHaveText("Lesson Plan");
 });
 
+test("renames the document title with F2", async ({ page }) => {
+  await page.keyboard.press("F2");
+  const titleInput = page.getByTestId("title-rename-input");
+  await expect(titleInput).toBeVisible();
+  await titleInput.fill("Board Draft");
+  await titleInput.press("Enter");
+  await expect(page.getByTestId("project-title")).toHaveText("Board Draft");
+});
+
 test("shows save and load actions to the left of share with tooltips", async ({ page }) => {
   const saveAction = page.getByTestId("save-document-action");
   const loadAction = page.getByTestId("load-document-action");
