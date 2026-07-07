@@ -323,6 +323,24 @@ test("shows save and load actions to the left of share with tooltips", async ({ 
   ]);
 });
 
+test("reflects save and load menu open state with aria-expanded", async ({ page }) => {
+  const saveAction = page.getByTestId("save-document-action");
+  const loadAction = page.getByTestId("load-document-action");
+
+  await expect(saveAction).toHaveAttribute("aria-expanded", "false");
+  await expect(loadAction).toHaveAttribute("aria-expanded", "false");
+
+  await saveAction.click();
+  await expect(saveAction).toHaveAttribute("aria-expanded", "true");
+  await expect(loadAction).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("save-document-format-menu")).toBeVisible();
+
+  await loadAction.click();
+  await expect(loadAction).toHaveAttribute("aria-expanded", "true");
+  await expect(saveAction).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("load-document-format-menu")).toBeVisible();
+});
+
 test("keeps save/load keyboard shortcuts working", async ({ page }) => {
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await expect(page.getByTestId("save-document-format-menu")).toBeVisible();
